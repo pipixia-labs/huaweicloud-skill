@@ -152,6 +152,8 @@ version: "0.2.3"
 1. 先确认上下文
    - 优先运行 `python3 scripts/hcloud_context_inspect.py --pretty`
    - 明确 `hcloud` 是否可用、当前 profile、默认 region、project、offline mode、meta cache 是否存在
+   - 如果 `hcloud.found=false`，停止真实云查询和变更；提示用户先按华为云官方快速安装文档安装 KooCLI：`https://support.huaweicloud.com/qs-hcli/hcli_02_003.html`
+   - 在 `hcloud` 可执行前，只能基于本 skill 的本地资料输出命令方案草稿，不要宣称已查询或修改华为云资源
 2. 先发现，再执行
    - 先看 `hcloud --help`
    - 再看 `hcloud <service> --help`
@@ -189,6 +191,7 @@ python3 scripts/hcloud_context_inspect.py --pretty
 - 看当前 profile 和 profile 列表
 - 看 region、project、domain 是否显式配置
 - 看本地 meta cache 和离线元数据包是否存在
+- 若 `hcloud` 不存在，先引导用户安装 KooCLI；官方快速安装页：`https://support.huaweicloud.com/qs-hcli/hcli_02_003.html`
 
 ### 2. 缓存预热
 

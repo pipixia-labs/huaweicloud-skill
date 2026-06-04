@@ -33,8 +33,11 @@ hcloud configure list
 
 如果还没有安装或配置 KooCLI，请参考华为云官方文档：
 
+- [KooCLI 快速安装](https://support.huaweicloud.com/qs-hcli/hcli_02_003.html)
 - [KooCLI 国际站文档](https://support.huaweicloud.com/intl/zh-cn/cli/index.html)
 - [华为云支持中心](https://support.huaweicloud.com/intl/zh-cn/)
+
+如果 `hcloud_context_inspect.py` 返回 `hcloud.found=false`，Agent 应先提示用户完成 KooCLI 安装和 PATH 配置；在 `hcloud` 可执行前，不应继续执行真实云查询或变更。
 
 如果要使用 OBS 能力，还需要让 `hcloud obs ...` 或 `obsutil` 使用同一套可用的 AK/SK。OBS 的认证错误会被保留在结构化输出里，便于 Agent 继续诊断。
 
