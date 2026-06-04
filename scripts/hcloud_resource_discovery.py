@@ -15,6 +15,10 @@ from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, nor
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "references" / "service-registry.json"
+CURATED_LIMIT_OPERATIONS = {
+    ("ECS", "ListCloudServers"),
+    ("ECS", "ListServersDetails"),
+}
 
 
 def normalize_operation(value: str) -> str:
@@ -33,6 +37,8 @@ def operation_param_names(service: str, operation: str) -> set[str]:
     template_dir = collect_template_dirs(meta_repo).get(normalize_token(service))
     detail = load_operation_detail(template_dir, operation)
     if not isinstance(detail, dict):
+        if (service.upper(), operation) in CURATED_LIMIT_OPERATIONS:
+            return {"limit"}
         return set()
 
     names: set[str] = set()
