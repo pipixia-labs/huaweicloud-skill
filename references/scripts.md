@@ -350,11 +350,11 @@ Use for offline regression over generated questions and optional E2E workbook da
 Only use this for Huawei Cloud web/static-site deployment tasks that need local image assets through Huawei Cloud ModelArts MaaS. Do not use it as a generic image-generation entry point.
 
 ```bash
-MAAS_API_KEY=<key> python3 scripts/qwen_text_to_image.py \
+MAAS_API_KEY=<key> python3 scripts/maas_text_to_image.py \
   --prompt-file <prompts.json> \
   --out-dir <site-assets-dir> \
   --model qwen-image \
   --format webp
 ```
 
-API keys are read only from `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY`; they must not be written to files, logs, site code, or manifests. If MaaS fails, report the Huawei Cloud authentication/quota/service error and do not fall back to non-Huawei image APIs.
+`scripts/qwen_text_to_image.py` remains a compatibility entry point for existing workflows. API keys are read only from `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY`; they must not be written to files, logs, site code, or manifests. If MaaS fails, report the Huawei Cloud authentication/quota/service error and do not fall back to non-Huawei image APIs.

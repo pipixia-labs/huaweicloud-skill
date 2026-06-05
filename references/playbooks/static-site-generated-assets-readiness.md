@@ -14,7 +14,7 @@ Generated image assets for this skill must use Huawei Cloud ModelArts MaaS:
 3. Generate local assets:
 
 ```bash
-MAAS_API_KEY=<key> python3 scripts/qwen_text_to_image.py \
+MAAS_API_KEY=<key> python3 scripts/maas_text_to_image.py \
   --prompt-file <prompts.json> \
   --out-dir <site>/assets \
   --model qwen-image \

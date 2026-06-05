@@ -25,6 +25,13 @@ qwen_text_to_image = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = qwen_text_to_image
 SPEC.loader.exec_module(qwen_text_to_image)
 
+MAAS_SCRIPT = ROOT / "scripts" / "maas_text_to_image.py"
+MAAS_SPEC = importlib.util.spec_from_file_location("maas_text_to_image", MAAS_SCRIPT)
+assert MAAS_SPEC and MAAS_SPEC.loader
+maas_text_to_image = importlib.util.module_from_spec(MAAS_SPEC)
+sys.modules[MAAS_SPEC.name] = maas_text_to_image
+MAAS_SPEC.loader.exec_module(maas_text_to_image)
+
 
 def png_bytes() -> bytes:
     image = Image.new("RGB", (8, 6), color=(240, 100, 80))
@@ -77,6 +84,9 @@ class QwenTextToImageTest(unittest.TestCase):
         )
         self.assertNotIn("input", payload)
         self.assertNotIn("parameters", payload)
+
+    def test_maas_entrypoint_reuses_compatibility_implementation(self) -> None:
+        self.assertIs(maas_text_to_image.main, qwen_text_to_image.main)
 
     def test_extract_and_decode_b64_json_data_uri(self) -> None:
         encoded = "data:image/png;base64," + __import__("base64").b64encode(png_bytes()).decode("ascii")
