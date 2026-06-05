@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import hcloud_common
+
 
 SUCCESS_STATUSES = {"SUCCESS", "SUCCEEDED", "COMPLETE", "COMPLETED"}
 FAILURE_STATUSES = {"FAIL", "FAILED", "ERROR", "CANCELLED", "CANCELED", "ROLLBACK", "ROLLED_BACK"}
@@ -261,10 +263,7 @@ def main() -> int:
     """Run the ECS job waiter and print a structured JSON result."""
     args = parse_args()
     result = wait_for_job(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

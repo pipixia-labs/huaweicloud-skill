@@ -12,11 +12,12 @@ from typing import Any
 
 import hcloud_change_plan
 import hcloud_catalog
+import hcloud_common
 import hcloud_resource_discovery
 from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, normalize_token
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = hcloud_common.ROOT
 
 CURATED_REQUIRED_PARAMS = {
     ("CCE", "ListNodes"): ("cluster_id",),
@@ -459,10 +460,7 @@ def main() -> int:
         result = build_plan(args)
     except ValueError as exc:
         result = {"success": False, "error": str(exc)}
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

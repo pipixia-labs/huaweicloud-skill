@@ -374,6 +374,25 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["submit_guard_failure"]["error"], "Submit execution requires --confirm-submit.")
         self.assertTrue(result["planning_only"])
 
+    def test_guarded_change_flow_blocks_metadata_hard_guard_submit(self) -> None:
+        result = hcloud_guarded_change_flow.build_flow(
+            self.guarded_flow_args(
+                service="WAF",
+                operation="BatchUpdateCustomRules",
+                execute_submit=True,
+                confirm_submit=True,
+                skip_dryrun=True,
+                allow_unregistered=True,
+            )
+        )
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["service_plan"]["risk"]["hard_guard"])
+        self.assertEqual(
+            result["submit_guard_failure"]["error"],
+            "Submit execution is blocked by a hard manual gate.",
+        )
+
     def test_guarded_change_flow_blocks_unrestricted_sensitive_ingress_rule(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(
             self.guarded_flow_args(
@@ -1152,6 +1171,28 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["catalog_dryrun"], "unknown")
         self.assertNotIn("--arg=--dryrun", result["commands"]["dryrun_or_plan"])
         self.assertTrue(result["submit_requires_confirmation"])
+
+    def test_service_change_plan_hard_guards_security_category_mutation(self) -> None:
+        args = SimpleNamespace(
+            service="WAF",
+            operation="BatchUpdateCustomRules",
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            json_input_file=None,
+            arg=["--policy_id=policy-1"],
+            no_dryrun=False,
+            allow_unregistered=True,
+        )
+
+        result = hcloud_service_change_plan.build_service_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["metadata_backed"])
+        self.assertEqual(result["catalog_category"], "Security & Compliance")
+        self.assertEqual(result["risk"]["level"], "high")
+        self.assertTrue(result["risk"]["hard_guard"])
+        self.assertNotIn("--arg=--dryrun", result["commands"]["dryrun_or_plan"])
 
     def test_service_change_plan_rejects_catalog_backed_read_operation(self) -> None:
         args = SimpleNamespace(

@@ -4,21 +4,20 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 
 import hcloud_catalog
+import hcloud_common
 
 
-ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = ROOT / "references" / "service-registry.json"
+REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 SPECIAL_RUNNER_SERVICES = {"OBS"}
 
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
     """Return the curated service registry."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    return hcloud_common.load_registry(path)
 
 
 def registered_operations(entry: dict[str, Any]) -> list[tuple[str, str]]:
@@ -30,10 +29,32 @@ def registered_operations(entry: dict[str, Any]) -> list[tuple[str, str]]:
     return result
 
 
+def registry_summary(registry: dict[str, Any]) -> dict[str, Any]:
+    """Return stable registry coverage counts for docs and release notes."""
+    services = registry.get("services", {})
+    summary: dict[str, Any] = {
+        "service_count": len(services),
+        "query_operation_count": 0,
+        "resource_query_operation_count": 0,
+        "change_operation_count": 0,
+    }
+    for entry in services.values():
+        summary["query_operation_count"] += len(entry.get("query_operations", []))
+        summary["resource_query_operation_count"] += len(entry.get("resource_query_operations", []))
+        summary["change_operation_count"] += len(entry.get("change_operations", []))
+    summary["registered_operation_count"] = (
+        summary["query_operation_count"]
+        + summary["resource_query_operation_count"]
+        + summary["change_operation_count"]
+    )
+    return summary
+
+
 def audit(catalog_path: Path = hcloud_catalog.CATALOG_PATH, registry_path: Path = REGISTRY_PATH) -> dict[str, Any]:
     """Build a catalog-vs-registry audit report."""
     catalog = hcloud_catalog.load_catalog(catalog_path)
     registry = load_registry(registry_path)
+    registry_counts = registry_summary(registry)
     service_findings = []
     missing_operations: dict[str, list[str]] = {}
     missing_services: list[str] = []
@@ -76,23 +97,30 @@ def audit(catalog_path: Path = hcloud_catalog.CATALOG_PATH, registry_path: Path 
         if hcloud_catalog.normalize_token(str(service.get("name") or service.get("template_dir") or "")) not in registry_tokens
     ]
     metadata_backed.sort(key=lambda item: str(item.get("name", "")).lower())
+    metadata_backed_services = [
+        {
+            "name": service.get("name"),
+            "category": service.get("category"),
+            "template_dir": service.get("template_dir"),
+            "operation_count": service.get("operation_count"),
+        }
+        for service in metadata_backed
+    ]
     result = {
         "success": not missing_services and not missing_operations,
         "catalog": {
             "service_count": catalog.get("source", {}).get("service_count", len(catalog.get("services", {}))),
             "operation_count": catalog.get("source", {}).get("operation_count"),
+            "source": catalog.get("source", {}),
         },
-        "registry_service_count": len(registry.get("services", {})),
+        "registry": registry_counts,
+        "metadata_backed": {
+            "service_count": len(metadata_backed),
+            "services": metadata_backed_services,
+        },
+        "registry_service_count": registry_counts["service_count"],
         "metadata_backed_service_count": len(metadata_backed),
-        "metadata_backed_services": [
-            {
-                "name": service.get("name"),
-                "category": service.get("category"),
-                "template_dir": service.get("template_dir"),
-                "operation_count": service.get("operation_count"),
-            }
-            for service in metadata_backed
-        ],
+        "metadata_backed_services": metadata_backed_services,
         "missing_services": missing_services,
         "missing_operations": missing_operations,
         "service_findings": service_findings,
@@ -114,10 +142,7 @@ def main() -> int:
     """Run the catalog audit."""
     args = parse_args()
     result = audit(Path(args.catalog), Path(args.registry))
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 1 if args.fail_on_drift and not result["success"] else 0
 
 

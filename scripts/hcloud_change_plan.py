@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import shlex
 from typing import Any
 
+import hcloud_common
 import hcloud_security_policy
 from hcloud_core import CommandPlan, RiskAssessment
 
@@ -23,6 +23,7 @@ DESTRUCTIVE_ACTIONS = (
     "Reboot",
     "Remove",
     "Reset",
+    "Revoke",
     "Stop",
     "Unbind",
     "Unsubscribe",
@@ -53,6 +54,23 @@ MUTATING_ACTIONS = (
 KNOWN_ACTIONS = set(READ_ONLY_ACTIONS + DESTRUCTIVE_ACTIONS + BILLABLE_ACTIONS + MUTATING_ACTIONS)
 HIGH_RISK_CONTEXT_TERMS = ("Os", "Password", "PrivateKey", "Private", "Key", "Credential", "Secret", "Token")
 NAMESPACE_OR_MODIFIER_TOKENS = ("Batch", "Nova", "Neutron", "Glance", "Cinder", "Keystone")
+HARD_GUARD_CATEGORIES = {"security & compliance"}
+HARD_GUARD_SERVICES = {
+    "IAM",
+    "IAMACCESSANALYZER",
+    "IDENTITYCENTER",
+    "IDENTITYCENTEROIDC",
+    "IDENTITYCENTERPORTALAPI",
+    "IDENTITYCENTERSCIM",
+    "IDENTITYCENTERSTORE",
+    "KMS",
+    "ORGANIZATIONS",
+    "RAM",
+    "RGC",
+    "RMS",
+    "STS",
+}
+MEDIUM_FLOOR_CATEGORIES = {"management & governance"}
 LOWERCASE_SCAN_TOKENS = set(KNOWN_ACTIONS).union(
     NAMESPACE_OR_MODIFIER_TOKENS,
     {"Os", "Password", "PrivateKey", "Private", "Credential", "Secret", "Token", "Flag", "Policy", "Policies"},
@@ -133,8 +151,62 @@ def looks_read_only(tokens: list[str]) -> bool:
     return first_action_token(tokens) in READ_ONLY_ACTIONS
 
 
-def assess_risk(operation: str, dryrun_supported: bool) -> RiskAssessment:
-    """Assess risk for a cloud operation from its operation name."""
+def apply_metadata_risk_floor(
+    *,
+    operation: str,
+    tokens: list[str],
+    service: str | None,
+    metadata_category: str | None,
+    dryrun_supported: bool,
+    level: str,
+    requires_confirmation: bool,
+    dryrun_required: bool,
+    verification_required: bool,
+    hard_guard: bool,
+    reasons: list[str],
+) -> tuple[str, bool, bool, bool, bool]:
+    """Raise risk based on metadata service/category without lowering name-based risk."""
+    if looks_read_only(tokens):
+        return level, requires_confirmation, dryrun_required, verification_required, hard_guard
+
+    service_key = (service or "").replace("-", "").replace("_", "").upper()
+    category_key = (metadata_category or "").strip().lower()
+    category_label = metadata_category or "unknown category"
+
+    if category_key in HARD_GUARD_CATEGORIES or service_key in HARD_GUARD_SERVICES:
+        if level != "high":
+            level = "high"
+        requires_confirmation = True
+        verification_required = True
+        dryrun_required = dryrun_supported
+        hard_guard = True
+        if category_key in HARD_GUARD_CATEGORIES:
+            reasons.append(
+                f"Service category '{category_label}' is security-sensitive; metadata-backed mutations require a hard manual gate."
+            )
+        else:
+            reasons.append(
+                f"Service '{service or service_key}' controls identity, governance, key, or policy state; mutations require a hard manual gate."
+            )
+    elif category_key in MEDIUM_FLOOR_CATEGORIES and level == "low":
+        level = "medium"
+        requires_confirmation = True
+        verification_required = True
+        dryrun_required = dryrun_supported
+        reasons.append(
+            f"Service category '{category_label}' can affect governance state; risk was raised to medium."
+        )
+
+    return level, requires_confirmation, dryrun_required, verification_required, hard_guard
+
+
+def assess_risk(
+    operation: str,
+    dryrun_supported: bool,
+    service: str | None = None,
+    metadata_category: str | None = None,
+) -> RiskAssessment:
+    """Assess risk for a cloud operation from its name and optional metadata context."""
     tokens = operation_tokens(operation)
     action_tokens = [token for token in tokens if token in KNOWN_ACTIONS and token not in NAMESPACE_OR_MODIFIER_TOKENS]
     reasons: list[str] = []
@@ -142,6 +214,7 @@ def assess_risk(operation: str, dryrun_supported: bool) -> RiskAssessment:
     requires_confirmation = False
     dryrun_required = False
     verification_required = False
+    hard_guard = False
 
     destructive_matches = [token for token in action_tokens if token in DESTRUCTIVE_ACTIONS]
     billable_matches = [token for token in action_tokens if token in BILLABLE_ACTIONS]
@@ -187,12 +260,27 @@ def assess_risk(operation: str, dryrun_supported: bool) -> RiskAssessment:
     if not reasons:
         reasons.append("No elevated risk was inferred from the operation name.")
 
+    level, requires_confirmation, dryrun_required, verification_required, hard_guard = apply_metadata_risk_floor(
+        operation=operation,
+        tokens=tokens,
+        service=service,
+        metadata_category=metadata_category,
+        dryrun_supported=dryrun_supported,
+        level=level,
+        requires_confirmation=requires_confirmation,
+        dryrun_required=dryrun_required,
+        verification_required=verification_required,
+        hard_guard=hard_guard,
+        reasons=reasons,
+    )
+
     return RiskAssessment(
         level=level,
         reasons=reasons,
         requires_confirmation=requires_confirmation,
         dryrun_required=dryrun_required,
         verification_required=verification_required,
+        hard_guard=hard_guard,
     )
 
 
@@ -225,7 +313,12 @@ def build_command(args: argparse.Namespace, use_dryrun: bool) -> list[str]:
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     """Build a risk-gated change plan without executing it."""
-    risk = assess_risk(args.operation, dryrun_supported=not args.no_dryrun)
+    risk = assess_risk(
+        args.operation,
+        dryrun_supported=not args.no_dryrun,
+        service=args.service,
+        metadata_category=getattr(args, "metadata_category", None),
+    )
     policy_check = hcloud_security_policy.check_change_inputs(args.arg, args.json_input_file)
     policy_violations = policy_check["violations"]
     if policy_violations:
@@ -254,6 +347,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             warnings.append("Do not run the submit command until the user has confirmed cost, scope, and rollback expectations.")
         else:
             warnings.append("Do not run the command until the user has confirmed sensitive output scope and handling expectations.")
+    if risk.hard_guard:
+        warnings.append("This operation is under a hard manual gate; generic guarded flows must not execute submit automatically.")
     if risk.dryrun_required and args.no_dryrun:
         warnings.append("Dry-run was disabled by --no-dryrun; use only when the operation does not support dry-run.")
     if policy_check["scan_error"]:
@@ -268,7 +363,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         warnings=warnings,
     )
 
-    return {
+    result = {
         "success": True,
         "service": args.service,
         "operation": args.operation,
@@ -287,6 +382,14 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "Verify job, resource, network, and protocol state according to the target service.",
         ],
     }
+    if risk.hard_guard:
+        result["hard_guard"] = True
+        result["next_steps"] = [
+            "Treat this as a hard-gated change because the service/category can affect security, identity, key, or governance state.",
+            *result["next_steps"],
+            "Do not execute this submit command through a generic auto-submit flow; require a separate human-reviewed runbook or service-specific planner.",
+        ]
+    return result
 
 
 def parse_args() -> argparse.Namespace:
@@ -300,6 +403,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-input-file", help="Optional JSON input file to pass via --cli-jsonInput.")
     parser.add_argument("--arg", action="append", default=[], help="Additional raw hcloud argument token.")
     parser.add_argument("--no-dryrun", action="store_true", help="Do not add --dryrun even when the operation is risky.")
+    parser.add_argument("--metadata-category", help="Optional service category from generated hcloud catalog for risk floors.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     return parser.parse_args()
 
@@ -308,10 +412,7 @@ def main() -> int:
     """Build and print a risk-gated change plan."""
     args = parse_args()
     result = build_plan(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0
 
 

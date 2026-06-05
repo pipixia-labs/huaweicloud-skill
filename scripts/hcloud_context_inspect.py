@@ -4,16 +4,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
-
-def load_json(path: Path) -> Any:
-    """Return parsed JSON content from a file."""
-    return json.loads(path.read_text(encoding="utf-8"))
+import hcloud_common
 
 
 def safe_bool_text(value: Any) -> Any:
@@ -50,7 +46,11 @@ def inspect_config(config_path: Path) -> dict[str, Any]:
     if not config_path.exists():
         return {"exists": False, "path": str(config_path)}
 
-    config = load_json(config_path)
+    try:
+        config = hcloud_common.load_json(config_path)
+    except Exception as exc:
+        return {"exists": True, "path": str(config_path), "error": str(exc)}
+
     profiles = config.get("profiles", [])
     current_name = config.get("current")
     summarized_profiles = [summarize_profile(profile) for profile in profiles]
@@ -87,7 +87,7 @@ def inspect_meta_repo(meta_repo_path: Path, include_meta_files: bool) -> dict[st
     services_file = meta_repo_path / "services_en.json"
     result["services_file_exists"] = services_file.exists()
     if services_file.exists():
-        services_data = load_json(services_file)
+        services_data = hcloud_common.load_json(services_file)
         items = services_data.get("items", [])
         result["cached_service_count"] = len(items)
         result["services_update_time"] = services_data.get("updateTime")
@@ -209,9 +209,9 @@ def main() -> int:
     args = parse_args()
     summary = build_summary(include_meta_files=args.include_meta_files)
     if args.pretty:
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        hcloud_common.emit_json(summary, pretty=True)
     else:
-        print(json.dumps(summary, ensure_ascii=False))
+        hcloud_common.emit_json(summary)
     return 0
 
 

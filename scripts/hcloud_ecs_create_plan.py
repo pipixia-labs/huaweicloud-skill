@@ -15,6 +15,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+import hcloud_common
+
 
 PLACEHOLDER_PATTERN = re.compile(r"<[^<>]+>")
 ALLOWED_OPERATIONS = ("CreateServers", "CreatePostPaidServers")
@@ -31,11 +33,6 @@ REQUIRED_PATHS: tuple[tuple[str | int, ...], ...] = (
     ("body", "server", "root_volume", "volumetype"),
     ("body", "server", "count"),
 )
-
-
-def load_json(path: Path) -> Any:
-    """Return parsed JSON content from a file."""
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def format_path(path: tuple[str | int, ...]) -> str:
@@ -302,7 +299,7 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
         warnings.append("No --region provided. Generated commands will rely on the active hcloud profile region.")
 
     try:
-        payload = load_json(json_input_file)
+        payload = hcloud_common.load_json(json_input_file)
         validation = validate_payload(
             payload,
             allow_placeholders=args.allow_placeholders,
@@ -405,10 +402,7 @@ def main() -> int:
     """Run the ECS create planner and print a structured JSON result."""
     args = parse_args()
     result = build_result(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

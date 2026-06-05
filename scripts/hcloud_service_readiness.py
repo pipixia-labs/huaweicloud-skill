@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import collections
-import json
 from types import SimpleNamespace
 from typing import Any
 
+import hcloud_common
 import hcloud_resource_discovery
 import hcloud_obs_readonly
 import hcloud_resource_query
@@ -384,10 +384,7 @@ def main() -> int:
         result = build_readiness(args)
     except ValueError as exc:
         result = {"success": False, "error": str(exc)}
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

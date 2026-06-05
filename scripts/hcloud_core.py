@@ -33,6 +33,7 @@ class RiskAssessment:
     requires_confirmation: bool
     dryrun_required: bool
     verification_required: bool
+    hard_guard: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable representation."""

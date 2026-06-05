@@ -4,18 +4,18 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import hcloud_change_plan
 import hcloud_catalog
+import hcloud_common
 import hcloud_resource_discovery
 
 
-ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = ROOT / "references" / "service-registry.json"
+ROOT = hcloud_common.ROOT
+REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 
 SERVICE_VERIFICATION_HINTS = {
     "EIP": [
@@ -98,7 +98,7 @@ CHANGE_OPERATION_ALIASES = {
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
     """Return the service registry."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    return hcloud_common.load_registry(path)
 
 
 def registry_change_operations(registry: dict[str, Any], service: str) -> set[str]:
@@ -139,6 +139,7 @@ def planner_args(args: argparse.Namespace, cli_region: str | None, command_servi
         json_input_file=args.json_input_file,
         arg=args.arg,
         no_dryrun=args.no_dryrun,
+        metadata_category=getattr(args, "metadata_category", None),
     )
 
 
@@ -224,6 +225,7 @@ def build_catalog_change_plan(
     )
     plan_args = planner_args(args, cli_region, command_service)
     plan_args.operation = operation
+    plan_args.metadata_category = catalog_service.get("category")
     if dryrun_state != "supported":
         plan_args.no_dryrun = True
     plan = hcloud_change_plan.build_plan(plan_args)
@@ -234,6 +236,7 @@ def build_catalog_change_plan(
             "coverage": "metadata-backed",
             "metadata_backed": True,
             "catalog_service": command_service,
+            "catalog_category": catalog_service.get("category"),
             "catalog_dryrun": dryrun_state,
             "catalog_required_params": limited_params(hcloud_catalog.normalized_required_params(catalog_operation)),
             "catalog_optional_params": limited_params(hcloud_catalog.optional_param_names(catalog_operation)),
@@ -346,6 +349,8 @@ def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
     cli_region, region_resolution = hcloud_resource_discovery.resolve_cli_region(args, entry)
     plan_args = planner_args(args, cli_region)
     plan_args.operation = operation
+    if catalog_service:
+        plan_args.metadata_category = catalog_service.get("category")
     plan = hcloud_change_plan.build_plan(plan_args)
     if not plan.get("success"):
         plan.update(
@@ -422,10 +427,7 @@ def main() -> int:
     """Build and print a service-aware change plan."""
     args = parse_args()
     result = build_service_plan(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

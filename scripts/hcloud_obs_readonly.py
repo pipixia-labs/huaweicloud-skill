@@ -10,6 +10,7 @@ import shlex
 import subprocess
 from typing import Any
 
+import hcloud_common
 import hcloud_resource_discovery
 
 
@@ -229,10 +230,7 @@ def main() -> int:
     """Build or run a read-only OBS obsutil command."""
     args = parse_args()
     result = build_plan(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

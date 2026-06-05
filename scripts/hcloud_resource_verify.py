@@ -8,6 +8,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+import hcloud_common
+
+load_json = hcloud_common.load_json
+
 
 SERVICE_COLLECTION_KEYS = {
     "EIP": ("publicips", "publicip", "eips", "floatingips", "items"),
@@ -144,11 +148,6 @@ def normalize_status(value: Any) -> str | None:
     """Return normalized status text for comparison."""
     text = normalize(value)
     return text.upper() if text else None
-
-
-def load_json(path: Path) -> Any:
-    """Load JSON from a file."""
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def unwrap_payload(payload: Any) -> Any:
@@ -420,13 +419,10 @@ def main() -> int:
     """Verify resource state from a JSON file."""
     args = parse_args()
     try:
-        result = verify_payload(args, load_json(Path(args.json_file)))
+        result = verify_payload(args, hcloud_common.load_json(Path(args.json_file)))
     except (OSError, ValueError) as exc:
         result = {"success": False, "error": str(exc)}
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

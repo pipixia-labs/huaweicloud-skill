@@ -10,6 +10,7 @@ import subprocess
 from types import SimpleNamespace
 from typing import Any
 
+import hcloud_common
 import hcloud_resource_discovery
 import hcloud_resource_query
 import hcloud_service_change_plan
@@ -125,6 +126,12 @@ def submit_guard_failure(args: argparse.Namespace, service_plan: dict[str, Any])
             "reason": "Cloud changes can affect cost, network reachability, availability, or data state.",
         }
     risk = service_plan.get("risk", {})
+    if risk.get("hard_guard"):
+        return {
+            "success": False,
+            "error": "Submit execution is blocked by a hard manual gate.",
+            "reason": "This service or metadata category can affect security, identity, key, or governance state and requires a separate human-reviewed runbook or service-specific planner.",
+        }
     if risk.get("dryrun_required") and not (args.execute_dryrun or args.skip_dryrun):
         return {
             "success": False,
@@ -441,10 +448,7 @@ def main() -> int:
     """Build and optionally execute the guarded change flow."""
     args = parse_args()
     result = build_flow(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

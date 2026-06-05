@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import json
 import shlex
 from typing import Any
 
 import hcloud_change_plan
+import hcloud_common
 import hcloud_obs_readonly
 import hcloud_resource_discovery
 from hcloud_core import CommandPlan
@@ -213,10 +213,7 @@ def main() -> int:
     """Build and print an OBS change plan."""
     args = parse_args()
     result = build_plan(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import collections
-import json
 import re
 import sys
 import zipfile
@@ -14,12 +13,13 @@ from pathlib import Path
 from typing import Any
 
 import hcloud_change_plan
+import hcloud_common
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = hcloud_common.ROOT
 DEFAULT_QUESTIONS_DIR = ROOT.parent / "agent_with_massive_apis" / "data" / "huawei_cloud" / "generated_questions"
 DEFAULT_XLSX_PATH = ROOT.parent / "agent_with_massive_apis" / "data" / "huawei_cloud" / "data-by-changping" / "data.xlsx"
-REGISTRY_PATH = ROOT / "references" / "service-registry.json"
+REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 DEFAULT_MIN_REGISTERED_RATIO = 0.10
 
 XLSX_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -104,7 +104,7 @@ def split_api_reference(raw_api: str, default_service: str) -> tuple[str, str]:
 
 def load_json(path: Path) -> Any:
     """Return parsed JSON content from a file."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    return hcloud_common.load_json(path)
 
 
 def load_registry_operations(path: Path = REGISTRY_PATH) -> dict[str, set[str]]:
@@ -701,10 +701,7 @@ def main() -> int:
             min_registered_ratios=min_registered_ratios,
             default_min_registered_ratio=default_min,
         )
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

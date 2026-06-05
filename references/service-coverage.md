@@ -43,24 +43,25 @@
 
 ## Generated catalog 覆盖
 
-`references/hcloud-service-catalog.generated.json` 当前覆盖 125 个 hcloud metadata 服务和 10,194 个 operation。除 registry 中 16 个服务外，新增 110 个 metadata-backed 服务：
+`references/hcloud-service-catalog.generated.json` 是从 hcloud metadata 生成的运行时 catalog。准确服务数、operation 数和 registry 外 metadata-backed 服务清单不要在文档中手写，应从下面的脚本输出读取：
 
-`AAD`, `Anti-DDoS`, `AOM`, `AOS`, `APIG`, `APM`, `AS`, `AstroZero`, `BMS`, `CAE`, `CBH`, `CBR`
-`CBS`, `CC`, `CCI`, `CCM`, `CDM`, `CFW`, `CloudDC`, `CloudPond`, `CloudRTC`, `CloudTest`, `COC`, `CodeArtsArtifact`
-`CodeArtsBuild`, `CodeArtsCheck`, `CodeArtsDeploy`, `CodeArtsPipeline`, `CodeArtsRepo`, `CodeCheck`, `Config`, `CPCS`, `CPH`, `CPTS`, `CSE`, `CSMS`
-`CSS`, `CTS`, `DAS`, `DataArtsStudio`, `DBSS`, `DC`, `DCC`, `DCS`, `DDM`, `DDS`, `DeH`, `DGC`
-`DIS`, `DLF`, `DLI`, `DRS`, `DSC`, `DSS`, `DWS`, `EdgeSec`, `EDS`, `EG`, `EPS`, `ER`
-`ESW`, `FunctionGraph`, `IAMAccessAnalyzer`, `IdentityCenter`, `IdentityCenterOIDC`, `IdentityCenterPortalAPI`, `IdentityCenterSCIM`, `IdentityCenterStore`, `Image`, `IoTDA`, `IoTDM`, `Kafka`
-`KMS`, `Live`, `LTS`, `Marketplace`, `Meeting`, `ModelArts`, `Moderation`, `MPC`, `MRS`, `OCR`, `OMS`, `Organizations`
-`ProjectMan`, `RabbitMQ`, `RAM`, `RFS`, `RGC`, `RMS`, `RocketMQ`, `ROMA`, `SecMaster`, `ServiceStage`, `SFSTurbo`, `SIS`
-`SMN`, `SMNGLOBAL`, `SMS`, `STS`, `SWR`, `TMS`, `UCS`, `UGO`, `VOD`, `VPCEP`, `VPN`, `WAF`
-`Workspace`, `WorkspaceApp`
+```bash
+python3 scripts/hcloud_catalog_audit.py --pretty
+```
+
+主要字段：
+
+- `catalog.service_count` / `catalog.operation_count`：generated catalog 覆盖规模。
+- `registry.service_count` / `registry.*_operation_count`：curated registry 控制面规模。
+- `metadata_backed.service_count` / `metadata_backed.services`：registry 外的 metadata-backed 服务清单。
+- `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段：metadata 升级 review 用的小体积事实源。
 
 这些服务的默认边界：
 
 - `hcloud_resource_discovery.py` 只自动选择无必填业务参数的 read-only discovery 操作，并限制默认数量。
 - `hcloud_resource_query.py` 可以为 read-only operation 生成命令，但必填参数必须由用户或上游工具显式提供。
 - `hcloud_service_change_plan.py` 可以为 mutating operation 生成 planner-only 风险计划；真实 submit 仍需要单独确认，不会自动执行。metadata-backed mutation 的 dry-run 支持默认为 `unknown`，不会自动假设支持 dry-run。
+- metadata-backed planner 会读取 catalog service `category` 作为风险下限；安全合规、身份、密钥和治理类 mutation 会标记 `risk.hard_guard=true`，通用 guarded flow 不得自动执行 submit。
 - `hcloud_catalog_audit.py --fail-on-drift` 用于确认 curated registry 没有引用 catalog 中已消失的 operation。
 - `hcloud_catalog_readonly_smoke.py` 用于小批只读实测，并把失败归因到命令形态、账号权限、服务开通、region/project、参数或网络等桶。
 - `hcloud-service-catalog.fingerprint.json` 是 review 用小体积指纹；`hcloud-service-confidence.json` 是 live smoke/confidence/dry-run 支持性的 sidecar。

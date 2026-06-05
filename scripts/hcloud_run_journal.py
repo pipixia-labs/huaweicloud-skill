@@ -9,6 +9,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import hcloud_common
+
 
 def read_json(path: Path) -> Any:
     """Return parsed JSON content from a file."""
@@ -75,10 +77,7 @@ def main() -> int:
     else:
         result = {"success": True, "summary": summarize_events(read_events(path))}
 
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0
 
 

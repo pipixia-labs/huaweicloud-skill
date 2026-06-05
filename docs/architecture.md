@@ -256,7 +256,7 @@ flowchart TB
 
 维护者扩展服务时，应先补 read-only 查询和验证，再补 planner-only 变更，最后再考虑 guarded submit。
 
-当前 registry 覆盖 16 个服务、146 个 `query_operations`、61 个 `resource_query_operations` 和 80 个 `change_operations`。这些数字不是服务成熟度承诺，而是当前自动化控制面的机器可读范围。
+当前 registry 的服务数和 operation 计数以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `registry` 字段为准。这些数字不是服务成熟度承诺，而是当前自动化控制面的机器可读范围。
 
 ## OBS 的特殊性
 

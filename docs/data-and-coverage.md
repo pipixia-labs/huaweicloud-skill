@@ -1,6 +1,8 @@
 # Data and Coverage
 
-`huaweicloud-skill` 的能力不是只靠代码，还依赖几类仓库内数据资产：清洗后的 references、原始 materials、机器可读 service registry 和测试记录。本文解释这些数据如何组织，以及它们如何约束实现。
+`huaweicloud-skill` 的能力不是只靠代码，还依赖几类仓库内数据资产：清洗后的 references、原始 materials、机器可读 service registry、generated catalog 和测试记录。本文解释这些数据如何组织，以及它们如何约束实现。
+
+文档边界：`references/` 是 agent 运行时资料层，`docs/` 是维护者说明层。覆盖数字以脚本输出和机器可读 JSON 为准，避免在多份文档里重复手写。
 
 ## 数据分层
 
@@ -36,6 +38,8 @@ flowchart TD
 | `local-meta-discovery.md` | 本地 meta cache 结构和发现方式。 |
 | `service-coverage.md` | 人类可读服务覆盖矩阵。 |
 | `service-registry.json` | 机器可读服务覆盖和路由控制面。 |
+| `hcloud-service-catalog.fingerprint.json` | generated catalog 的小体积升级审查事实源。 |
+| `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar。 |
 | `playbooks/` | 面向具体任务的执行手册。 |
 
 开发时，优先更新 `service-registry.json` 和相关 tests，再更新人类文档。
@@ -77,16 +81,13 @@ flowchart TD
 
 `references/service-registry.json` 是最重要的数据文件。它驱动通用 discovery、resource query、service readiness、smoke、planner 和 coverage 检查。
 
-当前 v0.2 registry 摘要：
+当前 registry 摘要以脚本输出为准：
 
-| 指标 | 数量 |
-| --- | --- |
-| 服务 | 16 |
-| `query_operations` | 146 |
-| `resource_query_operations` | 61 |
-| `change_operations` | 80 |
+```bash
+python3 scripts/hcloud_catalog_audit.py --pretty
+```
 
-这些数字的含义是“skill 已经能识别、规划或生成对应执行路径”，不是“所有 operation 都可以无确认真实提交”。写类 operation 仍受 planner、dry-run、显式确认和后置验证约束。
+读取 `registry.service_count`、`registry.query_operation_count`、`registry.resource_query_operation_count`、`registry.change_operation_count` 和 `registry.registered_operation_count`。这些数字的含义是“skill 已经能识别、规划或生成对应执行路径”，不是“所有 operation 都可以无确认真实提交”。写类 operation 仍受 planner、dry-run、显式确认和后置验证约束。
 
 ### 顶层结构
 
@@ -215,17 +216,16 @@ OBS 是特殊服务，不通过普通 OpenAPI-style metadata，而通过 `hcloud
 
 ## 当前验证摘要
 
-v0.2 发布前的主要回归结果：
+当前验证状态以本地回归命令为准：
 
-| 验证项 | 结果 |
-| --- | --- |
-| 单元测试 | 94 个测试通过 |
-| registry JSON | `python3 -m json.tool references/service-registry.json` 通过 |
-| materials drift | `check_materials_drift.py` 通过 |
-| coverage check | `check_question_coverage.py` 通过 |
-| guarded flow 矩阵 | VPC / ELB / EVS / NAT / RDS / CDN / DNS / SCM 均能生成资源级 Show* 后置验证计划 |
+```bash
+python3 -m unittest discover tests
+python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
+python3 scripts/check_materials_drift.py --pretty
+python3 scripts/check_question_coverage.py --pretty
+```
 
-这组验证说明项目不是只写了文档和脚本，而是把覆盖、风险和执行路径纳入了可重复检查的质量门禁。
+这组验证说明项目不是只写了文档和脚本，而是把覆盖、风险和执行路径纳入了可重复检查的质量门禁。涉及 guarded flow 的能力还应检查对应单测和只读 smoke 输出，不在本文硬编码一次性测试数量。
 
 ## 新增或提升覆盖时的 checklist
 

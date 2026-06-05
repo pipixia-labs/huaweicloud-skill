@@ -276,6 +276,33 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertTrue(risk.requires_confirmation)
         self.assertTrue(risk.verification_required)
 
+    def test_change_plan_applies_metadata_category_risk_floor(self) -> None:
+        security_risk = hcloud_change_plan.assess_risk(
+            "UpdatePolicy",
+            dryrun_supported=True,
+            service="WAF",
+            metadata_category="Security & Compliance",
+        )
+        identity_risk = hcloud_change_plan.assess_risk(
+            "CreateAnalyzer",
+            dryrun_supported=True,
+            service="IAMAccessAnalyzer",
+            metadata_category="Management & Governance",
+        )
+        read_risk = hcloud_change_plan.assess_risk(
+            "ListPolicies",
+            dryrun_supported=True,
+            service="WAF",
+            metadata_category="Security & Compliance",
+        )
+
+        self.assertEqual(security_risk.level, "high")
+        self.assertTrue(security_risk.hard_guard)
+        self.assertEqual(identity_risk.level, "high")
+        self.assertTrue(identity_risk.hard_guard)
+        self.assertEqual(read_risk.level, "low")
+        self.assertFalse(read_risk.hard_guard)
+
     def test_change_plan_blocks_unrestricted_sensitive_ingress_ports(self) -> None:
         for port in (22, 80, 443, 3000, 5000, 8000, 8080):
             with self.subTest(port=port):

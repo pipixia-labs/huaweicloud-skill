@@ -4,18 +4,19 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 
+import hcloud_common
 
-ROOT = Path(__file__).resolve().parents[1]
+
+ROOT = hcloud_common.ROOT
 DEFAULT_MAPPING = ROOT / "references" / "materials-sources.json"
 
 
 def load_json(path: Path) -> Any:
     """Return parsed JSON content from a file."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    return hcloud_common.load_json(path)
 
 
 def check_mapping(mapping_path: Path = DEFAULT_MAPPING) -> dict[str, Any]:
@@ -62,10 +63,7 @@ def main() -> int:
     """Run the materials drift check."""
     args = parse_args()
     result = check_mapping(Path(args.mapping))
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

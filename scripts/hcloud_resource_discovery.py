@@ -4,18 +4,18 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import hcloud_catalog
+import hcloud_common
 from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, normalize_token
 
 
-ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = ROOT / "references" / "service-registry.json"
+ROOT = hcloud_common.ROOT
+REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 DEFAULT_CATALOG_DISCOVERY_LIMIT = 5
 CURATED_LIMIT_OPERATIONS = {
     ("ECS", "ListCloudServers"),
@@ -30,7 +30,7 @@ def normalize_operation(value: str) -> str:
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
     """Return the machine-readable service registry."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    return hcloud_common.load_registry(path)
 
 
 def operation_param_names(service: str, operation: str) -> set[str]:
@@ -378,10 +378,7 @@ def main() -> int:
     result = build_plan(args)
     if result["success"] and args.execute:
         result = execute_plan(result, args.timeout)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

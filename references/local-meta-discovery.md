@@ -4,7 +4,7 @@
 
 在 live help 不稳定、`APIE_ERROR` 常出现的环境里，尽量利用本地 `~/.hcloud/metaRepo` 做 discovery。
 
-当前 skill 还内置了一个从 hcloud metaRepo 生成的轻量 catalog：`references/hcloud-service-catalog.generated.json`。它是运行时稳定输入，当前覆盖 125 个 metadata 服务和 10,194 个 operation；源 metaRepo 只在重新生成 catalog 或排查 metadata drift 时使用。
+当前 skill 还内置了一个从 hcloud metaRepo 生成的轻量 catalog：`references/hcloud-service-catalog.generated.json`。它是运行时稳定输入；准确覆盖规模以 `hcloud_catalog_audit.py --pretty` 的 `catalog` 字段和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。源 metaRepo 只在重新生成 catalog 或排查 metadata drift 时使用。
 
 ## 为什么需要这一步
 
@@ -112,12 +112,13 @@ python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
 
 ## 当前覆盖情况
 
-- curated registry：16 个服务，其中 OBS 走 `hcloud obs`/obsutil 专用 runner。
-- generated catalog：125 个 hcloud metadata 服务，10,194 个 operation。
-- metadata-backed 服务：registry 外 110 个服务可用于保守发现、显式参数只读查询和 planner-only 变更计划。
+- curated registry：以 `hcloud_catalog_audit.py --pretty` 的 `registry` 字段和 `references/service-registry.json` 为准，其中 OBS 走 `hcloud obs`/obsutil 专用 runner。
+- generated catalog：以 `hcloud_catalog_audit.py --pretty` 的 `catalog` 字段和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。
+- metadata-backed 服务：以 `hcloud_catalog_audit.py --pretty` 的 `metadata_backed` 字段为准；这些 registry 外服务可用于保守发现、显式参数只读查询和 planner-only 变更计划。
 - 自动 discovery 只选择无必填业务参数的只读 `List` / `Count` / `Search` / `Query` / `Check` 操作。
 - `Show*`、目标型 `List*`、`Get*` 等带必填参数的只读操作必须通过 `hcloud_resource_query.py --param KEY=VALUE` 显式传参。
 - mutating operation 只进入 `hcloud_service_change_plan.py` 的 planner-only 路径，不自动 submit；metadata-backed mutation 的 dry-run 支持默认为 `unknown`。
+- metadata-backed planner 会把 service `category` 作为风险下限；安全合规、身份、密钥和治理类 mutation 会进入 hard guard，通用 guarded flow 不能自动 submit。
 - metadata-backed 只读实测可用 `hcloud_catalog_readonly_smoke.py`，执行结果应按命令形态、账号权限、服务开通、region/project、参数和网络等原因分桶。
 
 ## 如何在 workflow 里使用

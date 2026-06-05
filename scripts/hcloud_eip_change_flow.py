@@ -10,6 +10,7 @@ import subprocess
 from types import SimpleNamespace
 from typing import Any
 
+import hcloud_common
 import hcloud_resource_query
 import hcloud_service_change_plan
 
@@ -239,10 +240,7 @@ def main() -> int:
     """Build and optionally execute the guarded EIP change flow."""
     args = parse_args()
     result = build_flow(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

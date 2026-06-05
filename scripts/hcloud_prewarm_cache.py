@@ -14,12 +14,15 @@ from pathlib import Path
 from typing import Any
 
 from hcloud_context_inspect import build_summary
-from hcloud_safe_exec import (
-    classify_error,
+from hcloud_common import (
     coerce_output_text,
     collect_known_secrets,
+    emit_json,
     redact_command,
     redact_text,
+)
+from hcloud_safe_exec import (
+    classify_error,
     trim_text,
 )
 
@@ -727,10 +730,7 @@ def main() -> int:
         result["checkpoint"]["used"] = False
         result["checkpoint"]["will_remain"] = False
 
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

@@ -11,10 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-
-def load_json(path: Path) -> Any:
-    """Return parsed JSON content from a file."""
-    return json.loads(path.read_text(encoding="utf-8"))
+import hcloud_common
 
 
 def load_structured_detail(path: Path) -> tuple[Any | None, str, str | None]:
@@ -45,7 +42,7 @@ def collect_service_catalog(meta_repo: Path) -> tuple[list[dict[str, Any]], dict
     if not services_file.exists():
         return [], {}
 
-    services_data = load_json(services_file)
+    services_data = hcloud_common.load_json(services_file)
     items = services_data.get("items", [])
     service_index: dict[str, dict[str, Any]] = {}
     for item in items:
@@ -91,7 +88,7 @@ def load_cached_operations(template_dir: Path | None) -> tuple[list[dict[str, An
     if not apis_file.exists():
         return [], {}
 
-    apis_data = load_json(apis_file)
+    apis_data = hcloud_common.load_json(apis_file)
     operations: list[dict[str, Any]] = []
     operation_index: dict[str, dict[str, Any]] = {}
     for _, raw_entry in apis_data.get("apiList", {}).items():
@@ -176,7 +173,7 @@ def load_endpoints(template_dir: Path | None, region: str | None) -> dict[str, A
     if not endpoints_file.exists():
         return None
 
-    endpoints_data = load_json(endpoints_file)
+    endpoints_data = hcloud_common.load_json(endpoints_file)
     groups = endpoints_data.get("groupInfo", [])
     if region:
         groups = [group for group in groups if group.get("region") == region]
@@ -311,10 +308,7 @@ def main() -> int:
     """Run the metadata lookup and print JSON output."""
     args = parse_args()
     result = build_result(args)
-    if args.pretty:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(result, ensure_ascii=False))
+    hcloud_common.emit_json(result, pretty=args.pretty)
     return 0
 
 
