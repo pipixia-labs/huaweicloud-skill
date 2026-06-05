@@ -428,15 +428,16 @@ class MultiServiceToolsTest(unittest.TestCase):
             "hcloud-catalog-readonly-smoke-plan.json",
             "hcloud-catalog-readonly-smoke-execute.json",
             "hcloud-catalog-readonly-smoke-rfs-fixed.json",
+            "hcloud-catalog-readonly-smoke-expanded.json",
         ]
         for fixture_name in fixture_names:
             with self.subTest(fixture=fixture_name):
                 data = json.loads((ROOT / "tests" / "fixtures" / fixture_name).read_text(encoding="utf-8"))
                 payload = json.dumps(data, ensure_ascii=False)
                 self.assertIn("matrix", data)
-                self.assertNotIn('"stdout"', payload)
-                self.assertNotIn('"stderr"', payload)
-                self.assertNotIn('"parsed_json"', payload)
+                self.assertNotIn('"stdout":', payload)
+                self.assertNotIn('"stderr":', payload)
+                self.assertNotIn('"parsed_json":', payload)
                 self.assertNotIn("project-1", payload)
 
         rfs_fixed = json.loads(

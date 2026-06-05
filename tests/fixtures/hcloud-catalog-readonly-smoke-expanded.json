@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T15:06:29Z",
+  "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+  "mode": "execute",
+  "success": true,
+  "service_count": 6,
+  "operation_count": 6,
+  "bucket_counts": {
+    "command_shape_ok": 2,
+    "network": 2,
+    "region_or_endpoint": 1,
+    "unknown_cloud_error": 1
+  },
+  "context": {
+    "region": "cn-north-4",
+    "project_id_provided": false,
+    "profile_provided": false,
+    "limit": 5,
+    "catalog_max_operations": 1,
+    "strict": false
+  },
+  "services": [
+    "AOS",
+    "CBR",
+    "CodeArtsRepo",
+    "DLI",
+    "ModelArts",
+    "CFW"
+  ],
+  "matrix": [
+    {
+      "service": "AOS",
+      "operation": "ListPrivateHooks",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "network",
+      "error_category": "network",
+      "error_source": "error_type",
+      "execution_success": false,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "AOS",
+        "--operation",
+        "ListPrivateHooks",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=10",
+        "--arg=--Client-Request-Id=00000000-0000-0000-0000-000000000000"
+      ],
+      "catalog_operation_summary": "Listing private hooks",
+      "parsed_json_shape": {
+        "type": "null"
+      },
+      "evidence_summary": "The read-only request could not complete because of network transport failure."
+    },
+    {
+      "service": "CBR",
+      "operation": "ListAgent",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "region_or_endpoint",
+      "error_category": "project",
+      "error_source": "error_type",
+      "execution_success": false,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "CBR",
+        "--operation",
+        "ListAgent",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Querying the Client List",
+      "parsed_json_shape": {
+        "type": "null"
+      },
+      "evidence_summary": "Read-only command shape reached hcloud, but region, project, or endpoint context is not valid for this service."
+    },
+    {
+      "service": "CodeArtsRepo",
+      "operation": "ListCurrentUserRepositories",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "CodeArtsRepo",
+        "--operation",
+        "ListCurrentUserRepositories",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Obtaining the Repository of the Current Login User",
+      "parsed_json_shape": {
+        "type": "list",
+        "item_count": 5
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "DLI",
+      "operation": "ListAuthInfo",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "DLI",
+        "--operation",
+        "ListAuthInfo",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Obtaining the Datasource Authentication List",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 2,
+        "top_level_keys_sample": [
+          "auth_infos",
+          "count"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "ModelArts",
+      "operation": "ListAlgorithms",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "network",
+      "error_category": "network",
+      "error_source": "error_type",
+      "execution_success": false,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "ModelArts",
+        "--operation",
+        "ListAlgorithms",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Querying the Algorithm List",
+      "parsed_json_shape": {
+        "type": "null"
+      },
+      "evidence_summary": "The read-only request could not complete because of network transport failure."
+    },
+    {
+      "service": "CFW",
+      "operation": "ListDnsServers",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "unknown_cloud_error",
+      "error_category": "not_found",
+      "error_source": "parsed_json",
+      "execution_success": false,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "CFW",
+        "--operation",
+        "ListDnsServers",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Querying the DNS Server List",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 2,
+        "top_level_keys_sample": [
+          "error_code",
+          "error_msg"
+        ]
+      },
+      "evidence_summary": "The read-only request failed with an unclassified cloud or local error."
+    }
+  ],
+  "confidence_suggestions": {
+    "schema_version": 1,
+    "services": {
+      "CodeArtsRepo": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListCurrentUserRepositories": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "DLI": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListAuthInfo": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      }
+    }
+  },
+  "notes": [
+    "This record intentionally omits raw stdout, stderr, and parsed response bodies.",
+    "A command_shape_ok bucket means the read-only command executed successfully; it does not promote a service to curated coverage by itself."
+  ]
+}

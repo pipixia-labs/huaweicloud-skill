@@ -51,6 +51,15 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 
 Use this to check registry drift, read generated catalog counts, read curated registry operation counts, and list metadata-backed services outside the curated registry. Treat its `catalog`, `registry`, and `metadata_backed` fields as the documentation fact source for coverage summaries.
 
+```bash
+python3 scripts/hcloud_catalog_diff.py \
+  --old <old-catalog-or-fingerprint-json> \
+  --new <new-catalog-or-fingerprint-json> \
+  --pretty
+```
+
+Use this during hcloud metadata upgrades to review added/removed services, added/removed operations, and required business parameter changes without manually reading the large generated catalog. Full catalogs produce operation-level details; compact fingerprints produce hash-level service changes.
+
 When rebuilding the catalog from a prepared metaRepo:
 
 ```bash
@@ -169,6 +178,27 @@ python3 scripts/hcloud_catalog_readonly_smoke.py \
 ```
 
 Use for registry-outside metadata-backed smoke. Default mode only builds a matrix. `--execute` performs live read-only queries and buckets results into command shape, auth/permission, service subscription, region/endpoint, missing parameter, network, or unknown cloud error. Default stdout contains execution summaries, not raw response bodies. `--include-raw-execution` is only for local debugging. `--output` writes a sanitized evidence record that intentionally omits raw stdout, stderr, and parsed response bodies. `--confidence-output` writes only suggested `live-read-smoked` confidence entries for successful executed operations; review those suggestions before merging them into `hcloud-service-confidence.json`. Do not store AK/SK, tokens, or full sensitive responses in smoke records.
+
+```bash
+python3 scripts/hcloud_catalog_smoke_candidates.py \
+  --limit 12 \
+  --operations-per-service 2 \
+  --pretty
+```
+
+Use this before expanding the metadata-backed live smoke matrix. It combines generated question frequency, generated catalog discovery operations, curated-registry exclusion, and existing `live-read-smoked` confidence entries to suggest the next services and read-only operations to test.
+
+When you already have a review-approved candidate pool, restrict the selector instead of scanning the full catalog:
+
+```bash
+python3 scripts/hcloud_catalog_smoke_candidates.py \
+  --service CBR \
+  --service DLI \
+  --service ModelArts \
+  --service CodeArtsRepo \
+  --limit 8 \
+  --pretty
+```
 
 ## Change Planning And Guarded Flows
 

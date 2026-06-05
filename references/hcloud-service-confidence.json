@@ -14,6 +14,30 @@
         }
       }
     },
+    "CodeArtsRepo": {
+      "confidence": "catalog-derived",
+      "operations": {
+        "ListCurrentUserRepositories": {
+          "confidence": "live-read-smoked",
+          "last_smoke": {
+            "result_bucket": "command_shape_ok",
+            "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+          }
+        }
+      }
+    },
+    "DLI": {
+      "confidence": "catalog-derived",
+      "operations": {
+        "ListAuthInfo": {
+          "confidence": "live-read-smoked",
+          "last_smoke": {
+            "result_bucket": "command_shape_ok",
+            "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+          }
+        }
+      }
+    },
     "RFS": {
       "confidence": "catalog-derived",
       "operations": {
