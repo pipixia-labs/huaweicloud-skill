@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T09:08:24Z",
+  "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+  "mode": "execute",
+  "success": true,
+  "service_count": 4,
+  "operation_count": 4,
+  "bucket_counts": {
+    "command_shape_error": 1,
+    "command_shape_ok": 3
+  },
+  "context": {
+    "region": "cn-north-4",
+    "project_id_provided": false,
+    "profile_provided": false,
+    "limit": 5,
+    "catalog_max_operations": 1,
+    "strict": false
+  },
+  "services": [
+    "UCS",
+    "RFS",
+    "WAF",
+    "DCS"
+  ],
+  "matrix": [
+    {
+      "service": "UCS",
+      "operation": "ListAddonTemplates",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "UCS",
+        "--operation",
+        "ListAddonTemplates",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4"
+      ],
+      "catalog_operation_summary": "Obtaining the Add-on Template List",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 3,
+        "top_level_keys_sample": [
+          "apiVersion",
+          "items",
+          "kind"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "RFS",
+      "operation": "ListPrivateHooks",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_error",
+      "error_category": "parameter",
+      "error_source": "error_type",
+      "execution_success": false,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "RFS",
+        "--operation",
+        "ListPrivateHooks",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Listing private hooks",
+      "parsed_json_shape": {
+        "type": "null"
+      },
+      "evidence_summary": "The generated command or local hcloud metadata path failed before proving a valid service request."
+    },
+    {
+      "service": "WAF",
+      "operation": "ListAntileakagePolicyRules",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "WAF",
+        "--operation",
+        "ListAntileakagePolicyRules",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4"
+      ],
+      "catalog_operation_summary": "Querying the Information Leakage Prevention Rules in All Policies",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 2,
+        "top_level_keys_sample": [
+          "items",
+          "total"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "DCS",
+      "operation": "ListAvailableZones",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "DCS",
+        "--operation",
+        "ListAvailableZones",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4"
+      ],
+      "catalog_operation_summary": "Querying AZs",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 2,
+        "top_level_keys_sample": [
+          "available_zones",
+          "region_id"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    }
+  ],
+  "confidence_suggestions": {
+    "schema_version": 1,
+    "services": {
+      "UCS": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListAddonTemplates": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "WAF": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListAntileakagePolicyRules": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "DCS": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListAvailableZones": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      }
+    }
+  },
+  "notes": [
+    "This record intentionally omits raw stdout, stderr, and parsed response bodies.",
+    "A command_shape_ok bucket means the read-only command executed successfully; it does not promote a service to curated coverage by itself."
+  ]
+}

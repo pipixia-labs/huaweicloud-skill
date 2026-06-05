@@ -166,6 +166,20 @@ def normalized_required_params(operation: dict[str, Any], include_project: bool 
     return list(dict.fromkeys(required))
 
 
+def required_header_param_names(operation: dict[str, Any]) -> list[str]:
+    """Return required non-auth header parameter names preserving catalog spelling."""
+    names: list[str] = []
+    for param in parameter_items(operation):
+        if param.get("required") is not True or not is_header_param(param):
+            continue
+        name = str(param.get("name") or "")
+        normalized = normalize_param_name(name)
+        if not normalized or normalized in AUTH_PARAM_NAMES:
+            continue
+        names.append(name)
+    return list(dict.fromkeys(names))
+
+
 def required_param_names(operation: dict[str, Any], include_project: bool = False) -> list[str]:
     """Return required non-auth parameter names preserving catalog spelling."""
     names: list[str] = []
@@ -200,6 +214,53 @@ def optional_param_names(operation: dict[str, Any]) -> list[str]:
             continue
         names.append(name)
     return list(dict.fromkeys(names))
+
+
+def parameter_by_name(operation: dict[str, Any], name: str) -> dict[str, Any] | None:
+    """Return a structured parameter by normalized name."""
+    target = normalize_param_name(name)
+    for param in parameter_items(operation):
+        if normalize_param_name(str(param.get("name") or "")) == target:
+            return param
+    return None
+
+
+def numeric_param_bound(param: dict[str, Any], key: str) -> int | None:
+    """Return an integer parameter bound when catalog metadata provides one."""
+    value = param.get(key)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def bounded_limit_value(operation: dict[str, Any], requested_limit: int) -> tuple[int, dict[str, Any] | None]:
+    """Return a metadata-bounded limit value and an optional adjustment record."""
+    param = parameter_by_name(operation, "limit")
+    if not param:
+        return requested_limit, None
+    minimum = numeric_param_bound(param, "minimum")
+    maximum = numeric_param_bound(param, "maximum")
+    used_limit = requested_limit
+    reason = None
+    if minimum is not None and used_limit < minimum:
+        used_limit = minimum
+        reason = "metadata_minimum"
+    if maximum is not None and used_limit > maximum:
+        used_limit = maximum
+        reason = "metadata_maximum"
+    if used_limit == requested_limit:
+        return requested_limit, None
+    return used_limit, {
+        "param": "limit",
+        "requested": requested_limit,
+        "used": used_limit,
+        "minimum": minimum,
+        "maximum": maximum,
+        "reason": reason,
+    }
 
 
 def supports_limit(operation: dict[str, Any]) -> bool:

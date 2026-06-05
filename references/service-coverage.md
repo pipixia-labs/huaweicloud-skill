@@ -66,6 +66,8 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - `hcloud_catalog_readonly_smoke.py` 用于小批只读实测，并把失败归因到命令形态、账号权限、服务开通、region/project、参数或网络等桶。
 - `hcloud-service-catalog.fingerprint.json` 是 review 用小体积指纹；`hcloud-service-confidence.json` 是 live smoke/confidence/dry-run 支持性的 sidecar。
 
+当前 metadata-backed operation 级 live smoke 证据见 `references/hcloud-service-confidence.json` 和 `tests/manual-validation-2026-06-05.md`。已通过只读 smoke 的 operation 可以标为 `live-read-smoked`，但对应 service 仍是 `catalog-derived`，不等同于 curated registry 覆盖。
+
 ## 已实测能力
 
 ### ECS

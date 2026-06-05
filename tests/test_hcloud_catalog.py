@@ -75,7 +75,7 @@ class HcloudCatalogTest(unittest.TestCase):
                 {
                     "Description": "List fleets.",
                     "Request": {"Method": "GET", "Path": "/v1/clustergroups", "HasBodyParams": False},
-                    "Params": [{"Name": ["limit"], "Required": False}],
+                    "Params": [{"Name": ["limit"], "Required": False, "Position": "query", "Minimum": 10, "Maximum": 1000}],
                 },
             )
             self.write_json(
@@ -121,13 +121,35 @@ class HcloudCatalogTest(unittest.TestCase):
         show_operation = hcloud_catalog.resolve_operation(service, "ShowFleet")
         self.assertTrue(hcloud_catalog.is_discovery_operation(list_operation))
         self.assertTrue(hcloud_catalog.supports_limit(list_operation))
+        limit_param = hcloud_catalog.parameter_by_name(list_operation, "limit")
+        self.assertEqual(limit_param["minimum"], 10)
+        self.assertEqual(limit_param["maximum"], 1000)
+        self.assertEqual(
+            hcloud_catalog.bounded_limit_value(list_operation, 5)[1],
+            {"param": "limit", "requested": 5, "used": 10, "minimum": 10, "maximum": 1000, "reason": "metadata_minimum"},
+        )
         self.assertFalse(hcloud_catalog.is_read_only(create_operation))
         self.assertEqual(hcloud_catalog.normalized_required_params(create_operation), ["clusterid"])
         self.assertEqual(hcloud_catalog.normalized_required_params(show_operation), ["clustergroupid"])
         self.assertEqual(hcloud_catalog.required_param_names(show_operation), ["clustergroupid"])
+        self.assertEqual(hcloud_catalog.required_header_param_names(show_operation), ["Client-Request-Id"])
         self.assertNotIn("client_request_id", hcloud_catalog.normalized_required_params(show_operation))
         self.assertEqual(fingerprint["source"]["operation_count"], 3)
         self.assertIn("catalog_hash", fingerprint)
+
+    def test_confidence_sidecar_references_catalog_operations(self) -> None:
+        catalog = hcloud_catalog.load_catalog(ROOT / "references" / "hcloud-service-catalog.generated.json")
+        confidence = hcloud_catalog.load_confidence(ROOT / "references" / "hcloud-service-confidence.json")
+
+        for service_name, service_entry in confidence.get("services", {}).items():
+            with self.subTest(service=service_name):
+                service = hcloud_catalog.resolve_service(catalog, service_name)
+                self.assertIsNotNone(service)
+                self.assertIn(service_entry.get("confidence"), {"catalog-derived", "live-read-smoked", "curated"})
+                for operation_name, operation_entry in service_entry.get("operations", {}).items():
+                    operation = hcloud_catalog.resolve_operation(service, operation_name)
+                    self.assertIsNotNone(operation, f"{service_name}:{operation_name} missing from catalog")
+                    self.assertIn(operation_entry.get("confidence"), {"catalog-derived", "live-read-smoked", "curated"})
 
 
 if __name__ == "__main__":

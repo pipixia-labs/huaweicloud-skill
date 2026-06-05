@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import json
+from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -12,6 +15,12 @@ import hcloud_resource_discovery
 
 
 DEFAULT_SERVICES = ("UCS", "RFS", "WAF", "DCS")
+SMOKE_RECORD_SCHEMA_VERSION = 1
+
+
+def utc_now() -> str:
+    """Return an ISO-8601 UTC timestamp for persisted smoke evidence."""
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def classify_execution(execution: dict[str, Any]) -> dict[str, Any]:
@@ -49,6 +58,40 @@ def classify_execution(execution: dict[str, Any]) -> dict[str, Any]:
         "error_category": category,
         "error_source": details.get("source"),
     }
+
+
+def evidence_summary(row: dict[str, Any]) -> str:
+    """Return a compact human-readable summary for one smoke matrix row."""
+    bucket = row.get("result_bucket")
+    if bucket == "planned":
+        return "Generated a metadata-backed read-only discovery command; live execution was not requested."
+    if bucket == "command_shape_ok":
+        return "Read-only command executed successfully through hcloud_safe_exec."
+    if bucket == "auth_or_permission":
+        return "Read-only command shape reached hcloud, but auth or permission blocked the request."
+    if bucket == "service_not_subscribed":
+        return "Read-only command shape reached hcloud, but the account or project does not have this service enabled."
+    if bucket == "region_or_endpoint":
+        return "Read-only command shape reached hcloud, but region, project, or endpoint context is not valid for this service."
+    if bucket == "missing_required_param":
+        return "The selected discovery operation still required a business parameter; treat this as a catalog command-shape issue."
+    if bucket == "command_shape_error":
+        return "The generated command or local hcloud metadata path failed before proving a valid service request."
+    if bucket == "network":
+        return "The read-only request could not complete because of network transport failure."
+    return "The read-only request failed with an unclassified cloud or local error."
+
+
+def parsed_json_shape(value: Any) -> dict[str, Any]:
+    """Return non-sensitive shape information about a parsed JSON response."""
+    if isinstance(value, dict):
+        keys = sorted(str(key) for key in value.keys())
+        return {"type": "dict", "top_level_key_count": len(keys), "top_level_keys_sample": keys[:10]}
+    if isinstance(value, list):
+        return {"type": "list", "item_count": len(value)}
+    if value is None:
+        return {"type": "null"}
+    return {"type": type(value).__name__}
 
 
 def discovery_args(args: argparse.Namespace, service: str) -> SimpleNamespace:
@@ -93,6 +136,7 @@ def summarize_plan(service: str, plan: dict[str, Any]) -> list[dict[str, Any]]:
                 "catalog_operation_summary": item.get("catalog_operation_summary"),
             }
         )
+        rows[-1]["evidence_summary"] = evidence_summary(rows[-1])
     return rows
 
 
@@ -115,11 +159,32 @@ def summarize_execution(plan: dict[str, Any]) -> list[dict[str, Any]]:
                 "error_category": classification["error_category"],
                 "error_source": classification["error_source"],
                 "execution_success": bool(execution.get("success")) if isinstance(execution, dict) else False,
+                "return_code": execution.get("return_code") if isinstance(execution, dict) else None,
                 "command": command_item.get("command"),
                 "catalog_operation_summary": command_item.get("catalog_operation_summary"),
+                "parsed_json_shape": parsed_json_shape(execution.get("parsed_json")) if isinstance(execution, dict) else None,
             }
         )
+        rows[-1]["evidence_summary"] = evidence_summary(rows[-1])
     return rows
+
+
+def bucket_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Return sorted bucket counts for matrix rows."""
+    counts: dict[str, int] = {}
+    for row in rows:
+        bucket = str(row.get("result_bucket") or "unknown")
+        counts[bucket] = counts.get(bucket, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def execution_summary(plan: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return an execution summary without raw command output or response bodies."""
+    return {
+        "success": bool(plan.get("success")),
+        "result_count": len(rows),
+        "bucket_counts": bucket_counts(rows),
+    }
 
 
 def build_smoke(args: argparse.Namespace) -> dict[str, Any]:
@@ -136,26 +201,107 @@ def build_smoke(args: argparse.Namespace) -> dict[str, Any]:
         }
         if args.execute and plan.get("success"):
             executed = hcloud_resource_discovery.execute_plan(plan, args.timeout)
-            check["execution"] = executed
+            rows = summarize_execution(executed)
+            if getattr(args, "include_raw_execution", False):
+                check["execution"] = executed
+            check["execution_summary"] = execution_summary(executed, rows)
             check["success"] = bool(executed.get("success"))
-            matrix.extend(summarize_execution(executed))
+            matrix.extend(rows)
         else:
             matrix.extend(summarize_plan(service, plan))
         checks.append(check)
 
-    bucket_counts: dict[str, int] = {}
-    for row in matrix:
-        bucket = str(row.get("result_bucket") or "unknown")
-        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
     return {
         "success": all(check["success"] for check in checks) if args.strict else True,
         "mode": "execute" if args.execute else "plan",
         "service_count": len(services),
         "operation_count": len(matrix),
-        "bucket_counts": dict(sorted(bucket_counts.items())),
+        "bucket_counts": bucket_counts(matrix),
         "checks": checks,
         "matrix": matrix,
     }
+
+
+def build_smoke_record(args: argparse.Namespace, result: dict[str, Any]) -> dict[str, Any]:
+    """Build a sanitized smoke evidence record safe to persist."""
+    return {
+        "schema_version": SMOKE_RECORD_SCHEMA_VERSION,
+        "generated_at": utc_now(),
+        "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+        "mode": result.get("mode"),
+        "success": result.get("success"),
+        "service_count": result.get("service_count"),
+        "operation_count": result.get("operation_count"),
+        "bucket_counts": result.get("bucket_counts", {}),
+        "context": {
+            "region": args.region,
+            "project_id_provided": bool(args.project_id),
+            "profile_provided": bool(args.profile),
+            "limit": args.limit,
+            "catalog_max_operations": args.catalog_max_operations,
+            "strict": bool(args.strict),
+        },
+        "services": args.service or list(DEFAULT_SERVICES),
+        "matrix": sanitize_matrix(result.get("matrix", [])),
+        "confidence_suggestions": build_confidence_suggestions(result),
+        "notes": [
+            "This record intentionally omits raw stdout, stderr, and parsed response bodies.",
+            "A command_shape_ok bucket means the read-only command executed successfully; it does not promote a service to curated coverage by itself.",
+        ],
+    }
+
+
+def sanitize_command(command: Any) -> Any:
+    """Return a command with local account context placeholders."""
+    if not isinstance(command, list):
+        return command
+    sanitized = []
+    for item in command:
+        if isinstance(item, str) and item.startswith("--arg=--project_id="):
+            sanitized.append("--arg=--project_id=<project-id>")
+        elif isinstance(item, str) and item.startswith("--arg=--cli-profile="):
+            sanitized.append("--arg=--cli-profile=<profile>")
+        else:
+            sanitized.append(item)
+    return sanitized
+
+
+def sanitize_matrix(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return matrix rows safe for checked-in smoke evidence records."""
+    sanitized = []
+    for row in rows:
+        item = dict(row)
+        item["command"] = sanitize_command(item.get("command"))
+        sanitized.append(item)
+    return sanitized
+
+
+def build_confidence_suggestions(result: dict[str, Any]) -> dict[str, Any]:
+    """Return a confidence sidecar patch for successful live read-only smoke rows."""
+    services: dict[str, Any] = {}
+    for row in result.get("matrix", []):
+        if row.get("mode") != "execute" or row.get("result_bucket") != "command_shape_ok":
+            continue
+        service = str(row.get("service") or "")
+        operation = str(row.get("operation") or "")
+        if not service or not operation:
+            continue
+        service_entry = services.setdefault(service, {"confidence": "catalog-derived", "operations": {}})
+        service_entry["operations"][operation] = {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+                "result_bucket": row.get("result_bucket"),
+                "evidence_summary": row.get("evidence_summary"),
+            },
+        }
+    return {"schema_version": 1, "services": services}
+
+
+def write_json(path: Path, value: dict[str, Any], pretty: bool = True) -> None:
+    """Write a JSON document to disk using repository-standard encoding."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(value, ensure_ascii=False, indent=2 if pretty else None)
+    path.write_text(f"{text}\n", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -170,6 +316,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute", action="store_true", help="Execute generated read-only commands.")
     parser.add_argument("--strict", action="store_true", help="Return failure when any plan or execution fails.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout per executed command.")
+    parser.add_argument("--output", help="Write a sanitized smoke evidence record to this JSON path.")
+    parser.add_argument(
+        "--confidence-output",
+        help="Write live-read-smoked confidence suggestions for successful executed operations to this JSON path.",
+    )
+    parser.add_argument(
+        "--include-raw-execution",
+        action="store_true",
+        help="Include raw safe_exec execution results in stdout for local debugging. Do not use this for persisted evidence.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.limit < 1:
@@ -185,6 +341,13 @@ def main() -> int:
     """Build or run metadata-backed read-only smoke checks."""
     args = parse_args()
     result = build_smoke(args)
+    record = build_smoke_record(args, result)
+    if args.output:
+        write_json(Path(args.output), record)
+        result["output"] = args.output
+    if args.confidence_output:
+        write_json(Path(args.confidence_output), record["confidence_suggestions"])
+        result["confidence_output"] = args.confidence_output
     hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result["success"] else 1
 

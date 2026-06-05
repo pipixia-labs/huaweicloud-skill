@@ -164,10 +164,11 @@ python3 scripts/hcloud_catalog_readonly_smoke.py \
   --service RFS \
   --region=cn-north-4 \
   --project-id=<project-id> \
+  --output tests/fixtures/hcloud-catalog-readonly-smoke-plan.json \
   --pretty
 ```
 
-Use for registry-outside metadata-backed smoke. Default mode only builds a matrix. `--execute` performs live read-only queries and buckets results into command shape, auth/permission, service subscription, region/endpoint, missing parameter, network, or unknown cloud error. Do not store AK/SK, tokens, or full sensitive responses in smoke records.
+Use for registry-outside metadata-backed smoke. Default mode only builds a matrix. `--execute` performs live read-only queries and buckets results into command shape, auth/permission, service subscription, region/endpoint, missing parameter, network, or unknown cloud error. Default stdout contains execution summaries, not raw response bodies. `--include-raw-execution` is only for local debugging. `--output` writes a sanitized evidence record that intentionally omits raw stdout, stderr, and parsed response bodies. `--confidence-output` writes only suggested `live-read-smoked` confidence entries for successful executed operations; review those suggestions before merging them into `hcloud-service-confidence.json`. Do not store AK/SK, tokens, or full sensitive responses in smoke records.
 
 ## Change Planning And Guarded Flows
 

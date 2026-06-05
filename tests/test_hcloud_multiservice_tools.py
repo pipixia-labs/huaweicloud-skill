@@ -230,6 +230,50 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(all(item["metadata_backed"] for item in result["commands"]))
         self.assertIn("List", result["commands"][0]["operation"])
 
+    def test_catalog_backed_discovery_bounds_limit_from_metadata(self) -> None:
+        args = SimpleNamespace(
+            service="RFS",
+            operation="ListPrivateHooks",
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            limit=5,
+            catalog_max_operations=1,
+            execute=False,
+        )
+
+        result = hcloud_resource_discovery.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        command_item = result["commands"][0]
+        self.assertIn("--arg=--limit=10", command_item["command"])
+        self.assertNotIn("--arg=--limit=5", command_item["command"])
+        self.assertIn("--arg=--Client-Request-Id=00000000-0000-0000-0000-000000000000", command_item["command"])
+        self.assertEqual(command_item["parameter_adjustments"][0]["reason"], "metadata_minimum")
+        self.assertEqual(command_item["generated_args"], [{"param": "Client-Request-Id", "reason": "safe_required_header"}])
+
+    def test_resource_discovery_execute_plan_parses_safe_exec_json(self) -> None:
+        plan = {
+            "commands": [
+                {
+                    "service": "UCS",
+                    "operation": "ListAddonTemplates",
+                    "command": ["python3", "scripts/hcloud_safe_exec.py"],
+                }
+            ]
+        }
+        completed = SimpleNamespace(
+            stdout=json.dumps({"success": True, "parsed_json": {"items": []}}),
+            stderr="",
+            returncode=0,
+        )
+
+        with patch.object(hcloud_resource_discovery.subprocess, "run", return_value=completed):
+            result = hcloud_resource_discovery.execute_plan(plan, timeout=1)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["results"][0]["result"]["parsed_json"], {"items": []})
+
     def test_catalog_backed_resource_query_requires_explicit_params(self) -> None:
         args = SimpleNamespace(
             service="UCS",
@@ -294,6 +338,17 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertLessEqual(result["operation_count"], 2)
         self.assertEqual(result["bucket_counts"], {"planned": result["operation_count"]})
         self.assertTrue(all(row["metadata_backed"] for row in result["matrix"]))
+        self.assertTrue(all(row["evidence_summary"] for row in result["matrix"]))
+
+        record = hcloud_catalog_readonly_smoke.build_smoke_record(args, result)
+
+        self.assertEqual(record["schema_version"], 1)
+        self.assertEqual(record["mode"], "plan")
+        self.assertEqual(record["context"]["region"], "cn-north-4")
+        self.assertEqual(record["confidence_suggestions"], {"schema_version": 1, "services": {}})
+        first_command = record["matrix"][0]["command"]
+        self.assertNotIn("--arg=--project_id=project-1", first_command)
+        self.assertIn("--arg=--project_id=<project-id>", first_command)
 
     def test_catalog_readonly_smoke_classifies_permission_failure(self) -> None:
         execution = {
@@ -309,6 +364,93 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertEqual(result["result_bucket"], "auth_or_permission")
         self.assertEqual(result["error_category"], "permission")
+
+    def test_catalog_readonly_smoke_builds_confidence_suggestions(self) -> None:
+        result = {
+            "matrix": [
+                {
+                    "service": "UCS",
+                    "operation": "ListClusters",
+                    "mode": "execute",
+                    "result_bucket": "command_shape_ok",
+                    "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec.",
+                },
+                {
+                    "service": "WAF",
+                    "operation": "ListHost",
+                    "mode": "execute",
+                    "result_bucket": "auth_or_permission",
+                    "evidence_summary": "Permission blocked the request.",
+                },
+            ]
+        }
+
+        suggestions = hcloud_catalog_readonly_smoke.build_confidence_suggestions(result)
+
+        self.assertEqual(suggestions["services"]["UCS"]["operations"]["ListClusters"]["confidence"], "live-read-smoked")
+        self.assertNotIn("WAF", suggestions["services"])
+
+    def test_catalog_readonly_smoke_summarizes_execution_without_raw_output(self) -> None:
+        plan = {
+            "commands": [
+                {
+                    "service": "UCS",
+                    "operation": "ListClusters",
+                    "metadata_backed": True,
+                    "command": ["python3", "scripts/hcloud_safe_exec.py"],
+                    "catalog_operation_summary": "List clusters.",
+                }
+            ],
+            "results": [
+                {
+                    "service": "UCS",
+                    "operation": "ListClusters",
+                    "result": {
+                        "success": True,
+                        "return_code": 0,
+                        "stdout": '{"sensitive":"omitted"}',
+                        "stderr": "",
+                        "parsed_json": {"clusters": [{"id": "cluster-1"}], "count": 1},
+                    },
+                }
+            ],
+        }
+
+        rows = hcloud_catalog_readonly_smoke.summarize_execution(plan)
+
+        self.assertEqual(rows[0]["result_bucket"], "command_shape_ok")
+        self.assertEqual(rows[0]["parsed_json_shape"]["top_level_keys_sample"], ["clusters", "count"])
+        self.assertNotIn("stdout", rows[0])
+        self.assertNotIn("stderr", rows[0])
+
+    def test_catalog_readonly_smoke_fixtures_are_sanitized(self) -> None:
+        fixture_names = [
+            "hcloud-catalog-readonly-smoke-plan.json",
+            "hcloud-catalog-readonly-smoke-execute.json",
+            "hcloud-catalog-readonly-smoke-rfs-fixed.json",
+        ]
+        for fixture_name in fixture_names:
+            with self.subTest(fixture=fixture_name):
+                data = json.loads((ROOT / "tests" / "fixtures" / fixture_name).read_text(encoding="utf-8"))
+                payload = json.dumps(data, ensure_ascii=False)
+                self.assertIn("matrix", data)
+                self.assertNotIn('"stdout"', payload)
+                self.assertNotIn('"stderr"', payload)
+                self.assertNotIn('"parsed_json"', payload)
+                self.assertNotIn("project-1", payload)
+
+        rfs_fixed = json.loads(
+            (ROOT / "tests" / "fixtures" / "hcloud-catalog-readonly-smoke-rfs-fixed.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        rfs_row = rfs_fixed["matrix"][0]
+        self.assertEqual(rfs_row["result_bucket"], "command_shape_ok")
+        self.assertIn("--arg=--limit=10", rfs_row["command"])
+        self.assertIn(
+            "--arg=--Client-Request-Id=00000000-0000-0000-0000-000000000000",
+            rfs_row["command"],
+        )
 
     def test_eip_change_flow_builds_guarded_plan(self) -> None:
         result = hcloud_eip_change_flow.build_flow(self.eip_flow_args())

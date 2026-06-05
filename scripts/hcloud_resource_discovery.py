@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -17,9 +18,14 @@ from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, nor
 ROOT = hcloud_common.ROOT
 REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 DEFAULT_CATALOG_DISCOVERY_LIMIT = 5
+DEFAULT_CLIENT_REQUEST_ID = "00000000-0000-0000-0000-000000000000"
 CURATED_LIMIT_OPERATIONS = {
     ("ECS", "ListCloudServers"),
     ("ECS", "ListServersDetails"),
+}
+SAFE_GENERATED_HEADER_VALUES = {
+    "client_request_id": DEFAULT_CLIENT_REQUEST_ID,
+    "clientrequestid": DEFAULT_CLIENT_REQUEST_ID,
 }
 
 
@@ -69,6 +75,33 @@ def catalog_operation_param_names(service: str, operation: str) -> set[str]:
     return {name for name in names if name}
 
 
+def catalog_operation(service: str, operation: str) -> dict[str, Any] | None:
+    """Return a generated catalog operation when available."""
+    catalog = hcloud_catalog.load_catalog()
+    catalog_service = hcloud_catalog.resolve_service(catalog, service)
+    if not catalog_service:
+        return None
+    return hcloud_catalog.resolve_operation(catalog_service, operation)
+
+
+def generated_header_args(operation: dict[str, Any] | None) -> tuple[list[str], list[dict[str, str]], list[str]]:
+    """Return safe generated required header CLI args for a catalog operation."""
+    if not operation:
+        return [], [], []
+    args = []
+    generated = []
+    unsupported = []
+    for name in hcloud_catalog.required_header_param_names(operation):
+        normalized = hcloud_catalog.normalize_param_name(name)
+        value = SAFE_GENERATED_HEADER_VALUES.get(normalized)
+        if value is None:
+            unsupported.append(name)
+            continue
+        args.append(f"--arg=--{name}={value}")
+        generated.append({"param": name, "reason": "safe_required_header"})
+    return args, generated, unsupported
+
+
 def resolve_cli_region(args: argparse.Namespace, service_entry: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
     """Resolve the cli-region for services with curated supported regions."""
     requested_region = args.region
@@ -107,7 +140,7 @@ def build_safe_exec_command(
     operation: str,
     param_names: set[str],
     cli_region: str | None,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], list[dict[str, Any]], list[dict[str, str]], list[str]]:
     """Build a JSON-friendly safe_exec command for one list-only operation."""
     command = [
         "python3",
@@ -126,18 +159,33 @@ def build_safe_exec_command(
     if args.project_id:
         command.append(f"--arg=--project_id={args.project_id}")
     omitted_args: list[str] = []
+    parameter_adjustments: list[dict[str, Any]] = []
+    operation_detail = catalog_operation(service, operation)
     if args.limit is not None:
         if "limit" in param_names:
-            command.append(f"--arg=--limit={args.limit}")
+            used_limit = args.limit
+            if operation_detail:
+                used_limit, adjustment = hcloud_catalog.bounded_limit_value(operation_detail, args.limit)
+                if adjustment:
+                    parameter_adjustments.append(adjustment)
+            command.append(f"--arg=--limit={used_limit}")
         else:
             omitted_args.append("--limit")
-    return command, omitted_args
+    header_args, generated_headers, unsupported_headers = generated_header_args(operation_detail)
+    command.extend(header_args)
+    return command, omitted_args, parameter_adjustments, generated_headers, unsupported_headers
 
 
 def build_command_item(args: argparse.Namespace, service: str, operation: str, service_entry: dict[str, Any]) -> dict[str, Any]:
     """Build one discovery command item with metadata-driven optional arguments."""
     cli_region, region_resolution = resolve_cli_region(args, service_entry)
-    command, omitted_args = build_safe_exec_command(args, service, operation, operation_param_names(service, operation), cli_region)
+    command, omitted_args, parameter_adjustments, generated_headers, unsupported_headers = build_safe_exec_command(
+        args,
+        service,
+        operation,
+        operation_param_names(service, operation),
+        cli_region,
+    )
     item: dict[str, Any] = {
         "service": service,
         "operation": operation,
@@ -148,6 +196,12 @@ def build_command_item(args: argparse.Namespace, service: str, operation: str, s
     if omitted_args:
         item["omitted_args"] = omitted_args
         item["omitted_reason"] = "Operation metadata does not list these parameters."
+    if parameter_adjustments:
+        item["parameter_adjustments"] = parameter_adjustments
+    if generated_headers:
+        item["generated_args"] = generated_headers
+    if unsupported_headers:
+        item["unsupported_required_headers"] = unsupported_headers
     return item
 
 

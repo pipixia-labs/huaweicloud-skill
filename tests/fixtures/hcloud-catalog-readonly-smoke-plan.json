@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T09:06:54Z",
+  "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+  "mode": "plan",
+  "success": true,
+  "service_count": 4,
+  "operation_count": 4,
+  "bucket_counts": {
+    "planned": 4
+  },
+  "context": {
+    "region": "cn-north-4",
+    "project_id_provided": true,
+    "profile_provided": false,
+    "limit": 5,
+    "catalog_max_operations": 1,
+    "strict": false
+  },
+  "services": [
+    "UCS",
+    "RFS",
+    "WAF",
+    "DCS"
+  ],
+  "matrix": [
+    {
+      "service": "UCS",
+      "operation": "ListAddonTemplates",
+      "mode": "plan",
+      "metadata_backed": true,
+      "result_bucket": "planned",
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "UCS",
+        "--operation",
+        "ListAddonTemplates",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--project_id=<project-id>"
+      ],
+      "execution_success": null,
+      "catalog_operation_summary": "Obtaining the Add-on Template List",
+      "evidence_summary": "Generated a metadata-backed read-only discovery command; live execution was not requested."
+    },
+    {
+      "service": "RFS",
+      "operation": "ListPrivateHooks",
+      "mode": "plan",
+      "metadata_backed": true,
+      "result_bucket": "planned",
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "RFS",
+        "--operation",
+        "ListPrivateHooks",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--project_id=<project-id>",
+        "--arg=--limit=5"
+      ],
+      "execution_success": null,
+      "catalog_operation_summary": "Listing private hooks",
+      "evidence_summary": "Generated a metadata-backed read-only discovery command; live execution was not requested."
+    },
+    {
+      "service": "WAF",
+      "operation": "ListAntileakagePolicyRules",
+      "mode": "plan",
+      "metadata_backed": true,
+      "result_bucket": "planned",
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "WAF",
+        "--operation",
+        "ListAntileakagePolicyRules",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--project_id=<project-id>"
+      ],
+      "execution_success": null,
+      "catalog_operation_summary": "Querying the Information Leakage Prevention Rules in All Policies",
+      "evidence_summary": "Generated a metadata-backed read-only discovery command; live execution was not requested."
+    },
+    {
+      "service": "DCS",
+      "operation": "ListAvailableZones",
+      "mode": "plan",
+      "metadata_backed": true,
+      "result_bucket": "planned",
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "DCS",
+        "--operation",
+        "ListAvailableZones",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--project_id=<project-id>"
+      ],
+      "execution_success": null,
+      "catalog_operation_summary": "Querying AZs",
+      "evidence_summary": "Generated a metadata-backed read-only discovery command; live execution was not requested."
+    }
+  ],
+  "confidence_suggestions": {
+    "schema_version": 1,
+    "services": {}
+  },
+  "notes": [
+    "This record intentionally omits raw stdout, stderr, and parsed response bodies.",
+    "A command_shape_ok bucket means the read-only command executed successfully; it does not promote a service to curated coverage by itself."
+  ]
+}

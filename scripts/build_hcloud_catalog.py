@@ -213,6 +213,19 @@ def build_param_items(detail: dict[str, Any]) -> list[dict[str, Any]]:
             "required": param.get("Required") is True,
             "position": str(param.get("Position") or "").lower(),
         }
+        if param.get("ParamType"):
+            item["type"] = param.get("ParamType")
+        for source_key, target_key in (
+            ("Default", "default"),
+            ("Minimum", "minimum"),
+            ("Maximum", "maximum"),
+            ("MinLength", "min_length"),
+            ("MaxLength", "max_length"),
+            ("EnumValue", "enum"),
+            ("CollectionFormat", "collection_format"),
+        ):
+            if source_key in param and param.get(source_key) is not None:
+                item[target_key] = param.get(source_key)
         result.append(item)
     return result
 
@@ -237,6 +250,16 @@ def all_param_names(params: list[dict[str, Any]]) -> list[str]:
     return [str(param.get("name")) for param in params if param.get("name")]
 
 
+def retained_param_items(params: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return structured params worth retaining in the compact generated catalog."""
+    result = []
+    for param in params:
+        name = str(param.get("name") or "")
+        if param.get("required") is True or normalize_param_name(name) == "limit":
+            result.append(param)
+    return result
+
+
 def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, Any] | None:
     """Build one compact catalog operation item."""
     operation_name = str(raw_api.get("Name") or "").strip()
@@ -245,7 +268,6 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, An
     version = select_version(raw_api.get("Versions", []))
     detail, detail_file = load_detail(template_dir, operation_name, version)
     all_params = build_param_items(detail)
-    required_param_details = [param for param in all_params if param.get("required") is True]
     required_params = business_param_names(all_params, required=True)
     optional_params = business_param_names(all_params, required=False)
     request = detail.get("Request", {}) if isinstance(detail.get("Request"), dict) else {}
@@ -268,7 +290,7 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, An
         "method": request.get("Method"),
         "path": request.get("Path"),
         "has_body_params": request.get("HasBodyParams"),
-        "params": required_param_details,
+        "params": retained_param_items(all_params),
         "required_params": required_params,
         "optional_params": optional_params,
         "supports_limit": "limit" in params_lower,
