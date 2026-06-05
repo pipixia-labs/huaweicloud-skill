@@ -63,13 +63,7 @@ def catalog_operation_param_names(service: str, operation: str) -> set[str]:
     catalog_operation = hcloud_catalog.resolve_operation(catalog_service, operation)
     if not catalog_operation:
         return set()
-    names = {
-        hcloud_catalog.normalize_param_name(str(name))
-        for name in [
-            *(catalog_operation.get("required_params") or []),
-            *(catalog_operation.get("optional_params") or []),
-        ]
-    }
+    names = {hcloud_catalog.normalize_param_name(name) for name in hcloud_catalog.operation_param_names(catalog_operation)}
     if hcloud_catalog.supports_limit(catalog_operation):
         names.add("limit")
     return {name for name in names if name}

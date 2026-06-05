@@ -33,6 +33,7 @@ hcloud_eip_change_flow = load_module("hcloud_eip_change_flow", SCRIPTS / "hcloud
 hcloud_guarded_change_flow = load_module("hcloud_guarded_change_flow", SCRIPTS / "hcloud_guarded_change_flow.py")
 hcloud_obs_change_plan = load_module("hcloud_obs_change_plan", SCRIPTS / "hcloud_obs_change_plan.py")
 hcloud_obs_readonly = load_module("hcloud_obs_readonly", SCRIPTS / "hcloud_obs_readonly.py")
+hcloud_catalog_readonly_smoke = load_module("hcloud_catalog_readonly_smoke", SCRIPTS / "hcloud_catalog_readonly_smoke.py")
 hcloud_resource_detail_probe = load_module("hcloud_resource_detail_probe", SCRIPTS / "hcloud_resource_detail_probe.py")
 hcloud_resource_discovery = load_module("hcloud_resource_discovery", SCRIPTS / "hcloud_resource_discovery.py")
 hcloud_resource_query = load_module("hcloud_resource_query", SCRIPTS / "hcloud_resource_query.py")
@@ -271,6 +272,43 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--service", result["command"])
         self.assertIn("UCS", result["command"])
         self.assertIn("--arg=--cluster_id=cluster-1", result["command"])
+
+    def test_catalog_readonly_smoke_builds_plan_matrix(self) -> None:
+        args = SimpleNamespace(
+            service=["UCS"],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            limit=5,
+            catalog_max_operations=2,
+            execute=False,
+            strict=True,
+            timeout=1,
+        )
+
+        result = hcloud_catalog_readonly_smoke.build_smoke(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["mode"], "plan")
+        self.assertEqual(result["service_count"], 1)
+        self.assertLessEqual(result["operation_count"], 2)
+        self.assertEqual(result["bucket_counts"], {"planned": result["operation_count"]})
+        self.assertTrue(all(row["metadata_backed"] for row in result["matrix"]))
+
+    def test_catalog_readonly_smoke_classifies_permission_failure(self) -> None:
+        execution = {
+            "success": False,
+            "error_details": {
+                "category": "permission",
+                "source": "hcloud",
+                "message": "policy denied",
+            },
+        }
+
+        result = hcloud_catalog_readonly_smoke.classify_execution(execution)
+
+        self.assertEqual(result["result_bucket"], "auth_or_permission")
+        self.assertEqual(result["error_category"], "permission")
 
     def test_eip_change_flow_builds_guarded_plan(self) -> None:
         result = hcloud_eip_change_flow.build_flow(self.eip_flow_args())
@@ -1111,7 +1149,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["coverage"], "metadata-backed")
         self.assertIn("--service", result["commands"]["dryrun_or_plan"])
         self.assertIn("UCS", result["commands"]["dryrun_or_plan"])
-        self.assertIn("--arg=--dryrun", result["commands"]["dryrun_or_plan"])
+        self.assertEqual(result["catalog_dryrun"], "unknown")
+        self.assertNotIn("--arg=--dryrun", result["commands"]["dryrun_or_plan"])
         self.assertTrue(result["submit_requires_confirmation"])
 
     def test_service_change_plan_rejects_catalog_backed_read_operation(self) -> None:

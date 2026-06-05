@@ -142,12 +142,11 @@ version: "0.2.3"
 7. `references/error-playbook.md`
 8. `references/output-and-query.md`
 9. `references/service-registry.json`
-10. `references/hcloud-service-catalog.generated.json`
-11. `scripts/hcloud_catalog_audit.py`
-12. `references/playbooks/`
-13. `references/source-map.md`
-14. `examples/README.md`
-15. `references/qwen-image-generation.md`（兼容旧文件名；内容为 MaaS 图像生成参考）
+10. `scripts/hcloud_catalog_audit.py`
+11. `references/playbooks/`
+12. `references/source-map.md`
+13. `examples/README.md`
+14. `references/qwen-image-generation.md`（兼容旧文件名；内容为 MaaS 图像生成参考）
 
 原始 KooCLI 材料在 `materials/` 下，仅作为资料源，不应直接当作最终指令集使用。
 华为云官方文档优先从 `https://support.huaweicloud.com/intl/zh-cn/` 查证；涉及 API 字段语义时，以官方文档和实际 `hcloud --dryrun`/查询结果为准。
@@ -269,7 +268,9 @@ python3 scripts/hcloud_meta_lookup.py \
 
 ### 4.5. 生成 catalog 与覆盖审计
 
-`references/hcloud-service-catalog.generated.json` 是从 hcloud metaRepo 压缩出的 skill 自有 catalog，当前覆盖 125 个 metadata 服务和 10,194 个 operation。它已提交在 skill 内，运行时不依赖外部数据项目或源 metaRepo。
+generated catalog 是从 hcloud metaRepo 压缩出的 skill 自有 catalog，当前覆盖 125 个 metadata 服务和 10,194 个 operation。它已提交在 skill 内，运行时不依赖外部数据项目或源 metaRepo。
+
+该 JSON 是脚本消费的数据产物，不是 agent 直接阅读的资料。不要直接 Read 这个大文件；只能通过 `hcloud_catalog.py`、`hcloud_catalog_audit.py`、`hcloud_resource_discovery.py`、`hcloud_resource_query.py` 或 `hcloud_service_change_plan.py` 间接访问。
 
 ```bash
 python3 scripts/hcloud_catalog_audit.py --pretty
@@ -286,10 +287,11 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 ```bash
 python3 scripts/build_hcloud_catalog.py \
   --source-meta-repo <path-to-hcloud-metaRepo> \
-  --output references/hcloud-service-catalog.generated.json
+  --output <catalog-output-json> \
+  --fingerprint-output <catalog-fingerprint-json>
 ```
 
-不要让 skill 运行时依赖源 metaRepo 目录；生成后的 JSON 才是 skill 内部消费的稳定输入。
+不要让 skill 运行时依赖源 metaRepo 目录；生成后的 JSON 才是 skill 内部消费的稳定输入。`hcloud-service-catalog.fingerprint.json` 是 review/升级 diff 辅助文件，`hcloud-service-confidence.json` 用于记录 live smoke 或 dry-run 支持性等人工/实测状态。
 
 ### 5. ECS 创建计划校验
 
@@ -494,6 +496,24 @@ python3 scripts/hcloud_readonly_smoke.py \
 - 对 CDN 这类有固定 KooCLI 区域集合的服务，会沿用 discovery 的区域解析结果
 - 默认不把 live 查询失败当成脚本失败；需要严格失败门槛时加 `--strict`
 
+### 12.5. Metadata-backed 只读 smoke
+
+```bash
+python3 scripts/hcloud_catalog_readonly_smoke.py \
+  --service UCS \
+  --service RFS \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --pretty
+```
+
+用途：
+
+- 为 registry 外的 metadata-backed 服务生成小批只读 discovery smoke 矩阵
+- 默认只生成计划；只有显式 `--execute` 才执行真实只读查询
+- 执行后按 `command_shape_ok`、`auth_or_permission`、`service_not_subscribed`、`region_or_endpoint`、`missing_required_param`、`network` 等桶归类
+- 只记录命令形态和错误分桶；不要保存 AK/SK、token、完整敏感响应或大体量原始 JSON
+
 ### 13. 服务级变更计划
 
 ```bash
@@ -512,6 +532,7 @@ python3 scripts/hcloud_service_change_plan.py \
 - 继承 `hcloud_change_plan.py` 的风险分类、dry-run/submit 命令和确认门禁
 - 附加服务上下文、known limits 和后置验证建议
 - 对 registry 声明的 `supported_cli_regions` 同样生效，避免为 CDN 这类服务生成已知不可用的区域命令
+- metadata-backed mutation 的 dry-run 支持默认为 `unknown`；除非 `hcloud-service-confidence.json` 明确标记 supported，否则不要自动加 `--dryrun`
 - 不执行真实变更；submit 命令必须单独获得用户确认后才可运行
 
 ### 13.4. 多服务通用 guarded change flow

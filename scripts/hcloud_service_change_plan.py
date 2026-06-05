@@ -217,8 +217,15 @@ def build_catalog_change_plan(
         }
 
     cli_region, region_resolution = hcloud_resource_discovery.resolve_cli_region(args, entry)
+    dryrun_state = hcloud_catalog.operation_dryrun_state(
+        hcloud_catalog.load_confidence(),
+        command_service,
+        operation,
+    )
     plan_args = planner_args(args, cli_region, command_service)
     plan_args.operation = operation
+    if dryrun_state != "supported":
+        plan_args.no_dryrun = True
     plan = hcloud_change_plan.build_plan(plan_args)
     plan.update(
         {
@@ -227,10 +234,9 @@ def build_catalog_change_plan(
             "coverage": "metadata-backed",
             "metadata_backed": True,
             "catalog_service": command_service,
+            "catalog_dryrun": dryrun_state,
             "catalog_required_params": limited_params(hcloud_catalog.normalized_required_params(catalog_operation)),
-            "catalog_optional_params": limited_params(
-                [hcloud_catalog.normalize_param_name(str(name)) for name in catalog_operation.get("optional_params") or []]
-            ),
+            "catalog_optional_params": limited_params(hcloud_catalog.optional_param_names(catalog_operation)),
             "catalog_operation_summary": catalog_operation.get("summary"),
             "catalog_operation_method": catalog_operation.get("method"),
             "catalog_operation_path": catalog_operation.get("path"),
@@ -249,6 +255,7 @@ def build_catalog_change_plan(
     plan.setdefault("next_steps", []).extend(
         [
             "This operation is metadata-backed rather than curated; confirm required parameters with hcloud help or official Huawei Cloud docs before execution.",
+            "Dry-run support is unknown for metadata-backed operations unless catalog_dryrun is supported; confirm operation help before assuming dry-run is available.",
             "Do not run submit commands from this plan without a separate explicit user confirmation.",
             "Use read_only_smoke_plan or an explicit resource query after submit to verify the changed resource.",
         ]

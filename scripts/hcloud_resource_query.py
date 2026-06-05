@@ -187,8 +187,10 @@ def build_command(
     params: dict[str, str],
     operation: str,
     command_service: str,
+    param_flag_names: dict[str, str] | None = None,
 ) -> tuple[list[str], dict[str, Any] | None]:
     """Build the safe_exec command for an explicit read query."""
+    param_flag_names = param_flag_names or {}
     cli_region, region_resolution = hcloud_resource_discovery.resolve_cli_region(args, service_entry)
     command = [
         "python3",
@@ -207,7 +209,8 @@ def build_command(
     if args.project_id:
         command.append(f"--arg=--project_id={args.project_id}")
     for key, value in sorted(params.items()):
-        command.append(f"--arg=--{key}={value}")
+        flag_name = param_flag_names.get(key, key)
+        command.append(f"--arg=--{flag_name}={value}")
     for raw_arg in args.arg:
         if not raw_arg.startswith("--"):
             raise ValueError(f"Raw --arg values must start with --: {raw_arg}")
@@ -224,6 +227,18 @@ def catalog_context(service: str, operation: str) -> tuple[dict[str, Any] | None
     catalog_operation = hcloud_catalog.resolve_operation(catalog_service, operation)
     command_service = hcloud_catalog.command_service_name(catalog_service, service.upper())
     return catalog_service, catalog_operation, command_service
+
+
+def catalog_param_flag_names(catalog_operation: dict[str, Any] | None) -> dict[str, str]:
+    """Return normalized parameter names mapped to catalog-preserved CLI flag names."""
+    if not catalog_operation:
+        return {}
+    result: dict[str, str] = {}
+    for name in hcloud_catalog.operation_param_names(catalog_operation):
+        normalized = normalize_param_name(name)
+        if normalized:
+            result[normalized] = name
+    return result
 
 
 def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
@@ -374,7 +389,14 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "error": "Missing required explicit query parameters.",
         }
 
-    command, region_resolution = build_command(args, command_entry, params, operation, command_service if scope.startswith("metadata_") else service)
+    command, region_resolution = build_command(
+        args,
+        command_entry,
+        params,
+        operation,
+        command_service if scope.startswith("metadata_") else service,
+        catalog_param_flag_names(catalog_operation) if scope.startswith("metadata_") else None,
+    )
     result: dict[str, Any] = {
         "success": True,
         "mode": "execute" if args.execute else "plan",

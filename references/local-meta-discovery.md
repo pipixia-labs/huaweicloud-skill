@@ -95,7 +95,8 @@ python3 scripts/hcloud_meta_lookup.py --service=IMS --allow-help-fallback --pret
 ```bash
 python3 scripts/build_hcloud_catalog.py \
   --source-meta-repo <path-to-hcloud-metaRepo> \
-  --output references/hcloud-service-catalog.generated.json
+  --output references/hcloud-service-catalog.generated.json \
+  --fingerprint-output references/hcloud-service-catalog.fingerprint.json
 
 python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
 ```
@@ -105,6 +106,8 @@ python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
 - 生成 catalog 可以读取本地 metaRepo 作为一次性输入。
 - `huaweicloud-skill` 运行时不依赖源 metaRepo 目录，也不依赖外部数据项目。
 - 生成后的 JSON 会被 `hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和 `hcloud_service_change_plan.py` 作为 registry 外服务的 metadata-backed 兜底。
+- `hcloud-service-catalog.fingerprint.json` 是小体积升级审查文件，用于快速比较服务、operation 和 required 参数漂移。
+- `hcloud-service-confidence.json` 用于记录 live smoke、confidence 和 dry-run 支持性，不属于纯 metadata 生成结果。
 - audit 需要保持 `success=true`；如果 registry operation 在 catalog 中消失，应先修 registry 或确认服务是否改名。
 
 ## 当前覆盖情况
@@ -114,7 +117,8 @@ python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
 - metadata-backed 服务：registry 外 110 个服务可用于保守发现、显式参数只读查询和 planner-only 变更计划。
 - 自动 discovery 只选择无必填业务参数的只读 `List` / `Count` / `Search` / `Query` / `Check` 操作。
 - `Show*`、目标型 `List*`、`Get*` 等带必填参数的只读操作必须通过 `hcloud_resource_query.py --param KEY=VALUE` 显式传参。
-- mutating operation 只进入 `hcloud_service_change_plan.py` 的 planner-only 路径，不自动 submit。
+- mutating operation 只进入 `hcloud_service_change_plan.py` 的 planner-only 路径，不自动 submit；metadata-backed mutation 的 dry-run 支持默认为 `unknown`。
+- metadata-backed 只读实测可用 `hcloud_catalog_readonly_smoke.py`，执行结果应按命令形态、账号权限、服务开通、region/project、参数和网络等原因分桶。
 
 ## 如何在 workflow 里使用
 

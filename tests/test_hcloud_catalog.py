@@ -79,30 +79,55 @@ class HcloudCatalogTest(unittest.TestCase):
                 },
             )
             self.write_json(
+                meta_repo / "template" / "ucs" / "ShowFleet_v1_en.yaml",
+                {
+                    "Description": "Show fleet.",
+                    "Request": {"Method": "GET", "Path": "/v1/clustergroups/{clustergroupid}", "HasBodyParams": False},
+                    "Params": [
+                        {"Name": ["Client-Request-Id"], "Required": True, "Position": "header", "ParamType": "string"},
+                        {"Name": ["clustergroupid"], "Required": True, "Position": "path", "ParamType": "string"},
+                    ],
+                },
+            )
+            self.write_json(
                 meta_repo / "template" / "ucs" / "CreateClusterKubeconfig_v1_en.yaml",
                 {
                     "Description": "Create kubeconfig.",
                     "Request": {"Method": "POST", "Path": "/v1/clusters/{clusterid}/kubeconfig", "HasBodyParams": True},
                     "Params": [
-                        {"Name": ["project_id"], "Required": True},
-                        {"Name": ["clusterid"], "Required": True},
-                        {"Name": ["duration"], "Required": False},
+                        {"Name": ["project_id"], "Required": True, "Position": "path"},
+                        {"Name": ["clusterid"], "Required": True, "Position": "path"},
+                        {"Name": ["duration"], "Required": False, "Position": "query"},
                     ],
                 },
             )
+            apis = json.loads((meta_repo / "template" / "ucs" / "apis_en.json").read_text(encoding="utf-8"))
+            apis["apiList"]["ShowFleet"] = {
+                "Name": "ShowFleet",
+                "Versions": ["v1"],
+                "Suggests": {"v1": "Showing a fleet"},
+            }
+            self.write_json(meta_repo / "template" / "ucs" / "apis_en.json", apis)
 
             catalog = build_hcloud_catalog.build_catalog(meta_repo)
+            fingerprint = build_hcloud_catalog.build_fingerprint(catalog)
 
         self.assertEqual(catalog["source"]["service_count"], 1)
-        self.assertEqual(catalog["source"]["operation_count"], 2)
+        self.assertEqual(catalog["source"]["operation_count"], 3)
         service = hcloud_catalog.resolve_service(catalog, "ucs")
         self.assertIsNotNone(service)
         list_operation = hcloud_catalog.resolve_operation(service, "listclustergroup")
         create_operation = hcloud_catalog.resolve_operation(service, "CreateClusterKubeconfig")
+        show_operation = hcloud_catalog.resolve_operation(service, "ShowFleet")
         self.assertTrue(hcloud_catalog.is_discovery_operation(list_operation))
         self.assertTrue(hcloud_catalog.supports_limit(list_operation))
         self.assertFalse(hcloud_catalog.is_read_only(create_operation))
         self.assertEqual(hcloud_catalog.normalized_required_params(create_operation), ["clusterid"])
+        self.assertEqual(hcloud_catalog.normalized_required_params(show_operation), ["clustergroupid"])
+        self.assertEqual(hcloud_catalog.required_param_names(show_operation), ["clustergroupid"])
+        self.assertNotIn("client_request_id", hcloud_catalog.normalized_required_params(show_operation))
+        self.assertEqual(fingerprint["source"]["operation_count"], 3)
+        self.assertIn("catalog_hash", fingerprint)
 
 
 if __name__ == "__main__":

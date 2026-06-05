@@ -60,8 +60,10 @@
 
 - `hcloud_resource_discovery.py` 只自动选择无必填业务参数的 read-only discovery 操作，并限制默认数量。
 - `hcloud_resource_query.py` 可以为 read-only operation 生成命令，但必填参数必须由用户或上游工具显式提供。
-- `hcloud_service_change_plan.py` 可以为 mutating operation 生成 planner-only 风险计划；真实 submit 仍需要单独确认，不会自动执行。
+- `hcloud_service_change_plan.py` 可以为 mutating operation 生成 planner-only 风险计划；真实 submit 仍需要单独确认，不会自动执行。metadata-backed mutation 的 dry-run 支持默认为 `unknown`，不会自动假设支持 dry-run。
 - `hcloud_catalog_audit.py --fail-on-drift` 用于确认 curated registry 没有引用 catalog 中已消失的 operation。
+- `hcloud_catalog_readonly_smoke.py` 用于小批只读实测，并把失败归因到命令形态、账号权限、服务开通、region/project、参数或网络等桶。
+- `hcloud-service-catalog.fingerprint.json` 是 review 用小体积指纹；`hcloud-service-confidence.json` 是 live smoke/confidence/dry-run 支持性的 sidecar。
 
 ## 已实测能力
 

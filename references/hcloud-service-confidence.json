@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "description": "Optional human/live validation metadata for generated hcloud catalog services. Keep the generated catalog metadata-only; store confidence and dry-run evidence here.",
+  "services": {}
+}

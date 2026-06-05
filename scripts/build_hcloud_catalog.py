@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -13,6 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = Path.home() / ".hcloud" / "metaRepo"
 DEFAULT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.generated.json"
+DEFAULT_FINGERPRINT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.fingerprint.json"
 
 READ_ONLY_ACTIONS = ("List", "Show", "Count", "Check", "Search", "Query", "Get", "Download")
 MUTATING_ACTIONS = (
@@ -62,12 +64,18 @@ MUTATING_ACTIONS = (
 NAMESPACE_TOKENS = ("Batch", "Nova", "Neutron", "Glance", "Cinder", "Keystone")
 ACTION_TOKENS = tuple(dict.fromkeys((*READ_ONLY_ACTIONS, *MUTATING_ACTIONS)))
 IGNORED_PARAM_NAMES = {"x-auth-token", "content-type", "authorization", "x-language", "[n]"}
+PROJECT_PARAM_NAMES = {"project_id", "projectid"}
 MAX_TEXT = 320
 
 
 def normalize_token(value: str) -> str:
     """Return a lowercase alphanumeric-only token for loose matching."""
     return re.sub(r"[^a-z0-9]", "", value.lower())
+
+
+def normalize_param_name(value: str) -> str:
+    """Normalize a KooCLI parameter name for comparison."""
+    return value.strip().lstrip("-").replace("-", "_").lower()
 
 
 def clean_text(value: Any, max_chars: int = MAX_TEXT) -> str:
@@ -172,7 +180,7 @@ def load_detail(template_dir: Path, operation_name: str, version: str) -> tuple[
 
 
 def iter_param_names(param: dict[str, Any]) -> list[str]:
-    """Return normalized parameter names from one metadata param object."""
+    """Return parameter names from one metadata param object."""
     raw_names = param.get("Name", [])
     names = raw_names if isinstance(raw_names, list) else [raw_names]
     result: list[str] = []
@@ -184,20 +192,49 @@ def iter_param_names(param: dict[str, Any]) -> list[str]:
     return result
 
 
-def extract_params(detail: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """Return required and optional parameter names from an operation detail payload."""
-    required: list[str] = []
-    optional: list[str] = []
+def build_param_items(detail: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return compact structured parameter items from an operation detail payload."""
+    result: list[dict[str, Any]] = []
     params = detail.get("Params", [])
     if not isinstance(params, list):
-        return required, optional
+        return result
     for param in params:
         if not isinstance(param, dict):
             continue
-        target = required if param.get("Required") is True else optional
-        for name in iter_param_names(param):
-            target.append(name)
-    return list(dict.fromkeys(required)), list(dict.fromkeys(optional))
+        names = iter_param_names(param)
+        if not names:
+            continue
+        name = names[0]
+        normalized = normalize_param_name(name)
+        if not normalized:
+            continue
+        item: dict[str, Any] = {
+            "name": name,
+            "required": param.get("Required") is True,
+            "position": str(param.get("Position") or "").lower(),
+        }
+        result.append(item)
+    return result
+
+
+def business_param_names(params: list[dict[str, Any]], required: bool | None = None) -> list[str]:
+    """Return non-header, non-project parameter names for compatibility fields."""
+    names: list[str] = []
+    for param in params:
+        if required is not None and bool(param.get("required")) is not required:
+            continue
+        if str(param.get("position") or "").lower() == "header":
+            continue
+        normalized = normalize_param_name(str(param.get("name") or ""))
+        if not normalized or normalized in PROJECT_PARAM_NAMES:
+            continue
+        names.append(str(param.get("name")))
+    return list(dict.fromkeys(names))
+
+
+def all_param_names(params: list[dict[str, Any]]) -> list[str]:
+    """Return all non-ignored parameter names for compatibility checks."""
+    return [str(param.get("name")) for param in params if param.get("name")]
 
 
 def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, Any] | None:
@@ -207,14 +244,17 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, An
         return None
     version = select_version(raw_api.get("Versions", []))
     detail, detail_file = load_detail(template_dir, operation_name, version)
-    required_params, optional_params = extract_params(detail)
+    all_params = build_param_items(detail)
+    required_param_details = [param for param in all_params if param.get("required") is True]
+    required_params = business_param_names(all_params, required=True)
+    optional_params = business_param_names(all_params, required=False)
     request = detail.get("Request", {}) if isinstance(detail.get("Request"), dict) else {}
     suggests = raw_api.get("Suggests", {})
     summary = ""
     if isinstance(suggests, dict):
         summary = str(suggests.get(version) or next((value for value in suggests.values() if value), "") or "")
     action = operation_action(operation_name)
-    params_lower = {name.lower().replace("-", "_") for name in (*required_params, *optional_params)}
+    params_lower = {normalize_param_name(name) for name in all_param_names(all_params)}
     return {
         "name": operation_name,
         "summary": clean_text(summary),
@@ -228,6 +268,7 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, An
         "method": request.get("Method"),
         "path": request.get("Path"),
         "has_body_params": request.get("HasBodyParams"),
+        "params": required_param_details,
         "required_params": required_params,
         "optional_params": optional_params,
         "supports_limit": "limit" in params_lower,
@@ -287,11 +328,53 @@ def build_catalog(meta_repo: Path) -> dict[str, Any]:
     }
 
 
+def hash_json(value: Any) -> str:
+    """Return a stable short SHA-256 hash for a JSON-like value."""
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
+def build_fingerprint(catalog: dict[str, Any]) -> dict[str, Any]:
+    """Build a compact review-friendly fingerprint for catalog diffs."""
+    services: dict[str, Any] = {}
+    for service_key, service in sorted(catalog.get("services", {}).items()):
+        operations = service.get("operations", {}) if isinstance(service, dict) else {}
+        operation_names = sorted(str(name) for name in operations)
+        required_by_operation = {
+            name: sorted(str(param) for param in operations[name].get("required_params", []))
+            for name in operation_names
+            if isinstance(operations.get(name), dict)
+        }
+        services[service_key] = {
+            "name": service.get("name"),
+            "operation_count": len(operation_names),
+            "operations_hash": hash_json(operation_names),
+            "required_params_hash": hash_json(required_by_operation),
+        }
+    return {
+        "schema_version": 1,
+        "catalog_schema_version": catalog.get("schema_version"),
+        "source": catalog.get("source", {}),
+        "services": services,
+        "catalog_hash": hash_json(
+            {
+                "source": catalog.get("source", {}),
+                "services": services,
+            }
+        ),
+    }
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-meta-repo", default=str(DEFAULT_SOURCE), help="Source hcloud metaRepo directory.")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Generated catalog output path.")
+    parser.add_argument(
+        "--fingerprint-output",
+        default=str(DEFAULT_FINGERPRINT_OUTPUT),
+        help="Generated compact fingerprint output path. Use an empty string to skip.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Write indented JSON instead of compact JSON.")
     return parser.parse_args()
 
@@ -308,11 +391,19 @@ def main() -> int:
     else:
         text = json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
     output.write_text(text + "\n", encoding="utf-8")
+    fingerprint_path = Path(args.fingerprint_output).expanduser().resolve() if args.fingerprint_output else None
+    if fingerprint_path:
+        fingerprint_path.parent.mkdir(parents=True, exist_ok=True)
+        fingerprint_path.write_text(
+            json.dumps(build_fingerprint(catalog), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     print(
         json.dumps(
             {
                 "success": True,
                 "output": str(output),
+                "fingerprint_output": str(fingerprint_path) if fingerprint_path else None,
                 "service_count": catalog["source"]["service_count"],
                 "operation_count": catalog["source"]["operation_count"],
             },
