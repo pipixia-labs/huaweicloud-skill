@@ -1,13 +1,17 @@
 # Changelog
 
-## 0.2.3 - 2026-06-03
+## 0.2.3 - 2026-06-05
 
+- Fixed `hcloud_safe_exec.py` JSON parsing and cloud-error detection for polluted stdout, nested error payloads, byte output, and Windows-safe UTF-8 replacement decoding.
 - Strengthened generic in-guest execution guidance for ECS-backed tasks when COC/remote command is unavailable.
 - Allowed agents to create task-scoped keypairs and save returned private keys as restricted local artifacts for SSH validation and follow-up operations.
 - Added SSH fallback guidance using saved keys, exportable keypairs, reset password, restricted temporary SSH ingress, and cloud-init reinstall/rebuild for replaceable resources.
 - Expanded EVS readiness guidance to distinguish cloud-side attachment from in-guest filesystem readiness, including `/data` mount verification and idempotent mount scripts.
 - Expanded ELB HTTP backend readiness guidance with topology prechecks, cross-VPC/IP-target boundaries, backend service startup handling, and health-check service fallback.
 - Added stable semantic naming and capacity inference guidance for resources whose names or sizes are not explicitly specified by the user.
+- Added Huawei Cloud ModelArts MaaS image asset generation support for Huawei-hosted web/static-site deployments, including `scripts/qwen_text_to_image.py`, generated-asset readiness guidance, local manifest output, and tests.
+- Clarified that MaaS image generation is auxiliary Huawei Cloud site-asset support, not a generic image-generation route or a KooCLI service registry entry.
+- Added KooCLI installation guidance for cases where `hcloud` is not available in PATH.
 
 ## 0.2.2 - 2026-06-03
 

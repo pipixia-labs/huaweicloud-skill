@@ -1,11 +1,15 @@
 # Release Notes
 
-## v0.2.3 / 0.2.3 - 2026-06-03
+## v0.2.3 / 0.2.3 - 2026-06-05
 
-v0.2.3 improves practical ECS in-guest execution for real deployment workflows. It keeps the v0.2.2 safety posture, while making it clearer that agents may save task-scoped private keys and use controlled SSH/cloud-init fallback paths when remote command/COC is unavailable.
+v0.2.3 improves practical Huawei Cloud deployment workflows on top of v0.2.2. It keeps the existing safety posture while strengthening hcloud JSON error handling, ECS in-guest execution guidance, storage/load-balancer readiness guidance, KooCLI installation guidance, and Huawei Cloud ModelArts MaaS image asset generation for Huawei-hosted web/static-site deployments.
 
 ### Changes Since v0.2.2
 
+- Improves `hcloud_safe_exec.py` JSON and error handling:
+  - Parses JSON payloads even when stdout has leading diagnostic text before the JSON object or array.
+  - Treats nested cloud error payloads, such as `{ "error": { ... } }`, as logical failures even when the local process exits with code `0`.
+  - Uses UTF-8 replacement decoding for safer cross-platform subprocess output handling, including Windows-style output edge cases.
 - Adds generic in-guest execution guidance:
   - ECS-backed tasks must distinguish cloud-side resource state from OS/application state.
   - Agents should continue through saved SSH keys, exportable keypairs, reset password, or cloud-init reinstall/rebuild when the resource is new, test, demo, deployment-oriented, stateless, or otherwise replaceable.
@@ -20,12 +24,20 @@ v0.2.3 improves practical ECS in-guest execution for real deployment workflows. 
   - Adds canonical VPC/subnet topology prechecks before listener/pool/member churn.
   - Clarifies when cross-VPC IP targets are valid and when backend ECS should be rebuilt into a reachable topology.
   - Requires backend service startup and member `ONLINE` evidence before declaring end-to-end HTTP completion.
+- Adds Huawei Cloud ModelArts MaaS image asset generation support:
+  - Adds `scripts/qwen_text_to_image.py` for generating local WebP/PNG site assets from Huawei Cloud MaaS `b64_json` image responses.
+  - Reads credentials only from `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY` and writes a local manifest without secrets.
+  - Defaults to the Huawei Cloud MaaS endpoint `api.modelarts-maas.com` and model `qwen-image`.
+  - Adds `references/qwen-image-generation.md` and `references/playbooks/static-site-generated-assets-readiness.md`.
+  - Keeps this workflow as auxiliary Huawei Cloud site-asset support, not a generic image-generation route and not a KooCLI service registry entry.
+- Adds KooCLI installation guidance:
+  - If `hcloud` is missing from PATH, agents should stop real cloud queries/changes and direct the user to the official KooCLI installation documentation.
 
 ### Validation
 
-- Documentation-only change.
-- `git diff --check` passed before commit.
-- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests` passed.
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests`: 109 tests passed before release.
+- `git diff --check` passed before release.
+- `tests/test_qwen_text_to_image.py` covers request shape, dry-run behavior, API-key handling, base64/data-URI decoding, manifest redaction, output filename safety, and size normalization.
 
 ## v0.2.2 / 0.2.2 - 2026-06-03
 
