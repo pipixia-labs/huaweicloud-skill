@@ -393,7 +393,7 @@ def next_actions(service: str, failures: list[str]) -> list[str]:
         "NAT": "Check ListNatGateways and rule list output, then confirm gateway/rule IDs and EIP dependencies.",
         "RDS": "Check ListInstances/Show* detail output and confirm instance status, engine, and backup settings.",
         "CCE": "Check ShowCluster/ListNodes output and confirm cluster/node statuses.",
-        "CDN": "Check ListDomains/ShowDomain output and confirm domain status, origin, HTTPS, and cache settings.",
+        "CDN": "Check ListDomains/ShowDomainDetail output and confirm domain status, origin, HTTPS, and cache settings.",
         "DNS": "Check ListRecordSets output and confirm zone ID, record name, type, TTL, and values.",
         "SCM": "Check ListCertificates output and confirm certificate status, domain, expiration, and deployment target.",
     }

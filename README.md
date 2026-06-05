@@ -16,9 +16,10 @@
 一次典型任务会按这个顺序执行：
 
 1. Agent 先检查本机 KooCLI、profile、region、project 和认证状态。
-2. Agent 根据 Skill 的服务注册表和 playbook 判断该用哪个华为云服务和操作。
-3. 查询类任务直接走只读路径；变更类任务先做计划、dry-run 和风险识别。
-4. 只有用户明确确认后，Agent 才会执行真实变更，并继续做结果验证。
+2. Agent 先用 curated service registry 和 playbook 判断是否有深度支持路径。
+3. 如果服务不在 registry 中，再使用 skill 自带的 generated hcloud catalog 做 metadata-backed 发现、显式只读查询或 planner-only 变更计划。
+4. 查询类任务直接走只读路径；变更类任务先做计划、dry-run 和风险识别。
+5. 只有用户明确确认后，Agent 才会执行真实变更，并继续做结果验证。
 
 ## 快速开始
 
@@ -137,7 +138,8 @@ flowchart LR
 
 - **CLI-first**：优先基于本机 `hcloud` 的真实 service、operation 和 help 信息工作，减少凭空猜测。
 - **结构化上下文**：自动整理 profile、region、project、认证模式、CLI 路径、版本和常见配置问题。
-- **多服务发现**：通过 registry、playbook 和 discovery 工具覆盖 ECS、VPC、EIP、EVS、IMS、KPS、RDS、ELB、OBS、CDN、IAM 等常用服务。
+- **多服务发现**：通过 registry、playbook 和 discovery 工具深度覆盖 ECS、VPC、EIP、EVS、IMS、KPS、RDS、ELB、OBS、CDN、IAM 等常用服务。
+- **metadata-backed 广覆盖**：内置 `references/hcloud-service-catalog.generated.json`，当前覆盖 125 个 hcloud metadata 服务、10,194 个 operation；registry 外的 110 个服务默认只开放安全发现、显式参数只读查询和 planner-only 变更计划。
 - **安全执行封装**：统一处理超时、敏感信息脱敏、JSON 解析、错误分类和输出裁剪。
 - **变更门禁**：变更类流程默认包含 dry-run、风险识别、显式确认、执行记录和变更后验证。
 - **入口暴露限制**：SSH `22` 和常见 Web 端口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 的入方向规则会阻止 `0.0.0.0/0`。

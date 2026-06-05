@@ -34,6 +34,7 @@ hcloud_guarded_change_flow = load_module("hcloud_guarded_change_flow", SCRIPTS /
 hcloud_obs_change_plan = load_module("hcloud_obs_change_plan", SCRIPTS / "hcloud_obs_change_plan.py")
 hcloud_obs_readonly = load_module("hcloud_obs_readonly", SCRIPTS / "hcloud_obs_readonly.py")
 hcloud_resource_detail_probe = load_module("hcloud_resource_detail_probe", SCRIPTS / "hcloud_resource_detail_probe.py")
+hcloud_resource_discovery = load_module("hcloud_resource_discovery", SCRIPTS / "hcloud_resource_discovery.py")
 hcloud_resource_query = load_module("hcloud_resource_query", SCRIPTS / "hcloud_resource_query.py")
 hcloud_resource_verify = load_module("hcloud_resource_verify", SCRIPTS / "hcloud_resource_verify.py")
 hcloud_service_readiness = load_module("hcloud_service_readiness", SCRIPTS / "hcloud_service_readiness.py")
@@ -206,6 +207,70 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["operation"], "ShowPublicip")
         self.assertEqual(result["requested_operation"], "showpublicip")
         self.assertIn("--arg=--publicip_id=eip-1", result["command"])
+
+    def test_catalog_backed_discovery_builds_safe_read_commands(self) -> None:
+        args = SimpleNamespace(
+            service="UCS",
+            operation=None,
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            limit=10,
+            catalog_max_operations=3,
+            execute=False,
+        )
+
+        result = hcloud_resource_discovery.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["metadata_backed"])
+        self.assertEqual(result["coverage"], "metadata-backed")
+        self.assertLessEqual(len(result["commands"]), 3)
+        self.assertTrue(all(item["metadata_backed"] for item in result["commands"]))
+        self.assertIn("List", result["commands"][0]["operation"])
+
+    def test_catalog_backed_resource_query_requires_explicit_params(self) -> None:
+        args = SimpleNamespace(
+            service="UCS",
+            operation="ListAddonInstances",
+            param=[],
+            arg=[],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            execute=False,
+            timeout=1,
+            allow_sensitive_read=False,
+        )
+
+        result = hcloud_resource_query.build_plan(args)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["missing_params"], ["cluster_id"])
+        self.assertEqual(result["operation_scope"], "metadata_resource_query")
+
+    def test_catalog_backed_resource_query_builds_command(self) -> None:
+        args = SimpleNamespace(
+            service="UCS",
+            operation="ListAddonInstances",
+            param=["cluster_id=cluster-1"],
+            arg=[],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            execute=False,
+            timeout=1,
+            allow_sensitive_read=False,
+        )
+
+        result = hcloud_resource_query.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["metadata_backed"])
+        self.assertEqual(result["operation_scope"], "metadata_resource_query")
+        self.assertIn("--service", result["command"])
+        self.assertIn("UCS", result["command"])
+        self.assertIn("--arg=--cluster_id=cluster-1", result["command"])
 
     def test_eip_change_flow_builds_guarded_plan(self) -> None:
         result = hcloud_eip_change_flow.build_flow(self.eip_flow_args())
@@ -391,7 +456,8 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertTrue(result["success"], result)
         self.assertTrue(result["post_change_verification"]["success"])
-        self.assertEqual(result["post_change_verification"]["operation"], "ShowDomain")
+        self.assertEqual(result["post_change_verification"]["requested_operation"], "ShowDomain")
+        self.assertEqual(result["post_change_verification"]["operation"], "ShowDomainDetail")
         self.assertIn("--arg=--cli-region=cn-north-1", result["post_change_verification"]["command"])
 
     def test_guarded_change_flow_rejects_delegated_planner(self) -> None:
@@ -1002,6 +1068,70 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("--arg=--cli-region=cn-north-4", result["commands"]["dryrun_or_plan"])
         self.assertEqual(result["region_resolution"]["requested_region"], "cn-north-4")
         self.assertEqual(result["region_resolution"]["resolved_region"], "cn-north-1")
+
+    def test_service_change_plan_maps_old_change_operation_alias(self) -> None:
+        args = SimpleNamespace(
+            service="RDS",
+            operation="ResizeInstance",
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            json_input_file=None,
+            arg=["--instance_id=rds-1"],
+            no_dryrun=False,
+            allow_unregistered=False,
+        )
+
+        result = hcloud_service_change_plan.build_service_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["requested_operation"], "ResizeInstance")
+        self.assertEqual(result["operation"], "StartResizeFlavorAction")
+        self.assertTrue(result["registered_change_operation"])
+
+    def test_service_change_plan_builds_catalog_backed_mutation_plan(self) -> None:
+        args = SimpleNamespace(
+            service="UCS",
+            operation="CreateClusterKubeconfig",
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            json_input_file=None,
+            arg=["--clusterid=cluster-1"],
+            no_dryrun=False,
+            allow_unregistered=False,
+        )
+
+        result = hcloud_service_change_plan.build_service_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertTrue(result["metadata_backed"])
+        self.assertFalse(result["registered_change_operation"])
+        self.assertEqual(result["coverage"], "metadata-backed")
+        self.assertIn("--service", result["commands"]["dryrun_or_plan"])
+        self.assertIn("UCS", result["commands"]["dryrun_or_plan"])
+        self.assertIn("--arg=--dryrun", result["commands"]["dryrun_or_plan"])
+        self.assertTrue(result["submit_requires_confirmation"])
+
+    def test_service_change_plan_rejects_catalog_backed_read_operation(self) -> None:
+        args = SimpleNamespace(
+            service="UCS",
+            operation="ListManagedClusters",
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            json_input_file=None,
+            arg=[],
+            no_dryrun=False,
+            allow_unregistered=False,
+        )
+
+        result = hcloud_service_change_plan.build_service_plan(args)
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["metadata_backed"])
+        self.assertIn("read-only", result["error"])
 
     def test_service_change_plan_rejects_unregistered_operation(self) -> None:
         args = SimpleNamespace(

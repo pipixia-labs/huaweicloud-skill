@@ -83,6 +83,7 @@ SIDE_EFFECT_VALIDATION_PATTERNS = [
 ]
 
 VALIDATION_OPERATION_ALIASES = {
+    ("CDN", "ShowDomain"): "ShowDomainDetail",
     ("ECS", "ListServers"): "ListServersDetails",
     ("RDS", "ShowConfigurationDetail"): "ShowConfiguration",
 }

@@ -10,6 +10,10 @@
   - 有服务级 guidance 或 playbook，但动态发现或本地缓存不完整
 - `Low`
   - 只有服务存在性或文档层 guidance，暂未形成稳定执行路径
+- `Metadata-backed`
+  - 不在 curated registry 中，但已进入 `references/hcloud-service-catalog.generated.json`
+  - 只作为保守兜底层：无必填业务参数的只读 discovery、显式参数只读查询、planner-only 变更计划
+  - 不等同于有 playbook、专用 verifier 或真实云变更闭环
 
 ## 当前覆盖矩阵
 
@@ -22,7 +26,7 @@
 | `VPC` | Medium | 有 workflow、playbook、list-only discovery 和第一层 show 查询 | 本地可发现 VPC list/count 型 operation；`ShowVpc`、`ShowSubnet`、`ShowSecurityGroup` 等详情查询需要显式目标 ID |
 | `IMS` | Medium | 有 workflow、playbook、list-only discovery 和镜像详情查询 | 本地可发现镜像 list 型 operation；`GlanceShowImage` 等资源级操作需要目标 ID，不作为通用 discovery 入口 |
 | `KPS` | Medium | 有 workflow、playbook、list-only discovery 和 keypair 详情查询 | 本地已验证 `ListKeypairs` / `ListKeypairDetail` operation 名称；密钥创建和私钥处理需要专门风险 gate |
-| `EIP` | Medium | 有 list/count 型 discovery、`ShowPublicip` 和守护式变更 flow | 本地可发现 EIP、带宽、公网 IP 池、配额等查询 operation；operation detail 缓存不完整时会保守省略可选参数；真实 submit 仍需显式确认 |
+| `EIP` | Medium | 有 list/count 型 discovery、`ShowPublicip` 和守护式变更 flow | 本地可发现 EIP、带宽、公网 IP 池、配额等查询 operation；generated catalog 可补充识别 `ListPublicips` 的 `limit` 参数；真实 submit 仍需显式确认 |
 | `ELB` | Low | 已登记常用查询入口、第一层 show 查询和 planner-only 变更入口 | service 可见但本地没有 operation detail；用于负载均衡验证和离线问题集覆盖，不等同于完整 ELB 执行能力 |
 | `EVS` | Low | 已登记常用查询入口、volume/snapshot 详情和 planner-only 变更入口 | service 可见但本地没有 operation detail；云硬盘挂载、扩容、格式化仍需云侧和 ECS 内双重验收 |
 | `NAT` | Low | 已登记常用查询入口和 NAT/DNAT/SNAT 详情查询 | service 可见但本地没有 operation detail；NAT 创建、绑定和删除仍未开放通用变更 |
@@ -36,6 +40,28 @@
 `query_runner` / `resource_query_runner` 用于非普通 OpenAPI-style 服务；OBS 会路由到 `scripts/hcloud_obs_readonly.py`，避免生成错误的 `hcloud OBS Operation` 命令。
 `change_operations` 中的非 ECS 项当前表示 `hcloud_service_change_plan.py` 可生成 planner-only 风险计划，不表示已经允许自动提交真实变更。
 `supported_cli_regions` / `preferred_cli_region` 用于记录 KooCLI 层面的区域限制；例如 CDN `ListDomains` 会从不支持的业务 region 自动落到 `cn-north-1` 执行只读 discovery。
+
+## Generated catalog 覆盖
+
+`references/hcloud-service-catalog.generated.json` 当前覆盖 125 个 hcloud metadata 服务和 10,194 个 operation。除 registry 中 16 个服务外，新增 110 个 metadata-backed 服务：
+
+`AAD`, `Anti-DDoS`, `AOM`, `AOS`, `APIG`, `APM`, `AS`, `AstroZero`, `BMS`, `CAE`, `CBH`, `CBR`
+`CBS`, `CC`, `CCI`, `CCM`, `CDM`, `CFW`, `CloudDC`, `CloudPond`, `CloudRTC`, `CloudTest`, `COC`, `CodeArtsArtifact`
+`CodeArtsBuild`, `CodeArtsCheck`, `CodeArtsDeploy`, `CodeArtsPipeline`, `CodeArtsRepo`, `CodeCheck`, `Config`, `CPCS`, `CPH`, `CPTS`, `CSE`, `CSMS`
+`CSS`, `CTS`, `DAS`, `DataArtsStudio`, `DBSS`, `DC`, `DCC`, `DCS`, `DDM`, `DDS`, `DeH`, `DGC`
+`DIS`, `DLF`, `DLI`, `DRS`, `DSC`, `DSS`, `DWS`, `EdgeSec`, `EDS`, `EG`, `EPS`, `ER`
+`ESW`, `FunctionGraph`, `IAMAccessAnalyzer`, `IdentityCenter`, `IdentityCenterOIDC`, `IdentityCenterPortalAPI`, `IdentityCenterSCIM`, `IdentityCenterStore`, `Image`, `IoTDA`, `IoTDM`, `Kafka`
+`KMS`, `Live`, `LTS`, `Marketplace`, `Meeting`, `ModelArts`, `Moderation`, `MPC`, `MRS`, `OCR`, `OMS`, `Organizations`
+`ProjectMan`, `RabbitMQ`, `RAM`, `RFS`, `RGC`, `RMS`, `RocketMQ`, `ROMA`, `SecMaster`, `ServiceStage`, `SFSTurbo`, `SIS`
+`SMN`, `SMNGLOBAL`, `SMS`, `STS`, `SWR`, `TMS`, `UCS`, `UGO`, `VOD`, `VPCEP`, `VPN`, `WAF`
+`Workspace`, `WorkspaceApp`
+
+这些服务的默认边界：
+
+- `hcloud_resource_discovery.py` 只自动选择无必填业务参数的 read-only discovery 操作，并限制默认数量。
+- `hcloud_resource_query.py` 可以为 read-only operation 生成命令，但必填参数必须由用户或上游工具显式提供。
+- `hcloud_service_change_plan.py` 可以为 mutating operation 生成 planner-only 风险计划；真实 submit 仍需要单独确认，不会自动执行。
+- `hcloud_catalog_audit.py --fail-on-drift` 用于确认 curated registry 没有引用 catalog 中已消失的 operation。
 
 ## 已实测能力
 
@@ -75,7 +101,7 @@
 - 在 `services_en.json` 中可以看到这些 service
 - 本地 template cache 覆盖深度不一致；EIP / VPC 等可能只有 operation index，ELB / EVS / NAT / RDS 等当前只有 service 入口，缺少 per-operation detail
 - `hcloud_resource_discovery.py` 可以按 registry 为这些服务生成 list-only 查询命令，但真实执行仍依赖本机 hcloud metadata 和账号权限
-- `hcloud_resource_query.py` 可以为 EIP `ShowPublicip`、VPC `ShowVpc/ShowSubnet/ShowSecurityGroup`、ELB `ShowLoadBalancer/ShowListener/ListMembers`、EVS `ShowVolume/ShowSnapshot`、IMS `GlanceShowImage`、KPS `ListKeypairDetail`、NAT `ShowNatGateway/ShowNatGatewayDnatRule`、RDS `ShowConfiguration`、CCE `ShowCluster/ListNodes`、CDN `ShowDomain`、DNS `ShowRecordSet`、SCM `ShowCertificate` 等目标型只读查询生成可执行命令；`data.xlsx` 里的 RDS `ShowConfigurationDetail` 会被覆盖检查映射到 KooCLI 实际操作 `ShowConfiguration`
+- `hcloud_resource_query.py` 可以为 EIP `ShowPublicip`、VPC `ShowVpc/ShowSubnet/ShowSecurityGroup`、ELB `ShowLoadBalancer/ShowListener/ListMembers`、EVS `ShowVolume/ShowSnapshot`、IMS `GlanceShowImage`、KPS `ListKeypairDetail`、NAT `ShowNatGateway/ShowNatGatewayDnatRule`、RDS `ShowConfiguration`、CCE `ShowCluster/ListNodes`、CDN `ShowDomainDetail`、DNS `ShowRecordSet`、SCM `ShowCertificate` 等目标型只读查询生成可执行命令；旧验证文本里的 CDN `ShowDomain` 和 RDS `ShowConfigurationDetail` 会被覆盖检查映射到 KooCLI 实际操作
 - `hcloud_service_readiness.py` 可以按服务批量生成或执行只读 readiness 检查，并汇总资源数量和状态计数
 - 默认 readiness 顺序按问题集频次广度优先排列：ECS、VPC、RDS、IMS、EVS、EIP、ELB、NAT、KPS、IAM，然后补 CCE、CDN、DNS、SCM、OBS、CES
 - `hcloud_readonly_smoke.py` 可以批量生成或执行多服务只读 smoke 查询

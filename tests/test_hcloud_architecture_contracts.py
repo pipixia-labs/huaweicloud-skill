@@ -183,9 +183,10 @@ class ArchitectureContractsTest(unittest.TestCase):
         plan = hcloud_resource_discovery.build_plan(args)
 
         self.assertFalse(plan["success"])
-        self.assertIn("not registered as list-only query", plan["error"])
+        self.assertIn("requires explicit parameters", plan["error"])
+        self.assertEqual(plan["catalog_required_params"], ["server_id"])
 
-    def test_eip_discovery_is_registered_but_omits_unknown_limit(self) -> None:
+    def test_eip_discovery_uses_catalog_known_limit(self) -> None:
         args = SimpleNamespace(
             service="EIP",
             operation="ListPublicips",
@@ -200,8 +201,8 @@ class ArchitectureContractsTest(unittest.TestCase):
 
         self.assertTrue(plan["success"])
         self.assertEqual(plan["commands"][0]["operation"], "ListPublicips")
-        self.assertNotIn("--arg=--limit=20", plan["commands"][0]["command"])
-        self.assertEqual(plan["commands"][0]["omitted_args"], ["--limit"])
+        self.assertIn("--arg=--limit=20", plan["commands"][0]["command"])
+        self.assertNotIn("omitted_args", plan["commands"][0])
 
     def test_change_plan_classifies_delete_as_high_risk(self) -> None:
         args = SimpleNamespace(

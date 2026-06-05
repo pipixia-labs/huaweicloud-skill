@@ -469,13 +469,14 @@
         "CreateInstance",
         "UpdateInstanceName",
         "DeleteInstance",
-        "ResizeInstance",
+        "StartResizeFlavorAction",
         "CreateDatabase",
         "DeleteDatabase",
         "CreateDbUser",
         "DeleteDbUser",
         "SetBackupPolicy",
-        "SetConfiguration"
+        "UpdateConfiguration",
+        "UpdateInstanceConfiguration"
       ],
       "planner": "scripts/hcloud_service_change_plan.py",
       "change_flow": "scripts/hcloud_guarded_change_flow.py",
@@ -528,11 +529,12 @@
         "ListDomains"
       ],
       "resource_query_operations": [
-        "ShowDomain"
+        "ShowDomainDetail"
       ],
       "change_operations": [
         "CreateDomain",
-        "UpdateDomain",
+        "UpdateDomainFullConfig",
+        "UpdateDomainOrigin",
         "DeleteDomain"
       ],
       "planner": "scripts/hcloud_service_change_plan.py",

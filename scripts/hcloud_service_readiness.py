@@ -74,7 +74,7 @@ READINESS_PROFILES = {
     ],
     "CDN": [
         {"operation": "ListDomains"},
-        {"operation": "ShowDomain", "required_targets": ["domain_id"]},
+        {"operation": "ShowDomainDetail", "required_targets": ["domain_id"]},
     ],
     "DNS": [
         {"operation": "ListPublicZones"},

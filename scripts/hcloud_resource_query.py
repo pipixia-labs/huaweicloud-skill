@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import hcloud_change_plan
+import hcloud_catalog
 import hcloud_resource_discovery
 from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, normalize_token
 
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CURATED_REQUIRED_PARAMS = {
     ("CCE", "ListNodes"): ("cluster_id",),
     ("CCE", "ShowCluster"): ("cluster_id",),
-    ("CDN", "ShowDomain"): ("domain_id",),
+    ("CDN", "ShowDomainDetail"): ("domain_id",),
     ("DNS", "ShowPublicZone"): ("zone_id",),
     ("DNS", "ShowRecordSet"): ("zone_id", "recordset_id"),
     ("ECS", "ListServerBlockDevices"): ("server_id",),
@@ -64,6 +65,7 @@ CURATED_REQUIRED_PARAMS = {
     ("VPC", "ShowVpc"): ("vpc_id",),
 }
 OPERATION_ALIASES = {
+    ("CDN", "ShowDomain"): "ShowDomainDetail",
     ("RDS", "ShowConfigurationDetail"): "ShowConfiguration",
 }
 IGNORED_REQUIRED_PARAMS = {"x-auth-token", "project_id", "projectid"}
@@ -150,8 +152,21 @@ def metadata_required_params(service: str, operation: str) -> list[str]:
 def required_params(service: str, operation: str) -> list[str]:
     """Return required explicit parameters for a read query."""
     params = set(metadata_required_params(service, operation))
+    params.update(catalog_required_params(service, operation))
     params.update(CURATED_REQUIRED_PARAMS.get((service.upper(), operation), ()))
     return sorted(params)
+
+
+def catalog_required_params(service: str, operation: str) -> list[str]:
+    """Return required non-auth parameters from the generated hcloud catalog."""
+    catalog = hcloud_catalog.load_catalog()
+    catalog_service = hcloud_catalog.resolve_service(catalog, service)
+    if not catalog_service:
+        return []
+    catalog_operation = hcloud_catalog.resolve_operation(catalog_service, operation)
+    if not catalog_operation:
+        return []
+    return hcloud_catalog.normalized_required_params(catalog_operation)
 
 
 def provided_param_names(args: argparse.Namespace, params: dict[str, str]) -> set[str]:
@@ -171,6 +186,7 @@ def build_command(
     service_entry: dict[str, Any],
     params: dict[str, str],
     operation: str,
+    command_service: str,
 ) -> tuple[list[str], dict[str, Any] | None]:
     """Build the safe_exec command for an explicit read query."""
     cli_region, region_resolution = hcloud_resource_discovery.resolve_cli_region(args, service_entry)
@@ -178,7 +194,7 @@ def build_command(
         "python3",
         "scripts/hcloud_safe_exec.py",
         "--service",
-        args.service.upper(),
+        command_service,
         "--operation",
         operation,
         "--arg=--cli-output=json",
@@ -197,6 +213,17 @@ def build_command(
             raise ValueError(f"Raw --arg values must start with --: {raw_arg}")
         command.append(f"--arg={raw_arg}")
     return command, region_resolution
+
+
+def catalog_context(service: str, operation: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None, str]:
+    """Return catalog service, operation, and hcloud command service name."""
+    catalog = hcloud_catalog.load_catalog()
+    catalog_service = hcloud_catalog.resolve_service(catalog, service)
+    if not catalog_service:
+        return None, None, service.upper()
+    catalog_operation = hcloud_catalog.resolve_operation(catalog_service, operation)
+    command_service = hcloud_catalog.command_service_name(catalog_service, service.upper())
+    return catalog_service, catalog_operation, command_service
 
 
 def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
@@ -228,31 +255,86 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     requested_operation = args.operation
     aliased_operation = canonical_operation(service, requested_operation)
     entry = registry.get("services", {}).get(service)
+    catalog_service, catalog_operation, command_service = catalog_context(service, aliased_operation)
     if entry is None:
-        return {
-            "success": False,
-            "service": service,
-            "operation": aliased_operation,
-            "requested_operation": requested_operation,
-            "error": f"Service is not registered: {service}",
-            "available_services": sorted(registry.get("services", {})),
-        }
-    resource_query_runner = entry.get("resource_query_runner")
-    if resource_query_runner and resource_query_runner != "scripts/hcloud_resource_query.py":
-        return {
-            "success": False,
-            "service": service,
-            "operation": aliased_operation,
-            "requested_operation": requested_operation,
-            "error": "Service uses a dedicated resource query runner and is not compatible with generic resource query.",
-            "resource_query_runner": resource_query_runner,
-            "available_resource_query_operations": entry.get("resource_query_operations", []),
-        }
+        if catalog_service is None:
+            return {
+                "success": False,
+                "service": service,
+                "operation": aliased_operation,
+                "requested_operation": requested_operation,
+                "error": f"Service is not registered and is not present in the generated hcloud catalog: {service}",
+                "available_services": sorted(registry.get("services", {})),
+                "available_catalog_services": hcloud_catalog.catalog_service_names(hcloud_catalog.load_catalog()),
+            }
+        if catalog_operation is None:
+            return {
+                "success": False,
+                "service": service,
+                "operation": aliased_operation,
+                "requested_operation": requested_operation,
+                "coverage": "metadata-backed",
+                "metadata_backed": True,
+                "error": "Operation is not present in the generated hcloud catalog.",
+                "available_catalog_operations_sample": sorted(catalog_service.get("operations", {}))[:50],
+            }
+        if not hcloud_catalog.is_read_only(catalog_operation):
+            return {
+                "success": False,
+                "service": service,
+                "operation": str(catalog_operation.get("name") or aliased_operation),
+                "requested_operation": requested_operation,
+                "coverage": "metadata-backed",
+                "metadata_backed": True,
+                "catalog_operation_summary": catalog_operation.get("summary"),
+                "error": "Operation is mutating; use hcloud_service_change_plan.py for a planner-only change plan.",
+            }
+        operation = str(catalog_operation.get("name") or aliased_operation)
+        scope = "metadata_resource_query" if hcloud_catalog.normalized_required_params(catalog_operation) else "metadata_query"
+        command_entry: dict[str, Any] = {}
+    else:
+        resource_query_runner = entry.get("resource_query_runner")
+        if resource_query_runner and resource_query_runner != "scripts/hcloud_resource_query.py":
+            return {
+                "success": False,
+                "service": service,
+                "operation": aliased_operation,
+                "requested_operation": requested_operation,
+                "error": "Service uses a dedicated resource query runner and is not compatible with generic resource query.",
+                "resource_query_runner": resource_query_runner,
+                "available_resource_query_operations": entry.get("resource_query_operations", []),
+            }
 
-    operation = resolve_registered_operation(entry, aliased_operation)
-    if operation is None:
-        operation = aliased_operation
-    scope = operation_scope(entry, operation)
+        operation = resolve_registered_operation(entry, aliased_operation)
+        if operation is None:
+            if catalog_operation is None:
+                return {
+                    "success": False,
+                    "service": service,
+                    "operation": aliased_operation,
+                    "requested_operation": requested_operation,
+                    "error": "Operation is not registered as a read query for this service and is not present in the generated hcloud catalog.",
+                    "available_query_operations": entry.get("query_operations", []),
+                    "available_resource_query_operations": entry.get("resource_query_operations", []),
+                    "available_catalog_operations_sample": sorted(catalog_service.get("operations", {}))[:50] if catalog_service else [],
+                }
+            if not hcloud_catalog.is_read_only(catalog_operation):
+                return {
+                    "success": False,
+                    "service": service,
+                    "operation": str(catalog_operation.get("name") or aliased_operation),
+                    "requested_operation": requested_operation,
+                    "coverage": "metadata-backed",
+                    "metadata_backed": True,
+                    "catalog_operation_summary": catalog_operation.get("summary"),
+                    "error": "Operation is mutating; use hcloud_service_change_plan.py for a planner-only change plan.",
+                }
+            operation = str(catalog_operation.get("name") or aliased_operation)
+            scope = "metadata_resource_query" if hcloud_catalog.normalized_required_params(catalog_operation) else "metadata_query"
+        else:
+            scope = operation_scope(entry, operation)
+        command_entry = entry
+
     if scope is None:
         return {
             "success": False,
@@ -260,8 +342,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "operation": operation,
             "requested_operation": requested_operation,
             "error": "Operation is not registered as a read query for this service.",
-            "available_query_operations": entry.get("query_operations", []),
-            "available_resource_query_operations": entry.get("resource_query_operations", []),
+            "available_query_operations": entry.get("query_operations", []) if entry else [],
+            "available_resource_query_operations": entry.get("resource_query_operations", []) if entry else [],
         }
 
     risk = hcloud_change_plan.assess_risk(operation, dryrun_supported=False)
@@ -292,20 +374,30 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "error": "Missing required explicit query parameters.",
         }
 
-    command, region_resolution = build_command(args, entry, params, operation)
+    command, region_resolution = build_command(args, command_entry, params, operation, command_service if scope.startswith("metadata_") else service)
     result: dict[str, Any] = {
         "success": True,
         "mode": "execute" if args.execute else "plan",
         "service": service,
         "operation": operation,
         "operation_scope": scope,
-        "coverage": entry.get("coverage"),
+        "coverage": "metadata-backed" if scope.startswith("metadata_") else entry.get("coverage"),
         "risk": risk.to_dict(),
         "required_params": required,
         "provided_params": sorted(provided_param_names(args, params)),
         "command": command,
         "command_shell": shlex.join(command),
     }
+    if scope.startswith("metadata_"):
+        result.update(
+            {
+                "metadata_backed": True,
+                "catalog_service": command_service,
+                "catalog_operation_summary": catalog_operation.get("summary") if catalog_operation else None,
+                "catalog_operation_method": catalog_operation.get("method") if catalog_operation else None,
+                "catalog_operation_path": catalog_operation.get("path") if catalog_operation else None,
+            }
+        )
     if requested_operation != operation:
         result["requested_operation"] = requested_operation
     if region_resolution:

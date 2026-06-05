@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import hcloud_change_plan
+import hcloud_catalog
 import hcloud_resource_discovery
 
 
@@ -47,7 +48,7 @@ SERVICE_VERIFICATION_HINTS = {
         "After certificate operations, query ListCertificates and verify domain, status, expiration, and deployment target.",
     ],
     "CDN": [
-        "After CDN domain or config changes, query ShowDomain/ListDomains and verify online status, origin, HTTPS, and cache config.",
+        "After CDN domain or config changes, query ShowDomainDetail/ListDomains and verify online status, origin, HTTPS, and cache config.",
     ],
     "CCE": [
         "After cluster or node changes, query ShowCluster/ListNodes and verify cluster availability and node readiness.",
@@ -88,6 +89,12 @@ PREFERRED_DISCOVERY_OPERATIONS = {
     "CCE": "ListClusters",
 }
 
+CHANGE_OPERATION_ALIASES = {
+    ("CDN", "UpdateDomain"): "UpdateDomainFullConfig",
+    ("RDS", "ResizeInstance"): "StartResizeFlavorAction",
+    ("RDS", "SetConfiguration"): "UpdateConfiguration",
+}
+
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
     """Return the service registry."""
@@ -111,15 +118,20 @@ def resolve_change_operation(registered_changes: set[str], requested_operation: 
     return None
 
 
+def canonical_change_operation(service: str, operation: str) -> str:
+    """Return the executable KooCLI operation name for a known old change alias."""
+    return CHANGE_OPERATION_ALIASES.get((service.upper(), operation), operation)
+
+
 def service_entry(registry: dict[str, Any], service: str) -> dict[str, Any]:
     """Return a registry service entry or an empty dictionary."""
     return registry.get("services", {}).get(service.upper(), {})
 
 
-def planner_args(args: argparse.Namespace, cli_region: str | None) -> SimpleNamespace:
+def planner_args(args: argparse.Namespace, cli_region: str | None, command_service: str | None = None) -> SimpleNamespace:
     """Convert service planner args to hcloud_change_plan args."""
     return SimpleNamespace(
-        service=args.service.upper(),
+        service=command_service or args.service.upper(),
         operation=args.operation,
         region=cli_region,
         project_id=args.project_id,
@@ -130,28 +142,159 @@ def planner_args(args: argparse.Namespace, cli_region: str | None) -> SimpleName
     )
 
 
+def limited_params(values: list[str], limit: int = 80) -> dict[str, Any]:
+    """Return a bounded parameter list for planner output."""
+    values = list(dict.fromkeys(values))
+    return {
+        "items": values[:limit],
+        "omitted_count": max(0, len(values) - limit),
+    }
+
+
+def catalog_context(service: str, operation: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None, str]:
+    """Return catalog service, catalog operation, and command service name."""
+    catalog = hcloud_catalog.load_catalog()
+    catalog_service = hcloud_catalog.resolve_service(catalog, service)
+    if not catalog_service:
+        return None, None, service.upper()
+    catalog_operation = hcloud_catalog.resolve_operation(catalog_service, operation)
+    command_service = hcloud_catalog.command_service_name(catalog_service, service.upper())
+    return catalog_service, catalog_operation, command_service
+
+
+def catalog_readiness_plan(args: argparse.Namespace, service: str) -> dict[str, Any]:
+    """Build a small metadata-backed read-only smoke plan when possible."""
+    return hcloud_resource_discovery.build_plan(
+        SimpleNamespace(
+            service=service,
+            operation=None,
+            region=args.region,
+            project_id=args.project_id,
+            profile=args.profile,
+            limit=20,
+            catalog_max_operations=3,
+            execute=False,
+        )
+    )
+
+
+def build_catalog_change_plan(
+    args: argparse.Namespace,
+    service: str,
+    requested_operation: str,
+    operation: str,
+    catalog_service: dict[str, Any],
+    catalog_operation: dict[str, Any] | None,
+    command_service: str,
+    entry: dict[str, Any],
+    registered: bool,
+) -> dict[str, Any]:
+    """Build a planner-only change plan from generated hcloud catalog metadata."""
+    if catalog_operation is None:
+        return {
+            "success": False,
+            "service": service,
+            "operation": operation,
+            "requested_operation": requested_operation,
+            "coverage": "metadata-backed",
+            "metadata_backed": True,
+            "error": "Operation is not present in the generated hcloud catalog.",
+            "available_catalog_operations_sample": sorted(catalog_service.get("operations", {}))[:50],
+        }
+    operation = str(catalog_operation.get("name") or operation)
+    if hcloud_catalog.is_read_only(catalog_operation):
+        return {
+            "success": False,
+            "service": service,
+            "operation": operation,
+            "requested_operation": requested_operation,
+            "coverage": "metadata-backed",
+            "metadata_backed": True,
+            "catalog_operation_summary": catalog_operation.get("summary"),
+            "catalog_operation_method": catalog_operation.get("method"),
+            "catalog_operation_path": catalog_operation.get("path"),
+            "error": "Operation is read-only; use hcloud_resource_discovery.py or hcloud_resource_query.py instead of the change planner.",
+        }
+
+    cli_region, region_resolution = hcloud_resource_discovery.resolve_cli_region(args, entry)
+    plan_args = planner_args(args, cli_region, command_service)
+    plan_args.operation = operation
+    plan = hcloud_change_plan.build_plan(plan_args)
+    plan.update(
+        {
+            "planning_only": True,
+            "registered_change_operation": registered,
+            "coverage": "metadata-backed",
+            "metadata_backed": True,
+            "catalog_service": command_service,
+            "catalog_required_params": limited_params(hcloud_catalog.normalized_required_params(catalog_operation)),
+            "catalog_optional_params": limited_params(
+                [hcloud_catalog.normalize_param_name(str(name)) for name in catalog_operation.get("optional_params") or []]
+            ),
+            "catalog_operation_summary": catalog_operation.get("summary"),
+            "catalog_operation_method": catalog_operation.get("method"),
+            "catalog_operation_path": catalog_operation.get("path"),
+            "service_known_limits": entry.get("known_limits", []),
+            "service_context_hints": SERVICE_CONTEXT_HINTS.get(service, []),
+            "service_verification_hints": SERVICE_VERIFICATION_HINTS.get(service, []),
+            "submit_requires_confirmation": True,
+            "submit_is_not_executed_by_this_planner": True,
+            "read_only_smoke_plan": catalog_readiness_plan(args, service),
+        }
+    )
+    if region_resolution:
+        plan["region_resolution"] = region_resolution
+    if requested_operation != operation:
+        plan["requested_operation"] = requested_operation
+    plan.setdefault("next_steps", []).extend(
+        [
+            "This operation is metadata-backed rather than curated; confirm required parameters with hcloud help or official Huawei Cloud docs before execution.",
+            "Do not run submit commands from this plan without a separate explicit user confirmation.",
+            "Use read_only_smoke_plan or an explicit resource query after submit to verify the changed resource.",
+        ]
+    )
+    return plan
+
+
 def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
     """Build a non-executing service-aware change plan."""
     registry = load_registry()
     service = args.service.upper()
     requested_operation = args.operation
+    aliased_operation = canonical_change_operation(service, requested_operation)
     entry = service_entry(registry, service)
+    catalog_service, catalog_operation, command_service = catalog_context(service, aliased_operation)
     if not entry:
+        if catalog_service:
+            return build_catalog_change_plan(
+                args=args,
+                service=service,
+                requested_operation=requested_operation,
+                operation=aliased_operation,
+                catalog_service=catalog_service,
+                catalog_operation=catalog_operation,
+                command_service=command_service,
+                entry={},
+                registered=False,
+            )
         return {
             "success": False,
             "service": service,
             "operation": args.operation,
             "error": f"Service is not registered: {service}",
             "available_services": sorted(registry.get("services", {})),
+            "available_catalog_services": hcloud_catalog.catalog_service_names(hcloud_catalog.load_catalog()),
         }
 
     registered_changes = registry_change_operations(registry, service)
-    resolved_operation = resolve_change_operation(registered_changes, requested_operation)
-    operation = resolved_operation or requested_operation
+    resolved_operation = resolve_change_operation(registered_changes, aliased_operation)
+    operation = resolved_operation or aliased_operation
     registered = operation in registered_changes
+    if operation != requested_operation:
+        _, catalog_operation, _ = catalog_context(service, operation)
     preferred_discovery = PREFERRED_DISCOVERY_OPERATIONS.get(service)
     custom_planner = entry.get("planner")
-    if custom_planner and custom_planner != "scripts/hcloud_service_change_plan.py":
+    if custom_planner and custom_planner != "scripts/hcloud_service_change_plan.py" and registered:
         return {
             "success": True,
             "service": service,
@@ -167,6 +310,18 @@ def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "Do not run submit commands without a separate explicit user confirmation.",
             ],
         }
+    if not registered and catalog_service and catalog_operation:
+        return build_catalog_change_plan(
+            args=args,
+            service=service,
+            requested_operation=requested_operation,
+            operation=operation,
+            catalog_service=catalog_service,
+            catalog_operation=catalog_operation,
+            command_service=command_service,
+            entry=entry,
+            registered=False,
+        )
     if registered_changes and not registered and not args.allow_unregistered:
         return {
             "success": False,

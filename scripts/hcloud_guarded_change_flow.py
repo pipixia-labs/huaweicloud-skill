@@ -46,7 +46,7 @@ VERIFY_PROFILES = {
         ("Instance", "ShowInstanceConfiguration", {"instance_id": ("instance.id", "instance_id", "id")}),
     ],
     "CDN": [
-        ("Domain", "ShowDomain", {"domain_id": ("domain.id", "domain_id", "id")}),
+        ("Domain", "ShowDomainDetail", {"domain_id": ("domain.id", "domain_id", "id")}),
     ],
     "DNS": [
         ("RecordSet", "ShowRecordSet", {"zone_id": ("zone.id", "zone_id"), "recordset_id": ("recordset.id", "recordset_id", "id")}),

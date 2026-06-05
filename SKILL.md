@@ -142,10 +142,12 @@ version: "0.2.3"
 7. `references/error-playbook.md`
 8. `references/output-and-query.md`
 9. `references/service-registry.json`
-10. `references/playbooks/`
-11. `references/source-map.md`
-12. `examples/README.md`
-13. `references/qwen-image-generation.md`（兼容旧文件名；内容为 MaaS 图像生成参考）
+10. `references/hcloud-service-catalog.generated.json`
+11. `scripts/hcloud_catalog_audit.py`
+12. `references/playbooks/`
+13. `references/source-map.md`
+14. `examples/README.md`
+15. `references/qwen-image-generation.md`（兼容旧文件名；内容为 MaaS 图像生成参考）
 
 原始 KooCLI 材料在 `materials/` 下，仅作为资料源，不应直接当作最终指令集使用。
 华为云官方文档优先从 `https://support.huaweicloud.com/intl/zh-cn/` 查证；涉及 API 字段语义时，以官方文档和实际 `hcloud --dryrun`/查询结果为准。
@@ -265,6 +267,30 @@ python3 scripts/hcloud_meta_lookup.py \
   --pretty
 ```
 
+### 4.5. 生成 catalog 与覆盖审计
+
+`references/hcloud-service-catalog.generated.json` 是从 hcloud metaRepo 压缩出的 skill 自有 catalog，当前覆盖 125 个 metadata 服务和 10,194 个 operation。它已提交在 skill 内，运行时不依赖外部数据项目或源 metaRepo。
+
+```bash
+python3 scripts/hcloud_catalog_audit.py --pretty
+```
+
+用途：
+
+- 检查 `references/service-registry.json` 中登记的 operation 是否仍存在于 generated catalog
+- 列出 registry 外的 metadata-backed 服务
+- 对新版 hcloud metadata 升级后的 registry drift 做离线回归
+
+需要重新生成 catalog 时，使用本机已准备好的 metaRepo 作为一次性输入：
+
+```bash
+python3 scripts/build_hcloud_catalog.py \
+  --source-meta-repo <path-to-hcloud-metaRepo> \
+  --output references/hcloud-service-catalog.generated.json
+```
+
+不要让 skill 运行时依赖源 metaRepo 目录；生成后的 JSON 才是 skill 内部消费的稳定输入。
+
 ### 5. ECS 创建计划校验
 
 ```bash
@@ -344,6 +370,7 @@ python3 scripts/hcloud_resource_discovery.py \
 - 按 `references/service-registry.json` 生成 list-only 查询命令
 - 对 ECS / IAM / VPC / IMS / KPS / EIP / ELB / EVS / NAT / RDS 等服务做创建前依赖发现
 - `resource_query_operations` 是已知资源 ID 后的查询线索，不会被通用 discovery 默认执行
+- registry 外服务会走 generated catalog 的 metadata-backed 分支，只自动生成无必填业务参数的只读 discovery 操作；默认最多生成少量命令，避免大范围盲跑
 - 带专用 runner 的服务不走通用 discovery；例如 OBS 使用 `hcloud_obs_readonly.py`
 - operation 名称会做宽松匹配，兼容 `listcloudservers`、`showvpc` 这类大小写不规范的输入
 - 如果 registry 声明了 `supported_cli_regions`，脚本会把不支持的 `--region` 调整到 `preferred_cli_region`，例如 CDN discovery 使用 `cn-north-1`
@@ -364,6 +391,7 @@ python3 scripts/hcloud_resource_query.py \
 用途：
 
 - 执行 registry 中的 `resource_query_operations`，以及需要显式参数的只读查询
+- registry 外服务可走 generated catalog 的 metadata-backed 只读查询；`Show*`、目标型 `List*` 和带必填参数的 `Get*` 必须通过 `--param KEY=VALUE` 显式传参
 - 对 `Show*`、目标型 `List*` 等操作要求通过 `--param KEY=VALUE` 显式传资源 ID，不猜参数
 - 当前已覆盖常用目标查询，例如 VPC `ShowVpc`、EVS `ShowVolume`、IMS `GlanceShowImage`、KPS `ListKeypairDetail`、NAT `ShowNatGateway`、ELB `ShowLoadBalancer`、DNS `ShowRecordSet`、SCM `ShowCertificate`
 - 默认只生成计划；只有显式 `--execute` 才运行
@@ -480,6 +508,7 @@ python3 scripts/hcloud_service_change_plan.py \
 用途：
 
 - 为 EIP / VPC / ELB / EVS / RDS / NAT / DNS / SCM / CDN 等服务生成 planner-only 变更计划
+- registry 外或 registry 未收录但 catalog 可识别的 mutating operation 会走 metadata-backed planner-only 路径；它只生成风险计划、dry-run/submit 命令和验证建议，不自动提交
 - 继承 `hcloud_change_plan.py` 的风险分类、dry-run/submit 命令和确认门禁
 - 附加服务上下文、known limits 和后置验证建议
 - 对 registry 声明的 `supported_cli_regions` 同样生效，避免为 CDN 这类服务生成已知不可用的区域命令

@@ -4,6 +4,8 @@
 
 在 live help 不稳定、`APIE_ERROR` 常出现的环境里，尽量利用本地 `~/.hcloud/metaRepo` 做 discovery。
 
+当前 skill 还内置了一个从 hcloud metaRepo 生成的轻量 catalog：`references/hcloud-service-catalog.generated.json`。它是运行时稳定输入，当前覆盖 125 个 metadata 服务和 10,194 个 operation；源 metaRepo 只在重新生成 catalog 或排查 metadata drift 时使用。
+
 ## 为什么需要这一步
 
 当前环境已经验证到：
@@ -86,16 +88,33 @@ python3 scripts/hcloud_meta_lookup.py --service=IMS --allow-help-fallback --pret
 
 也就是说，这一步不是万能补救，只是把失败上下文结构化。
 
-## 当前环境的实际覆盖情况
+## 生成 catalog
 
-- `ECS`
-  - 有本地 operation 摘要缓存
-  - 有少量 operation 详细缓存
-- `IAM`
-  - 目前只有 endpoint 级缓存
-- `VPC` / `IMS` / `KPS`
-  - 当前机器无本地 template cache
-  - service help fallback 也会被网络限制卡住
+如果 hcloud 升级或本地 metaRepo 更新，需要先重新生成并审计 skill 自带 catalog：
+
+```bash
+python3 scripts/build_hcloud_catalog.py \
+  --source-meta-repo <path-to-hcloud-metaRepo> \
+  --output references/hcloud-service-catalog.generated.json
+
+python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
+```
+
+规则：
+
+- 生成 catalog 可以读取本地 metaRepo 作为一次性输入。
+- `huaweicloud-skill` 运行时不依赖源 metaRepo 目录，也不依赖外部数据项目。
+- 生成后的 JSON 会被 `hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和 `hcloud_service_change_plan.py` 作为 registry 外服务的 metadata-backed 兜底。
+- audit 需要保持 `success=true`；如果 registry operation 在 catalog 中消失，应先修 registry 或确认服务是否改名。
+
+## 当前覆盖情况
+
+- curated registry：16 个服务，其中 OBS 走 `hcloud obs`/obsutil 专用 runner。
+- generated catalog：125 个 hcloud metadata 服务，10,194 个 operation。
+- metadata-backed 服务：registry 外 110 个服务可用于保守发现、显式参数只读查询和 planner-only 变更计划。
+- 自动 discovery 只选择无必填业务参数的只读 `List` / `Count` / `Search` / `Query` / `Check` 操作。
+- `Show*`、目标型 `List*`、`Get*` 等带必填参数的只读操作必须通过 `hcloud_resource_query.py --param KEY=VALUE` 显式传参。
+- mutating operation 只进入 `hcloud_service_change_plan.py` 的 planner-only 路径，不自动 submit。
 
 ## 如何在 workflow 里使用
 
@@ -103,9 +122,10 @@ python3 scripts/hcloud_meta_lookup.py --service=IMS --allow-help-fallback --pret
 
 1. `hcloud_context_inspect.py`
 2. `hcloud_meta_lookup.py`
-3. `hcloud --help`
-4. `hcloud <service> --help`
-5. `hcloud_safe_exec.py`
+3. `hcloud_catalog_audit.py`（metadata 升级后或怀疑 registry drift 时）
+4. `hcloud --help`
+5. `hcloud <service> --help`
+6. `hcloud_safe_exec.py`
 
 含义：
 
@@ -117,3 +137,4 @@ python3 scripts/hcloud_meta_lookup.py --service=IMS --allow-help-fallback --pret
 - 不要看到 service 在 `services_en.json` 里，就假设本地一定有 operation 详情
 - 不要把没有本地 detail cache 的 operation 参数直接写死
 - 不要忽略 `detail_cached=false` 这一信号
+- 不要把 metadata-backed 误说成 curated playbook 覆盖；它只是更广的保守兜底层
