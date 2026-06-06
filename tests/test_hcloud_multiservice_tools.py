@@ -320,6 +320,7 @@ class MultiServiceToolsTest(unittest.TestCase):
     def test_catalog_readonly_smoke_builds_plan_matrix(self) -> None:
         args = SimpleNamespace(
             service=["UCS"],
+            operation=[],
             region="cn-north-4",
             project_id="project-1",
             profile=None,
@@ -349,6 +350,27 @@ class MultiServiceToolsTest(unittest.TestCase):
         first_command = record["matrix"][0]["command"]
         self.assertNotIn("--arg=--project_id=project-1", first_command)
         self.assertIn("--arg=--project_id=<project-id>", first_command)
+
+    def test_catalog_readonly_smoke_filters_specific_operation(self) -> None:
+        args = SimpleNamespace(
+            service=["UCS"],
+            operation=["ListPolicyDefinitions"],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            limit=5,
+            catalog_max_operations=2,
+            execute=False,
+            strict=True,
+            timeout=1,
+        )
+
+        result = hcloud_catalog_readonly_smoke.build_smoke(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["operation_count"], 1)
+        self.assertEqual(result["matrix"][0]["operation"], "ListPolicyDefinitions")
+        self.assertEqual(result["checks"][0]["requested_operation"], "ListPolicyDefinitions")
 
     def test_catalog_readonly_smoke_classifies_permission_failure(self) -> None:
         execution = {

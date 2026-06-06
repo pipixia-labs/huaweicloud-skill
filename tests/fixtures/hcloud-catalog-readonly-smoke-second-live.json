@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-06T02:00:52Z",
+  "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+  "mode": "execute",
+  "success": true,
+  "service_count": 6,
+  "operation_count": 6,
+  "bucket_counts": {
+    "command_shape_ok": 6
+  },
+  "context": {
+    "region": "cn-north-4",
+    "project_id_provided": false,
+    "profile_provided": false,
+    "limit": 5,
+    "catalog_max_operations": 2,
+    "operations": [
+      "ListMaintenanceWindows",
+      "ListPrivateModules",
+      "ListPolicyDefinitions",
+      "ListInstance",
+      "ListGroups",
+      "ListCatalogs"
+    ],
+    "strict": false
+  },
+  "services": [
+    "DCS",
+    "RFS",
+    "UCS",
+    "WAF",
+    "CodeArtsRepo",
+    "DLI"
+  ],
+  "matrix": [
+    {
+      "service": "DCS",
+      "operation": "ListMaintenanceWindows",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "DCS",
+        "--operation",
+        "ListMaintenanceWindows",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4"
+      ],
+      "catalog_operation_summary": "Listing Maintenance Time Windows",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 1,
+        "top_level_keys_sample": [
+          "maintain_windows"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "RFS",
+      "operation": "ListPrivateModules",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "RFS",
+        "--operation",
+        "ListPrivateModules",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=10",
+        "--arg=--Client-Request-Id=00000000-0000-0000-0000-000000000000"
+      ],
+      "catalog_operation_summary": "List Private Modules",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 2,
+        "top_level_keys_sample": [
+          "modules",
+          "page_info"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "UCS",
+      "operation": "ListPolicyDefinitions",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "UCS",
+        "--operation",
+        "ListPolicyDefinitions",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4"
+      ],
+      "catalog_operation_summary": "Obtaining the Policy Definition List",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 1,
+        "top_level_keys_sample": [
+          "items"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "WAF",
+      "operation": "ListInstance",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "WAF",
+        "--operation",
+        "ListInstance",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4"
+      ],
+      "catalog_operation_summary": "Querying Dedicated WAF Instances",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 3,
+        "top_level_keys_sample": [
+          "items",
+          "purchased",
+          "total"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "CodeArtsRepo",
+      "operation": "ListGroups",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "CodeArtsRepo",
+        "--operation",
+        "ListGroups",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Obtaining the Repository Group List",
+      "parsed_json_shape": {
+        "type": "list",
+        "item_count": 0
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    },
+    {
+      "service": "DLI",
+      "operation": "ListCatalogs",
+      "mode": "execute",
+      "metadata_backed": true,
+      "result_bucket": "command_shape_ok",
+      "error_category": null,
+      "error_source": null,
+      "execution_success": true,
+      "return_code": 0,
+      "command": [
+        "python3",
+        "scripts/hcloud_safe_exec.py",
+        "--service",
+        "DLI",
+        "--operation",
+        "ListCatalogs",
+        "--arg=--cli-output=json",
+        "--expect-json",
+        "--arg=--cli-region=cn-north-4",
+        "--arg=--limit=5"
+      ],
+      "catalog_operation_summary": "Obtain all catalog information of a project.",
+      "parsed_json_shape": {
+        "type": "dict",
+        "top_level_key_count": 3,
+        "top_level_keys_sample": [
+          "catalogs",
+          "is_success",
+          "total_count"
+        ]
+      },
+      "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+    }
+  ],
+  "confidence_suggestions": {
+    "schema_version": 1,
+    "services": {
+      "DCS": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListMaintenanceWindows": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "RFS": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListPrivateModules": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "UCS": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListPolicyDefinitions": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "WAF": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListInstance": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "CodeArtsRepo": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListGroups": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      },
+      "DLI": {
+        "confidence": "catalog-derived",
+        "operations": {
+          "ListCatalogs": {
+            "confidence": "live-read-smoked",
+            "last_smoke": {
+              "result_bucket": "command_shape_ok",
+              "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+            }
+          }
+        }
+      }
+    }
+  },
+  "notes": [
+    "This record intentionally omits raw stdout, stderr, and parsed response bodies.",
+    "A command_shape_ok bucket means the read-only command executed successfully; it does not promote a service to curated coverage by itself."
+  ]
+}

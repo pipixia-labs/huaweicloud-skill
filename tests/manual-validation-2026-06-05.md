@@ -150,3 +150,42 @@ python3 scripts/hcloud_catalog_readonly_smoke.py \
 - `references/hcloud-service-confidence.json` 对 `UCS ListManagedClusters` 增加 `unsupported_optional_args=["limit"]`，但不提升 confidence。
 - `hcloud_resource_discovery.py` 现在会在该 operation 上省略 `--limit`，避免 catalog metadata 与 KooCLI 实际 CLI flag 不一致导致命令形态失败。
 - A6 curated promotion audit 当前显示 DCS/RFS/UCS/WAF/CodeArtsRepo/DLI 均未达到 medium coverage 验收线，暂不写入 curated registry。
+
+## 验证 6：A6 候选服务第二条只读 live smoke
+
+2026-06-06 对 6 个 curated promotion 候选服务各补 1 条明确 operation 的只读 live smoke：
+
+```bash
+python3 scripts/hcloud_catalog_readonly_smoke.py \
+  --service DCS --operation ListMaintenanceWindows \
+  --service RFS --operation ListPrivateModules \
+  --service UCS --operation ListPolicyDefinitions \
+  --service WAF --operation ListInstance \
+  --service CodeArtsRepo --operation ListGroups \
+  --service DLI --operation ListCatalogs \
+  --region=cn-north-4 \
+  --execute \
+  --timeout=90 \
+  --output tests/fixtures/hcloud-catalog-readonly-smoke-second-live.json \
+  --confidence-output <temporary-confidence-json> \
+  --pretty
+```
+
+结果分桶：
+
+| Service | Operation | Bucket | 响应形态 |
+| --- | --- | --- | --- |
+| DCS | `ListMaintenanceWindows` | `command_shape_ok` | dict 顶层键 `maintain_windows` |
+| RFS | `ListPrivateModules` | `command_shape_ok` | dict 顶层键 `modules/page_info`；`limit` 按元数据下限调整为 `10`，自动补 `Client-Request-Id` |
+| UCS | `ListPolicyDefinitions` | `command_shape_ok` | dict 顶层键 `items` |
+| WAF | `ListInstance` | `command_shape_ok` | dict 顶层键 `items/purchased/total` |
+| CodeArtsRepo | `ListGroups` | `command_shape_ok` | list，当前 item count 为 `0` |
+| DLI | `ListCatalogs` | `command_shape_ok` | dict 顶层键 `catalogs/is_success/total_count` |
+
+说明：
+
+- 普通沙箱下首次执行混有 `auth_or_permission` 和 `network` 分桶；网络权限下只读重跑后 6 个 operation 全部为 `command_shape_ok`。
+- 本轮只升级成功的 operation confidence；不把网络、权限或 region 类失败写成 `live-read-smoked`。
+- `tests/fixtures/hcloud-catalog-readonly-smoke-second-live.json` 只保存脱敏命令、bucket、响应形态和 evidence summary，不保存 raw stdout、stderr 或完整 parsed response body。
+- `references/hcloud-service-confidence.json` 已补充这 6 条 operation 级 `live-read-smoked` 证据。
+- A6 promotion audit 在 evidence 层面已经达到默认 `min_live_ops=2`；是否真正写入 curated registry 仍是服务名单和维护面决策。

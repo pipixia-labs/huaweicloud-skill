@@ -94,11 +94,11 @@ def parsed_json_shape(value: Any) -> dict[str, Any]:
     return {"type": type(value).__name__}
 
 
-def discovery_args(args: argparse.Namespace, service: str) -> SimpleNamespace:
+def discovery_args(args: argparse.Namespace, service: str, operation: str | None = None) -> SimpleNamespace:
     """Build discovery arguments for one metadata-backed smoke service."""
     return SimpleNamespace(
         service=service,
-        operation=None,
+        operation=operation,
         region=args.region,
         project_id=args.project_id,
         profile=args.profile,
@@ -190,12 +190,14 @@ def execution_summary(plan: dict[str, Any], rows: list[dict[str, Any]]) -> dict[
 def build_smoke(args: argparse.Namespace) -> dict[str, Any]:
     """Build or run a metadata-backed read-only smoke matrix."""
     services = args.service or list(DEFAULT_SERVICES)
+    operations = operation_filters(args, services)
     checks = []
     matrix = []
-    for service in services:
-        plan = hcloud_resource_discovery.build_plan(discovery_args(args, service))
+    for service, operation in zip(services, operations):
+        plan = hcloud_resource_discovery.build_plan(discovery_args(args, service, operation))
         check = {
             "service": service,
+            "requested_operation": operation,
             "success": bool(plan.get("success")),
             "plan": plan,
         }
@@ -222,6 +224,18 @@ def build_smoke(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def operation_filters(args: argparse.Namespace, services: list[str]) -> list[str | None]:
+    """Return per-service operation filters for smoke planning."""
+    operations = getattr(args, "operation", None) or []
+    if not operations:
+        return [None for _ in services]
+    if len(operations) == 1:
+        return [str(operations[0]) for _ in services]
+    if len(operations) != len(services):
+        raise ValueError("--operation must be provided once or exactly once per --service.")
+    return [str(operation) for operation in operations]
+
+
 def build_smoke_record(args: argparse.Namespace, result: dict[str, Any]) -> dict[str, Any]:
     """Build a sanitized smoke evidence record safe to persist."""
     return {
@@ -239,6 +253,7 @@ def build_smoke_record(args: argparse.Namespace, result: dict[str, Any]) -> dict
             "profile_provided": bool(args.profile),
             "limit": args.limit,
             "catalog_max_operations": args.catalog_max_operations,
+            "operations": args.operation or [],
             "strict": bool(args.strict),
         },
         "services": args.service or list(DEFAULT_SERVICES),
@@ -308,6 +323,11 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--service", action="append", help="Catalog service to smoke. Can be repeated.")
+    parser.add_argument(
+        "--operation",
+        action="append",
+        help="Optional operation filter. Provide once for all services or once per --service.",
+    )
     parser.add_argument("--region", help="Explicit cli-region for generated commands.")
     parser.add_argument("--project-id", help="Optional project_id for generated commands.")
     parser.add_argument("--profile", help="Optional cli-profile for generated commands.")
@@ -334,6 +354,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("--catalog-max-operations must be greater than 0.")
     if args.timeout < 1:
         parser.error("--timeout must be greater than 0.")
+    service_count = len(args.service or [])
+    operation_count = len(args.operation or [])
+    if operation_count > 1 and service_count and operation_count != service_count:
+        parser.error("--operation must be provided once or exactly once per --service.")
     return args
 
 
