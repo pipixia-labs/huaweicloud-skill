@@ -12,6 +12,8 @@
 - **用好云**：资源创建或调整后继续做 job、资源状态、SSH/应用、ELB 后端、EVS 文件系统、CES 指标、LTS 日志等验收，避免“API 返回成功”被误判成“业务已经可用”。
 - **管好云**：通过账号盘点、闲置候选审计、回收前检查、标签治理、备份姿态、审计 trace、资源合规、账单/成本 request spec 和 run journal，把长期运营中的成本、安全、可观测和可追溯问题纳入治理。
 
+更详细的场景对比和 ECS/典型服务拆解见 [docs/cloud-lifecycle-scenarios.md](docs/cloud-lifecycle-scenarios.md)。
+
 它适合这些场景：
 
 - 你希望 Agent 直接基于 `hcloud` 操作华为云，而不是靠记忆猜 API。

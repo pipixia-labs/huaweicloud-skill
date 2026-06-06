@@ -19,10 +19,13 @@
 2. [architecture.md](architecture.md)
    - 了解整体分层、执行链路、模块边界。
    - 适合第一次接手本项目时阅读。
-3. [implementation-details.md](implementation-details.md)
+3. [cloud-lifecycle-scenarios.md](cloud-lifecycle-scenarios.md)
+   - 了解执行“上云、用云、管云”任务时，用 `huaweicloud-skill` 和不用的差别。
+   - 适合评审产品价值、设计演示案例或扩展典型服务能力时阅读。
+4. [implementation-details.md](implementation-details.md)
    - 了解关键脚本如何工作。
    - 重点包括安全执行、元数据发现、registry 驱动、ECS/EIP/OBS 特殊流程、通用 guarded flow 和验证器。
-4. [data-and-coverage.md](data-and-coverage.md)
+5. [data-and-coverage.md](data-and-coverage.md)
    - 了解 `references/`、`materials/`、`service-registry.json`、coverage 脚本和测试之间的关系。
    - 适合扩展服务覆盖或调整质量门禁时阅读。
 
