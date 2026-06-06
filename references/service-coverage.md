@@ -19,7 +19,7 @@
 
 机器可读版本见 `references/service-registry.json`。后续自动化脚本应优先消费 registry，本文件保留人类可读说明。
 
-服务维护档案见 `references/service-curation-profiles.json`。它记录已有 curated 服务和下一批晋级候选的 readiness operation、resource query operation、playbook 和 risk profile。晋级前用 `scripts/hcloud_curated_promotion_audit.py --include-curated --pretty` 检查现有 curated 健康状态和候选缺口。
+服务维护档案见 `references/service-curation-profiles.json`。它记录已有 curated 服务和下一批晋级候选的 readiness operation、resource query operation、playbook 和 risk profile。用 `scripts/hcloud_curated_promotion_audit.py --include-curated --pretty` 检查现有 curated 健康状态和候选缺口。
 
 | Service | Coverage | 当前状态 | 说明 |
 |---------|----------|----------|------|
@@ -35,6 +35,9 @@
 | `RDS` | Low | 已登记常用查询入口和 planner-only 变更入口 | service 可见但本地没有 operation detail；RDS detail 查询通常需要实例 ID 和引擎相关参数 |
 | `OBS` | Low | 走 `hcloud obs`/obsutil 专用适配器 | 不在普通 KooCLI service metadata 中；已支持 bucket list、bucket stat、lifecycle/policy get 和 planner-only bucket/lifecycle/policy 变更计划 |
 | `CCE` / `CDN` / `DNS` / `SCM` / `CES` | Low | 已登记最小验证入口、必要 playbook，部分服务支持目标查询 | 来自人工 E2E 验证集和本地 service 存在性检查，仅用于前置发现和回归统计 |
+| `DCS` | Medium | 已进入 curated registry，只读 readiness 和实例级 readback | 已有 2 条 read-only live smoke；当前不开放通用 DCS mutation submit |
+| `RFS` | Medium | 已进入 curated registry，stack/template/execution plan 只读检查 | 已有 2 条 read-only live smoke；当前不开放通用 RFS mutation submit |
+| `UCS` | Medium | 已进入 curated registry，fleet/cluster/policy/addon 只读检查 | 已有 2 条 read-only live smoke；当前不开放通用 UCS mutation submit，`ListManagedClusters` 省略 `--limit` |
 
 `query_operations` 表示可作为通用 discovery 起点的查询。`resource_query_operations` 表示已知资源 ID 或上下文后才适合执行的查询，覆盖统计会计入，但 `hcloud_resource_discovery.py` 不会默认把它们当作 list-only 操作执行。
 `hcloud_resource_query.py` 可执行 `resource_query_operations` 和需要显式目标参数的只读查询；缺少目标参数时会失败，不会替用户猜资源 ID。
@@ -68,9 +71,9 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - `hcloud_catalog_readonly_smoke.py` 用于小批只读实测，并把失败归因到命令形态、账号权限、服务开通、region/project、参数或网络等桶。
 - `hcloud-service-catalog.index.json` 是运行时轻量索引；`hcloud-service-catalog/` 保存 per-service payload；`hcloud-service-catalog.fingerprint.json` 是 review 用小体积指纹；`hcloud-service-confidence.json` 是 live smoke/confidence/dry-run 支持性的 sidecar。
 
-当前 metadata-backed operation 级 live smoke 证据见 `references/hcloud-service-confidence.json` 和 `tests/manual-validation-2026-06-05.md`。已通过只读 smoke 的 operation 可以标为 `live-read-smoked`，但对应 service 仍是 `catalog-derived`，不等同于 curated registry 覆盖。
+当前 metadata-backed operation 级 live smoke 证据见 `references/hcloud-service-confidence.json` 和 `tests/manual-validation-2026-06-05.md`。已通过只读 smoke 的 operation 可以标为 `live-read-smoked`；只有服务写入 `references/service-registry.json` 后才算 curated registry 覆盖。
 
-下一批 curated 候选服务是 `DCS`、`RFS`、`UCS`、`WAF`、`CodeArtsRepo`、`DLI`。这些服务已经有 candidate profile、playbook 和 risk profile；当前晋级阻塞项是每个服务只有 1 条 `live-read-smoked` operation，未达到默认 `min-live-ops=2`。
+`DCS`、`RFS`、`UCS` 已从候选提升为 read-only curated registry 覆盖。下一批候选保留 `WAF`、`CodeArtsRepo`、`DLI`；这些服务已有 candidate profile、playbook、risk profile 和至少 2 条 `live-read-smoked` operation，是否进入 registry 仍取决于维护面决策。
 
 ## 已实测能力
 

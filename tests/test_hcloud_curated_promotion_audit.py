@@ -39,6 +39,31 @@ class HcloudCuratedPromotionAuditTest(unittest.TestCase):
         """Write JSON test data."""
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
+    def test_dcs_rfs_ucs_are_promoted_as_read_only_curated_services(self) -> None:
+        registry = json.loads((ROOT / "references" / "service-registry.json").read_text(encoding="utf-8"))
+        profiles = json.loads((ROOT / "references" / "service-curation-profiles.json").read_text(encoding="utf-8"))
+
+        for service in ("DCS", "RFS", "UCS"):
+            with self.subTest(service=service):
+                self.assertIn(service, registry["services"])
+                entry = registry["services"][service]
+                self.assertEqual(entry["coverage"], "medium")
+                self.assertGreaterEqual(len(entry["query_operations"]), 2)
+                self.assertGreaterEqual(len(entry["resource_query_operations"]), 3)
+                self.assertEqual(entry["change_operations"], [])
+                self.assertEqual(profiles["services"][service]["status"], "curated")
+
+        result = hcloud_curated_promotion_audit.audit(
+            services=["DCS", "RFS", "UCS"],
+            min_live_ops=2,
+            include_curated=True,
+        )
+        statuses = {item["service"]: item["status"] for item in result["candidates"]}
+        self.assertEqual(statuses, {"DCS": "already_curated", "RFS": "already_curated", "UCS": "already_curated"})
+        self.assertEqual(result["eligible_count"], 0)
+        self.assertEqual(result["already_curated_count"], 3)
+        self.assertEqual(result["curated_service_health"]["blocked_count"], 0)
+
     def test_audit_reports_eligible_blocked_and_curated_candidates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

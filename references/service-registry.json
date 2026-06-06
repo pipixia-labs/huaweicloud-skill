@@ -674,6 +674,98 @@
         "Local KooCLI metadata currently finds the CES service but no cached operation detail files.",
         "Metric dimensions and time ranges must be resolved from the target service before execution."
       ]
+    },
+    "DCS": {
+      "coverage": "medium",
+      "default_region_required": true,
+      "query_operations": [
+        "ListAvailableZones",
+        "ListInstances",
+        "ListMaintenanceWindows"
+      ],
+      "resource_query_operations": [
+        "ListBackupRecords",
+        "ListConfigurations",
+        "ListDiagnosisTasks"
+      ],
+      "change_operations": [],
+      "planner": null,
+      "job_verifier": null,
+      "resource_verifier": null,
+      "playbooks": [
+        "references/playbooks/dcs-readiness.md"
+      ],
+      "official_docs": [
+        "https://support.huaweicloud.com/intl/zh-cn/"
+      ],
+      "known_limits": [
+        "DCS is curated for read-only readiness and target-scoped instance checks.",
+        "Instance creation, deletion, failover, parameter changes, and account changes are not registered for generic submit; add dedicated guarded flows before enabling mutations.",
+        "Target-scoped checks such as ListConfigurations require an explicit instance_id."
+      ]
+    },
+    "RFS": {
+      "coverage": "medium",
+      "default_region_required": true,
+      "query_operations": [
+        "ListPrivateHooks",
+        "ListPrivateModules",
+        "ListPrivateProviders",
+        "ListStacks"
+      ],
+      "resource_query_operations": [
+        "GetStackMetadata",
+        "GetStackTemplate",
+        "ListExecutionPlans",
+        "ListStackResources"
+      ],
+      "change_operations": [],
+      "planner": null,
+      "job_verifier": null,
+      "resource_verifier": null,
+      "playbooks": [
+        "references/playbooks/rfs-stack-readiness.md"
+      ],
+      "official_docs": [
+        "https://support.huaweicloud.com/intl/zh-cn/"
+      ],
+      "known_limits": [
+        "RFS is curated for read-only stack, template, module, hook, and execution-plan checks.",
+        "Stack apply, continue, rollback, template, and stack-set mutations are not registered for generic submit; add dedicated guarded flows before enabling mutations.",
+        "Target-scoped checks such as GetStackMetadata and ListStackResources require explicit stack_name or execution plan parameters."
+      ]
+    },
+    "UCS": {
+      "coverage": "medium",
+      "default_region_required": true,
+      "query_operations": [
+        "ListAddonTemplates",
+        "ListClusterGroup",
+        "ListManagedClusters",
+        "ListPolicyDefinitions"
+      ],
+      "resource_query_operations": [
+        "ListAddonInstances",
+        "ShowCluster",
+        "ShowClusterGroup",
+        "ShowPolicyDefinition"
+      ],
+      "change_operations": [],
+      "planner": null,
+      "job_verifier": null,
+      "resource_verifier": null,
+      "playbooks": [
+        "references/playbooks/ucs-fleet-readiness.md"
+      ],
+      "official_docs": [
+        "https://support.huaweicloud.com/intl/zh-cn/"
+      ],
+      "known_limits": [
+        "UCS is curated for read-only fleet, cluster, policy, and addon checks.",
+        "Federation, policy, addon, kubeconfig, and cluster access mutations are not registered for generic submit; add dedicated guarded flows before enabling mutations.",
+        "ListManagedClusters omits --limit because KooCLI 7.2.2 rejects that optional flag even though catalog metadata exposes it.",
+        "Do not persist kubeconfig tokens or cluster credentials in final output."
+      ]
     }
   }
 }

@@ -211,7 +211,7 @@ class MultiServiceToolsTest(unittest.TestCase):
 
     def test_catalog_backed_discovery_builds_safe_read_commands(self) -> None:
         args = SimpleNamespace(
-            service="UCS",
+            service="WAF",
             operation=None,
             region="cn-north-4",
             project_id="project-1",
@@ -276,8 +276,8 @@ class MultiServiceToolsTest(unittest.TestCase):
 
     def test_catalog_backed_resource_query_requires_explicit_params(self) -> None:
         args = SimpleNamespace(
-            service="UCS",
-            operation="ListAddonInstances",
+            service="WAF",
+            operation="ListCcRules",
             param=[],
             arg=[],
             region="cn-north-4",
@@ -291,14 +291,14 @@ class MultiServiceToolsTest(unittest.TestCase):
         result = hcloud_resource_query.build_plan(args)
 
         self.assertFalse(result["success"])
-        self.assertEqual(result["missing_params"], ["cluster_id"])
+        self.assertEqual(result["missing_params"], ["policy_id"])
         self.assertEqual(result["operation_scope"], "metadata_resource_query")
 
     def test_catalog_backed_resource_query_builds_command(self) -> None:
         args = SimpleNamespace(
-            service="UCS",
-            operation="ListAddonInstances",
-            param=["cluster_id=cluster-1"],
+            service="WAF",
+            operation="ListCcRules",
+            param=["policy_id=policy-1"],
             arg=[],
             region="cn-north-4",
             project_id="project-1",
@@ -314,12 +314,12 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(result["metadata_backed"])
         self.assertEqual(result["operation_scope"], "metadata_resource_query")
         self.assertIn("--service", result["command"])
-        self.assertIn("UCS", result["command"])
-        self.assertIn("--arg=--cluster_id=cluster-1", result["command"])
+        self.assertIn("WAF", result["command"])
+        self.assertIn("--arg=--policy_id=policy-1", result["command"])
 
     def test_catalog_readonly_smoke_builds_plan_matrix(self) -> None:
         args = SimpleNamespace(
-            service=["UCS"],
+            service=["WAF"],
             operation=[],
             region="cn-north-4",
             project_id="project-1",
@@ -353,8 +353,8 @@ class MultiServiceToolsTest(unittest.TestCase):
 
     def test_catalog_readonly_smoke_filters_specific_operation(self) -> None:
         args = SimpleNamespace(
-            service=["UCS"],
-            operation=["ListPolicyDefinitions"],
+            service=["WAF"],
+            operation=["ListHost"],
             region="cn-north-4",
             project_id="project-1",
             profile=None,
@@ -369,8 +369,8 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertTrue(result["success"], result)
         self.assertEqual(result["operation_count"], 1)
-        self.assertEqual(result["matrix"][0]["operation"], "ListPolicyDefinitions")
-        self.assertEqual(result["checks"][0]["requested_operation"], "ListPolicyDefinitions")
+        self.assertEqual(result["matrix"][0]["operation"], "ListHost")
+        self.assertEqual(result["checks"][0]["requested_operation"], "ListHost")
 
     def test_catalog_readonly_smoke_classifies_permission_failure(self) -> None:
         execution = {
@@ -451,6 +451,8 @@ class MultiServiceToolsTest(unittest.TestCase):
             "hcloud-catalog-readonly-smoke-execute.json",
             "hcloud-catalog-readonly-smoke-rfs-fixed.json",
             "hcloud-catalog-readonly-smoke-expanded.json",
+            "hcloud-catalog-readonly-smoke-second-live.json",
+            "hcloud-catalog-readonly-smoke-retry-aos-modelarts-cbr-cfw.json",
         ]
         for fixture_name in fixture_names:
             with self.subTest(fixture=fixture_name):

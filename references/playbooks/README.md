@@ -33,11 +33,11 @@
 - `ces-metric-readiness.md`
   - 查询云监控指标前确认 namespace、dimension、period 和时间范围。
 - `dcs-readiness.md`
-  - DCS 晋级 curated 前的只读 smoke、实例配置和风险边界候选手册。
+  - DCS curated 只读 readiness、实例配置和风险边界手册。
 - `rfs-stack-readiness.md`
-  - RFS 晋级 curated 前的 stack、template、execution plan 候选手册。
+  - RFS curated stack、template、execution plan 只读检查手册。
 - `ucs-fleet-readiness.md`
-  - UCS 晋级 curated 前的 fleet、cluster、policy 和 addon 候选手册。
+  - UCS curated fleet、cluster、policy 和 addon 只读检查手册。
 - `waf-policy-readiness.md`
   - WAF 晋级 curated 前的 host、policy、rule 和 event 候选手册。
 - `codeartsrepo-readiness.md`

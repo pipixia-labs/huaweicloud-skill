@@ -2,6 +2,30 @@
   "schema_version": 1,
   "description": "Optional human/live validation metadata for generated hcloud catalog services. Keep the generated catalog metadata-only; store confidence and dry-run evidence here.",
   "services": {
+    "AOS": {
+      "confidence": "catalog-derived",
+      "operations": {
+        "ListPrivateHooks": {
+          "confidence": "live-read-smoked",
+          "last_smoke": {
+            "result_bucket": "command_shape_ok",
+            "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+          }
+        }
+      }
+    },
+    "CBR": {
+      "confidence": "catalog-derived",
+      "operations": {
+        "ListAgent": {
+          "confidence": "live-read-smoked",
+          "last_smoke": {
+            "result_bucket": "command_shape_ok",
+            "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+          }
+        }
+      }
+    },
     "DCS": {
       "confidence": "catalog-derived",
       "operations": {
@@ -51,6 +75,18 @@
           }
         },
         "ListCatalogs": {
+          "confidence": "live-read-smoked",
+          "last_smoke": {
+            "result_bucket": "command_shape_ok",
+            "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
+          }
+        }
+      }
+    },
+    "ModelArts": {
+      "confidence": "catalog-derived",
+      "operations": {
+        "ListAlgorithms": {
           "confidence": "live-read-smoked",
           "last_smoke": {
             "result_bucket": "command_shape_ok",

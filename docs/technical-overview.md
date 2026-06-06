@@ -129,5 +129,5 @@ v0.2 明确区分几类验证：
 
 1. 扩展更多服务专用 verifier，把通用 Show* 验证升级为更强的业务语义验证。
 2. 增加更多真实只读样本和 dry-run 样本，继续校准 registry 和参数白名单。
-3. 对 DCS、RFS、UCS、WAF、CodeArtsRepo、DLI 补充第二条以上只读 live smoke，满足后再考虑升 curated registry。
+3. 在 DCS、RFS、UCS 已进入 read-only curated registry 后，继续评估 WAF、CodeArtsRepo、DLI 是否值得进入下一批 curated 覆盖。
 4. 把 run journal 用到更多多步操作中，增强真实变更的审计和恢复能力。

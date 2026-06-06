@@ -359,9 +359,8 @@
       }
     },
     "DCS": {
-      "status": "candidate",
+      "status": "curated",
       "target_coverage": "medium",
-      "min_live_read_smoked_operations": 2,
       "readiness_operations": [
         "ListAvailableZones",
         "ListInstances",
@@ -376,16 +375,15 @@
         "references/playbooks/dcs-readiness.md"
       ],
       "risk_profile": {
-        "mutation_policy": "planner_only_until_curated",
+        "mutation_policy": "read_only_curated_mutations_require_dedicated_flow",
         "default_risk": "medium",
-        "submit_policy": "no_submit_before_curated_promotion",
+        "submit_policy": "no_mutation_submit_without_dedicated_guarded_flow",
         "verification_policy": "instance_status_backup_and_configuration_readback"
       }
     },
     "RFS": {
-      "status": "candidate",
+      "status": "curated",
       "target_coverage": "medium",
-      "min_live_read_smoked_operations": 2,
       "readiness_operations": [
         "ListPrivateHooks",
         "ListPrivateModules",
@@ -402,16 +400,15 @@
         "references/playbooks/rfs-stack-readiness.md"
       ],
       "risk_profile": {
-        "mutation_policy": "planner_only_until_curated",
+        "mutation_policy": "read_only_curated_mutations_require_dedicated_flow",
         "default_risk": "high",
-        "submit_policy": "no_submit_before_curated_promotion",
+        "submit_policy": "no_mutation_submit_without_dedicated_guarded_flow",
         "verification_policy": "stack_metadata_template_resources_and_execution_plan_review"
       }
     },
     "UCS": {
-      "status": "candidate",
+      "status": "curated",
       "target_coverage": "medium",
-      "min_live_read_smoked_operations": 2,
       "readiness_operations": [
         "ListAddonTemplates",
         "ListClusterGroup",
@@ -428,9 +425,9 @@
         "references/playbooks/ucs-fleet-readiness.md"
       ],
       "risk_profile": {
-        "mutation_policy": "planner_only_until_curated",
+        "mutation_policy": "read_only_curated_mutations_require_dedicated_flow",
         "default_risk": "high",
-        "submit_policy": "no_submit_before_curated_promotion",
+        "submit_policy": "no_mutation_submit_without_dedicated_guarded_flow",
         "verification_policy": "cluster_group_cluster_policy_and_addon_readback"
       },
       "known_shape_exceptions": [

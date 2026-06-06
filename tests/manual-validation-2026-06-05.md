@@ -189,3 +189,37 @@ python3 scripts/hcloud_catalog_readonly_smoke.py \
 - `tests/fixtures/hcloud-catalog-readonly-smoke-second-live.json` 只保存脱敏命令、bucket、响应形态和 evidence summary，不保存 raw stdout、stderr 或完整 parsed response body。
 - `references/hcloud-service-confidence.json` 已补充这 6 条 operation 级 `live-read-smoked` 证据。
 - A6 promotion audit 在 evidence 层面已经达到默认 `min_live_ops=2`；是否真正写入 curated registry 仍是服务名单和维护面决策。
+
+## 验证 7：AOS/ModelArts/CBR/CFW 只读 live smoke 重试
+
+2026-06-06 对前一轮失败的 4 个 metadata-backed 服务按同一 operation 做只读重试：
+
+```bash
+python3 scripts/hcloud_catalog_readonly_smoke.py \
+  --service AOS --operation ListPrivateHooks \
+  --service ModelArts --operation ListAlgorithms \
+  --service CBR --operation ListAgent \
+  --service CFW --operation ListDnsServers \
+  --region=cn-north-4 \
+  --execute \
+  --timeout=90 \
+  --output tests/fixtures/hcloud-catalog-readonly-smoke-retry-aos-modelarts-cbr-cfw.json \
+  --confidence-output <temporary-confidence-json> \
+  --pretty
+```
+
+结果分桶：
+
+| Service | Operation | Bucket | 响应形态 |
+| --- | --- | --- | --- |
+| AOS | `ListPrivateHooks` | `command_shape_ok` | dict 顶层键 `hooks/page_info`；`limit` 按元数据下限调整为 `10`，自动补 `Client-Request-Id` |
+| ModelArts | `ListAlgorithms` | `command_shape_ok` | dict 顶层键包含 `items/count/limit/offset` 等 |
+| CBR | `ListAgent` | `command_shape_ok` | dict 顶层键 `agents/count/limit/offset` |
+| CFW | `ListDnsServers` | `unknown_cloud_error` | hcloud 返回 not_found 类云侧错误 |
+
+说明：
+
+- 普通沙箱下第一次重试结果为 AOS `network`，ModelArts/CBR/CFW `auth_or_permission`；网络权限下只读重跑后 AOS、ModelArts、CBR 通过 `command_shape_ok`。
+- 本轮只升级 AOS `ListPrivateHooks`、ModelArts `ListAlgorithms`、CBR `ListAgent` 的 operation confidence。
+- CFW `ListDnsServers` 继续只保留失败分桶证据，不写入 `live-read-smoked` confidence。
+- `tests/fixtures/hcloud-catalog-readonly-smoke-retry-aos-modelarts-cbr-cfw.json` 只保存脱敏命令、bucket、响应形态和 evidence summary，不保存 raw stdout、stderr 或完整 parsed response body。
