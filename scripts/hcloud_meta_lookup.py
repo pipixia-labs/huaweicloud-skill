@@ -13,6 +13,8 @@ from typing import Any
 
 import hcloud_common
 
+LANGUAGE_ORDER = ("en", "cn")
+
 
 def load_structured_detail(path: Path) -> tuple[Any | None, str, str | None]:
     """Load a metadata detail file as JSON first, then YAML when PyYAML is available."""
@@ -37,19 +39,25 @@ def normalize_token(value: str) -> str:
 
 
 def collect_service_catalog(meta_repo: Path) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
-    """Load services_en.json and build an index keyed by normalized service name."""
-    services_file = meta_repo / "services_en.json"
-    if not services_file.exists():
-        return [], {}
-
-    services_data = hcloud_common.load_json(services_file)
-    items = services_data.get("items", [])
+    """Load service catalogs and build an index keyed by normalized service name."""
+    items_by_key: dict[str, dict[str, Any]] = {}
     service_index: dict[str, dict[str, Any]] = {}
-    for item in items:
-        service = item.get("Service", {})
-        name = service.get("Text", "")
-        if name:
-            service_index[normalize_token(name)] = item
+    for language in LANGUAGE_ORDER:
+        services_file = meta_repo / f"services_{language}.json"
+        if not services_file.exists():
+            continue
+        services_data = hcloud_common.load_json(services_file)
+        for item in services_data.get("items", []):
+            service = item.get("Service", {})
+            name = service.get("Text", "")
+            service_key = normalize_token(name)
+            if not service_key or service_key in items_by_key:
+                continue
+            copied_item = dict(item)
+            copied_item["MetadataLanguage"] = language
+            items_by_key[service_key] = copied_item
+            service_index[service_key] = copied_item
+    items = sorted(items_by_key.values(), key=lambda item: str(item.get("Service", {}).get("Text", "")).lower())
     return items, service_index
 
 
@@ -66,6 +74,16 @@ def collect_template_dirs(meta_repo: Path) -> dict[str, Path]:
     return template_dirs
 
 
+def detail_operation_name(detail_file: Path, language: str) -> str:
+    """Return the operation name represented by a cached detail file."""
+    suffix = f"_{language}.yaml"
+    stem = detail_file.name[: -len(suffix)]
+    candidate, _, maybe_version = stem.rpartition("_")
+    if candidate and re.fullmatch(r"v[0-9][A-Za-z0-9._-]*", maybe_version):
+        return candidate
+    return stem
+
+
 def summarize_service(item: dict[str, Any], template_dir: Path | None) -> dict[str, Any]:
     """Return a compact service summary."""
     service = item.get("Service", {})
@@ -74,43 +92,51 @@ def summarize_service(item: dict[str, Any], template_dir: Path | None) -> dict[s
         "description": service.get("Description"),
         "category": item.get("Category"),
         "is_global": item.get("IsGlobal"),
+        "metadata_language": item.get("MetadataLanguage"),
         "cached_locally": template_dir is not None,
         "template_dir": template_dir.name if template_dir else None,
     }
 
 
 def load_cached_operations(template_dir: Path | None) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
-    """Load cached operation summaries from apis_en.json when available."""
+    """Load cached operation summaries from local metadata when available."""
     if template_dir is None:
         return [], {}
 
-    apis_file = template_dir / "apis_en.json"
-    if not apis_file.exists():
-        return [], {}
-
-    apis_data = hcloud_common.load_json(apis_file)
     operations: list[dict[str, Any]] = []
     operation_index: dict[str, dict[str, Any]] = {}
-    for _, raw_entry in apis_data.get("apiList", {}).items():
-        name = raw_entry.get("Name")
-        if not name:
+    for language in LANGUAGE_ORDER:
+        apis_file = template_dir / f"apis_{language}.json"
+        if not apis_file.exists():
             continue
-        entry = {
-            "name": name,
-            "versions": raw_entry.get("Versions", []),
-            "suggests": raw_entry.get("Suggests", {}),
-            "detail_cached": False,
-        }
-        operations.append(entry)
-        operation_index[normalize_token(name)] = entry
+        apis_data = hcloud_common.load_json(apis_file)
+        api_list = apis_data.get("apiList", {})
+        if not isinstance(api_list, dict):
+            continue
+        for raw_entry in api_list.values():
+            name = raw_entry.get("Name") if isinstance(raw_entry, dict) else None
+            normalized_name = normalize_token(str(name or ""))
+            if not normalized_name or normalized_name in operation_index:
+                continue
+            entry = {
+                "name": name,
+                "versions": raw_entry.get("Versions", []),
+                "suggests": raw_entry.get("Suggests", {}),
+                "metadata_language": language,
+                "detail_cached": False,
+            }
+            operations.append(entry)
+            operation_index[normalized_name] = entry
 
     operations.sort(key=lambda entry: entry["name"])
 
-    for detail_file in template_dir.glob("*_en.yaml"):
-        operation_name = detail_file.name[:-8]
-        normalized = normalize_token(operation_name)
-        if normalized in operation_index:
-            operation_index[normalized]["detail_cached"] = True
+    for language in LANGUAGE_ORDER:
+        for detail_file in template_dir.glob(f"*_{language}.yaml"):
+            operation_name = detail_operation_name(detail_file, language)
+            normalized = normalize_token(operation_name)
+            if normalized in operation_index:
+                operation_index[normalized]["detail_cached"] = True
+                operation_index[normalized]["detail_language"] = language
 
     return operations, operation_index
 
@@ -121,46 +147,49 @@ def load_operation_detail(template_dir: Path | None, operation_name: str) -> dic
         return None
 
     target = normalize_token(operation_name)
-    for detail_file in template_dir.glob("*_en.yaml"):
-        candidate_name = detail_file.name[:-8]
-        if normalize_token(candidate_name) != target:
-            continue
-        detail, detail_format, error = load_structured_detail(detail_file)
-        if not isinstance(detail, dict):
+    for language in LANGUAGE_ORDER:
+        for detail_file in template_dir.glob(f"*_{language}.yaml"):
+            candidate_name = detail_operation_name(detail_file, language)
+            if normalize_token(candidate_name) != target:
+                continue
+            detail, detail_format, error = load_structured_detail(detail_file)
+            if not isinstance(detail, dict):
+                return {
+                    "detail_file": detail_file.name,
+                    "detail_file_format": detail_format,
+                    "detail_language": language,
+                    "error": error or "Cached detail file exists but did not parse to an object.",
+                }
+
+            params = detail.get("Params", [])
+            request = detail.get("Request", {})
             return {
                 "detail_file": detail_file.name,
                 "detail_file_format": detail_format,
-                "error": error or "Cached detail file exists but did not parse to an object.",
+                "detail_language": language,
+                "description": detail.get("Description"),
+                "group_id": detail.get("GroupId"),
+                "cli_version": detail.get("CLIVersion"),
+                "request": {
+                    "method": request.get("Method"),
+                    "path": request.get("Path"),
+                    "scheme": request.get("Scheme"),
+                    "content_type": request.get("ContentType"),
+                    "has_body_params": request.get("HasBodyParams"),
+                },
+                "params": [
+                    {
+                        "name": param.get("Name", []),
+                        "required": param.get("Required"),
+                        "position": param.get("Position"),
+                        "type": param.get("ParamType"),
+                        "enum": param.get("EnumValue"),
+                        "default": param.get("Default"),
+                    }
+                    for param in params
+                ],
+                "param_count": len(params),
             }
-
-        params = detail.get("Params", [])
-        request = detail.get("Request", {})
-        return {
-            "detail_file": detail_file.name,
-            "detail_file_format": detail_format,
-            "description": detail.get("Description"),
-            "group_id": detail.get("GroupId"),
-            "cli_version": detail.get("CLIVersion"),
-            "request": {
-                "method": request.get("Method"),
-                "path": request.get("Path"),
-                "scheme": request.get("Scheme"),
-                "content_type": request.get("ContentType"),
-                "has_body_params": request.get("HasBodyParams"),
-            },
-            "params": [
-                {
-                    "name": param.get("Name", []),
-                    "required": param.get("Required"),
-                    "position": param.get("Position"),
-                    "type": param.get("ParamType"),
-                    "enum": param.get("EnumValue"),
-                    "default": param.get("Default"),
-                }
-                for param in params
-            ],
-            "param_count": len(params),
-        }
     return None
 
 
@@ -169,8 +198,15 @@ def load_endpoints(template_dir: Path | None, region: str | None) -> dict[str, A
     if template_dir is None:
         return None
 
-    endpoints_file = template_dir / "endpoints_en.json"
-    if not endpoints_file.exists():
+    endpoints_file = next(
+        (
+            template_dir / f"endpoints_{language}.json"
+            for language in LANGUAGE_ORDER
+            if (template_dir / f"endpoints_{language}.json").exists()
+        ),
+        None,
+    )
+    if endpoints_file is None:
         return None
 
     endpoints_data = hcloud_common.load_json(endpoints_file)
@@ -181,6 +217,7 @@ def load_endpoints(template_dir: Path | None, region: str | None) -> dict[str, A
     return {
         "service": endpoints_data.get("service"),
         "update_time": endpoints_data.get("updateTime"),
+        "metadata_language": endpoints_file.stem.rsplit("_", 1)[-1],
         "region_count": len(groups),
         "groups": groups,
     }

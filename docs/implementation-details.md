@@ -107,10 +107,12 @@ python3 scripts/hcloud_safe_exec.py \
 
 这个脚本读取本地 KooCLI meta cache：
 
-- `services_en.json`
-- `template/<service>/apis_en.json`
-- `template/<service>/*_en.yaml`
-- `template/<service>/endpoints_en.json`
+- `services_en.json` 和 `services_cn.json`
+- `template/<service>/apis_en.json` 和 `template/<service>/apis_cn.json`
+- `template/<service>/*_en.yaml` 和 `template/<service>/*_cn.yaml`
+- `template/<service>/endpoints_en.json` 和 `template/<service>/endpoints_cn.json`
+
+英文 metadata 优先；当英文服务、operation、detail 或 endpoint 不存在时，脚本使用中文 metadata 作为 fallback。这个策略和 generated catalog 的 v0.3.1 覆盖扩展保持一致。
 
 它支持：
 

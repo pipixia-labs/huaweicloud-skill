@@ -173,7 +173,7 @@ flowchart LR
 - **CLI-first**：优先基于本机 `hcloud` 的真实 service、operation 和 help 信息工作，减少凭空猜测。
 - **结构化上下文**：自动整理 profile、region、project、认证模式、CLI 路径、版本和常见配置问题。
 - **多服务发现**：通过 registry、playbook 和 discovery 工具深度覆盖 ECS、VPC、EIP、EVS、IMS、KPS、RDS、ELB、OBS、CDN、IAM 等常用服务。
-- **metadata-backed 广覆盖**：内置 hcloud metadata catalog；运行时默认通过 `references/hcloud-service-catalog.index.json` 按服务懒加载，旧 full catalog `references/hcloud-service-catalog.generated.json` 保留用于兼容和完整 diff。准确覆盖规模以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 输出和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。registry 外服务默认只开放安全发现、显式参数只读查询和 planner-only 变更计划。
+- **metadata-backed 广覆盖**：内置 hcloud metadata catalog；v0.3.1 起按 operation 粒度合并英文 metadata，并用中文 metadata 补齐缺失服务、operation 和 detail。当前 audit 覆盖 198 个本地 metadata 服务、15,666 个 hcloud operation；本机 `hcloud --help` 在去掉 HCS/ManageOne 相关服务后可见 199 个服务。运行时默认通过 `references/hcloud-service-catalog.index.json` 按服务懒加载，旧 full catalog `references/hcloud-service-catalog.generated.json` 保留用于兼容和完整 diff。准确覆盖规模以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 输出和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。registry 外服务默认只开放安全发现、显式参数只读查询和 planner-only 变更计划。
 - **可信度分层**：metadata-backed 服务默认标为 catalog-derived；只读 smoke、dry-run 支持性和后续 confidence 信息单独记录，不把未实测能力包装成 curated coverage。
 - **curated 维护门禁**：`references/service-curation-profiles.json` 记录 curated 服务和晋级候选的 readiness、resource query、playbook 和 risk profile；`hcloud_curated_promotion_audit.py` 用于阻止证据不足的服务提前进入 registry。
 - **生命周期治理**：账号盘点、闲置资源审计、teardown review、CES/LTS 可观测、Billing/Cost request spec 和 CTS/TMS/CBR/RMS/Config/LTS candidate profiles 帮助用户从“能上云”继续走到“用好云、管好云”。

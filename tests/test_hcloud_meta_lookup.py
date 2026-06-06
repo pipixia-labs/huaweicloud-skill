@@ -56,6 +56,67 @@ class MetaLookupTest(unittest.TestCase):
         if detail["detail_file_format"] == "yaml_unavailable":
             self.assertIn("PyYAML is not installed", detail["error"])
 
+    def test_cached_operations_merge_cn_fallback_and_versioned_details(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            template_dir = Path(tmp_dir)
+            (template_dir / "apis_en.json").write_text(
+                json.dumps(
+                    {
+                        "apiList": {
+                            "ListThings": {
+                                "Name": "ListThings",
+                                "Versions": ["v1"],
+                                "Suggests": {"v1": "List things"},
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (template_dir / "apis_cn.json").write_text(
+                json.dumps(
+                    {
+                        "apiList": {
+                            "ListThings": {
+                                "Name": "ListThings",
+                                "Versions": ["v1"],
+                                "Suggests": {"v1": "List things from CN"},
+                            },
+                            "ListCnOnly": {
+                                "Name": "ListCnOnly",
+                                "Versions": ["v5"],
+                                "Suggests": {"v5": "List CN-only things"},
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (template_dir / "ListCnOnly_v5_cn.yaml").write_text(
+                json.dumps(
+                    {
+                        "Description": "List CN-only things.",
+                        "Request": {"Method": "GET", "Path": "/v5/things"},
+                        "Params": [{"Name": ["project_id"], "Required": True, "Position": "path"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            operations, operation_index = hcloud_meta_lookup.load_cached_operations(template_dir)
+            detail = hcloud_meta_lookup.load_operation_detail(template_dir, "ListCnOnly")
+
+        self.assertEqual([operation["name"] for operation in operations], ["ListCnOnly", "ListThings"])
+        self.assertEqual(operation_index[hcloud_meta_lookup.normalize_token("ListThings")]["metadata_language"], "en")
+        cn_only = operation_index[hcloud_meta_lookup.normalize_token("ListCnOnly")]
+        self.assertEqual(cn_only["metadata_language"], "cn")
+        self.assertTrue(cn_only["detail_cached"])
+        self.assertEqual(cn_only["detail_language"], "cn")
+        self.assertIsNotNone(detail)
+        assert detail is not None
+        self.assertEqual(detail["detail_file"], "ListCnOnly_v5_cn.yaml")
+        self.assertEqual(detail["detail_language"], "cn")
+
 
 if __name__ == "__main__":
     unittest.main()

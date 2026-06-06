@@ -307,14 +307,15 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(result["resource_state_plan"]["skipped"])
         self.assertEqual(result["metric_discovery_plan"]["service"], "CES")
 
-    def test_billing_cost_probe_reports_no_direct_billing_service(self) -> None:
+    def test_billing_cost_probe_reports_bss_candidate_without_live_default(self) -> None:
         result = hcloud_billing_cost_probe.build_probe(self.billing_probe_args())
 
         self.assertTrue(result["success"], result)
-        self.assertEqual(result["direct_service_count"], 0)
-        self.assertEqual(result["assessment"]["status"], "not_available_in_current_catalog")
+        self.assertEqual(result["direct_service_count"], 1)
+        self.assertEqual(result["direct_service_candidates"][0]["service"], "BSS")
+        self.assertEqual(result["assessment"]["status"], "candidate_service_present")
         self.assertFalse(result["assessment"]["can_run_live_billing_query"])
-        self.assertIn("No direct BSS/Billing/Cost service", result["assessment"]["blockers"][0])
+        self.assertIn("metadata-backed", " ".join(result["assessment"]["blockers"]))
 
     def test_billing_cost_probe_reports_custom_catalog_candidate(self) -> None:
         result = hcloud_billing_cost_probe.build_probe(

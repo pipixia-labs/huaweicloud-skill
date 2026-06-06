@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 - 2026-06-06
+
+- Expanded generated hcloud metadata catalog generation to merge English and Chinese KooCLI metadata at operation level.
+- Current committed catalog audit reports 198 local metadata services and 15,666 operations, while `hcloud --help` shows 199 non-HCS/ManageOne visible services on the maintainer machine.
+- Added source language metadata to catalog services and operations so Chinese fallback coverage remains visible during audits and future curation.
+- Updated local metadata lookup to read `services_cn.json`, `apis_cn.json`, `*_cn.yaml`, and `endpoints_cn.json` when English cache entries are absent.
+- Updated Billing/Cost probing so newly discoverable `BSS` is treated as a metadata-backed candidate, not default live billing query support.
+- Kept curated registry coverage unchanged at 19 services and 311 registered operations; broader catalog coverage remains metadata-backed and subject to existing planner/read-only/guarded-change boundaries.
+
 ## 0.3.0 - 2026-06-06
 
 - Upgraded lifecycle coverage around 上好云、用好云、管好云 with account inventory, idle-resource audit, teardown review planning, observability readiness, Billing/Cost request planning, and governance candidate profiles.

@@ -3,9 +3,18 @@
   "split": true,
   "source": {
     "format": "hcloud metaRepo",
+    "languages": [
+      "en",
+      "cn"
+    ],
+    "merge_strategy": "operation-level English metadata preferred; Chinese metadata fills missing services, operations, and details",
     "services_update_time": 1780540681,
-    "service_count": 125,
-    "operation_count": 10194
+    "services_update_times": {
+      "en": 1780540681,
+      "cn": 1780650477
+    },
+    "service_count": 198,
+    "operation_count": 15666
   },
   "services": {
     "aad": {
@@ -15,8 +24,29 @@
       "category": "Security & Compliance",
       "description": "Advanced Anti-DDoS",
       "is_global": true,
-      "operation_count": 42,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 32,
+        "en": 42
+      },
+      "operation_count": 74,
       "service_file": "hcloud-service-catalog/aad.json"
+    },
+    "agentidentity": {
+      "name": "AgentIdentity",
+      "service_key": "agentidentity",
+      "template_dir": "agentidentity",
+      "category": "管理与监管",
+      "description": "智能体身份",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 31
+      },
+      "operation_count": 31,
+      "service_file": "hcloud-service-catalog/agentidentity.json"
     },
     "antiddos": {
       "name": "Anti-DDoS",
@@ -25,6 +55,11 @@
       "category": "Security & Compliance",
       "description": "Anti-DDoS",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 19
+      },
       "operation_count": 19,
       "service_file": "hcloud-service-catalog/antiddos.json"
     },
@@ -35,7 +70,13 @@
       "category": "Management & Governance",
       "description": "Application Operations Management",
       "is_global": false,
-      "operation_count": 85,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 14,
+        "en": 85
+      },
+      "operation_count": 99,
       "service_file": "hcloud-service-catalog/aom.json"
     },
     "aos": {
@@ -45,6 +86,11 @@
       "category": "Containers",
       "description": "Application Orchestration Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 75
+      },
       "operation_count": 75,
       "service_file": "hcloud-service-catalog/aos.json"
     },
@@ -55,6 +101,11 @@
       "category": "Middleware",
       "description": "API Gateway",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 214
+      },
       "operation_count": 214,
       "service_file": "hcloud-service-catalog/apig.json"
     },
@@ -65,6 +116,11 @@
       "category": "Management & Governance",
       "description": "Application Performance Management",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 46
+      },
       "operation_count": 46,
       "service_file": "hcloud-service-catalog/apm.json"
     },
@@ -75,8 +131,28 @@
       "category": "Compute",
       "description": "Auto Scaling",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 71
+      },
       "operation_count": 71,
       "service_file": "hcloud-service-catalog/as.json"
+    },
+    "asm": {
+      "name": "ASM",
+      "service_key": "asm",
+      "template_dir": "asm",
+      "category": "容器",
+      "description": "应用服务网格",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 4
+      },
+      "operation_count": 4,
+      "service_file": "hcloud-service-catalog/asm.json"
     },
     "astrozero": {
       "name": "AstroZero",
@@ -85,18 +161,74 @@
       "category": "Developer Services",
       "description": "AstroZero",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 1
+      },
       "operation_count": 1,
       "service_file": "hcloud-service-catalog/astrozero.json"
+    },
+    "bcc": {
+      "name": "BCC",
+      "service_key": "bcc",
+      "template_dir": "bcc",
+      "category": "存储",
+      "description": "灾备业务连续性中心",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 59
+      },
+      "operation_count": 59,
+      "service_file": "hcloud-service-catalog/bcc.json"
+    },
+    "bcs": {
+      "name": "BCS",
+      "service_key": "bcs",
+      "template_dir": "bcs",
+      "category": "区块链",
+      "description": "区块链服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 32
+      },
+      "operation_count": 32,
+      "service_file": "hcloud-service-catalog/bcs.json"
     },
     "bms": {
       "name": "BMS",
       "service_key": "bms",
       "template_dir": "bms",
-      "category": "Dedicated Cloud",
+      "category": "Compute",
       "description": "Bare Metal Server",
       "is_global": false,
-      "operation_count": 28,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 7,
+        "en": 28
+      },
+      "operation_count": 35,
       "service_file": "hcloud-service-catalog/bms.json"
+    },
+    "bss": {
+      "name": "BSS",
+      "service_key": "bss",
+      "template_dir": "bss",
+      "category": "Management & Governance",
+      "description": "Operation Capability",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 87
+      },
+      "operation_count": 87,
+      "service_file": "hcloud-service-catalog/bss.json"
     },
     "cae": {
       "name": "CAE",
@@ -105,8 +237,29 @@
       "category": "CodeArts",
       "description": "Cloud Application Engine",
       "is_global": false,
-      "operation_count": 58,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 1,
+        "en": 58
+      },
+      "operation_count": 59,
       "service_file": "hcloud-service-catalog/cae.json"
+    },
+    "campusgo": {
+      "name": "CampusGo",
+      "service_key": "campusgo",
+      "template_dir": "campusgo",
+      "category": "人工智能",
+      "description": "园区智能体",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 4
+      },
+      "operation_count": 4,
+      "service_file": "hcloud-service-catalog/campusgo.json"
     },
     "cbh": {
       "name": "CBH",
@@ -115,6 +268,11 @@
       "category": "Security & Compliance",
       "description": "Cloud Bastion Host",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 49
+      },
       "operation_count": 49,
       "service_file": "hcloud-service-catalog/cbh.json"
     },
@@ -125,6 +283,11 @@
       "category": "Storage",
       "description": "Cloud Backup and Recovery",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 73
+      },
       "operation_count": 73,
       "service_file": "hcloud-service-catalog/cbr.json"
     },
@@ -135,7 +298,13 @@
       "category": "AI",
       "description": "Conversational Bot Service",
       "is_global": false,
-      "operation_count": 4,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 25,
+        "en": 4
+      },
+      "operation_count": 29,
       "service_file": "hcloud-service-catalog/cbs.json"
     },
     "cc": {
@@ -145,6 +314,11 @@
       "category": "Networking",
       "description": "Cloud Connect",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 111
+      },
       "operation_count": 111,
       "service_file": "hcloud-service-catalog/cc.json"
     },
@@ -155,6 +329,11 @@
       "category": "Containers",
       "description": "Cloud Container Engine",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 178
+      },
       "operation_count": 178,
       "service_file": "hcloud-service-catalog/cce.json"
     },
@@ -165,7 +344,13 @@
       "category": "Containers",
       "description": "Cloud Container Instance",
       "is_global": false,
-      "operation_count": 148,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 42,
+        "en": 148
+      },
+      "operation_count": 190,
       "service_file": "hcloud-service-catalog/cci.json"
     },
     "ccm": {
@@ -175,7 +360,13 @@
       "category": "Security & Compliance",
       "description": "Cloud Certificate & Manager",
       "is_global": true,
-      "operation_count": 42,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 4,
+        "en": 42
+      },
+      "operation_count": 46,
       "service_file": "hcloud-service-catalog/ccm.json"
     },
     "cdm": {
@@ -185,6 +376,11 @@
       "category": "Migration",
       "description": "Cloud Data Migration",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 27
+      },
       "operation_count": 27,
       "service_file": "hcloud-service-catalog/cdm.json"
     },
@@ -195,6 +391,11 @@
       "category": "Content Delivery & Edge Computing",
       "description": "Content Delivery Network",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 90
+      },
       "operation_count": 90,
       "service_file": "hcloud-service-catalog/cdn.json"
     },
@@ -205,6 +406,11 @@
       "category": "Management & Governance",
       "description": "Cloud Eye",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 72
+      },
       "operation_count": 72,
       "service_file": "hcloud-service-catalog/ces.json"
     },
@@ -215,6 +421,11 @@
       "category": "Security & Compliance",
       "description": "Cloud Firewall",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 168
+      },
       "operation_count": 168,
       "service_file": "hcloud-service-catalog/cfw.json"
     },
@@ -225,8 +436,43 @@
       "category": "Compute",
       "description": "Cloud Data Center",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 32
+      },
       "operation_count": 32,
       "service_file": "hcloud-service-catalog/clouddc.json"
+    },
+    "cloudide": {
+      "name": "CloudIDE",
+      "service_key": "cloudide",
+      "template_dir": "cloudide",
+      "category": "软件开发生产线",
+      "description": "CloudIDE",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 44
+      },
+      "operation_count": 44,
+      "service_file": "hcloud-service-catalog/cloudide.json"
+    },
+    "cloudpipeline": {
+      "name": "CloudPipeline",
+      "service_key": "cloudpipeline",
+      "template_dir": "cloudpipeline",
+      "category": "软件开发生产线",
+      "description": "流水线",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 21
+      },
+      "operation_count": 21,
+      "service_file": "hcloud-service-catalog/cloudpipeline.json"
     },
     "cloudpond": {
       "name": "CloudPond",
@@ -235,6 +481,11 @@
       "category": "Content Delivery & Edge Computing",
       "description": "CloudPond",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 22
+      },
       "operation_count": 22,
       "service_file": "hcloud-service-catalog/cloudpond.json"
     },
@@ -245,8 +496,28 @@
       "category": "Media Services",
       "description": "Huawei Cloud Real-Time Communication",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 42
+      },
       "operation_count": 42,
       "service_file": "hcloud-service-catalog/cloudrtc.json"
+    },
+    "cloudtable": {
+      "name": "CloudTable",
+      "service_key": "cloudtable",
+      "template_dir": "cloudtable",
+      "category": "大数据",
+      "description": "表格存储服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 10
+      },
+      "operation_count": 10,
+      "service_file": "hcloud-service-catalog/cloudtable.json"
     },
     "cloudtest": {
       "name": "CloudTest",
@@ -255,8 +526,29 @@
       "category": "CodeArts",
       "description": "CodeArts TestPlan",
       "is_global": false,
-      "operation_count": 83,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 90,
+        "en": 83
+      },
+      "operation_count": 173,
       "service_file": "hcloud-service-catalog/cloudtest.json"
+    },
+    "cms": {
+      "name": "CMS",
+      "service_key": "cms",
+      "template_dir": "cms",
+      "category": "计算",
+      "description": "容量管理服务",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 7
+      },
+      "operation_count": 7,
+      "service_file": "hcloud-service-catalog/cms.json"
     },
     "coc": {
       "name": "COC",
@@ -265,6 +557,11 @@
       "category": "Management & Governance",
       "description": "Cloud Operations Center",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 144
+      },
       "operation_count": 144,
       "service_file": "hcloud-service-catalog/coc.json"
     },
@@ -275,7 +572,13 @@
       "category": "CodeArts",
       "description": "CodeArts Artifact",
       "is_global": false,
-      "operation_count": 54,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 5,
+        "en": 54
+      },
+      "operation_count": 59,
       "service_file": "hcloud-service-catalog/codeartsartifact.json"
     },
     "codeartsbuild": {
@@ -285,7 +588,13 @@
       "category": "CodeArts",
       "description": "CodeArts Build",
       "is_global": false,
-      "operation_count": 135,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 1,
+        "en": 135
+      },
+      "operation_count": 136,
       "service_file": "hcloud-service-catalog/codeartsbuild.json"
     },
     "codeartscheck": {
@@ -295,6 +604,11 @@
       "category": "CodeArts",
       "description": "CodeArts Check",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 29
+      },
       "operation_count": 29,
       "service_file": "hcloud-service-catalog/codeartscheck.json"
     },
@@ -305,8 +619,43 @@
       "category": "CodeArts",
       "description": "CodeArts Deploy",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 65
+      },
       "operation_count": 65,
       "service_file": "hcloud-service-catalog/codeartsdeploy.json"
+    },
+    "codeartside": {
+      "name": "CodeArtsIDE",
+      "service_key": "codeartside",
+      "template_dir": "codeartside",
+      "category": "软件开发生产线",
+      "description": "CodeArts IDE",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 2
+      },
+      "operation_count": 2,
+      "service_file": "hcloud-service-catalog/codeartside.json"
+    },
+    "codeartsinspector": {
+      "name": "CodeArtsInspector",
+      "service_key": "codeartsinspector",
+      "template_dir": "codeartsinspector",
+      "category": "软件开发生产线",
+      "description": "漏洞管理服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 28
+      },
+      "operation_count": 28,
+      "service_file": "hcloud-service-catalog/codeartsinspector.json"
     },
     "codeartspipeline": {
       "name": "CodeArtsPipeline",
@@ -315,6 +664,11 @@
       "category": "CodeArts",
       "description": "CodeArts Pipeline",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 87
+      },
       "operation_count": 87,
       "service_file": "hcloud-service-catalog/codeartspipeline.json"
     },
@@ -325,7 +679,13 @@
       "category": "CodeArts",
       "description": "CodeArtsRepo",
       "is_global": false,
-      "operation_count": 359,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 4,
+        "en": 359
+      },
+      "operation_count": 363,
       "service_file": "hcloud-service-catalog/codeartsrepo.json"
     },
     "codecheck": {
@@ -335,8 +695,28 @@
       "category": "CodeArts",
       "description": "CodeCheck",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 29
+      },
       "operation_count": 29,
       "service_file": "hcloud-service-catalog/codecheck.json"
+    },
+    "codecraft": {
+      "name": "CodeCraft",
+      "service_key": "codecraft",
+      "template_dir": "codecraft",
+      "category": "软件开发生产线",
+      "description": "大赛服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 4
+      },
+      "operation_count": 4,
+      "service_file": "hcloud-service-catalog/codecraft.json"
     },
     "config": {
       "name": "Config",
@@ -345,6 +725,11 @@
       "category": "Management & Governance",
       "description": "Config",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 106
+      },
       "operation_count": 106,
       "service_file": "hcloud-service-catalog/config.json"
     },
@@ -355,6 +740,11 @@
       "category": "Security & Compliance",
       "description": "Data Encryption Workshop CPCS",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 43
+      },
       "operation_count": 43,
       "service_file": "hcloud-service-catalog/cpcs.json"
     },
@@ -365,6 +755,11 @@
       "category": "Compute",
       "description": "Cloud Phone",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 51
+      },
       "operation_count": 51,
       "service_file": "hcloud-service-catalog/cph.json"
     },
@@ -375,8 +770,28 @@
       "category": "CodeArts",
       "description": "Cloud Performance Test Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 46
+      },
       "operation_count": 46,
       "service_file": "hcloud-service-catalog/cpts.json"
+    },
+    "craftartsipdcenter": {
+      "name": "CraftArtsIPDCenter",
+      "service_key": "craftartsipdcenter",
+      "template_dir": "craftartsipdcenter",
+      "category": "工业软件",
+      "description": "硬件开发工具链平台云服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 8
+      },
+      "operation_count": 8,
+      "service_file": "hcloud-service-catalog/craftartsipdcenter.json"
     },
     "cse": {
       "name": "CSE",
@@ -385,7 +800,13 @@
       "category": "Middleware",
       "description": "Cloud Service Engine",
       "is_global": false,
-      "operation_count": 26,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 9,
+        "en": 26
+      },
+      "operation_count": 35,
       "service_file": "hcloud-service-catalog/cse.json"
     },
     "csms": {
@@ -395,6 +816,11 @@
       "category": "Security & Compliance",
       "description": "Data Encryption Workshop CSMS",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 45
+      },
       "operation_count": 45,
       "service_file": "hcloud-service-catalog/csms.json"
     },
@@ -405,6 +831,11 @@
       "category": "Analytics",
       "description": "Cloud Search Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 118
+      },
       "operation_count": 118,
       "service_file": "hcloud-service-catalog/css.json"
     },
@@ -415,6 +846,11 @@
       "category": "Management & Governance",
       "description": "Cloud Trace Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 16
+      },
       "operation_count": 16,
       "service_file": "hcloud-service-catalog/cts.json"
     },
@@ -425,8 +861,43 @@
       "category": "Databases",
       "description": "Data Admin Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 102
+      },
       "operation_count": 102,
       "service_file": "hcloud-service-catalog/das.json"
+    },
+    "dataartsfabric": {
+      "name": "DataArtsFabric",
+      "service_key": "dataartsfabric",
+      "template_dir": "dataartsfabric",
+      "category": "大数据",
+      "description": "数智融合计算服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 44
+      },
+      "operation_count": 44,
+      "service_file": "hcloud-service-catalog/dataartsfabric.json"
+    },
+    "dataartsinsight": {
+      "name": "DataArtsInsight",
+      "service_key": "dataartsinsight",
+      "template_dir": "dataartsinsight",
+      "category": "大数据",
+      "description": "智能数据洞察",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 33
+      },
+      "operation_count": 33,
+      "service_file": "hcloud-service-catalog/dataartsinsight.json"
     },
     "dataartsstudio": {
       "name": "DataArtsStudio",
@@ -435,7 +906,13 @@
       "category": "Analytics",
       "description": "DataArts Studio",
       "is_global": false,
-      "operation_count": 348,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 39,
+        "en": 348
+      },
+      "operation_count": 387,
       "service_file": "hcloud-service-catalog/dataartsstudio.json"
     },
     "dbss": {
@@ -445,6 +922,11 @@
       "category": "Security & Compliance",
       "description": "Database Security Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 167
+      },
       "operation_count": 167,
       "service_file": "hcloud-service-catalog/dbss.json"
     },
@@ -455,6 +937,11 @@
       "category": "Networking",
       "description": "Direct Connect",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 58
+      },
       "operation_count": 58,
       "service_file": "hcloud-service-catalog/dc.json"
     },
@@ -465,8 +952,28 @@
       "category": "Dedicated Cloud",
       "description": "Dedicated Computing Cluster",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 1
+      },
       "operation_count": 1,
       "service_file": "hcloud-service-catalog/dcc.json"
+    },
+    "dcos": {
+      "name": "DCOS",
+      "service_key": "dcos",
+      "template_dir": "dcos",
+      "category": "管理与监管",
+      "description": "数据中心运营管理服务",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 8
+      },
+      "operation_count": 8,
+      "service_file": "hcloud-service-catalog/dcos.json"
     },
     "dcs": {
       "name": "DCS",
@@ -475,7 +982,13 @@
       "category": "Middleware",
       "description": "Distributed Cache Service",
       "is_global": false,
-      "operation_count": 67,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 71,
+        "en": 67
+      },
+      "operation_count": 138,
       "service_file": "hcloud-service-catalog/dcs.json"
     },
     "ddm": {
@@ -485,6 +998,11 @@
       "category": "Databases",
       "description": "Distributed Database Middleware",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 124
+      },
       "operation_count": 124,
       "service_file": "hcloud-service-catalog/ddm.json"
     },
@@ -495,7 +1013,13 @@
       "category": "Databases",
       "description": "Document Database Service",
       "is_global": false,
-      "operation_count": 127,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 2,
+        "en": 127
+      },
+      "operation_count": 129,
       "service_file": "hcloud-service-catalog/dds.json"
     },
     "deh": {
@@ -505,8 +1029,43 @@
       "category": "Compute",
       "description": "Dedicated Host",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 16
+      },
       "operation_count": 16,
       "service_file": "hcloud-service-catalog/deh.json"
+    },
+    "devsecurity": {
+      "name": "DevSecurity",
+      "service_key": "devsecurity",
+      "template_dir": "devsecurity",
+      "category": "软件开发生产线",
+      "description": "开源治理服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 18
+      },
+      "operation_count": 18,
+      "service_file": "hcloud-service-catalog/devsecurity.json"
+    },
+    "devstar": {
+      "name": "DevStar",
+      "service_key": "devstar",
+      "template_dir": "devstar",
+      "category": "开发者工具",
+      "description": "DevStar",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 26
+      },
+      "operation_count": 26,
+      "service_file": "hcloud-service-catalog/devstar.json"
     },
     "dgc": {
       "name": "DGC",
@@ -515,7 +1074,13 @@
       "category": "Analytics",
       "description": "Data Lake Governance Center",
       "is_global": false,
-      "operation_count": 6,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 31,
+        "en": 6
+      },
+      "operation_count": 37,
       "service_file": "hcloud-service-catalog/dgc.json"
     },
     "dis": {
@@ -525,6 +1090,11 @@
       "category": "Analytics",
       "description": "Data Ingestion Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 38
+      },
       "operation_count": 38,
       "service_file": "hcloud-service-catalog/dis.json"
     },
@@ -535,7 +1105,13 @@
       "category": "Analytics",
       "description": "Data Lake Factory",
       "is_global": false,
-      "operation_count": 38,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 1,
+        "en": 38
+      },
+      "operation_count": 39,
       "service_file": "hcloud-service-catalog/dlf.json"
     },
     "dli": {
@@ -545,6 +1121,11 @@
       "category": "Analytics",
       "description": "Data Lake Insight",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 160
+      },
       "operation_count": 160,
       "service_file": "hcloud-service-catalog/dli.json"
     },
@@ -555,17 +1136,43 @@
       "category": "Networking",
       "description": "Domain Name Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 117
+      },
       "operation_count": 117,
       "service_file": "hcloud-service-catalog/dns.json"
+    },
+    "dris": {
+      "name": "DRIS",
+      "service_key": "dris",
+      "template_dir": "dris",
+      "category": "IoT物联网",
+      "description": "路网数字化服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 58
+      },
+      "operation_count": 58,
+      "service_file": "hcloud-service-catalog/dris.json"
     },
     "drs": {
       "name": "DRS",
       "service_key": "drs",
       "template_dir": "drs",
-      "category": "Migration",
+      "category": "Databases",
       "description": "Data Replication Service",
       "is_global": false,
-      "operation_count": 156,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 13,
+        "en": 156
+      },
+      "operation_count": 169,
       "service_file": "hcloud-service-catalog/drs.json"
     },
     "dsc": {
@@ -575,6 +1182,11 @@
       "category": "Security & Compliance",
       "description": "Data Security Center",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 35
+      },
       "operation_count": 35,
       "service_file": "hcloud-service-catalog/dsc.json"
     },
@@ -585,8 +1197,28 @@
       "category": "Storage",
       "description": "Dedicated Distributed Storage Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 4
+      },
       "operation_count": 4,
       "service_file": "hcloud-service-catalog/dss.json"
+    },
+    "dwr": {
+      "name": "DWR",
+      "service_key": "dwr",
+      "template_dir": "dwr",
+      "category": "存储",
+      "description": "数据工坊",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 46
+      },
+      "operation_count": 46,
+      "service_file": "hcloud-service-catalog/dwr.json"
     },
     "dws": {
       "name": "DWS",
@@ -595,8 +1227,29 @@
       "category": "Analytics",
       "description": "Data Warehouse Service",
       "is_global": false,
-      "operation_count": 43,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 155,
+        "en": 43
+      },
+      "operation_count": 198,
       "service_file": "hcloud-service-catalog/dws.json"
+    },
+    "ec": {
+      "name": "EC",
+      "service_key": "ec",
+      "template_dir": "ec",
+      "category": "网络",
+      "description": "企业连接",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 54
+      },
+      "operation_count": 54,
+      "service_file": "hcloud-service-catalog/ec.json"
     },
     "ecs": {
       "name": "ECS",
@@ -605,7 +1258,13 @@
       "category": "Compute",
       "description": "Elastic Cloud Server",
       "is_global": false,
-      "operation_count": 124,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 7,
+        "en": 124
+      },
+      "operation_count": 131,
       "service_file": "hcloud-service-catalog/ecs.json"
     },
     "edgesec": {
@@ -615,6 +1274,11 @@
       "category": "Security & Compliance",
       "description": "Edge Security",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 60
+      },
       "operation_count": 60,
       "service_file": "hcloud-service-catalog/edgesec.json"
     },
@@ -625,6 +1289,11 @@
       "category": "MacroVerse aPaaS",
       "description": "Exchange Data Space",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 11
+      },
       "operation_count": 11,
       "service_file": "hcloud-service-catalog/eds.json"
     },
@@ -635,8 +1304,29 @@
       "category": "Middleware",
       "description": "EventGrid",
       "is_global": false,
-      "operation_count": 63,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 2,
+        "en": 63
+      },
+      "operation_count": 65,
       "service_file": "hcloud-service-catalog/eg.json"
+    },
+    "eihealth": {
+      "name": "eiHealth",
+      "service_key": "eihealth",
+      "template_dir": "eihealth",
+      "category": "人工智能",
+      "description": "AI科学计算服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 223
+      },
+      "operation_count": 223,
+      "service_file": "hcloud-service-catalog/eihealth.json"
     },
     "eip": {
       "name": "EIP",
@@ -645,7 +1335,13 @@
       "category": "Networking",
       "description": "Elastic IP",
       "is_global": false,
-      "operation_count": 69,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 2,
+        "en": 69
+      },
+      "operation_count": 71,
       "service_file": "hcloud-service-catalog/eip.json"
     },
     "elb": {
@@ -655,6 +1351,11 @@
       "category": "Networking",
       "description": "Elastic Load Balance",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 137
+      },
       "operation_count": 137,
       "service_file": "hcloud-service-catalog/elb.json"
     },
@@ -665,6 +1366,11 @@
       "category": "Management & Governance",
       "description": "Enterprise Project Management Service",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 17
+      },
       "operation_count": 17,
       "service_file": "hcloud-service-catalog/eps.json"
     },
@@ -675,6 +1381,11 @@
       "category": "Networking",
       "description": "Enterprise Router",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 49
+      },
       "operation_count": 49,
       "service_file": "hcloud-service-catalog/er.json"
     },
@@ -685,6 +1396,11 @@
       "category": "Networking",
       "description": "Enterprise Switch",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 17
+      },
       "operation_count": 17,
       "service_file": "hcloud-service-catalog/esw.json"
     },
@@ -695,8 +1411,28 @@
       "category": "Storage",
       "description": "Elastic Volume Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 38
+      },
       "operation_count": 38,
       "service_file": "hcloud-service-catalog/evs.json"
+    },
+    "frs": {
+      "name": "FRS",
+      "service_key": "frs",
+      "template_dir": "frs",
+      "category": "人工智能",
+      "description": "人脸识别服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 29
+      },
+      "operation_count": 29,
+      "service_file": "hcloud-service-catalog/frs.json"
     },
     "functiongraph": {
       "name": "FunctionGraph",
@@ -705,8 +1441,148 @@
       "category": "Compute",
       "description": "FunctionGraph",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 92
+      },
       "operation_count": 92,
       "service_file": "hcloud-service-catalog/functiongraph.json"
+    },
+    "ga": {
+      "name": "GA",
+      "service_key": "ga",
+      "template_dir": "ga",
+      "category": "Networking",
+      "description": "Global Accelerator",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 49
+      },
+      "operation_count": 49,
+      "service_file": "hcloud-service-catalog/ga.json"
+    },
+    "gaussdb": {
+      "name": "GaussDB",
+      "service_key": "gaussdb",
+      "template_dir": "gaussdb",
+      "category": "Databases",
+      "description": "TaurusDB",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 225
+      },
+      "operation_count": 225,
+      "service_file": "hcloud-service-catalog/gaussdb.json"
+    },
+    "gaussdbfornosql": {
+      "name": "GaussDBforNoSQL",
+      "service_key": "gaussdbfornosql",
+      "template_dir": "gaussdbfornosql",
+      "category": "Databases",
+      "description": "GeminiDB",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 151
+      },
+      "operation_count": 151,
+      "service_file": "hcloud-service-catalog/gaussdbfornosql.json"
+    },
+    "gaussdbforopengauss": {
+      "name": "GaussDBforopenGauss",
+      "service_key": "gaussdbforopengauss",
+      "template_dir": "gaussdbforopengauss",
+      "category": "Databases",
+      "description": "GaussDB",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 255
+      },
+      "operation_count": 255,
+      "service_file": "hcloud-service-catalog/gaussdbforopengauss.json"
+    },
+    "geip": {
+      "name": "GEIP",
+      "service_key": "geip",
+      "template_dir": "geip",
+      "category": "网络",
+      "description": "全域弹性公网IP",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 66
+      },
+      "operation_count": 66,
+      "service_file": "hcloud-service-catalog/geip.json"
+    },
+    "ges": {
+      "name": "GES",
+      "service_key": "ges",
+      "template_dir": "ges",
+      "category": "AI",
+      "description": "Graph Engine Service",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 61
+      },
+      "operation_count": 61,
+      "service_file": "hcloud-service-catalog/ges.json"
+    },
+    "gsl": {
+      "name": "GSL",
+      "service_key": "gsl",
+      "template_dir": "gsl",
+      "category": "IoT物联网",
+      "description": "全球SIM联接",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 39
+      },
+      "operation_count": 39,
+      "service_file": "hcloud-service-catalog/gsl.json"
+    },
+    "hilens": {
+      "name": "HiLens",
+      "service_key": "hilens",
+      "template_dir": "hilens",
+      "category": "人工智能",
+      "description": "Huawei HiLens",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 58
+      },
+      "operation_count": 58,
+      "service_file": "hcloud-service-catalog/hilens.json"
+    },
+    "hss": {
+      "name": "HSS",
+      "service_key": "hss",
+      "template_dir": "hss",
+      "category": "Security & Compliance",
+      "description": "Host Security Service",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 571
+      },
+      "operation_count": 571,
+      "service_file": "hcloud-service-catalog/hss.json"
     },
     "iam": {
       "name": "IAM",
@@ -715,6 +1591,11 @@
       "category": "Management & Governance",
       "description": "Identity and Access Management",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 222
+      },
       "operation_count": 222,
       "service_file": "hcloud-service-catalog/iam.json"
     },
@@ -725,6 +1606,11 @@
       "category": "Management & Governance",
       "description": "IAMAccessAnalyzer",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 31
+      },
       "operation_count": 31,
       "service_file": "hcloud-service-catalog/iamaccessanalyzer.json"
     },
@@ -735,6 +1621,11 @@
       "category": "Management & Governance",
       "description": "IAM Identity Center",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 81
+      },
       "operation_count": 81,
       "service_file": "hcloud-service-catalog/identitycenter.json"
     },
@@ -745,6 +1636,11 @@
       "category": "Management & Governance",
       "description": "IAM Identity Center OIDC",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 3
+      },
       "operation_count": 3,
       "service_file": "hcloud-service-catalog/identitycenteroidc.json"
     },
@@ -755,6 +1651,11 @@
       "category": "Management & Governance",
       "description": "IAM Identity Center PortalAPI",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 4
+      },
       "operation_count": 4,
       "service_file": "hcloud-service-catalog/identitycenterportalapi.json"
     },
@@ -765,6 +1666,11 @@
       "category": "Management & Governance",
       "description": "IAM Identity Center SCIM",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 12
+      },
       "operation_count": 12,
       "service_file": "hcloud-service-catalog/identitycenterscim.json"
     },
@@ -775,8 +1681,103 @@
       "category": "Management & Governance",
       "description": "IAM Identity Center Store",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 54
+      },
       "operation_count": 54,
       "service_file": "hcloud-service-catalog/identitycenterstore.json"
+    },
+    "idme": {
+      "name": "iDME",
+      "service_key": "idme",
+      "template_dir": "idme",
+      "category": "工业软件",
+      "description": "工业数字模型驱动引擎",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 9
+      },
+      "operation_count": 9,
+      "service_file": "hcloud-service-catalog/idme.json"
+    },
+    "idmeclassicapi": {
+      "name": "iDMEClassicAPI",
+      "service_key": "idmeclassicapi",
+      "template_dir": "idmeclassicapi",
+      "category": "工业软件",
+      "description": "工业数字模型驱动引擎(典型API体验)",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 91
+      },
+      "operation_count": 91,
+      "service_file": "hcloud-service-catalog/idmeclassicapi.json"
+    },
+    "idt": {
+      "name": "IDT",
+      "service_key": "idt",
+      "template_dir": "idt",
+      "category": "工业软件",
+      "description": "工业数字主线云服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 930
+      },
+      "operation_count": 930,
+      "service_file": "hcloud-service-catalog/idt.json"
+    },
+    "iec": {
+      "name": "IEC",
+      "service_key": "iec",
+      "template_dir": "iec",
+      "category": "CDN与智能边缘",
+      "description": "智能边缘云",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 90
+      },
+      "operation_count": 90,
+      "service_file": "hcloud-service-catalog/iec.json"
+    },
+    "ief": {
+      "name": "IEF",
+      "service_key": "ief",
+      "template_dir": "ief",
+      "category": "CDN与智能边缘",
+      "description": "智能边缘平台",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 111
+      },
+      "operation_count": 111,
+      "service_file": "hcloud-service-catalog/ief.json"
+    },
+    "ies": {
+      "name": "IES",
+      "service_key": "ies",
+      "template_dir": "ies",
+      "category": "CDN与智能边缘",
+      "description": "智能边缘小站",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 12
+      },
+      "operation_count": 12,
+      "service_file": "hcloud-service-catalog/ies.json"
     },
     "image": {
       "name": "Image",
@@ -785,8 +1786,29 @@
       "category": "AI",
       "description": "Image Recognition",
       "is_global": false,
-      "operation_count": 1,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 5,
+        "en": 1
+      },
+      "operation_count": 6,
       "service_file": "hcloud-service-catalog/image.json"
+    },
+    "imagesearch": {
+      "name": "ImageSearch",
+      "service_key": "imagesearch",
+      "template_dir": "imagesearch",
+      "category": "人工智能",
+      "description": "图像搜索",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 5
+      },
+      "operation_count": 5,
+      "service_file": "hcloud-service-catalog/imagesearch.json"
     },
     "ims": {
       "name": "IMS",
@@ -795,8 +1817,28 @@
       "category": "Compute",
       "description": "Image Management Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 51
+      },
       "operation_count": 51,
       "service_file": "hcloud-service-catalog/ims.json"
+    },
+    "iotanalytics": {
+      "name": "IoTAnalytics",
+      "service_key": "iotanalytics",
+      "template_dir": "iotanalytics",
+      "category": "IoT物联网",
+      "description": "物联网数据分析",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 66
+      },
+      "operation_count": 66,
+      "service_file": "hcloud-service-catalog/iotanalytics.json"
     },
     "iotda": {
       "name": "IoTDA",
@@ -805,6 +1847,11 @@
       "category": "Internet of Things",
       "description": "IoT Device Access",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 173
+      },
       "operation_count": 173,
       "service_file": "hcloud-service-catalog/iotda.json"
     },
@@ -815,8 +1862,43 @@
       "category": "Internet of Things",
       "description": "IoT Device Access Management",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 13
+      },
       "operation_count": 13,
       "service_file": "hcloud-service-catalog/iotdm.json"
+    },
+    "iotedge": {
+      "name": "IoTEdge",
+      "service_key": "iotedge",
+      "template_dir": "iotedge",
+      "category": "IoT物联网",
+      "description": "IoT边缘",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 107
+      },
+      "operation_count": 107,
+      "service_file": "hcloud-service-catalog/iotedge.json"
+    },
+    "ivs": {
+      "name": "IVS",
+      "service_key": "ivs",
+      "template_dir": "ivs",
+      "category": "人工智能",
+      "description": "人证核身服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 6
+      },
+      "operation_count": 6,
+      "service_file": "hcloud-service-catalog/ivs.json"
     },
     "kafka": {
       "name": "Kafka",
@@ -825,6 +1907,11 @@
       "category": "Middleware",
       "description": "Distributed Message Service for Kafka",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 110
+      },
       "operation_count": 110,
       "service_file": "hcloud-service-catalog/kafka.json"
     },
@@ -835,8 +1922,58 @@
       "category": "Security & Compliance",
       "description": "Data Encryption Workshop KMS",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 61
+      },
       "operation_count": 61,
       "service_file": "hcloud-service-catalog/kms.json"
+    },
+    "koomap": {
+      "name": "KooMap",
+      "service_key": "koomap",
+      "template_dir": "koomap",
+      "category": "开天aPaaS",
+      "description": "云地图服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 40
+      },
+      "operation_count": 40,
+      "service_file": "hcloud-service-catalog/koomap.json"
+    },
+    "koomessage": {
+      "name": "KooMessage",
+      "service_key": "koomessage",
+      "template_dir": "koomessage",
+      "category": "开天aPaaS",
+      "description": "云消息服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 62
+      },
+      "operation_count": 62,
+      "service_file": "hcloud-service-catalog/koomessage.json"
+    },
+    "koophone": {
+      "name": "KooPhone",
+      "service_key": "koophone",
+      "template_dir": "koophone",
+      "category": "开天aPaaS",
+      "description": "云手机服务",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 21
+      },
+      "operation_count": 21,
+      "service_file": "hcloud-service-catalog/koophone.json"
     },
     "kps": {
       "name": "KPS",
@@ -845,8 +1982,43 @@
       "category": "Security & Compliance",
       "description": "Data Encryption Workshop KPS",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 18
+      },
       "operation_count": 18,
       "service_file": "hcloud-service-catalog/kps.json"
+    },
+    "kvs": {
+      "name": "KVS",
+      "service_key": "kvs",
+      "template_dir": "kvs",
+      "category": "存储",
+      "description": "键值存储服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 14
+      },
+      "operation_count": 14,
+      "service_file": "hcloud-service-catalog/kvs.json"
+    },
+    "lakeformation": {
+      "name": "LakeFormation",
+      "service_key": "lakeformation",
+      "template_dir": "lakeformation",
+      "category": "大数据",
+      "description": "湖仓构建",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 95
+      },
+      "operation_count": 95,
+      "service_file": "hcloud-service-catalog/lakeformation.json"
     },
     "live": {
       "name": "Live",
@@ -855,6 +2027,11 @@
       "category": "Media Services",
       "description": "Live",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 126
+      },
       "operation_count": 126,
       "service_file": "hcloud-service-catalog/live.json"
     },
@@ -865,8 +2042,28 @@
       "category": "Management & Governance",
       "description": "Log Tank Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 82
+      },
       "operation_count": 82,
       "service_file": "hcloud-service-catalog/lts.json"
+    },
+    "mapds": {
+      "name": "MapDS",
+      "service_key": "mapds",
+      "template_dir": "mapds",
+      "category": "存储",
+      "description": "地图数据服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 5
+      },
+      "operation_count": 5,
+      "service_file": "hcloud-service-catalog/mapds.json"
     },
     "marketplace": {
       "name": "Marketplace",
@@ -875,8 +2072,28 @@
       "category": "KooGallery",
       "description": "KooGallery",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 6
+      },
       "operation_count": 6,
       "service_file": "hcloud-service-catalog/marketplace.json"
+    },
+    "mastudio": {
+      "name": "MaStudio",
+      "service_key": "mastudio",
+      "template_dir": "mastudio",
+      "category": "人工智能",
+      "description": "大模型开发平台",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 2
+      },
+      "operation_count": 2,
+      "service_file": "hcloud-service-catalog/mastudio.json"
     },
     "meeting": {
       "name": "Meeting",
@@ -885,8 +2102,29 @@
       "category": "Business Applications",
       "description": "Meeting",
       "is_global": false,
-      "operation_count": 180,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 22,
+        "en": 180
+      },
+      "operation_count": 202,
       "service_file": "hcloud-service-catalog/meeting.json"
+    },
+    "metastudio": {
+      "name": "MetaStudio",
+      "service_key": "metastudio",
+      "template_dir": "metastudio",
+      "category": "视频",
+      "description": "数字内容生产线",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 293
+      },
+      "operation_count": 293,
+      "service_file": "hcloud-service-catalog/metastudio.json"
     },
     "modelarts": {
       "name": "ModelArts",
@@ -895,7 +2133,13 @@
       "category": "AI",
       "description": "ModelArts",
       "is_global": false,
-      "operation_count": 214,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 41,
+        "en": 214
+      },
+      "operation_count": 255,
       "service_file": "hcloud-service-catalog/modelarts.json"
     },
     "moderation": {
@@ -905,7 +2149,13 @@
       "category": "AI",
       "description": "Content Moderation",
       "is_global": false,
-      "operation_count": 8,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 1,
+        "en": 8
+      },
+      "operation_count": 9,
       "service_file": "hcloud-service-catalog/moderation.json"
     },
     "mpc": {
@@ -915,6 +2165,11 @@
       "category": "Media Services",
       "description": "Media Processing Center",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 41
+      },
       "operation_count": 41,
       "service_file": "hcloud-service-catalog/mpc.json"
     },
@@ -925,8 +2180,44 @@
       "category": "Analytics",
       "description": "MapReduce Service",
       "is_global": false,
-      "operation_count": 52,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 6,
+        "en": 52
+      },
+      "operation_count": 58,
       "service_file": "hcloud-service-catalog/mrs.json"
+    },
+    "msgsms": {
+      "name": "MSGSMS",
+      "service_key": "msgsms",
+      "template_dir": "msgsms",
+      "category": "企业应用",
+      "description": "消息&短信",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 20
+      },
+      "operation_count": 20,
+      "service_file": "hcloud-service-catalog/msgsms.json"
+    },
+    "mssi": {
+      "name": "MSSI",
+      "service_key": "mssi",
+      "template_dir": "mssi",
+      "category": "开天aPaaS",
+      "description": "开天集成工作台",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 16
+      },
+      "operation_count": 16,
+      "service_file": "hcloud-service-catalog/mssi.json"
     },
     "nat": {
       "name": "NAT",
@@ -935,8 +2226,43 @@
       "category": "Networking",
       "description": "NAT Gateway",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 67
+      },
       "operation_count": 67,
       "service_file": "hcloud-service-catalog/nat.json"
+    },
+    "nlp": {
+      "name": "NLP",
+      "service_key": "nlp",
+      "template_dir": "nlp",
+      "category": "人工智能",
+      "description": "自然语言处理",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 27
+      },
+      "operation_count": 27,
+      "service_file": "hcloud-service-catalog/nlp.json"
+    },
+    "oa": {
+      "name": "OA",
+      "service_key": "oa",
+      "template_dir": "oa",
+      "category": "管理与监管",
+      "description": "优化顾问",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 3
+      },
+      "operation_count": 3,
+      "service_file": "hcloud-service-catalog/oa.json"
     },
     "ocr": {
       "name": "OCR",
@@ -945,8 +2271,44 @@
       "category": "AI",
       "description": "Optical Character Recognition",
       "is_global": false,
-      "operation_count": 35,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 3,
+        "en": 35
+      },
+      "operation_count": 38,
       "service_file": "hcloud-service-catalog/ocr.json"
+    },
+    "octopus": {
+      "name": "Octopus",
+      "service_key": "octopus",
+      "template_dir": "octopus",
+      "category": "人工智能",
+      "description": "八爪鱼自动驾驶云服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 60
+      },
+      "operation_count": 60,
+      "service_file": "hcloud-service-catalog/octopus.json"
+    },
+    "ocv2x": {
+      "name": "ocv2x",
+      "service_key": "ocv2x",
+      "template_dir": "ocv2x",
+      "category": "IoT物联网",
+      "description": "车路协同平台",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 4
+      },
+      "operation_count": 4,
+      "service_file": "hcloud-service-catalog/ocv2x.json"
     },
     "oms": {
       "name": "OMS",
@@ -955,8 +2317,43 @@
       "category": "Migration",
       "description": "Object Storage Migration Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 35
+      },
       "operation_count": 35,
       "service_file": "hcloud-service-catalog/oms.json"
+    },
+    "opensource": {
+      "name": "OpenSource",
+      "service_key": "opensource",
+      "template_dir": "opensource",
+      "category": "开发者工具",
+      "description": "开源平台",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 9
+      },
+      "operation_count": 9,
+      "service_file": "hcloud-service-catalog/opensource.json"
+    },
+    "optverse": {
+      "name": "OptVerse",
+      "service_key": "optverse",
+      "template_dir": "optverse",
+      "category": "人工智能",
+      "description": "天筹求解器服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 4
+      },
+      "operation_count": 4,
+      "service_file": "hcloud-service-catalog/optverse.json"
     },
     "organizations": {
       "name": "Organizations",
@@ -965,8 +2362,73 @@
       "category": "Management & Governance",
       "description": "Organizations",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 69
+      },
       "operation_count": 69,
       "service_file": "hcloud-service-catalog/organizations.json"
+    },
+    "orgid": {
+      "name": "OrgID",
+      "service_key": "orgid",
+      "template_dir": "orgid",
+      "category": "开天aPaaS",
+      "description": "组织成员账号",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 3
+      },
+      "operation_count": 3,
+      "service_file": "hcloud-service-catalog/orgid.json"
+    },
+    "oroas": {
+      "name": "OROAS",
+      "service_key": "oroas",
+      "template_dir": "oroas",
+      "category": "人工智能",
+      "description": "运筹优化算法服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 4
+      },
+      "operation_count": 4,
+      "service_file": "hcloud-service-catalog/oroas.json"
+    },
+    "osm": {
+      "name": "OSM",
+      "service_key": "osm",
+      "template_dir": "osm",
+      "category": "支持与服务",
+      "description": "工单管理",
+      "is_global": true,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 82
+      },
+      "operation_count": 82,
+      "service_file": "hcloud-service-catalog/osm.json"
+    },
+    "pangulargemodels": {
+      "name": "PanguLargeModels",
+      "service_key": "pangulargemodels",
+      "template_dir": "pangulargemodels",
+      "category": "人工智能",
+      "description": "盘古大模型",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 2
+      },
+      "operation_count": 2,
+      "service_file": "hcloud-service-catalog/pangulargemodels.json"
     },
     "projectman": {
       "name": "ProjectMan",
@@ -975,7 +2437,13 @@
       "category": "CodeArts",
       "description": "CodeArts Req",
       "is_global": false,
-      "operation_count": 77,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 17,
+        "en": 77
+      },
+      "operation_count": 94,
       "service_file": "hcloud-service-catalog/projectman.json"
     },
     "rabbitmq": {
@@ -985,6 +2453,11 @@
       "category": "Middleware",
       "description": "Distributed Message Service for RabbitMQ",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 49
+      },
       "operation_count": 49,
       "service_file": "hcloud-service-catalog/rabbitmq.json"
     },
@@ -995,6 +2468,11 @@
       "category": "Management & Governance",
       "description": "Resource Access Manager",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 30
+      },
       "operation_count": 30,
       "service_file": "hcloud-service-catalog/ram.json"
     },
@@ -1005,8 +2483,29 @@
       "category": "Databases",
       "description": "Relational Database Service",
       "is_global": false,
-      "operation_count": 271,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 33,
+        "en": 271
+      },
+      "operation_count": 304,
       "service_file": "hcloud-service-catalog/rds.json"
+    },
+    "res": {
+      "name": "RES",
+      "service_key": "res",
+      "template_dir": "res",
+      "category": "人工智能",
+      "description": "推荐系统",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 33
+      },
+      "operation_count": 33,
+      "service_file": "hcloud-service-catalog/res.json"
     },
     "rfs": {
       "name": "RFS",
@@ -1015,6 +2514,11 @@
       "category": "Management & Governance",
       "description": "Resource Formation Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 75
+      },
       "operation_count": 75,
       "service_file": "hcloud-service-catalog/rfs.json"
     },
@@ -1025,6 +2529,11 @@
       "category": "Management & Governance",
       "description": "Resource Governance Center",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 51
+      },
       "operation_count": 51,
       "service_file": "hcloud-service-catalog/rgc.json"
     },
@@ -1035,6 +2544,11 @@
       "category": "Management & Governance",
       "description": "Resource Management Service",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 62
+      },
       "operation_count": 62,
       "service_file": "hcloud-service-catalog/rms.json"
     },
@@ -1045,6 +2559,11 @@
       "category": "Middleware",
       "description": "Distributed Message Service for RocketMQ",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 70
+      },
       "operation_count": 70,
       "service_file": "hcloud-service-catalog/rocketmq.json"
     },
@@ -1055,7 +2574,13 @@
       "category": "Business Applications",
       "description": "ROMA",
       "is_global": false,
-      "operation_count": 300,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 28,
+        "en": 300
+      },
+      "operation_count": 328,
       "service_file": "hcloud-service-catalog/roma.json"
     },
     "scm": {
@@ -1065,8 +2590,28 @@
       "category": "Security & Compliance",
       "description": "SSL Certificate Manager",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 27
+      },
       "operation_count": 27,
       "service_file": "hcloud-service-catalog/scm.json"
+    },
+    "sdrs": {
+      "name": "SDRS",
+      "service_key": "sdrs",
+      "template_dir": "sdrs",
+      "category": "存储",
+      "description": "存储容灾服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 49
+      },
+      "operation_count": 49,
+      "service_file": "hcloud-service-catalog/sdrs.json"
     },
     "secmaster": {
       "name": "SecMaster",
@@ -1075,6 +2620,11 @@
       "category": "Security & Compliance",
       "description": "SecMaster",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 378
+      },
       "operation_count": 378,
       "service_file": "hcloud-service-catalog/secmaster.json"
     },
@@ -1085,7 +2635,13 @@
       "category": "Middleware",
       "description": "ServiceStage",
       "is_global": false,
-      "operation_count": 54,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 17,
+        "en": 54
+      },
+      "operation_count": 71,
       "service_file": "hcloud-service-catalog/servicestage.json"
     },
     "sfsturbo": {
@@ -1095,7 +2651,13 @@
       "category": "Storage",
       "description": "Scalable File Service(SFS Turbo)",
       "is_global": false,
-      "operation_count": 53,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 2,
+        "en": 53
+      },
+      "operation_count": 55,
       "service_file": "hcloud-service-catalog/sfsturbo.json"
     },
     "sis": {
@@ -1105,6 +2667,11 @@
       "category": "AI",
       "description": "Speech Interaction Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 13
+      },
       "operation_count": 13,
       "service_file": "hcloud-service-catalog/sis.json"
     },
@@ -1115,6 +2682,11 @@
       "category": "Management & Governance",
       "description": "Simple Message Notification",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 71
+      },
       "operation_count": 71,
       "service_file": "hcloud-service-catalog/smn.json"
     },
@@ -1125,6 +2697,11 @@
       "category": "Management & Governance",
       "description": "Simple Message Notification Global",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 4
+      },
       "operation_count": 4,
       "service_file": "hcloud-service-catalog/smnglobal.json"
     },
@@ -1135,8 +2712,28 @@
       "category": "Migration",
       "description": "Server Migration Service",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 52
+      },
       "operation_count": 52,
       "service_file": "hcloud-service-catalog/sms.json"
+    },
+    "smsapi": {
+      "name": "SMSApi",
+      "service_key": "smsapi",
+      "template_dir": "smsapi",
+      "category": "企业应用",
+      "description": "消息&短信(业务API)",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 2
+      },
+      "operation_count": 2,
+      "service_file": "hcloud-service-catalog/smsapi.json"
     },
     "sts": {
       "name": "STS",
@@ -1145,6 +2742,11 @@
       "category": "Management & Governance",
       "description": "Security Token Service",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 3
+      },
       "operation_count": 3,
       "service_file": "hcloud-service-catalog/sts.json"
     },
@@ -1155,8 +2757,28 @@
       "category": "Containers",
       "description": "Software Repository for Container",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 170
+      },
       "operation_count": 170,
       "service_file": "hcloud-service-catalog/swr.json"
+    },
+    "tics": {
+      "name": "TICS",
+      "service_key": "tics",
+      "template_dir": "tics",
+      "category": "大数据",
+      "description": "可信智能计算服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 19
+      },
+      "operation_count": 19,
+      "service_file": "hcloud-service-catalog/tics.json"
     },
     "tms": {
       "name": "TMS",
@@ -1165,6 +2787,11 @@
       "category": "Management & Governance",
       "description": "Tag Management Service",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 15
+      },
       "operation_count": 15,
       "service_file": "hcloud-service-catalog/tms.json"
     },
@@ -1175,6 +2802,11 @@
       "category": "Containers",
       "description": "Ubiquitous Cloud Native Service",
       "is_global": true,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 75
+      },
       "operation_count": 75,
       "service_file": "hcloud-service-catalog/ucs.json"
     },
@@ -1185,8 +2817,88 @@
       "category": "Databases",
       "description": "Database and Application Migration UGO",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 22
+      },
       "operation_count": 22,
       "service_file": "hcloud-service-catalog/ugo.json"
+    },
+    "vas": {
+      "name": "VAS",
+      "service_key": "vas",
+      "template_dir": "vas",
+      "category": "人工智能",
+      "description": "视频分析服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 7
+      },
+      "operation_count": 7,
+      "service_file": "hcloud-service-catalog/vas.json"
+    },
+    "vcm": {
+      "name": "VCM",
+      "service_key": "vcm",
+      "template_dir": "vcm",
+      "category": "人工智能",
+      "description": "视频内容审核",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 8
+      },
+      "operation_count": 8,
+      "service_file": "hcloud-service-catalog/vcm.json"
+    },
+    "versatile": {
+      "name": "Versatile",
+      "service_key": "versatile",
+      "template_dir": "versatile",
+      "category": "开天aPaaS",
+      "description": "华为云万灵智能体平台",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 4
+      },
+      "operation_count": 4,
+      "service_file": "hcloud-service-catalog/versatile.json"
+    },
+    "vias": {
+      "name": "VIAS",
+      "service_key": "vias",
+      "template_dir": "vias",
+      "category": "人工智能",
+      "description": "视频智能分析服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 29
+      },
+      "operation_count": 29,
+      "service_file": "hcloud-service-catalog/vias.json"
+    },
+    "vis": {
+      "name": "VIS",
+      "service_key": "vis",
+      "template_dir": "vis",
+      "category": "视频",
+      "description": "视频接入服务",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 33
+      },
+      "operation_count": 33,
+      "service_file": "hcloud-service-catalog/vis.json"
     },
     "vod": {
       "name": "VOD",
@@ -1195,8 +2907,28 @@
       "category": "Media Services",
       "description": "Video on Demand",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 71
+      },
       "operation_count": 71,
       "service_file": "hcloud-service-catalog/vod.json"
+    },
+    "voicecall": {
+      "name": "VoiceCall",
+      "service_key": "voicecall",
+      "template_dir": "voicecall",
+      "category": "企业应用",
+      "description": "语音通话",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 5
+      },
+      "operation_count": 5,
+      "service_file": "hcloud-service-catalog/voicecall.json"
     },
     "vpc": {
       "name": "VPC",
@@ -1205,6 +2937,11 @@
       "category": "Networking",
       "description": "Virtual Private Cloud",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 192
+      },
       "operation_count": 192,
       "service_file": "hcloud-service-catalog/vpc.json"
     },
@@ -1215,7 +2952,13 @@
       "category": "Networking",
       "description": "VPC Endpoint",
       "is_global": false,
-      "operation_count": 32,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 1,
+        "en": 32
+      },
+      "operation_count": 33,
       "service_file": "hcloud-service-catalog/vpcep.json"
     },
     "vpn": {
@@ -1225,6 +2968,11 @@
       "category": "Networking",
       "description": "Virtual Private Network",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 85
+      },
       "operation_count": 85,
       "service_file": "hcloud-service-catalog/vpn.json"
     },
@@ -1235,6 +2983,11 @@
       "category": "Security & Compliance",
       "description": "Web Application Firewall",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 202
+      },
       "operation_count": 202,
       "service_file": "hcloud-service-catalog/waf.json"
     },
@@ -1245,7 +2998,13 @@
       "category": "Business Applications",
       "description": "Workspace",
       "is_global": false,
-      "operation_count": 351,
+      "metadata_language": "mixed",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "cn": 2,
+        "en": 351
+      },
+      "operation_count": 353,
       "service_file": "hcloud-service-catalog/workspace.json"
     },
     "workspaceapp": {
@@ -1255,6 +3014,11 @@
       "category": "Business Applications",
       "description": "Application Streaming",
       "is_global": false,
+      "metadata_language": "en",
+      "service_metadata_language": "en",
+      "operation_language_counts": {
+        "en": 173
+      },
       "operation_count": 173,
       "service_file": "hcloud-service-catalog/workspaceapp.json"
     }

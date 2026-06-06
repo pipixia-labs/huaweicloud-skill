@@ -28,7 +28,7 @@ v0.3 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架�
 | metadata-backed catalog | 服务数、operation 数和 registry 外服务清单以 `hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 字段为准 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.3 / 0.3.0` |
+| 发布版本 | `v0.3 / 0.3.1` |
 
 ## 核心架构
 

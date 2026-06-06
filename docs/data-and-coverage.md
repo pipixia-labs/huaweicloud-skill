@@ -48,6 +48,8 @@ flowchart TD
 | `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar。 |
 | `playbooks/` | 面向具体任务的执行手册。 |
 
+generated catalog 由 `scripts/build_hcloud_catalog.py` 从本地 KooCLI `metaRepo` 生成。v0.3.1 起生成器按 operation 粒度英文优先合并：英文 metadata 已有的 operation 保持英文摘要和 detail，中文 metadata 中新增的服务、operation 或 detail 作为 fallback 补齐。当前覆盖数字以 `python3 scripts/hcloud_catalog_audit.py --pretty` 为准；本次 catalog source 为 198 个本地 metadata 服务、15,666 个 operation，metadata-backed registry 外服务为 180 个。
+
 开发时，优先更新 `service-registry.json` 和相关 tests，再更新人类文档。
 
 ## `materials/`

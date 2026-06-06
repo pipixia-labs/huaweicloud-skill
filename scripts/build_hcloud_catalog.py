@@ -18,6 +18,7 @@ DEFAULT_FINGERPRINT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.finge
 DEFAULT_INDEX_OUTPUT = ROOT / "references" / "hcloud-service-catalog.index.json"
 DEFAULT_SERVICE_OUTPUT_DIR = ROOT / "references" / "hcloud-service-catalog"
 
+LANGUAGE_ORDER = ("en", "cn")
 READ_ONLY_ACTIONS = ("List", "Show", "Count", "Check", "Search", "Query", "Get", "Download")
 MUTATING_ACTIONS = (
     "Accept",
@@ -94,28 +95,46 @@ def load_json(path: Path) -> Any:
 
 
 def load_service_items(meta_repo: Path) -> dict[str, dict[str, Any]]:
-    """Load service metadata keyed by normalized service name."""
-    services_file = meta_repo / "services_en.json"
-    if not services_file.exists():
-        return {}
-    data = load_json(services_file)
+    """Load service metadata keyed by normalized service name.
+
+    English service metadata remains preferred for stable existing catalog text.
+    Chinese metadata fills services that are visible to KooCLI but absent from
+    `services_en.json`.
+    """
     services: dict[str, dict[str, Any]] = {}
-    for item in data.get("items", []):
-        if not isinstance(item, dict):
+    for language in LANGUAGE_ORDER:
+        services_file = meta_repo / f"services_{language}.json"
+        if not services_file.exists():
             continue
-        service = item.get("Service", {})
-        if not isinstance(service, dict):
-            continue
-        name = str(service.get("Text") or "").strip()
-        if not name:
-            continue
-        services[normalize_token(name)] = {
-            "name": name,
-            "description": clean_text(service.get("Description")),
-            "category": str(item.get("Category") or "Unknown"),
-            "is_global": item.get("IsGlobal"),
-        }
+        data = load_json(services_file)
+        for item in data.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            service = item.get("Service", {})
+            if not isinstance(service, dict):
+                continue
+            name = str(service.get("Text") or "").strip()
+            service_key = normalize_token(name)
+            if not service_key or service_key in services:
+                continue
+            services[service_key] = {
+                "name": name,
+                "description": clean_text(service.get("Description")),
+                "category": str(item.get("Category") or "Unknown"),
+                "is_global": item.get("IsGlobal"),
+                "metadata_language": language,
+            }
     return services
+
+
+def load_services_update_times(meta_repo: Path) -> dict[str, Any]:
+    """Return update times from available service catalog metadata files."""
+    update_times: dict[str, Any] = {}
+    for language in LANGUAGE_ORDER:
+        services_file = meta_repo / f"services_{language}.json"
+        if services_file.exists():
+            update_times[language] = load_json(services_file).get("updateTime")
+    return update_times
 
 
 def select_version(versions: Any) -> str:
@@ -159,13 +178,20 @@ def operation_action(operation: str) -> str | None:
     return None
 
 
-def load_detail(template_dir: Path, operation_name: str, version: str) -> tuple[dict[str, Any], str | None]:
+def load_detail(
+    template_dir: Path,
+    operation_name: str,
+    version: str,
+    language: str,
+) -> tuple[dict[str, Any], str | None, str | None]:
     """Load a selected operation detail file when present."""
     candidates: list[Path] = []
-    if version:
-        candidates.append(template_dir / f"{operation_name}_{version}_en.yaml")
-    candidates.append(template_dir / f"{operation_name}_en.yaml")
-    candidates.extend(sorted(template_dir.glob(f"{operation_name}_*_en.yaml")))
+    detail_languages = (language, *(candidate for candidate in LANGUAGE_ORDER if candidate != language))
+    for detail_language in detail_languages:
+        if version:
+            candidates.append(template_dir / f"{operation_name}_{version}_{detail_language}.yaml")
+        candidates.append(template_dir / f"{operation_name}_{detail_language}.yaml")
+        candidates.extend(sorted(template_dir.glob(f"{operation_name}_*_{detail_language}.yaml")))
 
     seen: set[Path] = set()
     for candidate in candidates:
@@ -177,8 +203,9 @@ def load_detail(template_dir: Path, operation_name: str, version: str) -> tuple[
         except json.JSONDecodeError:
             continue
         if isinstance(payload, dict):
-            return payload, candidate.name
-    return {}, None
+            detail_language = candidate.stem.rsplit("_", 1)[-1]
+            return payload, candidate.name, detail_language
+    return {}, None, None
 
 
 def iter_param_names(param: dict[str, Any]) -> list[str]:
@@ -262,13 +289,13 @@ def retained_param_items(params: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, Any] | None:
+def build_operation(template_dir: Path, raw_api: dict[str, Any], language: str) -> dict[str, Any] | None:
     """Build one compact catalog operation item."""
     operation_name = str(raw_api.get("Name") or "").strip()
     if not operation_name:
         return None
     version = select_version(raw_api.get("Versions", []))
-    detail, detail_file = load_detail(template_dir, operation_name, version)
+    detail, detail_file, detail_language = load_detail(template_dir, operation_name, version, language)
     all_params = build_param_items(detail)
     required_params = business_param_names(all_params, required=True)
     optional_params = business_param_names(all_params, required=False)
@@ -285,10 +312,12 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, An
         "description": clean_text(detail.get("Description")),
         "versions": raw_api.get("Versions", []) if isinstance(raw_api.get("Versions"), list) else [],
         "selected_version": version,
+        "metadata_language": language,
         "action": action,
         "read_only": action in READ_ONLY_ACTIONS,
         "detail_cached": bool(detail_file),
         "detail_file": detail_file,
+        "detail_language": detail_language,
         "method": request.get("Method"),
         "path": request.get("Path"),
         "has_body_params": request.get("HasBodyParams"),
@@ -297,6 +326,28 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any]) -> dict[str, An
         "optional_params": optional_params,
         "supports_limit": "limit" in params_lower,
     }
+
+
+def load_api_entries(template_dir: Path) -> list[tuple[str, dict[str, Any], str]]:
+    """Return operation API entries, preferring English and filling gaps from Chinese."""
+    operations: dict[str, tuple[str, dict[str, Any], str]] = {}
+    for language in LANGUAGE_ORDER:
+        apis_file = template_dir / f"apis_{language}.json"
+        if not apis_file.exists():
+            continue
+        apis_data = load_json(apis_file)
+        api_list = apis_data.get("apiList", {})
+        if not isinstance(api_list, dict):
+            continue
+        for raw_api in api_list.values():
+            if not isinstance(raw_api, dict):
+                continue
+            operation_name = str(raw_api.get("Name") or "").strip()
+            operation_key = normalize_token(operation_name)
+            if not operation_key or operation_key in operations:
+                continue
+            operations[operation_key] = (operation_name, raw_api, language)
+    return sorted(operations.values(), key=lambda item: item[0].lower())
 
 
 def build_catalog(meta_repo: Path) -> dict[str, Any]:
@@ -308,22 +359,23 @@ def build_catalog(meta_repo: Path) -> dict[str, Any]:
         return {"schema_version": 1, "source": {"format": "hcloud metaRepo"}, "services": catalog_services}
 
     for template_dir in sorted(path for path in template_root.iterdir() if path.is_dir()):
-        apis_file = template_dir / "apis_en.json"
-        if not apis_file.exists():
+        api_entries = load_api_entries(template_dir)
+        if not api_entries:
             continue
         service_key = normalize_token(template_dir.name)
         service_info = services.get(service_key, {})
         service_name = str(service_info.get("name") or template_dir.name.upper())
-        apis_data = load_json(apis_file)
         operations: dict[str, Any] = {}
-        for raw_api in apis_data.get("apiList", {}).values():
-            if not isinstance(raw_api, dict):
-                continue
-            operation = build_operation(template_dir, raw_api)
+        operation_language_counts: dict[str, int] = {}
+        for _, raw_api, language in api_entries:
+            operation = build_operation(template_dir, raw_api, language)
             if operation:
                 operations[operation["name"]] = operation
+                operation_language_counts[language] = operation_language_counts.get(language, 0) + 1
         if not operations:
             continue
+        metadata_languages = sorted(operation_language_counts)
+        service_metadata_language = metadata_languages[0] if len(metadata_languages) == 1 else "mixed"
         catalog_services[service_key] = {
             "name": service_name,
             "service_key": service_key,
@@ -331,20 +383,23 @@ def build_catalog(meta_repo: Path) -> dict[str, Any]:
             "category": service_info.get("category", "Unknown"),
             "description": service_info.get("description", ""),
             "is_global": service_info.get("is_global"),
+            "metadata_language": service_metadata_language,
+            "service_metadata_language": service_info.get("metadata_language"),
+            "operation_language_counts": dict(sorted(operation_language_counts.items())),
             "operation_count": len(operations),
             "operations": dict(sorted(operations.items(), key=lambda item: item[0].lower())),
         }
 
-    services_file = meta_repo / "services_en.json"
-    services_update_time = None
-    if services_file.exists():
-        services_update_time = load_json(services_file).get("updateTime")
+    services_update_times = load_services_update_times(meta_repo)
     operation_count = sum(service["operation_count"] for service in catalog_services.values())
     return {
         "schema_version": 1,
         "source": {
             "format": "hcloud metaRepo",
-            "services_update_time": services_update_time,
+            "languages": list(LANGUAGE_ORDER),
+            "merge_strategy": "operation-level English metadata preferred; Chinese metadata fills missing services, operations, and details",
+            "services_update_time": services_update_times.get("en"),
+            "services_update_times": services_update_times,
             "service_count": len(catalog_services),
             "operation_count": operation_count,
         },

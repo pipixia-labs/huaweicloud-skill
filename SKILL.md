@@ -1,7 +1,7 @@
 ---
 name: huaweicloud-skill
 description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更。适用于用户明确要走 CLI/KooCLI 路线，或任务需要通过 hcloud 直接发现 service/operation、构造命令、执行查询或变更、排查认证、网络、缓存与输出格式问题的场景；当华为云部署静态站、独立站或 Web 应用需要图片素材时，可通过华为云 ModelArts MaaS 图像生成 API 生成本地站点资产。
-version: "0.3.0"
+version: "0.3.1"
 ---
 
 # Huawei CLI Skill
@@ -256,7 +256,7 @@ version: "0.3.0"
 - 基于 CES `ListMetrics` 的可观测前置计划，用于先发现 namespace/metric/dimension，再结合资源状态和协议验收判断健康
 - CES alarm planner-only 和 LTS read-only 日志查询 planner，配套 `references/playbooks/observability-readiness.md`
 - Billing/Cost 目前先生成官方 API request spec，不从资源清单推断费用，也不默认执行真实账单查询
-- Billing/Cost 本地 feasibility probe，用于确认当前 bundled catalog 是否具备账单/成本只读接入条件；当前不等同于真实账单查询能力
+- Billing/Cost 本地 feasibility probe，用于确认当前 bundled catalog 是否具备账单/成本直接候选；v0.3.1 可发现 metadata-backed `BSS`，但当前不等同于真实账单查询能力
 - curated promotion audit 输出 `value_ranked_candidates`，用于按“上好云、用好云、管好云”价值维度选择下一批治理候选
 - VPC / IMS / KPS / IAM / EIP 创建前只读发现方法
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记

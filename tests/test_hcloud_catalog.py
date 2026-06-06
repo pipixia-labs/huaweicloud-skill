@@ -198,6 +198,144 @@ class HcloudCatalogTest(unittest.TestCase):
             {"limit"},
         )
 
+    def test_build_catalog_merges_cn_operations_without_overwriting_en(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            meta_repo = Path(tmp_dir)
+            self.write_json(
+                meta_repo / "services_en.json",
+                {
+                    "updateTime": 123,
+                    "items": [
+                        {
+                            "Category": "Compute",
+                            "IsGlobal": False,
+                            "Service": {"Text": "ECS", "Description": "Elastic Cloud Server"},
+                        }
+                    ],
+                },
+            )
+            self.write_json(
+                meta_repo / "services_cn.json",
+                {
+                    "updateTime": 456,
+                    "items": [
+                        {
+                            "Category": "计算",
+                            "IsGlobal": False,
+                            "Service": {"Text": "ECS", "Description": "Elastic Cloud Server CN"},
+                        }
+                    ],
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "ecs" / "apis_en.json",
+                {
+                    "apiList": {
+                        "ListServers": {
+                            "Name": "ListServers",
+                            "Versions": ["v1"],
+                            "Suggests": {"v1": "List servers"},
+                        }
+                    }
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "ecs" / "apis_cn.json",
+                {
+                    "apiList": {
+                        "ListServers": {
+                            "Name": "ListServers",
+                            "Versions": ["v1"],
+                            "Suggests": {"v1": "List servers from CN"},
+                        },
+                        "ListServerGroups": {
+                            "Name": "ListServerGroups",
+                            "Versions": ["v1"],
+                            "Suggests": {"v1": "List server groups from CN"},
+                        },
+                    }
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "ecs" / "ListServers_v1_en.yaml",
+                {"Description": "List servers.", "Request": {"Method": "GET", "Path": "/v1/servers"}},
+            )
+            self.write_json(
+                meta_repo / "template" / "ecs" / "ListServerGroups_v1_cn.yaml",
+                {"Description": "List server groups.", "Request": {"Method": "GET", "Path": "/v1/server-groups"}},
+            )
+
+            catalog = build_hcloud_catalog.build_catalog(meta_repo)
+
+        self.assertEqual(catalog["source"]["service_count"], 1)
+        self.assertEqual(catalog["source"]["operation_count"], 2)
+        self.assertEqual(catalog["source"]["services_update_times"], {"en": 123, "cn": 456})
+        service = hcloud_catalog.resolve_service(catalog, "ECS")
+        self.assertIsNotNone(service)
+        self.assertEqual(service["metadata_language"], "mixed")
+        self.assertEqual(service["operation_language_counts"], {"cn": 1, "en": 1})
+        list_servers = hcloud_catalog.resolve_operation(service, "ListServers")
+        list_groups = hcloud_catalog.resolve_operation(service, "ListServerGroups")
+        self.assertEqual(list_servers["summary"], "List servers")
+        self.assertEqual(list_servers["metadata_language"], "en")
+        self.assertEqual(list_servers["detail_language"], "en")
+        self.assertEqual(list_groups["metadata_language"], "cn")
+        self.assertEqual(list_groups["detail_language"], "cn")
+
+    def test_build_catalog_uses_cn_service_metadata_when_en_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            meta_repo = Path(tmp_dir)
+            self.write_json(
+                meta_repo / "services_cn.json",
+                {
+                    "updateTime": 456,
+                    "items": [
+                        {
+                            "Category": "Security",
+                            "IsGlobal": False,
+                            "Service": {"Text": "HSS", "Description": "Host Security Service"},
+                        }
+                    ],
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "hss" / "apis_cn.json",
+                {
+                    "apiList": {
+                        "ListHostRisks": {
+                            "Name": "ListHostRisks",
+                            "Versions": ["v5"],
+                            "Suggests": {"v5": "List host risks"},
+                        }
+                    }
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "hss" / "ListHostRisks_v5_cn.yaml",
+                {
+                    "Description": "List host risks.",
+                    "Request": {"Method": "GET", "Path": "/v5/{project_id}/host-risks", "HasBodyParams": False},
+                    "Params": [
+                        {"Name": ["project_id"], "Required": True, "Position": "path"},
+                        {"Name": ["host_id"], "Required": False, "Position": "query"},
+                    ],
+                },
+            )
+
+            catalog = build_hcloud_catalog.build_catalog(meta_repo)
+
+        self.assertEqual(catalog["source"]["service_count"], 1)
+        self.assertEqual(catalog["source"]["operation_count"], 1)
+        service = hcloud_catalog.resolve_service(catalog, "hss")
+        self.assertIsNotNone(service)
+        self.assertEqual(service["name"], "HSS")
+        self.assertEqual(service["service_metadata_language"], "cn")
+        self.assertEqual(service["metadata_language"], "cn")
+        operation = hcloud_catalog.resolve_operation(service, "ListHostRisks")
+        self.assertEqual(operation["metadata_language"], "cn")
+        self.assertEqual(operation["detail_file"], "ListHostRisks_v5_cn.yaml")
+        self.assertEqual(operation["optional_params"], ["host_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

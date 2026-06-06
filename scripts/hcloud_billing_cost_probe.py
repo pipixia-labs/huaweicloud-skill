@@ -97,16 +97,24 @@ def keyword_operation_matches(
     return matches[:limit]
 
 
-def read_only_discovery_matches(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def read_only_discovery_matches(
+    matches: list[dict[str, Any]],
+    service_names: set[str] | None = None,
+) -> list[dict[str, Any]]:
     """Return keyword matches that are safe-looking read-only discovery operations."""
     return [
         item
         for item in matches
+        if service_names is None or str(item.get("service") or "") in service_names
         if item.get("read_only") and not item.get("required_params") and item.get("action") in {"List", "Count", "Query", "Search"}
     ]
 
 
-def assess_feasibility(direct_services: list[dict[str, Any]], read_only_matches: list[dict[str, Any]]) -> dict[str, Any]:
+def assess_feasibility(
+    direct_services: list[dict[str, Any]],
+    direct_read_only_matches: list[dict[str, Any]],
+    curated_registry_has_direct_service: bool,
+) -> dict[str, Any]:
     """Return a conservative billing/cost feasibility assessment."""
     if not direct_services:
         return {
@@ -124,13 +132,18 @@ def assess_feasibility(direct_services: list[dict[str, Any]], read_only_matches:
                 "Keep billing live probes read-only and avoid order, renewal, payment, subscription, or budget mutations.",
             ],
         }
+    blockers = [
+        "Curated registry coverage and live read-only smoke evidence are still required before default use.",
+        "Mutating billing/order/payment operations require a hard manual gate and separate runbook.",
+    ]
+    if not curated_registry_has_direct_service:
+        blockers.insert(0, "Direct billing/cost service candidates are metadata-backed but not curated registry coverage yet.")
+    if not direct_read_only_matches:
+        blockers.insert(0, "No direct billing/cost read-only discovery match was found for the selected keywords.")
     return {
         "status": "candidate_service_present",
-        "can_run_live_billing_query": bool(read_only_matches),
-        "blockers": [
-            "Curated registry coverage and live read-only smoke evidence are still required before default use.",
-            "Mutating billing/order/payment operations require a hard manual gate and separate runbook.",
-        ],
+        "can_run_live_billing_query": curated_registry_has_direct_service and bool(direct_read_only_matches),
+        "blockers": blockers,
         "next_steps": [
             "Identify read-only billing operations with no required business parameters or explicit safe parameters.",
             "Run smoke tests only after confirming account, region/global endpoint, and permission boundaries.",
@@ -145,7 +158,10 @@ def build_probe(args: argparse.Namespace) -> dict[str, Any]:
     direct = direct_service_candidates(catalog, args.service_token)
     matches = keyword_operation_matches(catalog, args.operation_keyword, args.limit)
     read_only_matches = read_only_discovery_matches(matches)
+    direct_service_names = {str(item.get("service") or "") for item in direct}
+    direct_read_only_matches = read_only_discovery_matches(matches, direct_service_names)
     registry_services = hcloud_common.load_registry().get("services", {})
+    curated_registry_has_direct_service = any(item["service"].upper() in registry_services for item in direct)
     return {
         "success": True,
         "mode": "local_catalog_probe",
@@ -158,7 +174,10 @@ def build_probe(args: argparse.Namespace) -> dict[str, Any]:
         "operation_keyword_match_count": len(matches),
         "read_only_discovery_matches": read_only_matches,
         "read_only_discovery_match_count": len(read_only_matches),
-        "assessment": assess_feasibility(direct, read_only_matches),
+        "direct_read_only_discovery_matches": direct_read_only_matches,
+        "direct_read_only_discovery_match_count": len(direct_read_only_matches),
+        "curated_registry_has_direct_service": curated_registry_has_direct_service,
+        "assessment": assess_feasibility(direct, direct_read_only_matches, curated_registry_has_direct_service),
     }
 
 

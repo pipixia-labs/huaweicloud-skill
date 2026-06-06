@@ -43,6 +43,8 @@ Use this to inspect the local KooCLI metadata cache: service presence, operation
 
 Generated catalog is a compressed skill-owned catalog built from hcloud `metaRepo`. It is committed inside this skill and must not depend on `huaweicloud-data` or a source metaRepo at runtime. Runtime readers default to the lightweight `hcloud-service-catalog.index.json` plus per-service files under `hcloud-service-catalog/`; the full `hcloud-service-catalog.generated.json` remains for compatibility and full operation-level diffs.
 
+As of v0.3.1, catalog generation merges `apis_en.json` and `apis_cn.json` at operation level. English metadata remains preferred for stable existing entries; Chinese metadata fills missing services, operations, and detail files. The current committed catalog source reports 198 local metadata services and 15,666 operations; use `hcloud_catalog_audit.py` as the current fact source rather than hard-coding these numbers elsewhere.
+
 Do not read `references/hcloud-service-catalog.generated.json` directly in an agent run. Access it through scripts such as `hcloud_catalog_audit.py`, `hcloud_resource_discovery.py`, `hcloud_resource_query.py`, or `hcloud_service_change_plan.py`.
 
 ```bash
@@ -224,7 +226,7 @@ python3 scripts/hcloud_billing_cost_probe.py --pretty
 
 Use this as a local feasibility spike before promising billing or cost analysis. It inspects the bundled catalog and curated registry for direct BSS/Billing/Cost-style service support and separates direct service matches from weak keyword operation matches. It does not call live billing APIs and does not access invoice, order, payment, subscription, or spend data.
 
-If no direct billing/cost service is present, treat Billing/Cost as unsupported in the current skill version and research official Huawei Cloud docs before adding any live probe.
+In v0.3.1, the generated catalog can discover `BSS` from merged local metadata. Treat that as a metadata-backed candidate only: live billing queries still require curated registry coverage, reviewed read-only smoke evidence, and an approved execution path. If no direct billing/cost service is present, treat Billing/Cost as unsupported in the current skill version and research official Huawei Cloud docs before adding any live probe.
 
 ### Billing And Cost Read-Only Request Planner
 

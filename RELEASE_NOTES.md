@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.3.1 / 0.3.1 - 2026-06-06
+
+v0.3.1 is a catalog coverage patch on top of v0.3.0. It updates the generated hcloud metadata catalog from the older English-only generation path to an operation-level English-first plus Chinese-fallback merge. The goal is to reflect the real KooCLI metadata breadth more accurately while keeping the same safety model: broader catalog coverage does not make registry-outside services deeply curated or executable by default.
+
+### Changes Since v0.3.0
+
+- Expands generated catalog coverage:
+  - Current catalog audit reports 198 local metadata services and 15,666 hcloud operations.
+  - The maintainer machine's `hcloud --help` shows 203 visible services; after excluding HCS/ManageOne related services, this is 199 visible services.
+  - `APIExplorer` is visible in `hcloud --help` but has no local metadata template in `metaRepo`, so it is not counted as a generated catalog service.
+- Improves catalog generation:
+  - `build_hcloud_catalog.py` now reads `services_en.json`/`services_cn.json`, `apis_en.json`/`apis_cn.json`, and `*_en.yaml`/`*_cn.yaml`.
+  - English metadata remains preferred for existing operation summaries and details.
+  - Chinese metadata fills missing services, missing operations inside existing services, and missing detail files.
+  - Catalog services and operations now carry metadata language fields for auditability.
+- Improves local metadata lookup:
+  - `hcloud_meta_lookup.py` now uses Chinese metadata fallback for services, operations, operation detail, and endpoints.
+  - Versioned detail files such as `ListHosts_v5_cn.yaml` are matched to their operation names.
+- Keeps Billing/Cost conservative with the wider catalog:
+  - `BSS` is now discoverable as a metadata-backed direct candidate.
+  - `hcloud_billing_cost_probe.py` keeps live billing query support disabled by default until curated registry coverage, read-only smoke evidence, and an approved execution path are added.
+
+### Validation
+
+- `python3 -m unittest discover -s tests`: 175 tests passed.
+- `python3 -m compileall -q scripts`: passed.
+- `python3 scripts/build_hcloud_catalog.py --source-meta-repo ~/.hcloud/metaRepo`: generated 198 services and 15,666 operations.
+- `python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty`: passed and reported 198 catalog services, 15,666 operations, 19 curated registry services, and 180 metadata-backed services.
+- `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- Curated registry coverage is unchanged: 19 services and 311 registered operations.
+- Registry-outside services remain metadata-backed. They can support discovery, explicit-parameter read-only queries, and planner-only mutation plans, but they are not promoted to curated coverage by catalog presence alone.
+- Billing/Cost, identity, security, key, teardown, and other sensitive mutations remain behind existing planner and guarded-change boundaries.
+
 ## v0.3.0 / 0.3.0 - 2026-06-06
 
 v0.3.0 is the lifecycle governance upgrade after v0.2.4. It keeps the hcloud metadata-backed breadth from v0.2.4, then adds safer multi-step operation tracking, account inventory, idle-resource review, teardown review planning, observability readiness, Billing/Cost request planning, and the next governance candidate profiles. The release goal is to help users 上好云、用好云、管好云 without turning broad metadata coverage into unsafe default execution.
