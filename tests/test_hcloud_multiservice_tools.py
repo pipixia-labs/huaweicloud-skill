@@ -52,6 +52,9 @@ hcloud_lifecycle_closure_plan = load_module("hcloud_lifecycle_closure_plan", SCR
 hcloud_governance_closure_plan = load_module(
     "hcloud_governance_closure_plan", SCRIPTS / "hcloud_governance_closure_plan.py"
 )
+hcloud_p2_scenario_closure_plan = load_module(
+    "hcloud_p2_scenario_closure_plan", SCRIPTS / "hcloud_p2_scenario_closure_plan.py"
+)
 
 
 class MultiServiceToolsTest(unittest.TestCase):
@@ -256,6 +259,21 @@ class MultiServiceToolsTest(unittest.TestCase):
             "project_id": "project-1",
             "profile": None,
             "min_live_ops": 2,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def p2_args(self, **overrides):
+        """Return default P2 scenario closure planner args for unit tests."""
+        values = {
+            "group": [],
+            "param": [],
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "limit": 10,
+            "catalog_max_operations": 3,
+            "timeout": 1,
         }
         values.update(overrides)
         return SimpleNamespace(**values)
@@ -2349,6 +2367,82 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertFalse(result["success"])
         self.assertIn("NOT_A_SERVICE", result["unsupported_services"])
+
+    def test_p2_scenario_default_covers_all_groups(self) -> None:
+        args = self.p2_args()
+
+        result = hcloud_p2_scenario_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(
+            set(result["selected_groups"]),
+            {
+                "CCE",
+                "NAT",
+                "DCS",
+                "RFS",
+                "UCS",
+                "DEPENDENCY_IAM_KPS_IMS",
+                "SECURITY_POSTURE",
+                "DATABASE_FAMILY",
+            },
+        )
+        self.assertIn("planned_evidence_command_count", result["scenario_summary"])
+        self.assertTrue(all(group["execution_supported"] is False for group in result["groups"]))
+
+    def test_p2_scenario_cce_generates_cluster_readiness_commands(self) -> None:
+        args = self.p2_args(group=["CCE"], param=["cluster_id=cluster-1"])
+
+        result = hcloud_p2_scenario_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        group = result["groups"][0]
+        self.assertEqual(group["scenario_summary"]["status"], "review_ready")
+        evidence = next(stage for stage in group["stages"] if stage["id"] == "read_only_evidence")["evidence"]
+        self.assertTrue(any(plan["operation"] == "ListClusters" and plan["commands"] for plan in evidence["discovery_plans"]))
+        self.assertTrue(any(plan["operation"] == "ShowCluster" and plan["command"] for plan in evidence["resource_query_plans"]))
+        self.assertEqual(evidence["summary"]["missing_param_query_count"], 0)
+
+    def test_p2_scenario_security_group_remains_metadata_evidence_gap(self) -> None:
+        args = self.p2_args(group=["SECURITY"])
+
+        result = hcloud_p2_scenario_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        group = result["groups"][0]
+        self.assertEqual(group["group"], "SECURITY_POSTURE")
+        self.assertEqual(group["scenario_summary"]["status"], "metadata_evidence_gap")
+        evidence = next(stage for stage in group["stages"] if stage["id"] == "read_only_evidence")["evidence"]
+        self.assertEqual({entry["service"] for entry in evidence["profiles"]}, {"HSS", "SecMaster", "CFW", "DBSS", "KMS"})
+        self.assertFalse(
+            any(str(plan["operation"]).startswith("Download") for plan in evidence["resource_query_plans"])
+        )
+        risk = next(stage for stage in group["stages"] if stage["id"] == "risk_boundary")
+        self.assertEqual(risk["mutation_boundary"], "planner_only_no_submit")
+
+    def test_p2_scenario_database_family_stays_metadata_only(self) -> None:
+        args = self.p2_args(group=["DATABASE"])
+
+        result = hcloud_p2_scenario_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        group = result["groups"][0]
+        self.assertEqual(group["group"], "DATABASE_FAMILY")
+        self.assertTrue(group["scenario_summary"]["metadata_only"])
+        self.assertEqual(group["scenario_summary"]["status"], "metadata_evidence_gap")
+        self.assertIn("GaussDB", group["services"])
+        self.assertIn("DWS", group["services"])
+        risk = next(stage for stage in group["stages"] if stage["id"] == "risk_boundary")
+        self.assertTrue(any("RDS-style" in check for check in risk["checks"]))
+
+    def test_p2_scenario_rejects_unsupported_group(self) -> None:
+        args = self.p2_args(group=["NOT_A_GROUP"])
+
+        result = hcloud_p2_scenario_closure_plan.build_plan(args)
+
+        self.assertFalse(result["success"])
+        self.assertIn("NOT_A_GROUP", result["unsupported_groups"])
 
     def test_resource_verify_cli_reads_safe_exec_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

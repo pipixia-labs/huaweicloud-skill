@@ -187,6 +187,8 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - 可观测：`scripts/hcloud_observability_plan.py`、`scripts/hcloud_ces_alarm_plan.py`、`scripts/hcloud_lts_readonly.py` 分别处理资源状态/CES metric、CES alarm 草案和 LTS 只读日志查询。
 - Billing/Cost：`scripts/hcloud_billing_readonly.py` 只生成官方 API request spec，不签名、不发请求。
 - 任务闭环：`scripts/hcloud_lifecycle_closure_plan.py` 为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成六阶段 lifecycle closure 计划，不执行真实云变更。
+- 治理闭环：`scripts/hcloud_governance_closure_plan.py` 为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成五阶段 governance closure 计划，不执行治理写操作。
+- P2 场景闭环：`scripts/hcloud_p2_scenario_closure_plan.py` 为 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族生成四阶段 scenario closure 计划，不执行集群、NAT、缓存、IaC、多集群、安全、密钥或数据库写操作。
 
 ## Coverage gate
 
@@ -245,9 +247,8 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | 完整闭环 | ECS | 查询、创建 JSON 校验、dry-run/submit 命令生成、job 轮询、ACTIVE 验证。 |
 | P0 任务闭环增强 | VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS | 保持原有 guarded/readiness/专用适配器边界，同时通过 `hcloud_lifecycle_closure_plan.py` 输出上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计。 |
 | P1 治理闭环计划 | TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo | 通过 `hcloud_governance_closure_plan.py` 输出治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口；不执行治理写操作，Billing/BSS 不生成 live query 命令。 |
-| 重点增强 | IMS、KPS、NAT、IAM、DCS、RFS、UCS | 多数有 list/readiness 路径；部分有资源级查询；NAT 已接入通用 guarded flow；DCS/RFS/UCS 是 read-only curated。 |
-| 最小路径 | CCE | 有最小查询入口或专用适配，仍需补 smoke、playbook、risk profile 和 verifier 后再晋级为更完整闭环。 |
-| 晋级候选 | LTS 及后续治理/安全长尾服务 | 有 candidate profile、playbook 和 risk profile；是否晋级取决于 live read-smoke、目标查询、playbook、risk profile 和测试证据。 |
+| P2 场景闭环计划 | CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态服务、数据库族 | 通过 `hcloud_p2_scenario_closure_plan.py` 输出场景范围、只读 evidence command plan、风险边界和下一步晋级缺口；CCE/NAT/DCS/RFS/UCS/IAM/KPS/IMS 复用已有 profile，安全姿态和数据库族保持 metadata evidence gap。 |
+| 晋级候选 | LTS 及后续治理/安全/数据库长尾服务 | 有 candidate profile、playbook、risk profile 或 metadata-backed 入口；是否晋级取决于 live read-smoke、目标查询、playbook、risk profile 和测试证据。 |
 
 OBS 是特殊服务，不通过普通 OpenAPI-style metadata，而通过 `hcloud obs`/obsutil 适配。
 

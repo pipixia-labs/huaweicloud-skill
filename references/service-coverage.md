@@ -38,6 +38,8 @@
 | `DCS` | Medium | 已进入 curated registry，只读 readiness 和实例级 readback | 已有 2 条 read-only live smoke；当前不开放通用 DCS mutation submit |
 | `RFS` | Medium | 已进入 curated registry，stack/template/execution plan 只读检查 | 已有 2 条 read-only live smoke；当前不开放通用 RFS mutation submit |
 | `UCS` | Medium | 已进入 curated registry，fleet/cluster/policy/addon 只读检查 | 已有 2 条 read-only live smoke；当前不开放通用 UCS mutation submit，`ListManagedClusters` 省略 `--limit` |
+| `HSS` / `SecMaster` / `CFW` / `DBSS` / `KMS` | Metadata-backed | P2 安全姿态 evidence gap | 通过 `hcloud_p2_scenario_closure_plan.py` 生成只读可见性和缺口计划；不等同于 curated coverage，不开放策略、主机 agent、防火墙、审计或密钥变更 |
+| `GaussDB` / `GaussDBforNoSQL` / `GaussDBforopenGauss` / `DDS` / `DDM` / `DWS` | Metadata-backed | P2 数据库族 evidence gap | 通过 `hcloud_p2_scenario_closure_plan.py` 复用 RDS 式备份、连接、参数、重启影响和回滚证据模型；不开放参数、重启、恢复、删除等数据库变更 |
 
 `query_operations` 表示可作为通用 discovery 起点的查询。`resource_query_operations` 表示已知资源 ID 或上下文后才适合执行的查询，覆盖统计会计入，但 `hcloud_resource_discovery.py` 不会默认把它们当作 list-only 操作执行。
 `hcloud_resource_query.py` 可执行 `resource_query_operations` 和需要显式目标参数的只读查询；缺少目标参数时会失败，不会替用户猜资源 ID。
@@ -126,6 +128,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - `hcloud_service_change_plan.py` 可以为多服务变更生成风险计划和验证建议，但不会执行 submit
 - `hcloud_lifecycle_closure_plan.py` 可以为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成六阶段任务闭环计划，组合 change plan、readiness、OBS/LTS 专用适配器和本地风险策略，但不会执行真实云变更
 - `hcloud_governance_closure_plan.py` 可以为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成五阶段治理闭环计划，组合 curation profile、promotion audit、read-only evidence command plan、Billing request spec 和风险/隐私门禁，但不会执行治理写操作、签名请求或访问真实账单；Billing/BSS 不生成 live query 命令
+- `hcloud_p2_scenario_closure_plan.py` 可以为 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族生成四阶段场景闭环计划，组合 curation profile、metadata catalog、read-only discovery、resource query 和风险边界；安全姿态和数据库族当前输出 `metadata_evidence_gap`，不会执行集群、NAT、缓存、IaC、多集群、安全、密钥、IAM 或数据库写操作
 - `hcloud_eip_change_flow.py` 可以把 EIP 变更串成 Plan -> dry-run -> guarded submit -> ShowPublicip verify；默认不执行 submit，且 submit 必须显式确认
 - `hcloud_guarded_change_flow.py` 可以为 VPC、ELB、EVS、NAT、RDS、CDN、DNS、SCM 等普通服务提供通用 Plan -> dry-run -> guarded submit -> resource Show* verify -> read-only smoke 的 P0 门禁；默认不执行 submit
 - `hcloud_resource_verify.py` 可以基于 JSON 查询结果验证 EIP、VPC、ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM 等资源状态

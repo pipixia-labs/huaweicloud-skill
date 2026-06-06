@@ -1,7 +1,7 @@
 ---
 name: huaweicloud-skill
 description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更。适用于用户明确要走 CLI/KooCLI 路线，或任务需要通过 hcloud 直接发现 service/operation、构造命令、执行查询或变更、排查认证、网络、缓存与输出格式问题的场景；当华为云部署静态站、独立站或 Web 应用需要图片素材时，可通过华为云 ModelArts MaaS 图像生成 API 生成本地站点资产。
-version: "0.3.2"
+version: "0.3.3"
 ---
 
 # Huawei CLI Skill
@@ -211,6 +211,7 @@ version: "0.3.2"
 | 服务 readiness | `hcloud_service_readiness.py` | 多服务只读验收，缺目标 ID 则 skipped。 |
 | 生命周期闭环计划 | `hcloud_lifecycle_closure_plan.py` | P0 核心服务的六阶段 planner-only 闭环计划，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。 |
 | 治理闭环计划 | `hcloud_governance_closure_plan.py` | P1 治理服务的 planner-only 闭环计划，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，并输出 evidence command plan 和治理汇总。 |
+| P2 场景闭环计划 | `hcloud_p2_scenario_closure_plan.py` | P2 场景服务的 planner-only 闭环计划，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，并诚实标注 metadata evidence gap。 |
 | registry 多服务 smoke | `hcloud_readonly_smoke.py` | 只读 smoke；`--execute` 才真实查询。 |
 | metadata-backed smoke | `hcloud_catalog_readonly_smoke.py` | 小批只读矩阵和失败分桶。 |
 | curated 晋级审计 | `hcloud_curated_promotion_audit.py` | 校验 profile、playbook、risk profile 和 live-smoke 门槛。 |
@@ -262,6 +263,7 @@ version: "0.3.2"
 - curated promotion audit 输出 `value_ranked_candidates`，用于按“上好云、用好云、管好云”价值维度选择下一批治理候选
 - `hcloud_lifecycle_closure_plan.py` 提供 P0 核心服务的 planner-only 闭环计划入口，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，并把上下文/依赖发现、参数检查、风险门禁、受控执行、后置验证和治理审计统一成六阶段输出
 - `hcloud_governance_closure_plan.py` 提供 P1 治理闭环计划入口，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，把治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口统一输出；Billing/BSS 只生成 request spec，不生成 live query 命令
+- `hcloud_p2_scenario_closure_plan.py` 提供 P2 场景闭环计划入口，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，把容器、网络、缓存、IaC、多集群、依赖、安全、数据库场景先收敛成只读 evidence plan、风险边界和下一步晋级缺口；安全和数据库族当前保持 metadata evidence gap，不宣称 curated 完整闭环
 - VPC / IMS / KPS / IAM / EIP 创建前只读发现方法
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记
 - ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 的低覆盖查询登记，用于离线数据集回归和前置发现
@@ -270,7 +272,7 @@ version: "0.3.2"
 - OBS `hcloud obs`/obsutil 只读适配器和 planner-only bucket/lifecycle/policy 变更计划
 - `hcloud_resource_detail_probe.py` 可对 EVS/NAT 等服务做 list-then-detail 抽样，有资源时执行 detail，无资源时结构化 skipped
 
-当前对 ECS 的 guidance 最完整。对 IAM、VPC、IMS、KPS、EIP、DCS、RFS、UCS 主要提供工作流、发现方法和部分目标查询；对 ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM、OBS、CES 提供低覆盖查询登记、第一层目标查询和 planner-only 计划。CTS、TMS、CBR、RMS、Config、LTS 是治理候选 profile，不等同于 curated registry 覆盖；Billing/Cost 当前只生成 request spec，不执行真实账单请求。
+当前对 ECS 的 guidance 最完整。P0/P1/P2 已分别形成 lifecycle、governance、scenario 三类 planner-only 闭环计划。对 IAM、VPC、IMS、KPS、EIP、DCS、RFS、UCS 主要提供工作流、发现方法和部分目标查询；对 ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM、OBS、CES 提供低覆盖查询登记、第一层目标查询和 planner-only 计划。安全姿态和数据库族长尾服务仍以 metadata-backed evidence gap 为主，不等同于 curated registry 覆盖；Billing/Cost 当前只生成 request spec，不执行真实账单请求。
 
 当前版本已经补了本地 meta cache 发现脚本和创建类示例模板；非 ECS 服务的 operation detail 缓存可能不完整，脚本会在缺少参数元数据时保守省略可选参数。
 

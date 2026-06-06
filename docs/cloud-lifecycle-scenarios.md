@@ -85,6 +85,15 @@ P1 进一步把管云治理任务落到 `hcloud_governance_closure_plan.py`。�
 -> curated 晋级缺口
 ```
 
+P2 再把后续典型场景落到 `hcloud_p2_scenario_closure_plan.py`。这个入口面向 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，不追求把这些服务一次做成 ECS 级自动执行，而是先把“有哪些证据、哪些参数缺口、哪些写操作必须继续门禁”说清楚：
+
+```text
+场景范围与必需输入
+-> 只读 evidence command plan 和 target-scoped 参数缺口
+-> 风险边界
+-> 下一步闭环动作
+```
+
 v0.3.2 覆盖 P0 任务服务。选择这些服务，是因为它们构成最常见的云上任务链路：网络和安全边界、公网入口、数据盘、负载均衡、数据库、对象存储、域名/证书/CDN，以及指标和日志证据。这个入口的价值不是替代 `hcloud_service_change_plan.py` 或 `hcloud_service_readiness.py`，而是把低层 planner、readiness 和专用适配器组合成用户任务能看懂的闭环计划。
 
 | v0.3.2 P0 服务 | 闭环补强重点 | 仍然保持的边界 |
@@ -99,6 +108,19 @@ v0.3.2 覆盖 P0 任务服务。选择这些服务，是因为它们构成最常
 | SCM | 检查证书状态、域名/SAN、有效期、部署目标和 HTTPS 证书链。 | 不把证书上传成功等同于业务 HTTPS 可用；仍需在真实域名入口验证。 |
 | CDN | 检查 CDN 域名、源站、HTTPS、缓存/刷新，以及 CDN 和源站双路径协议探测。 | 不把 CDN 配置成功等同于用户侧访问正确；缓存传播和源站健康仍需验证。 |
 | CES / LTS | 组合 CES metric namespace/dimension/time window 发现和 LTS 有界日志证据计划。 | 只做健康证据规划；不创建告警、不修改日志配置、不拉取过宽日志。 |
+
+v0.3.3 补上 P2 场景服务。选择这些服务，是因为它们覆盖了 P0/P1 之外常见的后续任务：容器化应用、私网出公网和 DNAT/SNAT、缓存、IaC、多集群、上云前置依赖、安全姿态和数据库族。P2 当前完成的是“场景闭环计划能力”，不是把所有 P2 服务晋级为完整 curated 执行能力。
+
+| v0.3.3 P2 服务组 | 场景补强重点 | 仍然保持的边界 |
+| --- | --- | --- |
+| CCE | cluster、node、kubeconfig 边界和 workload readiness 证据。 | 不从本 planner 创建、删除、升级集群，也不落地 kubeconfig token。 |
+| NAT | NAT gateway、SNAT/DNAT、route、EIP 绑定和连通性证据。 | DNAT 公网暴露、规则变更和删除仍需 dedicated guarded flow 与显式确认。 |
+| DCS | 实例健康、配置、备份、维护窗口和诊断证据。 | 参数、扩容、重启、删除不自动提交。 |
+| RFS | stack、template、resource、execution plan 和 drift review。 | 不执行 apply、continue、rollback；模板参数和 outputs 按敏感信息处理。 |
+| UCS | fleet、cluster、policy、addon 和多集群治理证据。 | 不修改 federation、policy、addon 或集群接入凭据。 |
+| IAM / KPS / IMS | profile、domain、project、keypair、image 等上云依赖证据。 | 不扩展高风险 IAM mutation，不导出或打印私钥。 |
+| HSS / SecMaster / CFW / DBSS / KMS | 安全姿态只读可见性和 evidence gap。 | 保持 metadata-backed evidence gap；安全策略、主机 agent、防火墙、审计和密钥变更 hard-gated。 |
+| GaussDB / GaussDBforNoSQL / GaussDBforopenGauss / DDS / DDM / DWS | 复用 RDS 的备份、连接、参数、重启影响和回滚证据模型。 | 保持 metadata-backed evidence gap；不从实例状态直接宣称数据库可用，不自动改参数、重启、恢复或删除。 |
 
 ## 服务补充能力总览
 

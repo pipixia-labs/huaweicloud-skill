@@ -1,13 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.3.3 - 2026-06-06
 
 - Completed the first P1 governance closure planner with `hcloud_governance_closure_plan.py`, covering TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo.
 - Added read-only evidence command planning and top-level governance summaries for P1 services, including planned command counts, missing target parameters, eligible/blocked promotion status, and evidence-gap grouping.
 - Added a conservative BSS curation profile and Billing/Cost governance playbook so billing/cost workflows have explicit request-spec, privacy, freshness, and no-credential/no-HTTP boundaries.
 - Kept Billing/BSS request-spec-only: the governance planner does not generate hcloud BSS live query commands, sign requests, or accept billing credentials.
 - Added tests for P1 default service coverage, read-only evidence command planning, Billing request specs, RMS/Config aliasing, WAF hard-gated policy posture, and unsupported-service validation.
-- Updated README, SKILL, script references, architecture, technical overview, implementation details, service coverage, data coverage, and lifecycle scenario docs to describe the P1 governance planner boundary.
+- Added `hcloud_p2_scenario_closure_plan.py`, a planner-only four-stage scenario closure planner for CCE, NAT, DCS, RFS, UCS, IAM/KPS/IMS dependencies, security posture, and database-family services.
+- Added P2 evidence command planning for services with curation profiles and explicit `metadata_evidence_gap` status for security posture and database-family services that are still metadata-backed.
+- Kept P2 writes disabled: cluster, NAT, cache, stack, fleet, security, key, IAM, and database mutations require dedicated guarded flows before any submit path exists.
+- Added tests for P2 default group coverage, CCE read-only evidence command planning, security/database metadata-gap boundaries, and unsupported-group validation.
+- Updated README, SKILL, script references, architecture, technical overview, implementation details, service coverage, data coverage, lifecycle scenario docs, and review plan status to describe the P1/P2 planner boundaries.
 
 ## 0.3.2 - 2026-06-06
 

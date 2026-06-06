@@ -28,7 +28,7 @@ v0.3 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架�
 | metadata-backed catalog | 服务数、operation 数和 registry 外服务清单以 `hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 字段为准 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.3 / 0.3.2` |
+| 发布版本 | `v0.3 / 0.3.3` |
 
 ## 核心架构
 
@@ -36,10 +36,13 @@ v0.3 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架�
 flowchart LR
     Intent["User intent"] --> Registry["Registry control plane"]
     Registry --> Closure["Lifecycle closure planner"]
+    Registry --> Scenario["Scenario closure planner"]
     Registry --> Plan["Planner and risk gate"]
     Registry --> Query["Read-only query builders"]
     Closure --> Plan
     Closure --> Query
+    Scenario --> Query
+    Scenario --> Plan
     Plan --> SafeExec["Safe execution wrapper"]
     Query --> SafeExec
     SafeExec --> HCloud["hcloud / hcloud obs"]
@@ -116,6 +119,17 @@ flowchart LR
 
 这个脚本复用 `service-curation-profiles.json`、`hcloud_curated_promotion_audit.py`、`hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和 `hcloud_billing_readonly.py`。它的工程意义是把标签、审计、备份、合规、账单、安全、数据分析和 DevOps 这类治理任务先收敛成可审计、可评审、可逐步晋级的证据链，而不是过早打开自动写策略。Billing/BSS 保持 request-spec-only，不生成 live `hcloud BSS` 查询命令。
 
+### 4.3 P2 场景闭环层
+
+`hcloud_p2_scenario_closure_plan.py` 是 v0.3.3 增加的场景闭环层。它面向 P2 服务，不把服务直接晋级成完整执行能力，而是把容器、NAT、缓存、IaC、多集群、上云依赖、安全姿态和数据库族先组织成四阶段 planner-only 输出：
+
+- 场景范围与必需输入。
+- 只读 evidence command plan 和 target-scoped 参数缺口。
+- 风险边界。
+- 下一步闭环动作，例如 live smoke、curated promotion 或 dedicated guarded flow。
+
+当前 P2 组包括 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态服务和数据库族。对已经有 curation profile 的服务，脚本会复用 `hcloud_resource_discovery.py` 和 `hcloud_resource_query.py` 生成只读证据计划；对 HSS、SecMaster、CFW、DBSS、KMS、GaussDB、GaussDBforNoSQL、GaussDBforopenGauss、DDS、DDM、DWS 等 metadata-backed 组，脚本明确标记 `metadata_evidence_gap`，只输出可见性和证据缺口，不宣称 curated 成熟度。
+
 ### 5. 质量回归面
 
 质量门禁把 registry、风险分类、执行路径和资料漂移纳入可重复检查：
@@ -150,7 +164,7 @@ flowchart LR
 
 - ECS 是完整度最高的闭环；其他 curated 服务已具备 profile/playbook/risk-profile 维护档案和广度优先的 P0 风险门禁，但复杂业务语义 verifier 还需要继续扩展。
 - 非 ECS 服务的部分 KooCLI operation detail 在本地 metadata 中不完整，所以当前仍优先采用显式参数和 planner-first。
-- 账号盘点、闲置审计、teardown review、CES alarm、LTS log 和 Billing/Cost 都是只读或 planner-only 路线，不代表默认可以执行删除、释放、退订、告警创建或账单 HTTP 请求。
+- 账号盘点、闲置审计、teardown review、CES alarm、LTS log、Billing/Cost 和 P2 scenario closure 都是只读或 planner-only 路线，不代表默认可以执行删除、释放、退订、告警创建、账单 HTTP 请求、安全策略变更或数据库变更。
 - 通用 Show* 后置验证确认基础资源状态，不等同于完整业务验收。
 - 所有真实写操作仍需要用户按具体资源、region、project、风险和回滚方式确认。
 
@@ -158,6 +172,6 @@ flowchart LR
 
 1. 扩展更多服务专用 verifier，把通用 Show* 验证升级为更强的业务语义验证。
 2. 增加更多真实只读样本和 dry-run 样本，继续校准 registry 和参数白名单。
-3. WAF、CodeArtsRepo、DLI 已达到当前 promotion audit 证据线，但是否写入 registry 仍取决于维护决策；CTS、TMS、CBR、RMS、Config、LTS 需要继续补 live read-smoke 证据。
+3. WAF、CodeArtsRepo、DLI 已达到当前 promotion audit 证据线，但是否写入 registry 仍取决于维护决策；安全姿态服务和数据库族需要继续补 live read-smoke、playbook、risk profile 和 target-scoped 查询证据。
 4. 为 Billing/Cost 增加经过评审的签名请求 runner 或 SDK 路线前，继续保持 request-spec-only。
 5. 把 run journal 用到更多多步操作中，增强真实变更的审计和恢复能力。

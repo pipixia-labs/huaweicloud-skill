@@ -322,6 +322,21 @@ Use this when the user asks for a P1 governance closure plan instead of a single
 
 The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and keeps credentials outside the planner; it deliberately does not generate live `hcloud BSS` query commands. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
 
+### P2 Scenario Closure Plan
+
+```bash
+python3 scripts/hcloud_p2_scenario_closure_plan.py \
+  --group CCE \
+  --param cluster_id=<cluster-id> \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --pretty
+```
+
+Use this when the user asks to continue P2 scenario closure after the P0/P1 lifecycle and governance planners. Without `--group`, it plans all P2 groups: CCE, NAT, DCS, RFS, UCS, IAM/KPS/IMS dependencies, security posture, and database family. The planner returns four stages: scenario scope, read-only evidence, risk boundary, and next closure steps.
+
+The script is planner-only and does not execute `hcloud` or submit cluster, NAT, cache, stack, fleet, security, key, IAM, or database changes. Curated-profile services generate discovery and target-scoped read-only command plans when enough parameters exist. Security posture services (`HSS`, `SecMaster`, `CFW`, `DBSS`, `KMS`) and database-family services (`GaussDB`, `GaussDBforNoSQL`, `GaussDBforopenGauss`, `DDS`, `DDM`, `DWS`) stay metadata-backed evidence-gap plans in this release; that status is intentional and must not be described as curated maturity.
+
 ### Registry Read-Only Smoke
 
 ```bash

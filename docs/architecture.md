@@ -16,7 +16,7 @@
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
 - **验证面**：job waiter、resource query、resource verifier、service readiness 分层确认结果。
 - **闭环面**：`hcloud_lifecycle_closure_plan.py` 把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 的 P0 典型任务组织成六阶段 planner-only 闭环。
-- **治理面**：账号盘点、闲置审计、teardown review、可观测、Billing/Cost request spec、P1 governance closure 和 curation profiles 支持生命周期治理。
+- **治理/场景面**：账号盘点、闲置审计、teardown review、可观测、Billing/Cost request spec、P1 governance closure、P2 scenario closure 和 curation profiles 支持生命周期治理和后续场景演进。
 - **回归面**：单测、架构契约、materials drift 和 coverage 检查持续约束实现。
 
 ## 顶层结构
@@ -57,11 +57,14 @@ flowchart TD
     Registry --> Discovery["hcloud_resource_discovery.py"]
     Registry --> Query["hcloud_resource_query.py"]
     Registry --> Closure["hcloud_lifecycle_closure_plan.py"]
+    Registry --> Scenario["hcloud_p2_scenario_closure_plan.py"]
     Registry --> ChangePlan["hcloud_service_change_plan.py"]
     Registry --> Guarded["hcloud_guarded_change_flow.py"]
     Registry --> Readiness["hcloud_service_readiness.py / hcloud_readonly_smoke.py"]
     Closure --> ChangePlan
     Closure --> Readiness
+    Scenario --> Discovery
+    Scenario --> Query
     Discovery --> SafeExec["hcloud_safe_exec.py"]
     Query --> SafeExec
     ChangePlan --> SafeExec
@@ -197,6 +200,8 @@ flowchart LR
 
 - ECS：创建 JSON 本地校验、dry-run、submit 命令生成、`ShowJob` 轮询、`ACTIVE` 验证。
 - P0 任务闭环：`hcloud_lifecycle_closure_plan.py` 为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成任务级六阶段闭环计划，不执行真实 submit。
+- P1 治理闭环：`hcloud_governance_closure_plan.py` 为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成治理范围、只读证据、风险/隐私门禁和晋级缺口，不执行治理写操作。
+- P2 场景闭环：`hcloud_p2_scenario_closure_plan.py` 为 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族生成场景范围、只读证据、风险边界和下一步闭环动作，不执行场景写操作。
 - EIP：Plan -> dry-run -> guarded submit -> `ShowPublicip` verify 的参考 flow。
 - VPC / ELB / EVS / NAT / RDS / CDN / DNS / SCM：通用 Plan -> dry-run -> guarded submit -> resource Show* verify -> read-only smoke 的 P0 门禁。
 - OBS：obsutil planner-only 变更计划和后置只读验证计划。

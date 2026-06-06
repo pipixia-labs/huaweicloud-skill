@@ -1,5 +1,38 @@
 # Release Notes
 
+## v0.3.3 / 0.3.3 - 2026-06-06
+
+v0.3.3 is a scenario-closure patch after v0.3.2. It includes the P1 governance completion work and adds P2 scenario closure planning so the skill now has three planner-only closure layers: P0 lifecycle, P1 governance, and P2 scenario services.
+
+### Changes Since v0.3.2
+
+- Completes P1 governance closure planning:
+  - `hcloud_governance_closure_plan.py` now outputs read-only evidence command plans, target-scoped missing-parameter gaps, governance summaries, and curated promotion readiness for TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo.
+  - Billing/BSS remains request-spec-only. The planner does not sign requests, accept billing credentials, send HTTP traffic, or generate live `hcloud BSS` query commands.
+- Adds `hcloud_p2_scenario_closure_plan.py`:
+  - Planner-only and non-executing by default.
+  - Builds four-stage scenario plans: scenario scope, read-only evidence, risk boundary, and next closure steps.
+  - Covers CCE, NAT, DCS, RFS, UCS, IAM/KPS/IMS dependencies, security posture, and database family.
+- Clarifies P2 maturity:
+  - CCE/NAT/DCS/RFS/UCS/IAM/KPS/IMS reuse existing curation profiles to generate read-only discovery and target-scoped query plans.
+  - HSS, SecMaster, CFW, DBSS, KMS, GaussDB, GaussDBforNoSQL, GaussDBforopenGauss, DDS, DDM, and DWS stay metadata-backed evidence-gap plans.
+  - Security and database-family coverage is intentionally not described as curated maturity.
+- Updates user and developer documentation:
+  - README, SKILL, script references, technical overview, implementation details, data/coverage, service coverage, lifecycle scenarios, changelog, and review planning docs now describe P1/P2 planner boundaries.
+
+### Validation
+
+- `python3 -m unittest discover -s huaweicloud-skill/tests`: 196 tests passed.
+- `python3 -m compileall -q huaweicloud-skill/scripts`: passed.
+- `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- v0.3.3 does not make P1 or P2 writes auto-executable.
+- Governance, security, identity, key, cluster, NAT, cache, stack, fleet, and database mutations remain planner-only or hard-gated until dedicated guarded flows, tests, explicit confirmation, and post-change verification exist.
+- Billing/Cost support remains request-spec planning only.
+- Metadata-backed service presence is used for safe discovery and evidence-gap planning, not as a curated execution claim.
+
 ## v0.3.2 / 0.3.2 - 2026-06-06
 
 v0.3.2 is a lifecycle closure patch on top of v0.3.1. It does not expand catalog breadth. Instead, it turns the P0 service set into task-level planner coverage for common 上云、用云、管云 workflows: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS.

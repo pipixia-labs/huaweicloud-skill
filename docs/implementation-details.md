@@ -266,6 +266,38 @@ python3 scripts/hcloud_safe_exec.py \
 
 每个服务还会输出 `governance_summary`，包括当前状态、promotion value score、eligible/blocked 服务、缺失证据、billing spec 错误和 evidence command 数量。顶层 `governance_summary` 汇总所有 P1 服务组的 review-ready/evidence-gap/profile-only 状态。Billing/BSS 是例外：它只输出官方 request spec 和晋级缺口，不生成 live `hcloud BSS` 查询命令。
 
+### `hcloud_p2_scenario_closure_plan.py`
+
+用途：把 P2 服务按真实场景组织成 planner-only 闭环计划。当前覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族。
+
+这个脚本本身不执行 hcloud，不创建或删除集群，不修改 NAT 规则，不调整缓存实例，不 apply RFS stack，不修改 UCS fleet/policy，不导出密钥，不修改安全策略，也不变更数据库。它组合三个已有能力：
+
+- `references/service-curation-profiles.json`：读取已有 curated/candidate profile。
+- `hcloud_resource_discovery.py`、`hcloud_resource_query.py`：为有 profile 的服务生成只读 evidence command plan，并显式列出 target-scoped 缺参。
+- `hcloud-service-catalog`：为还没有 profile 的安全姿态和数据库族服务生成 metadata-backed 可见性计划。
+
+输出固定分为四段：
+
+- scenario_scope
+- read_only_evidence
+- risk_boundary
+- next_closure_steps
+
+服务组侧重点不同：
+
+| 服务组 | 场景闭环重点 |
+| --- | --- |
+| CCE | cluster、node、kubeconfig 边界和 workload readiness；集群创建、删除、升级不在本 planner 执行。 |
+| NAT | NAT gateway、SNAT/DNAT、route、EIP 绑定和连通性证据；公网暴露和后端监听必须一起评审。 |
+| DCS | 实例健康、配置、备份、维护窗口和诊断证据；参数、扩容、重启需要 dedicated guarded flow。 |
+| RFS | stack、template、resource、execution plan 和 drift review；apply/continue/rollback 不从本 planner 触发。 |
+| UCS | fleet、cluster、policy、addon 和多集群治理证据；凭据和集群接入信息不落日志。 |
+| IAM / KPS / IMS | profile、domain、project、keypair、image 等上云依赖证据；IAM mutation 和私钥导出不在本 planner。 |
+| HSS / SecMaster / CFW / DBSS / KMS | 安全姿态可见性和 evidence gap；事件、策略、防火墙、审计、密钥对象都按敏感数据处理。 |
+| GaussDB / GaussDBforNoSQL / GaussDBforopenGauss / DDS / DDM / DWS | 复用 RDS 的备份、连接、参数、重启影响和回滚证据模型；不从实例状态直接宣称数据库可用。 |
+
+顶层 `scenario_summary` 汇总 review-ready、target-params-needed、metadata-evidence-gap 三类状态。安全姿态和数据库族在本版本故意保持 `metadata_evidence_gap`，这是成熟度说明，不是错误。
+
 ## 变更规划和风险门禁
 
 ### `hcloud_change_plan.py`
