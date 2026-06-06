@@ -189,6 +189,7 @@ python3 scripts/hcloud_safe_exec.py \
 - `ShowVpc`，需要 `vpc_id`
 - `ShowSubnet`，需要 `subnet_id`
 - `ShowSecurityGroup`，需要 `security_group_id`
+- `ShowSecurityGroupRule`，需要 `security_group_rule_id`
 
 缺少目标参数的 detail 检查会标记为 skipped。默认情况下 skipped 不算失败；开启 `--require-all` 后会失败。
 
@@ -196,6 +197,40 @@ python3 scripts/hcloud_safe_exec.py \
 
 - `--strict` 会让任何执行失败导致整体失败。
 - 非 strict 模式下，云侧执行失败作为诊断保留，但 plan 失败仍然阻塞成功。
+
+### `hcloud_lifecycle_closure_plan.py`
+
+用途：把用户任务组织成“上好云、用好云、管好云”的六阶段闭环计划。v0.3.2 覆盖 P0 任务服务：VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。
+
+这个脚本本身不执行 hcloud，也不打开新的 submit 通道。它组合三个已有能力：
+
+- `hcloud_service_change_plan.py`：生成变更风险计划和 dry-run/submit 命令草案。
+- `hcloud_service_readiness.py`：生成只读 readiness 计划和 target-scoped Show* 查询。
+- `hcloud_security_policy.py`：阻断安全组敏感端口的全网入方向规则。
+
+输出固定分为六段：
+
+- context_dependency_discovery
+- operation_parameter_planning
+- risk_security_gate
+- controlled_execution_error_handling
+- post_change_verification
+- governance_audit
+
+服务侧重点不同：
+
+| 服务 | 闭环重点 |
+| --- | --- |
+| VPC / 安全组 | CIDR/端口检查、规则读回、EIP/ELB 路径联动。 |
+| EIP | 公网暴露、同区域单绑定、带宽/费用、`ShowPublicip` 后置验证。 |
+| EVS | 云侧 volume/attachment 与机内 filesystem/mount/read-write readiness 分离。 |
+| ELB | listener/pool/member/health monitor 分阶段计划，backend health 和协议探测后验收。 |
+| RDS | 备份/备份策略、参数模板、连接前提、重启影响和回滚边界。 |
+| OBS | `hcloud obs`/obsutil 专用路径、bucket stat/policy/lifecycle、公有访问和保留策略风险。 |
+| DNS | 记录冲突、TTL、传播窗口、回滚值和解析结果验证。 |
+| SCM | 证书状态、域名/SAN、有效期、部署目标和 HTTPS 证书链验证。 |
+| CDN | 域名、源站、HTTPS、缓存/刷新和 CDN/源站双路径协议探测。 |
+| CES / LTS | CES 指标发现和 LTS 有界日志证据计划；保持只读证据链，不开放通用写路径。 |
 
 ## 变更规划和风险门禁
 

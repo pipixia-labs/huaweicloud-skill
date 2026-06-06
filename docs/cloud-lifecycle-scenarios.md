@@ -64,6 +64,32 @@ ECS 更像当前 skill 的闭环样板：它展示了一个云资源任务不应
 
 因此，后续扩展不应该以“覆盖了多少 API”为唯一目标，而应该以“能否把一个真实用户任务稳定做完”为目标。对于高频、高风险、高价值任务，应该尽量做到 ECS 这种闭环；对于长尾服务，先提供安全发现和只读/计划能力即可。
 
+v0.3.2 开始把这个原则落到一个统一脚本入口：`hcloud_lifecycle_closure_plan.py`。它不是新的 submit 通道，而是把典型服务任务整理成六阶段 planner-only 输出：
+
+```text
+上下文与依赖发现
+-> 操作与参数规划
+-> 风险与安全门禁
+-> 受控执行与错误处理
+-> 运行后验证
+-> 治理与审计沉淀
+```
+
+v0.3.2 覆盖 P0 任务服务。选择这些服务，是因为它们构成最常见的云上任务链路：网络和安全边界、公网入口、数据盘、负载均衡、数据库、对象存储、域名/证书/CDN，以及指标和日志证据。这个入口的价值不是替代 `hcloud_service_change_plan.py` 或 `hcloud_service_readiness.py`，而是把低层 planner、readiness 和专用适配器组合成用户任务能看懂的闭环计划。
+
+| v0.3.2 P0 服务 | 闭环补强重点 | 仍然保持的边界 |
+| --- | --- | --- |
+| VPC / 安全组 | 安全组规则读回、CIDR/端口检查、`0.0.0.0/0` 敏感端口 hard block、EIP/ELB 公网路径联动。 | 不自动猜来源 CIDR；不因用户说“公网访问”就开放全网 SSH/Web 端口。 |
+| EIP | 绑定/解绑/释放作为公网暴露和费用变更处理，强调同区域、单绑定、带宽和安全组可达性。 | 不把 `ShowPublicip` 成功等同于应用可访问；仍需 ECS/ELB 和安全组验证。 |
+| EVS | 区分云侧 `ShowVolume`/attachment 和机内设备、分区、文件系统、挂载、`fstab`、写测试。 | 不把 `in-use` 当成 `/data` 可用；格式化、删除、卸载、扩容必须保留数据风险确认。 |
+| ELB | listener、pool、member、health monitor 分阶段计划，强调后端 ECS/VPC/subnet/安全组和健康检查。 | 不把 ELB 资源创建成功当成业务接入成功；member `ONLINE` 和协议探测仍是验收条件。 |
+| RDS | 备份、备份策略、参数模板、连接前提、重启影响和回滚边界进入同一个计划。 | 不把实例存在当成数据库可用；涉及生产数据的参数/规格/删除类变更仍需独立确认。 |
+| OBS | 走 `hcloud obs`/obsutil 专用路径，检查 bucket stat、policy、lifecycle、公有访问和保留策略风险。 | 不把 OBS 当普通 OpenAPI 服务；不自动公开 bucket，也不自动执行生命周期删除策略。 |
+| DNS | 检查记录冲突、TTL、传播窗口、回滚值和解析结果。 | 不把 API 更新成功等同于全网解析完成；仍需等待 TTL 并做解析验证。 |
+| SCM | 检查证书状态、域名/SAN、有效期、部署目标和 HTTPS 证书链。 | 不把证书上传成功等同于业务 HTTPS 可用；仍需在真实域名入口验证。 |
+| CDN | 检查 CDN 域名、源站、HTTPS、缓存/刷新，以及 CDN 和源站双路径协议探测。 | 不把 CDN 配置成功等同于用户侧访问正确；缓存传播和源站健康仍需验证。 |
+| CES / LTS | 组合 CES metric namespace/dimension/time window 发现和 LTS 有界日志证据计划。 | 只做健康证据规划；不创建告警、不修改日志配置、不拉取过宽日志。 |
+
 ## 服务补充能力总览
 
 从服务视角看，`huaweicloud-skill` 主要补的不是“更多命令”，而是每个服务在真实任务里最容易缺失的判断、门禁和验证环节。
@@ -72,11 +98,11 @@ ECS 更像当前 skill 的闭环样板：它展示了一个云资源任务不应
 | --- | --- | --- |
 | ECS | 依赖发现、创建 JSON 校验、登录凭证门禁、安全组风险检查、dry-run/submit 计划、`ShowJob`、`ACTIVE`、SSH/应用 readiness。 | 把“创建请求成功”推进到“服务器可登录、可验收、可继续部署”。 |
 | IAM | profile、domain、project、region、认证上下文检查。 | 先确认操作落在正确账号和项目，减少 region/project/权限误判。 |
-| VPC / 安全组 | VPC/subnet/security group 发现、CIDR 和端口风险审计、安全组规则计划、规则 readback。 | 避免网络拓扑不匹配和敏感端口误开放。 |
+| VPC / 安全组 | VPC/subnet/security group 发现、CIDR 和端口风险审计、安全组规则计划、`ShowSecurityGroup`/`ShowSecurityGroupRule` 规则 readback。 | 避免网络拓扑不匹配和敏感端口误开放。 |
 | IMS / KPS | 镜像、密钥对和私钥处理边界。 | 创建 ECS 前确认镜像可用、登录路径可用。 |
-| EIP | EIP/带宽发现、绑定/解绑计划、plan-bound submit token、`ShowPublicip` 验证、公网暴露和费用提示。 | 把公网入口变更纳入风险门禁和后置验证。 |
-| EVS | 云盘状态、挂载关系、快照姿态、`ShowVolume`/`ShowJob`、机内文件系统和挂载 readiness。 | 区分“云盘已挂载”和“系统内可用”，降低数据盘误操作风险。 |
-| ELB | listener/pool/member 拓扑拆解、后端 ECS/VPC/subnet 复核、成员健康和 HTTP 探测。 | 避免把 ELB 资源创建成功误判成业务已接入。 |
+| EIP | EIP/带宽发现、绑定/解绑计划、plan-bound submit token、`ShowPublicip` 验证、公网暴露、同区域单绑定和费用提示。 | 把公网入口变更纳入风险门禁和后置验证。 |
+| EVS | 云盘状态、挂载关系、快照姿态、`ShowVolume`/`ShowJob`、机内文件系统、`fstab` 和写测试 readiness。 | 区分“云盘已挂载”和“系统内可用”，降低数据盘误操作风险。 |
+| ELB | listener/pool/member/health monitor 拓扑拆解、后端 ECS/VPC/subnet/安全组复核、成员健康和 HTTP/TCP 探测。 | 避免把 ELB 资源创建成功误判成业务已接入。 |
 | NAT | NAT gateway、SNAT/DNAT rule、EIP 绑定和路由边界检查。 | 让私网出公网和公网转发任务有清晰依赖和连通性验证。 |
 | RDS | 实例、备份、参数模板、连接前提、规格/参数变更影响说明。 | 数据库任务先看备份、重启、连接和回滚边界，避免直接改生产数据库。 |
 | OBS | `hcloud obs`/obsutil 专用路径、bucket stat、policy、lifecycle、public ACL/policy 风险检查。 | 避免把 OBS 当普通 OpenAPI 服务，也避免对象存储被错误公开。 |

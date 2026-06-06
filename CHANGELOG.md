@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2 - 2026-06-06
+
+- Added `hcloud_lifecycle_closure_plan.py`, a planner-only six-stage lifecycle closure planner for the P0 task set: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS.
+- The new planner composes service change planning, service readiness planning, OBS/LTS adapters, and local policy checks into one task-level output: context/dependency discovery, parameter planning, risk gates, controlled execution, post-change verification, and governance audit.
+- Extended readiness coverage for VPC/security group, RDS, and OBS with target-scoped readback such as `ShowSecurityGroupRule`, RDS backup/configuration checks, and OBS bucket policy/stat checks.
+- Strengthened EIP, VPC, EVS, ELB, RDS, DNS, SCM, and CDN service change hints around public exposure, same-region/single EIP binding, guest filesystem readiness, backend health, backup/connection posture, TTL propagation, certificate deployment, origin/cache behavior, and protocol verification.
+- Added CES/LTS health-evidence closure planning so metric discovery and bounded log evidence can be planned together without opening a generic mutation path.
+- Updated README, SKILL, script reference docs, architecture, implementation details, technical overview, coverage, and lifecycle scenario docs to describe the v0.3.2 P0 closure model.
+
 ## 0.3.1 - 2026-06-06
 
 - Expanded generated hcloud metadata catalog generation to merge English and Chinese KooCLI metadata at operation level.

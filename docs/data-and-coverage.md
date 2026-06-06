@@ -186,6 +186,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - 回收评审：`scripts/hcloud_teardown_plan.py` 生成依赖顺序和回收前检查项，所有步骤都是 planner-only。
 - 可观测：`scripts/hcloud_observability_plan.py`、`scripts/hcloud_ces_alarm_plan.py`、`scripts/hcloud_lts_readonly.py` 分别处理资源状态/CES metric、CES alarm 草案和 LTS 只读日志查询。
 - Billing/Cost：`scripts/hcloud_billing_readonly.py` 只生成官方 API request spec，不签名、不发请求。
+- 任务闭环：`scripts/hcloud_lifecycle_closure_plan.py` 为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成六阶段 lifecycle closure 计划，不执行真实云变更。
 
 ## Coverage gate
 
@@ -242,8 +243,9 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | 层级 | 服务 | 当前能力 |
 | --- | --- | --- |
 | 完整闭环 | ECS | 查询、创建 JSON 校验、dry-run/submit 命令生成、job 轮询、ACTIVE 验证。 |
-| 重点增强 | VPC、IMS、KPS、EIP、RDS、EVS、ELB、NAT、IAM、DCS、RFS、UCS | 多数有 list/readiness 路径；部分有资源级查询；EIP 有专用 guarded flow；VPC/ELB/EVS/NAT/RDS 已接入通用 guarded flow；DCS/RFS/UCS 是 read-only curated。 |
-| 最小路径 | CCE、CDN、DNS、SCM、OBS、CES | 有最小查询入口或专用适配；CDN/DNS/SCM 已接入通用 guarded flow；OBS 有专用 obsutil planner-only；CES 只承诺指标发现和 alarm planner-only。 |
+| P0 任务闭环增强 | VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS | 保持原有 guarded/readiness/专用适配器边界，同时通过 `hcloud_lifecycle_closure_plan.py` 输出上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计。 |
+| 重点增强 | IMS、KPS、NAT、IAM、DCS、RFS、UCS | 多数有 list/readiness 路径；部分有资源级查询；NAT 已接入通用 guarded flow；DCS/RFS/UCS 是 read-only curated。 |
+| 最小路径 | CCE | 有最小查询入口或专用适配，仍需补 smoke、playbook、risk profile 和 verifier 后再晋级为更完整闭环。 |
 | 晋级候选 | WAF、CodeArtsRepo、DLI、CTS、TMS、CBR、RMS、Config、LTS | 有 candidate profile、playbook 和 risk profile；WAF/CodeArtsRepo/DLI 已达到当前 evidence gate，CTS/TMS/CBR/RMS/Config/LTS 仍需补 live read-smoke。 |
 
 OBS 是特殊服务，不通过普通 OpenAPI-style metadata，而通过 `hcloud obs`/obsutil 适配。

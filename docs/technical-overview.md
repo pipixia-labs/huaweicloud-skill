@@ -28,15 +28,18 @@ v0.3 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架�
 | metadata-backed catalog | 服务数、operation 数和 registry 外服务清单以 `hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 字段为准 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.3 / 0.3.1` |
+| 发布版本 | `v0.3 / 0.3.2` |
 
 ## 核心架构
 
 ```mermaid
 flowchart LR
     Intent["User intent"] --> Registry["Registry control plane"]
+    Registry --> Closure["Lifecycle closure planner"]
     Registry --> Plan["Planner and risk gate"]
     Registry --> Query["Read-only query builders"]
+    Closure --> Plan
+    Closure --> Query
     Plan --> SafeExec["Safe execution wrapper"]
     Query --> SafeExec
     SafeExec --> HCloud["hcloud / hcloud obs"]
@@ -87,6 +90,19 @@ flowchart LR
 - JSON verifier：对 EIP、VPC、ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM 等服务返回结构做 ID/name/status/CIDR/绑定关系验证。
 
 核心原则是：请求提交成功不等于业务完成；必须继续验证目标资源状态。
+
+### 4.1 任务闭环层
+
+`hcloud_lifecycle_closure_plan.py` 是 v0.3.2 增加的任务闭环层。它不直接执行云命令，也不替代服务级 guarded flow，而是把 P0 服务的典型任务组合成六阶段 planner-only 输出。当前 P0 范围包括 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS：
+
+- 上下文与依赖发现。
+- 操作与参数规划。
+- 风险与安全门禁。
+- 受控执行与错误处理。
+- 运行后验证。
+- 治理与审计沉淀。
+
+这个脚本复用 `hcloud_service_change_plan.py`、`hcloud_service_readiness.py`、OBS/LTS 专用适配器和本地安全策略扫描。它的工程意义是让“上好云、用好云、管好云”从文档原则变成机器可读计划，同时保持真实 submit 仍由现有确认门禁控制。
 
 ### 5. 质量回归面
 

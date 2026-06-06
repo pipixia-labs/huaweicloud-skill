@@ -20,35 +20,41 @@ REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 SERVICE_VERIFICATION_HINTS = {
     "EIP": [
         "After create/bind/update, query ListPublicips or ShowPublicip and verify status, public IP address, bandwidth, and port/instance binding.",
+        "For public reachability, also verify the target ECS/ELB/NAT dependency and security group ingress before declaring the entry path usable.",
         "For unbind/delete, verify the public IP is no longer bound or no longer appears in ListPublicips.",
     ],
     "VPC": [
-        "After VPC/subnet/security group changes, query ListVpcs, ListSubnets, ListSecurityGroups, and ListSecurityGroupRules.",
+        "After VPC/subnet/security group changes, query ListVpcs, ListSubnets, ListSecurityGroups, ListSecurityGroupRules, ShowSecurityGroup, and ShowSecurityGroupRule when target IDs are known.",
         "Verify CIDR, gateway, VPC ID, subnet ID, direction, protocol, port range, and remote IP prefix.",
+        "For public-entry tasks, verify the full EIP or ELB path after the security group readback.",
     ],
     "ELB": [
         "After load balancer/listener/pool/member changes, query ListLoadbalancers, ListListeners, ListPools, and ListMembers.",
-        "Verify provisioning_status is ACTIVE and backend member operating_status is ONLINE before protocol testing.",
+        "Verify provisioning_status is ACTIVE, backend member operating_status is ONLINE, and backend ECS security groups allow health-check and service traffic before protocol testing.",
     ],
     "EVS": [
         "After volume create/attach/resize, query ListVolumes or ShowVolume and verify status, size, type, and attachment target.",
-        "Guest filesystem formatting and mount checks require an ECS remote-command or SSH path before declaring application readiness.",
+        "Guest filesystem formatting, partition expansion, mount persistence, and write checks require an ECS remote-command or SSH path before declaring application readiness.",
     ],
     "RDS": [
         "After instance/configuration/backup changes, query ListInstances and relevant Show* detail APIs.",
-        "Verify instance status, engine version, flavor, storage, backup policy, endpoint, and parameter status.",
+        "Verify instance status, engine version, flavor, storage, backup policy, endpoint, parameter status, and pending restart state.",
+        "For connection readiness, run a bounded client-side connection probe from the intended source network before declaring the database usable.",
     ],
     "NAT": [
         "After NAT gateway or rule changes, query ListNatGateways and rule list APIs, then verify route and EIP dependencies.",
     ],
     "DNS": [
         "After DNS record changes, query ListRecordSets and verify zone ID, name, type, TTL, and values.",
+        "Verify DNS resolution from a resolver and explain TTL/cache propagation before declaring traffic cutover complete.",
     ],
     "SCM": [
         "After certificate operations, query ListCertificates and verify domain, status, expiration, and deployment target.",
+        "For HTTPS readiness, verify the public endpoint certificate chain and domain/SAN match after deployment.",
     ],
     "CDN": [
         "After CDN domain or config changes, query ShowDomainDetail/ListDomains and verify online status, origin, HTTPS, and cache config.",
+        "Probe representative HTTP/HTTPS URLs through CDN and, when needed, direct origin to distinguish CDN faults from origin faults.",
     ],
     "CCE": [
         "After cluster or node changes, query ShowCluster/ListNodes and verify cluster availability and node readiness.",
@@ -58,7 +64,7 @@ SERVICE_VERIFICATION_HINTS = {
 SERVICE_CONTEXT_HINTS = {
     "EIP": [
         "Resolve VPC/port/ECS target before bind or unbind operations.",
-        "Confirm bandwidth size, billing mode, and whether an idle EIP can be reused.",
+        "Confirm same-region target, current binding, bandwidth size, billing mode, and whether an idle EIP can be reused.",
     ],
     "VPC": [
         "Resolve region, project, VPC CIDR, subnet CIDR, availability zone, and security group intent.",
@@ -66,13 +72,22 @@ SERVICE_CONTEXT_HINTS = {
         "Do not use 0.0.0.0/0 for SSH 22 or common Web ports 80, 443, 3000, 5000, 8000, and 8080.",
     ],
     "ELB": [
-        "Resolve VPC, subnet, EIP/public/private network type, listener port, pool protocol, health monitor, and backend member address.",
+        "Resolve VPC, subnet, EIP/public/private network type, listener protocol/port, pool protocol, health monitor, backend member address, backend ECS ID, and backend security group.",
     ],
     "EVS": [
-        "Resolve volume type, size, AZ, target ECS ID, mount path, and whether guest filesystem actions are in scope.",
+        "Resolve volume type, size, AZ, target ECS ID, expected device, mount path, filesystem, snapshot/backup posture, and whether guest filesystem actions are in scope.",
     ],
     "RDS": [
-        "Resolve engine, version, flavor, storage, VPC/subnet/security group, backup retention, and credential handling.",
+        "Resolve engine, version, flavor, storage, VPC/subnet/security group, backup retention, maintenance window, restart impact, rollback path, and credential handling.",
+    ],
+    "DNS": [
+        "Resolve zone ID, record name/type/value, TTL, current records, conflict policy, and rollback record values.",
+    ],
+    "SCM": [
+        "Resolve certificate ID, domain/SAN, expiration, target service, deployment target, replacement certificate, and rollback target.",
+    ],
+    "CDN": [
+        "Resolve domain ID/name, origin, origin protocol, certificate, cache rules, refresh/preheat scope, direct-origin health, and rollback origin.",
     ],
 }
 

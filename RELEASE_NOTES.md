@@ -1,5 +1,53 @@
 # Release Notes
 
+## v0.3.2 / 0.3.2 - 2026-06-06
+
+v0.3.2 is a lifecycle closure patch on top of v0.3.1. It does not expand catalog breadth. Instead, it turns the P0 service set into task-level planner coverage for common 上云、用云、管云 workflows: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS.
+
+### Changes Since v0.3.1
+
+- Adds `hcloud_lifecycle_closure_plan.py`:
+  - Planner-only and non-executing by default.
+  - Builds six-stage closure plans: context/dependency discovery, operation/parameter planning, risk/security gates, controlled execution/error handling, post-change verification, and governance/audit follow-up.
+  - Reuses `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, and `hcloud_security_policy.py` rather than opening a new submit path.
+- Improves VPC/security group closure:
+  - Adds `ShowSecurityGroupRule` to service readiness.
+  - Keeps unrestricted SSH/Web ingress hard-blocked before submit planning.
+- Improves EIP closure guidance:
+  - Treats binding as public exposure and cost-impacting change.
+  - Calls out same-region target, single binding, bandwidth, billing, `ShowPublicip`, and security group reachability checks.
+- Improves EVS closure guidance:
+  - Separates cloud-side volume state from guest filesystem readiness.
+  - Keeps device discovery, partition/filesystem, mountpoint, `fstab`, and write-test evidence as required readiness concepts.
+- Improves ELB closure guidance:
+  - Treats listener, pool, member, and health monitor as staged resources.
+  - Requires backend ECS/security group checks, member health, and protocol probes before claiming application readiness.
+- Adds RDS closure guidance:
+  - Checks instance, backup, backup policy, configuration, connection, restart-impact, and rollback evidence before database-affecting changes.
+- Adds OBS closure guidance:
+  - Routes bucket work through the OBS/obsutil adapter instead of generic OpenAPI-style assumptions.
+  - Checks bucket stat, policy, lifecycle, public exposure, and object-retention/data-loss boundaries.
+- Adds DNS, SCM, and CDN closure guidance:
+  - DNS focuses on record conflicts, TTL/propagation, rollback values, and resolution verification.
+  - SCM focuses on certificate state, domain/SAN matching, expiry, deployment target, and HTTPS chain validation.
+  - CDN focuses on domain/origin/HTTPS/cache behavior plus CDN-vs-origin protocol probes and refresh/preheat planning.
+- Adds CES/LTS health-evidence closure guidance:
+  - Combines CES metric discovery with bounded LTS log evidence planning.
+  - Keeps LTS as read-only metadata-backed evidence planning and does not create a generic mutation path.
+
+### Validation
+
+- `python3 -m unittest discover -s huaweicloud-skill/tests`: 185 tests passed.
+- `python3 -m compileall -q huaweicloud-skill/scripts`: passed.
+- `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- v0.3.2 does not make P0 writes auto-executable.
+- The new lifecycle closure planner is a task-level planner. Real dry-run, submit, and verification still go through the existing guarded flows and require explicit confirmation.
+- CES/LTS closure is evidence planning only; it does not create alarms, mutate logs, or submit observability changes.
+- Broader governance services beyond this P0 set remain candidate/planner/read-only coverage until curated smoke evidence and guarded paths are added.
+
 ## v0.3.1 / 0.3.1 - 2026-06-06
 
 v0.3.1 is a catalog coverage patch on top of v0.3.0. It updates the generated hcloud metadata catalog from the older English-only generation path to an operation-level English-first plus Chinese-fallback merge. The goal is to reflect the real KooCLI metadata breadth more accurately while keeping the same safety model: broader catalog coverage does not make registry-outside services deeply curated or executable by default.

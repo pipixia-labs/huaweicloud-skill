@@ -115,7 +115,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - 在 `services_en.json` 中可以看到这些 service
 - 本地 template cache 覆盖深度不一致；EIP / VPC 等可能只有 operation index，ELB / EVS / NAT / RDS 等当前只有 service 入口，缺少 per-operation detail
 - `hcloud_resource_discovery.py` 可以按 registry 为这些服务生成 list-only 查询命令，但真实执行仍依赖本机 hcloud metadata 和账号权限
-- `hcloud_resource_query.py` 可以为 EIP `ShowPublicip`、VPC `ShowVpc/ShowSubnet/ShowSecurityGroup`、ELB `ShowLoadBalancer/ShowListener/ListMembers`、EVS `ShowVolume/ShowSnapshot`、IMS `GlanceShowImage`、KPS `ListKeypairDetail`、NAT `ShowNatGateway/ShowNatGatewayDnatRule`、RDS `ShowConfiguration`、CCE `ShowCluster/ListNodes`、CDN `ShowDomainDetail`、DNS `ShowRecordSet`、SCM `ShowCertificate` 等目标型只读查询生成可执行命令；旧验证文本里的 CDN `ShowDomain` 和 RDS `ShowConfigurationDetail` 会被覆盖检查映射到 KooCLI 实际操作
+- `hcloud_resource_query.py` 可以为 EIP `ShowPublicip`、VPC `ShowVpc/ShowSubnet/ShowSecurityGroup/ShowSecurityGroupRule`、ELB `ShowLoadBalancer/ShowListener/ListMembers`、EVS `ShowVolume/ShowSnapshot`、IMS `GlanceShowImage`、KPS `ListKeypairDetail`、NAT `ShowNatGateway/ShowNatGatewayDnatRule`、RDS `ShowConfiguration`、CCE `ShowCluster/ListNodes`、CDN `ShowDomainDetail`、DNS `ShowRecordSet`、SCM `ShowCertificate` 等目标型只读查询生成可执行命令；旧验证文本里的 CDN `ShowDomain` 和 RDS `ShowConfigurationDetail` 会被覆盖检查映射到 KooCLI 实际操作
 - `hcloud_service_readiness.py` 可以按服务批量生成或执行只读 readiness 检查，并汇总资源数量和状态计数
 - 默认 readiness 顺序按问题集频次广度优先排列：ECS、VPC、RDS、IMS、EVS、EIP、ELB、NAT、KPS、IAM，然后补 CCE、CDN、DNS、SCM、OBS、CES
 - `hcloud_readonly_smoke.py` 可以批量生成或执行多服务只读 smoke 查询
@@ -124,6 +124,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - `hcloud_resource_detail_probe.py` 可以顺序执行 list-then-detail 抽样；EVS/NAT 当前区域无资源时会返回 skipped，而不是把缺资源当作失败
 - CDN `ListDomains` 已验证需要使用 KooCLI 支持区域；registry 会把 `cn-north-4` 调整到 `cn-north-1`
 - `hcloud_service_change_plan.py` 可以为多服务变更生成风险计划和验证建议，但不会执行 submit
+- `hcloud_lifecycle_closure_plan.py` 可以为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成六阶段任务闭环计划，组合 change plan、readiness、OBS/LTS 专用适配器和本地风险策略，但不会执行真实云变更
 - `hcloud_eip_change_flow.py` 可以把 EIP 变更串成 Plan -> dry-run -> guarded submit -> ShowPublicip verify；默认不执行 submit，且 submit 必须显式确认
 - `hcloud_guarded_change_flow.py` 可以为 VPC、ELB、EVS、NAT、RDS、CDN、DNS、SCM 等普通服务提供通用 Plan -> dry-run -> guarded submit -> resource Show* verify -> read-only smoke 的 P0 门禁；默认不执行 submit
 - `hcloud_resource_verify.py` 可以基于 JSON 查询结果验证 EIP、VPC、ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM 等资源状态

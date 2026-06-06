@@ -106,6 +106,15 @@ hcloud configure list
 在我明确确认前不要提交变更。
 ```
 
+#### 规划典型服务的闭环任务
+
+```text
+使用 huaweicloud-skill 为 P0 核心服务生成一次上云/用云/管云闭环计划，
+包括 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。
+请按上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计输出；
+只做 planner，不执行真实云变更。
+```
+
 #### 快速确认 OBS 配置
 
 ```text
@@ -177,6 +186,7 @@ flowchart LR
 - **可信度分层**：metadata-backed 服务默认标为 catalog-derived；只读 smoke、dry-run 支持性和后续 confidence 信息单独记录，不把未实测能力包装成 curated coverage。
 - **curated 维护门禁**：`references/service-curation-profiles.json` 记录 curated 服务和晋级候选的 readiness、resource query、playbook 和 risk profile；`hcloud_curated_promotion_audit.py` 用于阻止证据不足的服务提前进入 registry。
 - **生命周期治理**：账号盘点、闲置资源审计、teardown review、CES/LTS 可观测、Billing/Cost request spec 和 CTS/TMS/CBR/RMS/Config/LTS candidate profiles 帮助用户从“能上云”继续走到“用好云、管好云”。
+- **典型服务闭环**：`v0.3.2` 增加 P0 核心服务的六阶段 lifecycle closure planner，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，把依赖发现、参数检查、风险门禁、后置验证和治理审计放到同一个结构化计划里。
 - **安全执行封装**：统一处理超时、敏感信息脱敏、JSON 解析、错误分类和输出裁剪。
 - **变更门禁**：变更类流程默认包含 dry-run、风险识别、显式确认、执行记录和变更后验证；metadata-backed 服务会根据 catalog category 抬高风险，安全合规、身份、密钥和治理类 mutation 会进入硬门禁。
 - **入口暴露限制**：SSH `22` 和常见 Web 端口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 的入方向规则会阻止 `0.0.0.0/0`。

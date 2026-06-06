@@ -48,6 +48,7 @@ hcloud_billing_readonly = load_module("hcloud_billing_readonly", SCRIPTS / "hclo
 hcloud_teardown_plan = load_module("hcloud_teardown_plan", SCRIPTS / "hcloud_teardown_plan.py")
 hcloud_ces_alarm_plan = load_module("hcloud_ces_alarm_plan", SCRIPTS / "hcloud_ces_alarm_plan.py")
 hcloud_lts_readonly = load_module("hcloud_lts_readonly", SCRIPTS / "hcloud_lts_readonly.py")
+hcloud_lifecycle_closure_plan = load_module("hcloud_lifecycle_closure_plan", SCRIPTS / "hcloud_lifecycle_closure_plan.py")
 
 
 class MultiServiceToolsTest(unittest.TestCase):
@@ -218,6 +219,26 @@ class MultiServiceToolsTest(unittest.TestCase):
             "end_time": None,
             "keyword": None,
             "execute": False,
+            "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def lifecycle_args(self, **overrides):
+        """Return default lifecycle closure planner args for unit tests."""
+        values = {
+            "service": ["VPC"],
+            "task": None,
+            "operation": None,
+            "param": [],
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "json_input_file": None,
+            "arg": [],
+            "no_dryrun": False,
+            "allow_unregistered": False,
+            "limit": 10,
             "timeout": 1,
         }
         values.update(overrides)
@@ -1333,10 +1354,14 @@ class MultiServiceToolsTest(unittest.TestCase):
                 "ShowVpc",
                 "ShowSubnet",
                 "ShowSecurityGroup",
+                "ShowSecurityGroupRule",
             },
         )
         skipped = [item for item in checks if item.get("skipped")]
-        self.assertEqual({item["operation"] for item in skipped}, {"ShowVpc", "ShowSubnet", "ShowSecurityGroup"})
+        self.assertEqual(
+            {item["operation"] for item in skipped},
+            {"ShowVpc", "ShowSubnet", "ShowSecurityGroup", "ShowSecurityGroupRule"},
+        )
         planned = [item for item in checks if not item.get("skipped")]
         self.assertTrue(all(item["runner"] == "scripts/hcloud_resource_discovery.py" for item in planned))
 
@@ -1988,6 +2013,220 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertFalse(result["success"])
         self.assertIn("not registered", result["error"])
+
+    def test_lifecycle_closure_blocks_unrestricted_security_group_ingress(self) -> None:
+        args = self.lifecycle_args(
+            service=["VPC"],
+            param=[
+                "security_group_id=sg-1",
+                "direction=ingress",
+                "protocol=tcp",
+                "remote_ip_prefix=0.0.0.0/0",
+                "port_range_min=22",
+                "port_range_max=22",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertFalse(result["success"])
+        service = result["services"][0]
+        self.assertTrue(service["hard_blocked"])
+        self.assertEqual(len(service["hard_blockers"]), 1)
+        self.assertEqual(service["hard_blockers"][0]["code"], "unrestricted_sensitive_ingress_port")
+        readiness_checks = service["stages"][0]["readiness_plan"]["services"][0]["checks"]
+        operations = [item["operation"] for item in readiness_checks]
+        self.assertIn("ShowSecurityGroupRule", operations)
+
+    def test_lifecycle_closure_evs_distinguishes_cloud_and_guest_readiness(self) -> None:
+        args = self.lifecycle_args(
+            service=["EVS"],
+            param=[
+                "volume_id=vol-1",
+                "server_id=server-1",
+                "mountpoint=/data",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        self.assertEqual(service["service"], "EVS")
+        self.assertIn("filesystem", service["missing_recommended_inputs"])
+        verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
+        self.assertTrue(any("fstab" in check for check in verification["checks"]))
+        self.assertTrue(any("write test" in check for check in verification["checks"]))
+
+    def test_lifecycle_closure_elb_requires_backend_health_and_security_group(self) -> None:
+        args = self.lifecycle_args(
+            service=["ELB"],
+            param=[
+                "loadbalancer_id=lb-1",
+                "listener_id=listener-1",
+                "pool_id=pool-1",
+                "member_id=member-1",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        gate = next(stage for stage in service["stages"] if stage["id"] == "risk_security_gate")
+        gate_codes = {item["code"] for item in gate["gates"]}
+        self.assertIn("backend_unreachable", gate_codes)
+        self.assertIn("security_group_dependency", gate_codes)
+        verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
+        self.assertTrue(any("ONLINE" in check for check in verification["checks"]))
+        self.assertEqual(
+            verification["readiness_targets"],
+            [
+                "loadbalancer_id=lb-1",
+                "listener_id=listener-1",
+                "pool_id=pool-1",
+                "member_id=member-1",
+            ],
+        )
+
+    def test_lifecycle_closure_rds_requires_backup_and_connection_readiness(self) -> None:
+        args = self.lifecycle_args(
+            service=["RDS"],
+            param=[
+                "instance_id=rds-1",
+                "config_id=config-1",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        self.assertEqual(service["service"], "RDS")
+        gate = next(stage for stage in service["stages"] if stage["id"] == "risk_security_gate")
+        gate_codes = {item["code"] for item in gate["gates"]}
+        self.assertIn("backup_required", gate_codes)
+        verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
+        self.assertTrue(any("connection probe" in check for check in verification["checks"]))
+        readiness_ops = {item["operation"] for item in service["stages"][0]["readiness_plan"]["services"][0]["checks"]}
+        self.assertIn("ShowBackupPolicy", readiness_ops)
+        self.assertIn("ShowInstanceConfiguration", readiness_ops)
+
+    def test_lifecycle_closure_obs_uses_obs_adapter_and_public_policy_gate(self) -> None:
+        args = self.lifecycle_args(
+            service=["OBS"],
+            param=["bucket=example-bucket"],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        self.assertEqual(service["service"], "OBS")
+        readiness = service["stages"][0]["readiness_plan"]["services"][0]["checks"]
+        self.assertTrue(all(check["runner"] == "scripts/hcloud_obs_readonly.py" for check in readiness))
+        operations = {check["operation"] for check in readiness}
+        self.assertIn("StatBucket", operations)
+        self.assertIn("GetBucketPolicy", operations)
+        gate = next(stage for stage in service["stages"] if stage["id"] == "risk_security_gate")
+        self.assertIn("public_bucket_exposure", {item["code"] for item in gate["gates"]})
+        planning = next(stage for stage in service["stages"] if stage["id"] == "operation_parameter_planning")
+        self.assertEqual(planning["change_plan"]["delegated_planner"], "scripts/hcloud_obs_change_plan.py")
+
+    def test_lifecycle_closure_dns_requires_ttl_and_resolution_verification(self) -> None:
+        args = self.lifecycle_args(
+            service=["DNS"],
+            param=[
+                "zone_id=zone-1",
+                "recordset_id=record-1",
+                "record_name=www.example.com",
+                "record_type=A",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        self.assertIn("ttl", service["missing_recommended_inputs"])
+        verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
+        self.assertTrue(any("DNS resolution" in check for check in verification["checks"]))
+        self.assertEqual(verification["readiness_targets"], ["zone_id=zone-1", "recordset_id=record-1"])
+
+    def test_lifecycle_closure_scm_requires_https_verification(self) -> None:
+        args = self.lifecycle_args(
+            service=["SCM"],
+            param=[
+                "certificate_id=cert-1",
+                "domain_name=www.example.com",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        self.assertEqual(service["service"], "SCM")
+        gate = next(stage for stage in service["stages"] if stage["id"] == "risk_security_gate")
+        self.assertIn("https_outage", {item["code"] for item in gate["gates"]})
+        verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
+        self.assertTrue(any("HTTPS handshake" in check for check in verification["checks"]))
+
+    def test_lifecycle_closure_cdn_requires_origin_cache_and_http_probes(self) -> None:
+        args = self.lifecycle_args(
+            service=["CDN"],
+            param=[
+                "domain_id=domain-1",
+                "domain_name=www.example.com",
+                "origin=origin.example.com",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        gate = next(stage for stage in service["stages"] if stage["id"] == "risk_security_gate")
+        self.assertIn("origin_or_cache_outage", {item["code"] for item in gate["gates"]})
+        verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
+        self.assertTrue(any("HTTP/HTTPS" in check for check in verification["checks"]))
+        planning = next(stage for stage in service["stages"] if stage["id"] == "operation_parameter_planning")
+        self.assertEqual(planning["change_plan"]["operation"], "UpdateDomainFullConfig")
+
+    def test_lifecycle_closure_ces_lts_combines_metric_and_log_evidence(self) -> None:
+        args = self.lifecycle_args(
+            service=["CES"],
+            param=[
+                "log_group_id=group-1",
+                "log_stream_id=stream-1",
+                "start_time=2026-06-06T00:00:00Z",
+                "end_time=2026-06-06T01:00:00Z",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        self.assertEqual(service["service"], "CES_LTS")
+        context = service["stages"][0]
+        self.assertEqual(context["readiness_plan"]["services"][0]["service"], "CES")
+        self.assertIn("lts_readonly_plan", context["extra_evidence_plans"])
+        planning = next(stage for stage in service["stages"] if stage["id"] == "operation_parameter_planning")
+        self.assertEqual(planning["change_plan"]["change_planner"], "none")
+        gate = next(stage for stage in service["stages"] if stage["id"] == "risk_security_gate")
+        self.assertIn("sensitive_logs", {item["code"] for item in gate["gates"]})
+
+    def test_lifecycle_closure_default_covers_all_p0_services(self) -> None:
+        args = self.lifecycle_args(service=None)
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        services = {item["service"] for item in result["services"]}
+        self.assertEqual(
+            services,
+            {"VPC", "EIP", "EVS", "ELB", "RDS", "OBS", "DNS", "SCM", "CDN", "CES_LTS"},
+        )
 
     def test_resource_verify_cli_reads_safe_exec_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

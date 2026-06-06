@@ -33,6 +33,7 @@ READINESS_PROFILES = {
         {"operation": "ShowVpc", "required_targets": ["vpc_id"]},
         {"operation": "ShowSubnet", "required_targets": ["subnet_id"]},
         {"operation": "ShowSecurityGroup", "required_targets": ["security_group_id"]},
+        {"operation": "ShowSecurityGroupRule", "required_targets": ["security_group_rule_id"]},
     ],
     "EIP": [
         {"operation": "ListPublicips"},
@@ -64,8 +65,11 @@ READINESS_PROFILES = {
     ],
     "RDS": [
         {"operation": "ListInstances"},
+        {"operation": "ListBackups"},
         {"operation": "ListConfigurations"},
+        {"operation": "ShowBackupPolicy", "required_targets": ["instance_id"]},
         {"operation": "ShowConfiguration", "required_targets": ["config_id"]},
+        {"operation": "ShowInstanceConfiguration", "required_targets": ["instance_id"]},
     ],
     "CCE": [
         {"operation": "ListClusters"},
@@ -88,7 +92,9 @@ READINESS_PROFILES = {
     ],
     "OBS": [
         {"operation": "ListBuckets"},
+        {"operation": "StatBucket", "required_targets": ["bucket"]},
         {"operation": "GetBucketLifecycle", "required_targets": ["bucket"]},
+        {"operation": "GetBucketPolicy", "required_targets": ["bucket"]},
     ],
     "CES": [
         {"operation": "ListMetrics"},

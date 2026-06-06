@@ -287,6 +287,26 @@ python3 scripts/hcloud_service_readiness.py \
 
 Use to run or plan per-service read-only readiness checks. Target-specific checks are skipped when required IDs are missing. `--execute` is required for live queries.
 
+### Lifecycle Closure Plan
+
+```bash
+python3 scripts/hcloud_lifecycle_closure_plan.py \
+  --service VPC \
+  --param security_group_id=<sg-id> \
+  --param direction=ingress \
+  --param protocol=tcp \
+  --param remote_ip_prefix=<approved-cidr> \
+  --param port_range_min=443 \
+  --param port_range_max=443 \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --pretty
+```
+
+Use this when the user asks for a task-level closure plan rather than a single low-level command. v0.3.2 covers the P0 closure set: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS. Without `--service`, it generates closure profiles for all P0 services. The planner returns six stages: context/dependency discovery, operation/parameter planning, risk/security gates, controlled execution/error handling, post-change verification, and governance/audit follow-up.
+
+The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unsafe VPC ingress such as `0.0.0.0/0` on SSH/Web ports is hard-blocked before any submit path exists. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only.
+
 ### Registry Read-Only Smoke
 
 ```bash

@@ -1,7 +1,7 @@
 ---
 name: huaweicloud-skill
 description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更。适用于用户明确要走 CLI/KooCLI 路线，或任务需要通过 hcloud 直接发现 service/operation、构造命令、执行查询或变更、排查认证、网络、缓存与输出格式问题的场景；当华为云部署静态站、独立站或 Web 应用需要图片素材时，可通过华为云 ModelArts MaaS 图像生成 API 生成本地站点资产。
-version: "0.3.1"
+version: "0.3.2"
 ---
 
 # Huawei CLI Skill
@@ -209,6 +209,7 @@ version: "0.3.1"
 | 显式参数只读查询 | `hcloud_resource_query.py` | 目标型 `Show*`/`Get*` 必须显式传参。 |
 | OBS 只读查询 | `hcloud_obs_readonly.py` | 走 `hcloud obs`/obsutil，不走普通 OpenAPI 形态。 |
 | 服务 readiness | `hcloud_service_readiness.py` | 多服务只读验收，缺目标 ID 则 skipped。 |
+| 生命周期闭环计划 | `hcloud_lifecycle_closure_plan.py` | P0 核心服务的六阶段 planner-only 闭环计划，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。 |
 | registry 多服务 smoke | `hcloud_readonly_smoke.py` | 只读 smoke；`--execute` 才真实查询。 |
 | metadata-backed smoke | `hcloud_catalog_readonly_smoke.py` | 小批只读矩阵和失败分桶。 |
 | curated 晋级审计 | `hcloud_curated_promotion_audit.py` | 校验 profile、playbook、risk profile 和 live-smoke 门槛。 |
@@ -258,6 +259,7 @@ version: "0.3.1"
 - Billing/Cost 目前先生成官方 API request spec，不从资源清单推断费用，也不默认执行真实账单查询
 - Billing/Cost 本地 feasibility probe，用于确认当前 bundled catalog 是否具备账单/成本直接候选；v0.3.1 可发现 metadata-backed `BSS`，但当前不等同于真实账单查询能力
 - curated promotion audit 输出 `value_ranked_candidates`，用于按“上好云、用好云、管好云”价值维度选择下一批治理候选
+- `hcloud_lifecycle_closure_plan.py` 提供 P0 核心服务的 planner-only 闭环计划入口，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，并把上下文/依赖发现、参数检查、风险门禁、受控执行、后置验证和治理审计统一成六阶段输出
 - VPC / IMS / KPS / IAM / EIP 创建前只读发现方法
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记
 - ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 的低覆盖查询登记，用于离线数据集回归和前置发现
