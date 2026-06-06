@@ -125,6 +125,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - CDN `ListDomains` 已验证需要使用 KooCLI 支持区域；registry 会把 `cn-north-4` 调整到 `cn-north-1`
 - `hcloud_service_change_plan.py` 可以为多服务变更生成风险计划和验证建议，但不会执行 submit
 - `hcloud_lifecycle_closure_plan.py` 可以为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成六阶段任务闭环计划，组合 change plan、readiness、OBS/LTS 专用适配器和本地风险策略，但不会执行真实云变更
+- `hcloud_governance_closure_plan.py` 可以为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成五阶段治理闭环计划，组合 curation profile、promotion audit、Billing request spec 和风险/隐私门禁，但不会执行治理写操作、签名请求或访问真实账单
 - `hcloud_eip_change_flow.py` 可以把 EIP 变更串成 Plan -> dry-run -> guarded submit -> ShowPublicip verify；默认不执行 submit，且 submit 必须显式确认
 - `hcloud_guarded_change_flow.py` 可以为 VPC、ELB、EVS、NAT、RDS、CDN、DNS、SCM 等普通服务提供通用 Plan -> dry-run -> guarded submit -> resource Show* verify -> read-only smoke 的 P0 门禁；默认不执行 submit
 - `hcloud_resource_verify.py` 可以基于 JSON 查询结果验证 EIP、VPC、ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM 等资源状态

@@ -75,6 +75,16 @@ v0.3.2 开始把这个原则落到一个统一脚本入口：`hcloud_lifecycle_c
 -> 治理与审计沉淀
 ```
 
+P1 进一步把管云治理任务落到 `hcloud_governance_closure_plan.py`。这个入口同样不是 submit 通道，而是把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 整理成五阶段 planner-only 输出：
+
+```text
+治理范围与输入边界
+-> 只读证据计划
+-> 风险与隐私门禁
+-> review plan
+-> curated 晋级缺口
+```
+
 v0.3.2 覆盖 P0 任务服务。选择这些服务，是因为它们构成最常见的云上任务链路：网络和安全边界、公网入口、数据盘、负载均衡、数据库、对象存储、域名/证书/CDN，以及指标和日志证据。这个入口的价值不是替代 `hcloud_service_change_plan.py` 或 `hcloud_service_readiness.py`，而是把低层 planner、readiness 和专用适配器组合成用户任务能看懂的闭环计划。
 
 | v0.3.2 P0 服务 | 闭环补强重点 | 仍然保持的边界 |
@@ -241,9 +251,9 @@ ELB 不是只创建 listener，还要确认后端 ECS、VPC、协议、端口和
 
 | 阶段 | 不使用 huaweicloud-skill | 使用 huaweicloud-skill |
 | --- | --- | --- |
-| 治理对象 | 可能泛泛建议“补标签、开备份、开审计”。 | 使用 CTS、TMS、CBR、RMS/Config、LTS 等 candidate profile 和 playbook 做目标化检查。 |
+| 治理对象 | 可能泛泛建议“补标签、开备份、开审计”。 | 使用 `hcloud_governance_closure_plan.py` 组合 TMS、CTS、CBR、RMS/Config、WAF、DLI、CodeArtsRepo 的 candidate profile、playbook 和 promotion audit 做目标化检查。 |
 | 能力边界 | 可能把 catalog 里存在的 operation 当成熟能力。 | 区分 curated registry、metadata-backed、candidate profile 和 live-smoke 证据。 |
-| 计划输出 | 可能直接生成策略修改命令。 | 先输出 readiness、coverage、risk profile 和晋级审计信息。 |
+| 计划输出 | 可能直接生成策略修改命令。 | 先输出治理范围、只读证据、风险/隐私门禁、review plan 和 curated 晋级缺口。 |
 | 后续动作 | 可能马上修改审计、备份或合规策略。 | 对策略类变更保持 planner-only 或高风险门禁，要求确认影响范围和回滚方式。 |
 
 核心差异：不用 skill 时，治理容易变成口号或直接改策略；使用 skill 时，先把治理缺口变成可审计的候选清单。
@@ -255,8 +265,8 @@ ELB 不是只创建 listener，还要确认后端 ECS、VPC、协议、端口和
 | 阶段 | 不使用 huaweicloud-skill | 使用 huaweicloud-skill |
 | --- | --- | --- |
 | 数据来源 | 可能根据资源规格、带宽或实例数量估算费用。 | 明确要求费用来自账单/成本 API、用户提供数据或官方导出数据。 |
-| 能力探测 | 可能直接声称可以查账单。 | `hcloud_billing_cost_probe.py` 检查本地 catalog 是否有 Billing/Cost 直接候选；v0.3.1 可发现 metadata-backed `BSS`，但不是默认 live 查询授权。 |
-| 请求规划 | 可能要求用户提供 AK/SK 并直接请求。 | `hcloud_billing_readonly.py` 只生成 monthly bill summary、cost analysis、resource records 的 request spec。 |
+| 能力探测 | 可能直接声称可以查账单。 | `hcloud_governance_closure_plan.py` 和 `hcloud_billing_cost_probe.py` 先确认 Billing/BSS 的 request-spec 能力和证据缺口；metadata-backed `BSS` 不是默认 live 查询授权。 |
+| 请求规划 | 可能要求用户提供 AK/SK 并直接请求。 | `hcloud_billing_readonly.py` 只生成 monthly bill summary、cost analysis、resource records 的 request spec，治理 planner 会把这些 spec 放入只读证据计划。 |
 | 安全边界 | 可能访问或展示过多账单明细。 | 不接受 AK/SK，不签名，不发送 HTTP 请求；提示账单数据敏感，输出范围要收窄。 |
 | 结论输出 | 可能给出未经验证的费用判断。 | 输出请求路径、参数、权限前提、数据新鲜度和执行方式建议。 |
 

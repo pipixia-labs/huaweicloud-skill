@@ -307,6 +307,21 @@ Use this when the user asks for a task-level closure plan rather than a single l
 
 The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unsafe VPC ingress such as `0.0.0.0/0` on SSH/Web ports is hard-blocked before any submit path exists. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only.
 
+### Governance Closure Plan
+
+```bash
+python3 scripts/hcloud_governance_closure_plan.py \
+  --service Billing \
+  --param bill_cycle=<yyyy-mm> \
+  --param begin_time=<yyyy-mm-dd> \
+  --param end_time=<yyyy-mm-dd> \
+  --pretty
+```
+
+Use this when the user asks for a P1 governance closure plan instead of a single governance command. The default service set is TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo. The planner returns five stages: governance scope, read-only evidence, risk/privacy gate, review plan, and promotion readiness.
+
+The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and keeps credentials outside the planner. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
+
 ### Registry Read-Only Smoke
 
 ```bash

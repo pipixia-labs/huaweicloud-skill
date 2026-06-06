@@ -10,13 +10,13 @@
 4. 通过统一包装器执行命令。
 5. 对返回结果做结构化错误诊断、资源状态验证和后续检查。
 
-当前架构重点是五个平面：
+当前架构重点是六个平面：
 
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
 - **验证面**：job waiter、resource query、resource verifier、service readiness 分层确认结果。
 - **闭环面**：`hcloud_lifecycle_closure_plan.py` 把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 的 P0 典型任务组织成六阶段 planner-only 闭环。
-- **治理面**：账号盘点、闲置审计、teardown review、可观测、Billing/Cost request spec 和 curation profiles 支持生命周期治理。
+- **治理面**：账号盘点、闲置审计、teardown review、可观测、Billing/Cost request spec、P1 governance closure 和 curation profiles 支持生命周期治理。
 - **回归面**：单测、架构契约、materials drift 和 coverage 检查持续约束实现。
 
 ## 顶层结构

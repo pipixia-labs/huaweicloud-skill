@@ -232,6 +232,37 @@ python3 scripts/hcloud_safe_exec.py \
 | CDN | 域名、源站、HTTPS、缓存/刷新和 CDN/源站双路径协议探测。 |
 | CES / LTS | CES 指标发现和 LTS 有界日志证据计划；保持只读证据链，不开放通用写路径。 |
 
+### `hcloud_governance_closure_plan.py`
+
+用途：把 P1 治理任务组织成 planner-only 闭环计划。当前覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo。
+
+这个脚本本身不执行 hcloud，不写治理策略，不签名，也不请求账单接口。它组合三个已有能力：
+
+- `references/service-curation-profiles.json`：读取 candidate profile、readiness、resource query、playbook 和 risk profile。
+- `hcloud_curated_promotion_audit.py`：输出 live-smoke、target query、playbook 和 profile 的晋级缺口。
+- `hcloud_billing_readonly.py`：为 Billing/BSS 生成官方 API request spec，但不接受凭证、不发请求。
+
+输出固定分为五段：
+
+- governance_scope
+- read_only_evidence
+- risk_and_privacy_gate
+- review_plan
+- promotion_readiness
+
+服务侧重点不同：
+
+| 服务 | 治理闭环重点 |
+| --- | --- |
+| TMS | 标签 taxonomy、资源类型映射、tag coverage、owner/cost-center 缺口和批量修复 review。 |
+| CTS | tracker、trace、notification、OBS 投递和敏感审计字段的有界查询。 |
+| CBR | vault、policy、backup checkpoint、protectable resource 和恢复姿态 review。 |
+| RMS / Config | 资源清单、policy state、conformance pack、aggregator 和合规数据范围。 |
+| Billing / BSS | 月账单、成本分析、资源详单 request spec、权限、数据新鲜度和账单隐私边界。 |
+| WAF | instance、host、certificate、policy/rule readback 和策略变更 hard gate。 |
+| DLI | auth、catalog、database、queue、SQL check 和分析 workload readiness。 |
+| CodeArtsRepo | repository、branch、merge request、member/deploy key 和 DevOps 元数据隐私边界。 |
+
 ## 变更规划和风险门禁
 
 ### `hcloud_change_plan.py`

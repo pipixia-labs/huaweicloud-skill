@@ -709,6 +709,41 @@
         "verification_policy": "recorder_policy_conformance_pack_and_resource_readback"
       }
     },
+    "BSS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "request_spec_candidate",
+      "user_value": "Plan official Billing and Cost request specs for chargeback, resource fee records, and cost governance without exposing credentials or raw spend data by default.",
+      "tenant_goal_tags": [
+        "管好云"
+      ],
+      "scenario_tags": [
+        "billing",
+        "cost",
+        "chargeback",
+        "governance"
+      ],
+      "readiness_operations": [
+        "ListServiceTypes",
+        "ListResourceTypes",
+        "ShowCustomerMonthlySum"
+      ],
+      "resource_query_operations": [
+        "ListCosts",
+        "ListCustomerselfResourceRecordDetails",
+        "ListCustomerselfResourceRecords"
+      ],
+      "playbooks": [
+        "references/playbooks/billing-cost-governance.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "none_until_signed_runner_review",
+        "default_risk": "high",
+        "submit_policy": "request_spec_only_no_credentials_no_http",
+        "verification_policy": "official_api_response_with_scope_freshness_and_redaction_review"
+      }
+    },
     "LTS": {
       "status": "candidate",
       "target_coverage": "medium",

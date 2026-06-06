@@ -49,6 +49,9 @@ hcloud_teardown_plan = load_module("hcloud_teardown_plan", SCRIPTS / "hcloud_tea
 hcloud_ces_alarm_plan = load_module("hcloud_ces_alarm_plan", SCRIPTS / "hcloud_ces_alarm_plan.py")
 hcloud_lts_readonly = load_module("hcloud_lts_readonly", SCRIPTS / "hcloud_lts_readonly.py")
 hcloud_lifecycle_closure_plan = load_module("hcloud_lifecycle_closure_plan", SCRIPTS / "hcloud_lifecycle_closure_plan.py")
+hcloud_governance_closure_plan = load_module(
+    "hcloud_governance_closure_plan", SCRIPTS / "hcloud_governance_closure_plan.py"
+)
 
 
 class MultiServiceToolsTest(unittest.TestCase):
@@ -240,6 +243,19 @@ class MultiServiceToolsTest(unittest.TestCase):
             "allow_unregistered": False,
             "limit": 10,
             "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def governance_args(self, **overrides):
+        """Return default P1 governance closure planner args for unit tests."""
+        values = {
+            "service": [],
+            "param": [],
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "min_live_ops": 2,
         }
         values.update(overrides)
         return SimpleNamespace(**values)
@@ -2227,6 +2243,81 @@ class MultiServiceToolsTest(unittest.TestCase):
             services,
             {"VPC", "EIP", "EVS", "ELB", "RDS", "OBS", "DNS", "SCM", "CDN", "CES_LTS"},
         )
+
+    def test_governance_closure_default_covers_all_p1_services(self) -> None:
+        args = self.governance_args()
+
+        result = hcloud_governance_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(
+            set(result["selected_services"]),
+            {"TMS", "CTS", "CBR", "RMS_CONFIG", "BILLING_BSS", "WAF", "DLI", "CODEARTSREPO"},
+        )
+        self.assertTrue(all(service["execution_supported"] is False for service in result["services"]))
+        self.assertTrue(any("No tag" in boundary for boundary in result["global_boundaries"]))
+
+    def test_governance_closure_billing_builds_request_specs_without_execution(self) -> None:
+        args = self.governance_args(
+            service=["Billing"],
+            param=[
+                "bill_cycle=2026-05",
+                "begin_time=2026-05-01",
+                "end_time=2026-05-31",
+            ],
+        )
+
+        result = hcloud_governance_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        self.assertEqual(service["service_key"], "BILLING_BSS")
+        evidence = next(stage for stage in service["stages"] if stage["id"] == "read_only_evidence")
+        specs = evidence["billing_request_specs"]
+        self.assertEqual({spec["operation"] for spec in specs}, {"monthly-sum", "cost-data", "resource-records"})
+        self.assertTrue(all(spec["success"] for spec in specs))
+        risk = next(stage for stage in service["stages"] if stage["id"] == "risk_and_privacy_gate")
+        self.assertEqual(risk["risk_profiles"][0]["risk_profile"]["submit_policy"], "request_spec_only_no_credentials_no_http")
+        self.assertTrue(all("requires_auth" in spec["request_spec"] for spec in specs))
+
+    def test_governance_closure_rms_alias_combines_rms_and_config(self) -> None:
+        args = self.governance_args(service=["Config"])
+
+        result = hcloud_governance_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["selected_services"], ["RMS_CONFIG"])
+        service = result["services"][0]
+        self.assertEqual(service["services"], ["RMS", "Config"])
+        evidence = next(stage for stage in service["stages"] if stage["id"] == "read_only_evidence")
+        self.assertEqual({item["service"] for item in evidence["readiness_operations"]}, {"RMS", "Config"})
+        promotion = next(stage for stage in service["stages"] if stage["id"] == "promotion_readiness")
+        self.assertEqual({item["service"] for item in promotion["profiles"]}, {"RMS", "Config"})
+
+    def test_governance_closure_waf_keeps_policy_changes_hard_gated(self) -> None:
+        args = self.governance_args(service=["WAF"])
+
+        result = hcloud_governance_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        risk = next(stage for stage in service["stages"] if stage["id"] == "risk_and_privacy_gate")
+        self.assertEqual(risk["mutation_boundary"], "planner_only_no_submit")
+        self.assertEqual(
+            risk["risk_profiles"][0]["risk_profile"]["mutation_policy"],
+            "planner_only_hard_guard_until_curated",
+        )
+        review = next(stage for stage in service["stages"] if stage["id"] == "review_plan")
+        self.assertTrue(any("policy" in check.lower() for check in review["checks"]))
+
+    def test_governance_closure_rejects_unsupported_service(self) -> None:
+        args = self.governance_args(service=["NOT_A_SERVICE"])
+
+        result = hcloud_governance_closure_plan.build_plan(args)
+
+        self.assertFalse(result["success"])
+        self.assertIn("NOT_A_SERVICE", result["unsupported_services"])
 
     def test_resource_verify_cli_reads_safe_exec_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

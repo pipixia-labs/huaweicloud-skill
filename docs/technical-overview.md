@@ -104,6 +104,18 @@ flowchart LR
 
 这个脚本复用 `hcloud_service_change_plan.py`、`hcloud_service_readiness.py`、OBS/LTS 专用适配器和本地安全策略扫描。它的工程意义是让“上好云、用好云、管好云”从文档原则变成机器可读计划，同时保持真实 submit 仍由现有确认门禁控制。
 
+### 4.2 治理闭环层
+
+`hcloud_governance_closure_plan.py` 是 P1 增加的治理闭环层。它面向“管好云”的治理任务，不直接执行云命令，也不开放治理写操作，而是把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 组织成五阶段 planner-only 输出：
+
+- 治理范围与输入边界。
+- 只读证据计划。
+- 风险与隐私门禁。
+- review plan。
+- curated 晋级缺口。
+
+这个脚本复用 `service-curation-profiles.json`、`hcloud_curated_promotion_audit.py` 和 `hcloud_billing_readonly.py`。它的工程意义是把标签、审计、备份、合规、账单、安全、数据分析和 DevOps 这类治理任务先收敛成可审计、可评审、可逐步晋级的证据链，而不是过早打开自动写策略。
+
 ### 5. 质量回归面
 
 质量门禁把 registry、风险分类、执行路径和资料漂移纳入可重复检查：

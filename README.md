@@ -115,6 +115,15 @@ hcloud configure list
 只做 planner，不执行真实云变更。
 ```
 
+#### 规划管云治理闭环
+
+```text
+使用 huaweicloud-skill 为 P1 治理服务生成一次管云闭环计划，
+覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo。
+请输出治理范围、只读证据、风险和隐私门禁、review plan、晋级缺口；
+不要写标签、改审计、改备份策略、改安全策略，也不要请求或暴露真实账单数据。
+```
+
 #### 快速确认 OBS 配置
 
 ```text
@@ -187,6 +196,7 @@ flowchart LR
 - **curated 维护门禁**：`references/service-curation-profiles.json` 记录 curated 服务和晋级候选的 readiness、resource query、playbook 和 risk profile；`hcloud_curated_promotion_audit.py` 用于阻止证据不足的服务提前进入 registry。
 - **生命周期治理**：账号盘点、闲置资源审计、teardown review、CES/LTS 可观测、Billing/Cost request spec 和 CTS/TMS/CBR/RMS/Config/LTS candidate profiles 帮助用户从“能上云”继续走到“用好云、管好云”。
 - **典型服务闭环**：`v0.3.2` 增加 P0 核心服务的六阶段 lifecycle closure planner，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，把依赖发现、参数检查、风险门禁、后置验证和治理审计放到同一个结构化计划里。
+- **治理闭环启动**：P1 增加 `hcloud_governance_closure_plan.py`，把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 组织成只读/planner-only 治理计划，重点输出证据链、隐私边界、review plan 和 curated 晋级缺口。
 - **安全执行封装**：统一处理超时、敏感信息脱敏、JSON 解析、错误分类和输出裁剪。
 - **变更门禁**：变更类流程默认包含 dry-run、风险识别、显式确认、执行记录和变更后验证；metadata-backed 服务会根据 catalog category 抬高风险，安全合规、身份、密钥和治理类 mutation 会进入硬门禁。
 - **入口暴露限制**：SSH `22` 和常见 Web 端口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 的入方向规则会阻止 `0.0.0.0/0`。

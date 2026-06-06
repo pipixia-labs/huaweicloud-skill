@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Started P1 governance closure planning with `hcloud_governance_closure_plan.py`, covering TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo.
+- Added a conservative BSS curation profile and Billing/Cost governance playbook so billing/cost workflows have explicit request-spec, privacy, freshness, and no-credential/no-HTTP boundaries.
+- Added tests for P1 default service coverage, Billing request specs, RMS/Config aliasing, WAF hard-gated policy posture, and unsupported-service validation.
+- Updated README, SKILL, script references, architecture, technical overview, implementation details, service coverage, data coverage, and lifecycle scenario docs to describe the P1 governance planner boundary.
+
 ## 0.3.2 - 2026-06-06
 
 - Added `hcloud_lifecycle_closure_plan.py`, a planner-only six-stage lifecycle closure planner for the P0 task set: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS.
