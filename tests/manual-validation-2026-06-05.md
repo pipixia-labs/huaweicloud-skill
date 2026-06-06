@@ -149,7 +149,7 @@ python3 scripts/hcloud_catalog_readonly_smoke.py \
 
 - `references/hcloud-service-confidence.json` 对 `UCS ListManagedClusters` 增加 `unsupported_optional_args=["limit"]`，但不提升 confidence。
 - `hcloud_resource_discovery.py` 现在会在该 operation 上省略 `--limit`，避免 catalog metadata 与 KooCLI 实际 CLI flag 不一致导致命令形态失败。
-- A6 curated promotion audit 当前显示 DCS/RFS/UCS/WAF/CodeArtsRepo/DLI 均未达到 medium coverage 验收线，暂不写入 curated registry。
+- 验证 5 执行时，A6 curated promotion audit 显示 DCS/RFS/UCS/WAF/CodeArtsRepo/DLI 尚未达到 medium coverage 验收线，暂不写入 curated registry；验证 6 已补齐第二条 evidence。
 
 ## 验证 6：A6 候选服务第二条只读 live smoke
 
