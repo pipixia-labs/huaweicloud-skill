@@ -120,7 +120,7 @@ v0.2 明确区分几类验证：
 
 ## 当前边界
 
-- ECS 是完整度最高的闭环；其他服务已具备广度优先的 P0 风险门禁，但复杂业务语义 verifier 还需要继续扩展。
+- ECS 是完整度最高的闭环；其他 curated 服务已具备 profile/playbook/risk-profile 维护档案和广度优先的 P0 风险门禁，但复杂业务语义 verifier 还需要继续扩展。
 - 非 ECS 服务的部分 KooCLI operation detail 在本地 metadata 中不完整，所以 v0.2 优先采用显式参数和 planner-first。
 - 通用 Show* 后置验证确认基础资源状态，不等同于完整业务验收。
 - 所有真实写操作仍需要用户按具体资源、region、project、风险和回滚方式确认。
@@ -129,5 +129,5 @@ v0.2 明确区分几类验证：
 
 1. 扩展更多服务专用 verifier，把通用 Show* 验证升级为更强的业务语义验证。
 2. 增加更多真实只读样本和 dry-run 样本，继续校准 registry 和参数白名单。
-3. 对高频服务补充更完整 playbook，尤其是 ELB、RDS、EVS、NAT、DNS、CDN。
+3. 对 DCS、RFS、UCS、WAF、CodeArtsRepo、DLI 补充第二条以上只读 live smoke，满足后再考虑升 curated registry。
 4. 把 run journal 用到更多多步操作中，增强真实变更的审计和恢复能力。

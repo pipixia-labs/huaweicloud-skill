@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = Path.home() / ".hcloud" / "metaRepo"
 DEFAULT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.generated.json"
 DEFAULT_FINGERPRINT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.fingerprint.json"
+DEFAULT_INDEX_OUTPUT = ROOT / "references" / "hcloud-service-catalog.index.json"
+DEFAULT_SERVICE_OUTPUT_DIR = ROOT / "references" / "hcloud-service-catalog"
 
 READ_ONLY_ACTIONS = ("List", "Show", "Count", "Check", "Search", "Query", "Get", "Download")
 MUTATING_ACTIONS = (
@@ -387,6 +389,33 @@ def build_fingerprint(catalog: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def split_service_catalog(catalog: dict[str, Any], service_output_dir: Path, index_output: Path) -> tuple[dict[str, Any], dict[Path, dict[str, Any]]]:
+    """Build a light catalog index and per-service payloads for lazy loading."""
+    services: dict[str, Any] = {}
+    service_payloads: dict[Path, dict[str, Any]] = {}
+    base_dir = index_output.parent
+    for service_key, service in sorted(catalog.get("services", {}).items()):
+        service_file = service_output_dir / f"{service_key}.json"
+        entry = {key: value for key, value in service.items() if key != "operations"}
+        entry["service_file"] = service_file.relative_to(base_dir).as_posix()
+        services[service_key] = entry
+        service_payloads[service_file] = service
+    index = {
+        "schema_version": catalog.get("schema_version", 1),
+        "split": True,
+        "source": catalog.get("source", {}),
+        "services": services,
+    }
+    return index, service_payloads
+
+
+def write_json(path: Path, payload: Any, pretty: bool = True) -> None:
+    """Write JSON using repository-standard UTF-8 formatting."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(payload, ensure_ascii=False, indent=2 if pretty else None)
+    path.write_text(f"{text}\n", encoding="utf-8")
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -396,6 +425,16 @@ def parse_args() -> argparse.Namespace:
         "--fingerprint-output",
         default=str(DEFAULT_FINGERPRINT_OUTPUT),
         help="Generated compact fingerprint output path. Use an empty string to skip.",
+    )
+    parser.add_argument(
+        "--index-output",
+        default=str(DEFAULT_INDEX_OUTPUT),
+        help="Generated lazy catalog index output path. Use an empty string to skip split output.",
+    )
+    parser.add_argument(
+        "--service-output-dir",
+        default=str(DEFAULT_SERVICE_OUTPUT_DIR),
+        help="Generated per-service catalog output directory.",
     )
     parser.add_argument("--pretty", action="store_true", help="Write indented JSON instead of compact JSON.")
     return parser.parse_args()
@@ -420,12 +459,21 @@ def main() -> int:
             json.dumps(build_fingerprint(catalog), ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+    index_path = Path(args.index_output).expanduser().resolve() if args.index_output else None
+    service_output_dir = Path(args.service_output_dir).expanduser().resolve()
+    if index_path:
+        index, service_payloads = split_service_catalog(catalog, service_output_dir, index_path)
+        write_json(index_path, index, pretty=True)
+        for service_file, payload in service_payloads.items():
+            write_json(service_file, payload, pretty=False)
     print(
         json.dumps(
             {
                 "success": True,
                 "output": str(output),
                 "fingerprint_output": str(fingerprint_path) if fingerprint_path else None,
+                "index_output": str(index_path) if index_path else None,
+                "service_output_dir": str(service_output_dir) if index_path else None,
                 "service_count": catalog["source"]["service_count"],
                 "operation_count": catalog["source"]["operation_count"],
             },

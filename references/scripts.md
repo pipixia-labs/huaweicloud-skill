@@ -41,7 +41,7 @@ Use this to inspect the local KooCLI metadata cache: service presence, operation
 
 ### Catalog Audit And Rebuild
 
-Generated catalog is a compressed skill-owned catalog built from hcloud `metaRepo`. It is committed inside this skill and must not depend on `huaweicloud-data` or a source metaRepo at runtime.
+Generated catalog is a compressed skill-owned catalog built from hcloud `metaRepo`. It is committed inside this skill and must not depend on `huaweicloud-data` or a source metaRepo at runtime. Runtime readers default to the lightweight `hcloud-service-catalog.index.json` plus per-service files under `hcloud-service-catalog/`; the full `hcloud-service-catalog.generated.json` remains for compatibility and full operation-level diffs.
 
 Do not read `references/hcloud-service-catalog.generated.json` directly in an agent run. Access it through scripts such as `hcloud_catalog_audit.py`, `hcloud_resource_discovery.py`, `hcloud_resource_query.py`, or `hcloud_service_change_plan.py`.
 
@@ -58,7 +58,7 @@ python3 scripts/hcloud_catalog_diff.py \
   --pretty
 ```
 
-Use this during hcloud metadata upgrades to review added/removed services, added/removed operations, and required business parameter changes without manually reading the large generated catalog. Full catalogs produce operation-level details; compact fingerprints produce hash-level service changes.
+Use this during hcloud metadata upgrades to review added/removed services, added/removed operations, and required business parameter changes without manually reading the large generated catalog. Full catalogs produce operation-level details; compact fingerprints produce hash-level service changes. Do not pass the lazy index to this script; compare `hcloud-service-catalog.generated.json` or `hcloud-service-catalog.fingerprint.json`.
 
 When rebuilding the catalog from a prepared metaRepo:
 
@@ -66,10 +66,12 @@ When rebuilding the catalog from a prepared metaRepo:
 python3 scripts/build_hcloud_catalog.py \
   --source-meta-repo <path-to-hcloud-metaRepo> \
   --output <catalog-output-json> \
-  --fingerprint-output <catalog-fingerprint-json>
+  --fingerprint-output <catalog-fingerprint-json> \
+  --index-output <catalog-index-json> \
+  --service-output-dir <per-service-catalog-dir>
 ```
 
-`hcloud-service-catalog.fingerprint.json` is a review aid. `hcloud-service-confidence.json` stores human/live evidence such as smoke confidence and dry-run support.
+`hcloud-service-catalog.fingerprint.json` is a review aid. `hcloud-service-confidence.json` stores human/live evidence such as smoke confidence, dry-run support, and operation-level CLI shape exceptions such as unsupported optional args.
 
 ## Safe Execution
 
@@ -199,6 +201,25 @@ python3 scripts/hcloud_catalog_smoke_candidates.py \
   --limit 8 \
   --pretty
 ```
+
+### Curated Promotion Audit
+
+```bash
+python3 scripts/hcloud_curated_promotion_audit.py \
+  --service DCS \
+  --service RFS \
+  --service UCS \
+  --service WAF \
+  --service CodeArtsRepo \
+  --service DLI \
+  --min-live-ops 2 \
+  --include-curated \
+  --pretty
+```
+
+Use this before promoting metadata-backed services into `references/service-registry.json`. The audit checks the medium-coverage gate: enough `live-read-smoked` read operations, at least one target-scoped read candidate, at least one readiness discovery candidate, a complete `references/service-curation-profiles.json` candidate entry, existing playbook files, and complete risk-profile fields. A blocked result means the service should stay metadata-backed until the missing items are completed.
+
+Add `--include-curated` to audit the existing curated registry services for profile, playbook, and risk-profile completeness. This does not execute hcloud calls; it is a local maintenance gate.
 
 ## Change Planning And Guarded Flows
 

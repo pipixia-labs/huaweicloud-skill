@@ -119,3 +119,34 @@ python3 scripts/hcloud_catalog_readonly_smoke.py \
 - 成功的 `CodeArtsRepo ListCurrentUserRepositories` 和 `DLI ListAuthInfo` 已补充到 `references/hcloud-service-confidence.json`。
 - 失败项保留在 fixture 中作为分桶证据，但不等同于 skill bug，也不升级为 `live-read-smoked`。
 - `tests/fixtures/hcloud-catalog-readonly-smoke-expanded.json` 不保存 raw stdout、stderr 或完整 parsed response body。
+
+## 验证 5：A1 follow-up 和 UCS 参数形态例外
+
+2026-06-06 尝试对 `DCS`、`RFS`、`UCS`、`WAF` 执行后续只读 live smoke，每个服务取 3 个 discovery operation：
+
+```bash
+python3 scripts/hcloud_catalog_readonly_smoke.py \
+  --service DCS \
+  --service RFS \
+  --service UCS \
+  --service WAF \
+  --region=cn-north-4 \
+  --catalog-max-operations=3 \
+  --execute \
+  --timeout=60 \
+  --output /tmp/hcloud-catalog-smoke-a1-followup-core.json \
+  --confidence-output /tmp/hcloud-catalog-confidence-a1-followup-core.json \
+  --pretty
+```
+
+结果：
+
+- 普通沙箱网络下无法证明新的 `command_shape_ok`，网络提权审批两次超时，因此本轮不新增 live-smoked confidence。
+- `DCS`、`RFS`、`WAF` 返回权限类分桶，不能作为晋级 curated 的证据。
+- `UCS ListManagedClusters --limit=5` 被 KooCLI 7.2.2 拒绝为不正确参数；`hcloud UCS ListManagedClusters --help` 只列出 `--unimported`，未列出 `--limit`。
+
+处理：
+
+- `references/hcloud-service-confidence.json` 对 `UCS ListManagedClusters` 增加 `unsupported_optional_args=["limit"]`，但不提升 confidence。
+- `hcloud_resource_discovery.py` 现在会在该 operation 上省略 `--limit`，避免 catalog metadata 与 KooCLI 实际 CLI flag 不一致导致命令形态失败。
+- A6 curated promotion audit 当前显示 DCS/RFS/UCS/WAF/CodeArtsRepo/DLI 均未达到 medium coverage 验收线，暂不写入 curated registry。

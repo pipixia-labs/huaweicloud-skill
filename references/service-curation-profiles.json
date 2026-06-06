@@ -1,0 +1,517 @@
+{
+  "schema_version": 1,
+  "description": "Curated service maintenance profiles and metadata-backed promotion candidates.",
+  "profile_contract": {
+    "required_fields": [
+      "status",
+      "target_coverage",
+      "readiness_operations",
+      "resource_query_operations",
+      "playbooks",
+      "risk_profile"
+    ],
+    "risk_profile_required_fields": [
+      "mutation_policy",
+      "default_risk",
+      "submit_policy",
+      "verification_policy"
+    ]
+  },
+  "services": {
+    "ECS": {
+      "status": "curated",
+      "target_coverage": "high",
+      "readiness_operations": [
+        "ListServersDetails",
+        "ShowServer",
+        "ShowJob"
+      ],
+      "resource_query_operations": [
+        "ShowServer",
+        "ListServerInterfaces",
+        "ListServerVolumeAttachments"
+      ],
+      "playbooks": [
+        "references/playbooks/ecs-create-readiness.md",
+        "references/playbooks/ecs-ssh-access-readiness.md",
+        "references/playbooks/ecs-inventory.md",
+        "references/playbooks/ecs-user-data-service-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "specialized_planner",
+        "default_risk": "high",
+        "submit_policy": "explicit_confirmation_only",
+        "verification_policy": "job_then_resource_active_verification"
+      }
+    },
+    "IAM": {
+      "status": "curated",
+      "target_coverage": "medium",
+      "readiness_operations": [
+        "ShowProjectDetailsAndStatus"
+      ],
+      "resource_query_operations": [],
+      "playbooks": [
+        "references/playbooks/iam-context-bootstrap.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "none",
+        "default_risk": "medium",
+        "submit_policy": "read_only_context_discovery",
+        "verification_policy": "profile_region_project_context_check"
+      }
+    },
+    "VPC": {
+      "status": "curated",
+      "target_coverage": "medium",
+      "readiness_operations": [
+        "ListVpcs",
+        "ListSubnets",
+        "ListSecurityGroups",
+        "ListSecurityGroupRules"
+      ],
+      "resource_query_operations": [
+        "ShowVpc",
+        "ShowSubnet",
+        "ShowSecurityGroup",
+        "ShowSecurityGroupRule"
+      ],
+      "playbooks": [
+        "references/playbooks/vpc-network-readiness.md",
+        "references/playbooks/vpc-resource-discovery.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "medium",
+        "submit_policy": "explicit_confirmation_with_security_group_cidr_guard",
+        "verification_policy": "resource_show_or_list_after_change"
+      }
+    },
+    "IMS": {
+      "status": "curated",
+      "target_coverage": "medium",
+      "readiness_operations": [
+        "ListImages"
+      ],
+      "resource_query_operations": [
+        "GlanceShowImage",
+        "ShowJob"
+      ],
+      "playbooks": [
+        "references/playbooks/ims-image-discovery.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "none",
+        "default_risk": "low",
+        "submit_policy": "read_only_image_discovery",
+        "verification_policy": "image_status_and_visibility_check"
+      }
+    },
+    "KPS": {
+      "status": "curated",
+      "target_coverage": "medium",
+      "readiness_operations": [
+        "ListKeypairs"
+      ],
+      "resource_query_operations": [
+        "ListKeypairDetail"
+      ],
+      "playbooks": [
+        "references/playbooks/kps-keypair-discovery.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "none",
+        "default_risk": "medium",
+        "submit_policy": "read_only_keypair_discovery",
+        "verification_policy": "keypair_name_and_private_key_handling_check"
+      }
+    },
+    "EIP": {
+      "status": "curated",
+      "target_coverage": "medium",
+      "readiness_operations": [
+        "ListPublicips",
+        "ListBandwidths"
+      ],
+      "resource_query_operations": [
+        "ShowPublicip",
+        "ShowBandwidth"
+      ],
+      "playbooks": [
+        "references/playbooks/eip-public-ip-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "specialized_guarded_flow",
+        "default_risk": "medium",
+        "submit_policy": "dry_run_then_explicit_confirmation",
+        "verification_policy": "ShowPublicip_after_submit"
+      }
+    },
+    "ELB": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListLoadBalancers",
+        "ListListeners",
+        "ListPools",
+        "ListMembers"
+      ],
+      "resource_query_operations": [
+        "ShowLoadBalancer",
+        "ShowListener",
+        "ShowPool",
+        "ShowMember"
+      ],
+      "playbooks": [
+        "references/playbooks/elb-http-backend-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "medium",
+        "submit_policy": "explicit_confirmation_with_backend_and_cidr_review",
+        "verification_policy": "ELB_status_member_health_and_protocol_probe"
+      }
+    },
+    "EVS": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListVolumes",
+        "ListSnapshots"
+      ],
+      "resource_query_operations": [
+        "ShowVolume",
+        "ShowSnapshot",
+        "ShowJob"
+      ],
+      "playbooks": [
+        "references/playbooks/evs-volume-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "medium",
+        "submit_policy": "explicit_confirmation_with_attachment_and_filesystem_review",
+        "verification_policy": "volume_status_then_guest_filesystem_check_when_attached"
+      }
+    },
+    "NAT": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListNatGateways",
+        "ListNatGatewayDnatRules",
+        "ListNatGatewaySnatRules"
+      ],
+      "resource_query_operations": [
+        "ShowNatGateway",
+        "ShowNatGatewayDnatRule",
+        "ShowNatGatewaySnatRule"
+      ],
+      "playbooks": [
+        "references/playbooks/nat-gateway-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "medium",
+        "submit_policy": "explicit_confirmation_with_route_and_binding_review",
+        "verification_policy": "gateway_rule_show_and_connectivity_probe"
+      }
+    },
+    "RDS": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListInstances",
+        "ListBackups",
+        "ListConfigurations"
+      ],
+      "resource_query_operations": [
+        "ShowBackupPolicy",
+        "ShowConfiguration",
+        "ShowInstanceConfiguration"
+      ],
+      "playbooks": [
+        "references/playbooks/rds-instance-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "medium",
+        "submit_policy": "explicit_confirmation_with_backup_and_restart_review",
+        "verification_policy": "instance_available_and_connection_probe"
+      }
+    },
+    "CCE": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListClusters",
+        "ListNodes"
+      ],
+      "resource_query_operations": [
+        "ShowCluster",
+        "ListNodes"
+      ],
+      "playbooks": [
+        "references/playbooks/cce-cluster-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "none",
+        "default_risk": "medium",
+        "submit_policy": "read_only_cluster_inventory",
+        "verification_policy": "cluster_status_node_status_and_kubeconfig_boundary"
+      }
+    },
+    "CDN": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListDomains"
+      ],
+      "resource_query_operations": [
+        "ShowDomainDetail"
+      ],
+      "playbooks": [
+        "references/playbooks/cdn-domain-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "medium",
+        "submit_policy": "explicit_confirmation_with_domain_origin_certificate_review",
+        "verification_policy": "domain_detail_and_http_cache_probe"
+      }
+    },
+    "DNS": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListPublicZones",
+        "ListRecordSets"
+      ],
+      "resource_query_operations": [
+        "ShowPublicZone",
+        "ShowRecordSet"
+      ],
+      "playbooks": [
+        "references/playbooks/dns-zone-record-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "high",
+        "submit_policy": "explicit_confirmation_with_zone_record_ttl_review",
+        "verification_policy": "record_show_and_dns_resolution_probe"
+      }
+    },
+    "SCM": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListCertificates"
+      ],
+      "resource_query_operations": [
+        "ShowCertificate"
+      ],
+      "playbooks": [
+        "references/playbooks/scm-certificate-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "guarded_planner_only",
+        "default_risk": "high",
+        "submit_policy": "explicit_confirmation_with_certificate_material_review",
+        "verification_policy": "certificate_status_domain_and_deployment_check"
+      }
+    },
+    "OBS": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListBuckets"
+      ],
+      "resource_query_operations": [
+        "StatBucket",
+        "GetBucketLifecycle",
+        "GetBucketPolicy"
+      ],
+      "playbooks": [
+        "references/playbooks/obs-boundary.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "specialized_obs_planner_only",
+        "default_risk": "high",
+        "submit_policy": "explicit_confirmation_no_generic_openapi_submit",
+        "verification_policy": "obsutil_stat_and_policy_lifecycle_readback"
+      }
+    },
+    "CES": {
+      "status": "curated",
+      "target_coverage": "low",
+      "readiness_operations": [
+        "ListMetrics"
+      ],
+      "resource_query_operations": [],
+      "playbooks": [
+        "references/playbooks/ces-metric-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "none",
+        "default_risk": "low",
+        "submit_policy": "read_only_metrics_discovery",
+        "verification_policy": "namespace_dimension_period_time_range_check"
+      }
+    },
+    "DCS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "readiness_operations": [
+        "ListAvailableZones",
+        "ListInstances",
+        "ListMaintenanceWindows"
+      ],
+      "resource_query_operations": [
+        "ListConfigurations",
+        "ListBackupRecords",
+        "ListDiagnosisTasks"
+      ],
+      "playbooks": [
+        "references/playbooks/dcs-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_until_curated",
+        "default_risk": "medium",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "instance_status_backup_and_configuration_readback"
+      }
+    },
+    "RFS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "readiness_operations": [
+        "ListPrivateHooks",
+        "ListPrivateModules",
+        "ListPrivateProviders",
+        "ListStacks"
+      ],
+      "resource_query_operations": [
+        "GetStackMetadata",
+        "GetStackTemplate",
+        "ListStackResources",
+        "ListExecutionPlans"
+      ],
+      "playbooks": [
+        "references/playbooks/rfs-stack-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "stack_metadata_template_resources_and_execution_plan_review"
+      }
+    },
+    "UCS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "readiness_operations": [
+        "ListAddonTemplates",
+        "ListClusterGroup",
+        "ListManagedClusters",
+        "ListPolicyDefinitions"
+      ],
+      "resource_query_operations": [
+        "ShowCluster",
+        "ListAddonInstances",
+        "ShowClusterGroup",
+        "ShowPolicyDefinition"
+      ],
+      "playbooks": [
+        "references/playbooks/ucs-fleet-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "cluster_group_cluster_policy_and_addon_readback"
+      },
+      "known_shape_exceptions": [
+        "ListManagedClusters currently omits --limit because KooCLI 7.2.2 rejects it."
+      ]
+    },
+    "WAF": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "readiness_operations": [
+        "ListAntileakagePolicyRules",
+        "ListHost",
+        "ListInstance",
+        "ListCertificates"
+      ],
+      "resource_query_operations": [
+        "ListCcRules",
+        "ListCustomRules",
+        "ListGeoipRule",
+        "ListAntileakageRules"
+      ],
+      "playbooks": [
+        "references/playbooks/waf-policy-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_hard_guard_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "policy_rule_host_certificate_and_event_readback"
+      }
+    },
+    "CodeArtsRepo": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "readiness_operations": [
+        "ListCurrentUserRepositories",
+        "ListGroups",
+        "ListPersonalMergeRequests"
+      ],
+      "resource_query_operations": [
+        "GetRepositoryByProjectId",
+        "ListBranches",
+        "ListCommitAssociatedMergeRequests"
+      ],
+      "playbooks": [
+        "references/playbooks/codeartsrepo-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_until_curated",
+        "default_risk": "medium",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "repository_branch_member_and_webhook_readback"
+      }
+    },
+    "DLI": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "readiness_operations": [
+        "ListAuthInfo",
+        "ListCatalogs",
+        "ListDatabases",
+        "ListElasticResourcePools"
+      ],
+      "resource_query_operations": [
+        "CheckSql",
+        "ListQueueProperties",
+        "ListDatabaseUsers",
+        "ListPartitions"
+      ],
+      "playbooks": [
+        "references/playbooks/dli-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_until_curated",
+        "default_risk": "medium",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "auth_catalog_database_queue_and_sql_check_readback"
+      }
+    }
+  }
+}

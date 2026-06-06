@@ -1356,6 +1356,25 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(result["metadata_backed"])
         self.assertIn("read-only", result["error"])
 
+    def test_catalog_discovery_omits_confidence_unsupported_limit(self) -> None:
+        args = SimpleNamespace(
+            service="UCS",
+            operation="ListManagedClusters",
+            region="cn-north-4",
+            project_id=None,
+            profile=None,
+            limit=5,
+            execute=False,
+        )
+
+        result = hcloud_resource_discovery.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        command = result["commands"][0]["command"]
+        self.assertNotIn("--arg=--limit=5", command)
+        self.assertEqual(result["commands"][0]["omitted_args"], ["--limit"])
+        self.assertIn("confidence sidecar", result["commands"][0]["omitted_reason"])
+
     def test_service_change_plan_rejects_unregistered_operation(self) -> None:
         args = SimpleNamespace(
             service="EIP",

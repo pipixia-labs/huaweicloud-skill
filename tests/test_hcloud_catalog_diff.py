@@ -148,6 +148,29 @@ class HcloudCatalogDiffTest(unittest.TestCase):
         self.assertEqual(result["changed_services"][0]["changes"]["operation_count"], {"old": 1, "new": 2})
         self.assertEqual(result["changed_services"][0]["changes"]["operations_hash"], {"old": "aaa", "new": "ccc"})
 
+    def test_catalog_diff_rejects_lazy_index_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            old_path = root / "old-index.json"
+            new_path = root / "new-index.json"
+            payload = {
+                "split": True,
+                "services": {
+                    "rfs": {
+                        "name": "RFS",
+                        "service_file": "hcloud-service-catalog/rfs.json",
+                    }
+                },
+            }
+            self.write_json(old_path, payload)
+            self.write_json(new_path, payload)
+
+            result = hcloud_catalog_diff.compare_documents(old_path, new_path)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["old_kind"], "catalog_index")
+        self.assertIn("fingerprints", result["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

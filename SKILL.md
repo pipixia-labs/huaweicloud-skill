@@ -143,11 +143,12 @@ version: "0.2.3"
 8. `references/output-and-query.md`
 9. `references/scripts.md`
 10. `references/service-registry.json`
-11. `scripts/hcloud_catalog_audit.py`
-12. `references/playbooks/`
-13. `references/source-map.md`
-14. `examples/README.md`
-15. `references/maas-image-generation.md`（MaaS 图像生成主参考；`references/qwen-image-generation.md` 为兼容旧文件名）
+11. `references/service-curation-profiles.json`
+12. `scripts/hcloud_catalog_audit.py`
+13. `references/playbooks/`
+14. `references/source-map.md`
+15. `examples/README.md`
+16. `references/maas-image-generation.md`（MaaS 图像生成主参考；`references/qwen-image-generation.md` 为兼容旧文件名）
 
 原始 KooCLI 材料在 `materials/` 下，仅作为资料源，不应直接当作最终指令集使用。
 华为云官方文档优先从 `https://support.huaweicloud.com/intl/zh-cn/` 查证；涉及 API 字段语义时，以官方文档和实际 `hcloud --dryrun`/查询结果为准。
@@ -192,7 +193,7 @@ version: "0.2.3"
 | 多轮任务前缓存预热 | `hcloud_prewarm_cache.py` | 预热 service/operation help。 |
 | 真实 hcloud 查询或系统命令 | `hcloud_safe_exec.py` | 默认 JSON、脱敏、错误分桶。 |
 | 本地 KooCLI metadata 探查 | `hcloud_meta_lookup.py` | 查 service/operation detail cache。 |
-| generated catalog 审计/重建 | `hcloud_catalog_audit.py`、`build_hcloud_catalog.py` | catalog 只能脚本消费，不直接 Read 大 JSON。 |
+| generated catalog 审计/重建 | `hcloud_catalog_audit.py`、`build_hcloud_catalog.py` | 运行时走 index/per-service 懒加载；full catalog 只能脚本消费，不直接 Read 大 JSON。 |
 | ECS 创建前校验 | `hcloud_ecs_create_plan.py` | 检查 JSON、凭证、安全组和 dry-run/submit 命令。 |
 | ECS job 终态 | `hcloud_ecs_wait_job.py` | job 终态不等同于 ECS 可用。 |
 | ECS ACTIVE 验证 | `hcloud_ecs_verify_active.py` | 之后还要做 SSH/应用验收。 |
@@ -202,6 +203,7 @@ version: "0.2.3"
 | 服务 readiness | `hcloud_service_readiness.py` | 多服务只读验收，缺目标 ID 则 skipped。 |
 | registry 多服务 smoke | `hcloud_readonly_smoke.py` | 只读 smoke；`--execute` 才真实查询。 |
 | metadata-backed smoke | `hcloud_catalog_readonly_smoke.py` | 小批只读矩阵和失败分桶。 |
+| curated 晋级审计 | `hcloud_curated_promotion_audit.py` | 校验 profile、playbook、risk profile 和 live-smoke 门槛。 |
 | 通用变更风险计划 | `hcloud_change_plan.py` | 非执行 planner，含安全组入口策略检查。 |
 | 服务级变更计划 | `hcloud_service_change_plan.py` | curated + metadata-backed planner-only。 |
 | 通用 guarded change flow | `hcloud_guarded_change_flow.py` | 普通服务 Plan -> dry-run -> guarded submit -> verify。 |

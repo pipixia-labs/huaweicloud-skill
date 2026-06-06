@@ -22,6 +22,8 @@ def document_kind(payload: dict[str, Any]) -> str:
     sample = next((value for value in services.values() if isinstance(value, dict)), {})
     if "catalog_hash" in payload or "operations_hash" in sample:
         return "fingerprint"
+    if payload.get("split") is True or "service_file" in sample:
+        return "catalog_index"
     return "catalog"
 
 
@@ -198,6 +200,15 @@ def compare_documents(old_path: Path, new_path: Path) -> dict[str, Any]:
     new = load_document(new_path)
     old_kind = document_kind(old)
     new_kind = document_kind(new)
+    if old_kind == "catalog_index" or new_kind == "catalog_index":
+        return {
+            "success": False,
+            "old": str(old_path),
+            "new": str(new_path),
+            "old_kind": old_kind,
+            "new_kind": new_kind,
+            "error": "Catalog index files are lazy runtime inputs; compare full generated catalogs or fingerprints instead.",
+        }
     if old_kind != new_kind:
         return {
             "success": False,

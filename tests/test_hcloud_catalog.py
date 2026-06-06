@@ -137,6 +137,48 @@ class HcloudCatalogTest(unittest.TestCase):
         self.assertEqual(fingerprint["source"]["operation_count"], 3)
         self.assertIn("catalog_hash", fingerprint)
 
+    def test_split_catalog_index_loads_service_operations_lazily(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            catalog = {
+                "schema_version": 1,
+                "source": {"service_count": 1, "operation_count": 1},
+                "services": {
+                    "ucs": {
+                        "name": "UCS",
+                        "service_key": "ucs",
+                        "template_dir": "ucs",
+                        "category": "Containers",
+                        "operation_count": 1,
+                        "operations": {
+                            "ListClusterGroup": {
+                                "name": "ListClusterGroup",
+                                "action": "List",
+                                "read_only": True,
+                                "params": [],
+                            }
+                        },
+                    }
+                },
+            }
+            index_path = root / "hcloud-service-catalog.index.json"
+            service_dir = root / "hcloud-service-catalog"
+            index, service_payloads = build_hcloud_catalog.split_service_catalog(catalog, service_dir, index_path)
+            index_path.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+            for service_file, payload in service_payloads.items():
+                service_file.parent.mkdir(parents=True, exist_ok=True)
+                service_file.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            loaded_index = hcloud_catalog.load_catalog(index_path)
+
+            self.assertTrue(loaded_index["split"])
+            self.assertNotIn("operations", loaded_index["services"]["ucs"])
+            service = hcloud_catalog.resolve_service(loaded_index, "UCS")
+            self.assertIsNotNone(service)
+            operation = hcloud_catalog.resolve_operation(service, "ListClusterGroup")
+            self.assertIsNotNone(operation)
+            self.assertTrue(hcloud_catalog.is_discovery_operation(operation))
+
     def test_confidence_sidecar_references_catalog_operations(self) -> None:
         catalog = hcloud_catalog.load_catalog(ROOT / "references" / "hcloud-service-catalog.generated.json")
         confidence = hcloud_catalog.load_confidence(ROOT / "references" / "hcloud-service-confidence.json")
@@ -150,6 +192,11 @@ class HcloudCatalogTest(unittest.TestCase):
                     operation = hcloud_catalog.resolve_operation(service, operation_name)
                     self.assertIsNotNone(operation, f"{service_name}:{operation_name} missing from catalog")
                     self.assertIn(operation_entry.get("confidence"), {"catalog-derived", "live-read-smoked", "curated"})
+
+        self.assertEqual(
+            hcloud_catalog.operation_unsupported_optional_args(confidence, "UCS", "ListManagedClusters"),
+            {"limit"},
+        )
 
 
 if __name__ == "__main__":

@@ -59,6 +59,16 @@
             "result_bucket": "command_shape_ok",
             "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec."
           }
+        },
+        "ListManagedClusters": {
+          "confidence": "catalog-derived",
+          "unsupported_optional_args": [
+            "limit"
+          ],
+          "last_shape_check": {
+            "result_bucket": "command_shape_error",
+            "evidence_summary": "KooCLI 7.2.2 help for UCS ListManagedClusters lists --unimported but not --limit, and live shape check rejects --limit."
+          }
         }
       }
     },

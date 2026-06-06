@@ -10,7 +10,9 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG_PATH = ROOT / "references" / "hcloud-service-catalog.generated.json"
+LEGACY_CATALOG_PATH = ROOT / "references" / "hcloud-service-catalog.generated.json"
+CATALOG_INDEX_PATH = ROOT / "references" / "hcloud-service-catalog.index.json"
+CATALOG_PATH = CATALOG_INDEX_PATH if CATALOG_INDEX_PATH.exists() else LEGACY_CATALOG_PATH
 CONFIDENCE_PATH = ROOT / "references" / "hcloud-service-confidence.json"
 
 READ_ONLY_ACTIONS = {"List", "Show", "Count", "Check", "Search", "Query", "Get", "Download"}
@@ -33,8 +35,41 @@ def normalize_param_name(value: str) -> str:
 def load_catalog(path: Path = CATALOG_PATH) -> dict[str, Any]:
     """Load the generated hcloud service catalog."""
     if not path.exists():
+        if path == CATALOG_INDEX_PATH and LEGACY_CATALOG_PATH.exists():
+            return load_catalog(LEGACY_CATALOG_PATH)
         return {"schema_version": 1, "services": {}}
-    return json.loads(path.read_text(encoding="utf-8"))
+    catalog = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(catalog, dict):
+        catalog["_catalog_path"] = str(path)
+    return catalog
+
+
+def catalog_base_path(catalog: dict[str, Any]) -> Path:
+    """Return the base directory used for relative lazy service files."""
+    raw_path = catalog.get("_catalog_path")
+    if raw_path:
+        return Path(str(raw_path)).parent
+    return CATALOG_PATH.parent
+
+
+def load_service_entry(catalog: dict[str, Any], service: dict[str, Any]) -> dict[str, Any]:
+    """Return a full service entry, loading per-service catalog files on demand."""
+    if isinstance(service.get("operations"), dict):
+        return service
+    cached = service.get("_loaded_service")
+    if isinstance(cached, dict):
+        return cached
+    service_file = service.get("service_file")
+    if not service_file:
+        return service
+    path = catalog_base_path(catalog) / str(service_file)
+    if not path.exists():
+        return service
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(loaded, dict):
+        service["_loaded_service"] = loaded
+        return loaded
+    return service
 
 
 def load_confidence(path: Path = CONFIDENCE_PATH) -> dict[str, Any]:
@@ -64,7 +99,20 @@ def service_index(catalog: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def resolve_service(catalog: dict[str, Any], service_name: str) -> dict[str, Any] | None:
     """Resolve a service name against the generated catalog."""
-    return service_index(catalog).get(normalize_token(service_name))
+    service = service_index(catalog).get(normalize_token(service_name))
+    if service is None:
+        return None
+    return load_service_entry(catalog, service)
+
+
+def iter_services(catalog: dict[str, Any], expand: bool = False) -> list[tuple[str, dict[str, Any]]]:
+    """Return catalog services, optionally loading split per-service entries."""
+    result = []
+    for key, service in catalog.get("services", {}).items():
+        if not isinstance(service, dict):
+            continue
+        result.append((str(key), load_service_entry(catalog, service) if expand else service))
+    return result
 
 
 def operation_index(service: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -291,6 +339,14 @@ def operation_dryrun_state(confidence: dict[str, Any], service_name: str, operat
     if state not in {"supported", "unsupported", "unknown"}:
         return "unknown"
     return state
+
+
+def operation_unsupported_optional_args(confidence: dict[str, Any], service_name: str, operation_name: str) -> set[str]:
+    """Return optional CLI args that live/help evidence says this operation does not accept."""
+    raw_args = operation_confidence(confidence, service_name, operation_name).get("unsupported_optional_args", [])
+    if not isinstance(raw_args, list):
+        return set()
+    return {normalize_param_name(str(name)) for name in raw_args if normalize_param_name(str(name))}
 
 
 def is_read_only(operation: dict[str, Any]) -> bool:

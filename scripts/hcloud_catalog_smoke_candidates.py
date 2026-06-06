@@ -131,6 +131,7 @@ def operation_record(operation: dict[str, Any], confidence: dict[str, Any], serv
         "supports_limit": bool(operation.get("supports_limit")),
         "required_headers": hcloud_catalog.required_header_param_names(operation),
         "confidence": op_confidence.get("confidence", "catalog-derived"),
+        "unsupported_optional_args": op_confidence.get("unsupported_optional_args", []),
     }
 
 
@@ -154,7 +155,7 @@ def select_candidates(
     service_filter = {hcloud_catalog.normalize_token(service) for service in services or []}
     candidates = []
 
-    for key, service in catalog.get("services", {}).items():
+    for key, service in hcloud_catalog.iter_services(catalog, expand=True):
         if not isinstance(service, dict):
             continue
         service_name = str(service.get("name") or key)

@@ -414,7 +414,9 @@
       "change_flow": "scripts/hcloud_guarded_change_flow.py",
       "job_verifier": null,
       "resource_verifier": "scripts/hcloud_resource_verify.py",
-      "playbooks": [],
+      "playbooks": [
+        "references/playbooks/nat-gateway-readiness.md"
+      ],
       "official_docs": [
         "https://support.huaweicloud.com/intl/zh-cn/"
       ],
@@ -508,7 +510,9 @@
       "planner": null,
       "job_verifier": null,
       "resource_verifier": "scripts/hcloud_resource_verify.py",
-      "playbooks": [],
+      "playbooks": [
+        "references/playbooks/cce-cluster-readiness.md"
+      ],
       "official_docs": [
         "https://support.huaweicloud.com/intl/zh-cn/"
       ],
@@ -541,7 +545,9 @@
       "change_flow": "scripts/hcloud_guarded_change_flow.py",
       "job_verifier": null,
       "resource_verifier": "scripts/hcloud_resource_verify.py",
-      "playbooks": [],
+      "playbooks": [
+        "references/playbooks/cdn-domain-readiness.md"
+      ],
       "official_docs": [
         "https://support.huaweicloud.com/intl/zh-cn/"
       ],
@@ -571,7 +577,9 @@
       "change_flow": "scripts/hcloud_guarded_change_flow.py",
       "job_verifier": null,
       "resource_verifier": "scripts/hcloud_resource_verify.py",
-      "playbooks": [],
+      "playbooks": [
+        "references/playbooks/dns-zone-record-readiness.md"
+      ],
       "official_docs": [
         "https://support.huaweicloud.com/intl/zh-cn/"
       ],
@@ -598,7 +606,9 @@
       "change_flow": "scripts/hcloud_guarded_change_flow.py",
       "job_verifier": null,
       "resource_verifier": "scripts/hcloud_resource_verify.py",
-      "playbooks": [],
+      "playbooks": [
+        "references/playbooks/scm-certificate-readiness.md"
+      ],
       "official_docs": [
         "https://support.huaweicloud.com/intl/zh-cn/"
       ],
@@ -654,7 +664,9 @@
       "planner": null,
       "job_verifier": null,
       "resource_verifier": null,
-      "playbooks": [],
+      "playbooks": [
+        "references/playbooks/ces-metric-readiness.md"
+      ],
       "official_docs": [
         "https://support.huaweicloud.com/intl/zh-cn/"
       ],

@@ -14,7 +14,9 @@ flowchart TD
     MaterialMap --> Drift["check_materials_drift.py"]
     References --> Skill["SKILL.md"]
     References --> Registry["references/service-registry.json"]
+    References --> Curation["references/service-curation-profiles.json"]
     Registry --> Scripts["scripts/*.py"]
+    Curation --> Scripts
     Registry --> Coverage["check_question_coverage.py"]
     Tests["tests/*.py"] --> Scripts
     Tests --> Registry
@@ -38,6 +40,10 @@ flowchart TD
 | `local-meta-discovery.md` | 本地 meta cache 结构和发现方式。 |
 | `service-coverage.md` | 人类可读服务覆盖矩阵。 |
 | `service-registry.json` | 机器可读服务覆盖和路由控制面。 |
+| `service-curation-profiles.json` | curated 服务维护档案和 metadata-backed 晋级候选门禁。 |
+| `hcloud-service-catalog.index.json` | generated catalog 的运行时轻量索引，按服务懒加载。 |
+| `hcloud-service-catalog/` | 每服务 generated catalog payload，脚本按需读取。 |
+| `hcloud-service-catalog.generated.json` | full generated catalog，保留用于兼容和完整 diff，不作为 agent 直接资料入口。 |
 | `hcloud-service-catalog.fingerprint.json` | generated catalog 的小体积升级审查事实源。 |
 | `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar。 |
 | `playbooks/` | 面向具体任务的执行手册。 |
@@ -80,6 +86,8 @@ flowchart TD
 ## Service registry
 
 `references/service-registry.json` 是最重要的数据文件。它驱动通用 discovery、resource query、service readiness、smoke、planner 和 coverage 检查。
+
+`references/service-curation-profiles.json` 是 registry 的维护档案，不直接让服务进入 curated registry。它用于记录已有 curated 服务和候选服务的 readiness operation、resource query operation、playbook 和 risk profile，并由 `scripts/hcloud_curated_promotion_audit.py` 校验。
 
 当前 registry 摘要以脚本输出为准：
 
@@ -130,6 +138,17 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | `resource_verifier` | 资源状态验证脚本。 |
 | `playbooks` | 对应服务或场景的参考手册。 |
 | `known_limits` | 当前实现边界和已知限制。 |
+
+### Curation profile 字段
+
+| 字段 | 含义 |
+| --- | --- |
+| `status` | `curated` 或 `candidate`。 |
+| `target_coverage` | 目标覆盖等级。 |
+| `readiness_operations` | 服务级 readiness 或 inventory 起点。 |
+| `resource_query_operations` | 需要目标参数的资源级只读查询。 |
+| `playbooks` | 对应维护手册路径，文件必须存在。 |
+| `risk_profile` | mutation 风险姿态，必须声明 mutation policy、default risk、submit policy 和 verification policy。 |
 
 ### Operation 分类
 

@@ -161,8 +161,15 @@ def build_safe_exec_command(
     omitted_args: list[str] = []
     parameter_adjustments: list[dict[str, Any]] = []
     operation_detail = catalog_operation(service, operation)
+    unsupported_optional_args = hcloud_catalog.operation_unsupported_optional_args(
+        hcloud_catalog.load_confidence(),
+        service,
+        operation,
+    )
     if args.limit is not None:
-        if "limit" in param_names:
+        if "limit" in unsupported_optional_args:
+            omitted_args.append("--limit")
+        elif "limit" in param_names:
             used_limit = args.limit
             if operation_detail:
                 used_limit, adjustment = hcloud_catalog.bounded_limit_value(operation_detail, args.limit)
@@ -195,7 +202,16 @@ def build_command_item(args: argparse.Namespace, service: str, operation: str, s
         item["region_resolution"] = region_resolution
     if omitted_args:
         item["omitted_args"] = omitted_args
-        item["omitted_reason"] = "Operation metadata does not list these parameters."
+        unsupported_optional_args = hcloud_catalog.operation_unsupported_optional_args(
+            hcloud_catalog.load_confidence(),
+            service,
+            operation,
+        )
+        item["omitted_reason"] = (
+            "Operation confidence sidecar marks these optional args unsupported by KooCLI help/live shape checks."
+            if any(arg.lstrip("-") in unsupported_optional_args for arg in omitted_args)
+            else "Operation metadata does not list these parameters."
+        )
     if parameter_adjustments:
         item["parameter_adjustments"] = parameter_adjustments
     if generated_headers:
