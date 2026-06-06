@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.4 - 2026-06-06
+
+- Added a bundled hcloud metadata catalog covering 125 services and 10,194 operations without depending on `huaweicloud-data`.
+- Added metadata-backed discovery, explicit-parameter resource query, and planner-only mutation planning for registry-outside services.
+- Added catalog confidence tiers, sanitized read-only live smoke evidence, catalog diff/smoke-candidate tools, and curation promotion audits.
+- Split runtime catalog loading into index/per-service lazy files while retaining the full catalog for compatibility and complete diffs.
+- Promoted DCS, RFS, and UCS into read-only curated registry coverage, bringing curated services to 19 and metadata-backed services to 107.
+- Added live-read-smoked confidence for AOS `ListPrivateHooks`, ModelArts `ListAlgorithms`, and CBR `ListAgent`; CFW `ListDnsServers` remains evidence-only because the cloud response is not_found-shaped.
+- Consolidated MaaS image asset naming around `maas_text_to_image.py` while keeping the old qwen entrypoint compatible.
+
 ## 0.2.3 - 2026-06-05
 
 - Fixed `hcloud_safe_exec.py` JSON parsing and cloud-error detection for polluted stdout, nested error payloads, byte output, and Windows-safe UTF-8 replacement decoding.

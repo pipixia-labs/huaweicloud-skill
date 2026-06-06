@@ -1,5 +1,63 @@
 # Release Notes
 
+## v0.2.4 / 0.2.4 - 2026-06-06
+
+v0.2.4 is the hcloud metadata coverage upgrade after v0.2.3. It adds a skill-owned hcloud catalog, metadata-backed broad coverage, confidence/audit tooling, lazy catalog loading, and the first read-only curated promotions from the new metadata work. The release keeps the safety boundary unchanged: generated catalog coverage does not mean all services are curated, and registry-outside mutation plans remain planner-only unless a dedicated guarded flow exists.
+
+### Changes Since v0.2.3
+
+- Adds a bundled hcloud metadata catalog owned by this skill:
+  - Catalog summary: 125 metadata services and 10,194 operations.
+  - Runtime does not depend on `huaweicloud-data`; copied metadata is used only as an input source for generated skill assets.
+  - Curated registry remains the primary route when a service is registered.
+- Adds metadata-backed coverage for registry-outside services:
+  - Safe discovery can generate read-only `List*` style commands where required business parameters are absent.
+  - Resource query requires explicit target parameters and does not guess resource IDs.
+  - Mutation plans are planner-only by default, with dry-run support represented as `unknown` unless proven.
+- Adds confidence and audit layers:
+  - `catalog-derived` means operation shape comes from hcloud metadata only.
+  - `live-read-smoked` means a real read-only hcloud command reached `command_shape_ok`.
+  - Sanitized smoke fixtures omit raw stdout, stderr, token material, and full response bodies.
+  - Curated promotion audit checks live-smoke evidence, curation profiles, playbooks, risk profiles, readiness operations, and resource-query candidates.
+- Adds catalog maintenance tooling:
+  - Catalog audit reports registry/catalog/metadata-backed summary fields.
+  - Catalog diff and smoke-candidate tools support future metadata upgrades.
+  - Runtime catalog loading now uses an index plus per-service JSON files; the full generated catalog is retained for compatibility and complete diffs.
+- Expands curated coverage:
+  - DCS, RFS, and UCS are promoted to read-only curated registry coverage.
+  - Curated registry count is now 19; metadata-backed service count is 107.
+  - DCS/RFS/UCS have `change_operations=[]`; write support still requires dedicated guarded flows before any generic submit path can exist.
+- Adds live-smoke confidence:
+  - DCS: `ListAvailableZones`, `ListMaintenanceWindows`.
+  - RFS: `ListPrivateHooks`, `ListPrivateModules`.
+  - UCS: `ListAddonTemplates`, `ListPolicyDefinitions`.
+  - WAF: `ListAntileakagePolicyRules`, `ListInstance`.
+  - CodeArtsRepo: `ListCurrentUserRepositories`, `ListGroups`.
+  - DLI: `ListAuthInfo`, `ListCatalogs`.
+  - AOS: `ListPrivateHooks`.
+  - ModelArts: `ListAlgorithms`.
+  - CBR: `ListAgent`.
+  - CFW `ListDnsServers` remains evidence-only because the cloud response is not_found-shaped.
+- Consolidates MaaS image asset naming:
+  - `scripts/maas_text_to_image.py` and `references/maas-image-generation.md` are now the primary entrypoint/docs.
+  - The old qwen entrypoint and doc remain as compatibility wrappers.
+
+### Validation
+
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests`: 144 tests passed before release.
+- `python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty`: passed with 125 catalog services, 10,194 operations, 19 curated services, and 107 metadata-backed services.
+- `python3 scripts/hcloud_curated_promotion_audit.py --service DCS --service RFS --service UCS --service WAF --service CodeArtsRepo --service DLI --min-live-ops 2 --include-curated --pretty`: passed with DCS/RFS/UCS `already_curated`, WAF/CodeArtsRepo/DLI `eligible`, and 19/19 curated services healthy.
+- `python3 scripts/check_materials_drift.py --pretty`: passed.
+- `python3 scripts/check_question_coverage.py --pretty`: passed.
+- JSON parse checks, sensitive-field scans over smoke fixtures/confidence/manual validation, local absolute-path scan, and `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- v0.2.4 does not claim all 125 catalog services are deeply curated. Catalog-derived coverage is broad but shallower than curated registry coverage.
+- Registry-outside metadata-backed mutation plans remain planner-only; security/identity/key/governance mutations can trigger hard guards.
+- DCS/RFS/UCS are read-only curated services in this release. Enabling writes for them requires service-specific guarded flows, explicit confirmation, and post-change readback.
+- B2 distribution-size cleanup is intentionally not included in this release.
+
 ## v0.2.3 / 0.2.3 - 2026-06-05
 
 v0.2.3 improves practical Huawei Cloud deployment workflows on top of v0.2.2. It keeps the existing safety posture while strengthening hcloud JSON error handling, ECS in-guest execution guidance, storage/load-balancer readiness guidance, KooCLI installation guidance, and Huawei Cloud ModelArts MaaS image asset generation for Huawei-hosted web/static-site deployments.
