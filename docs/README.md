@@ -35,7 +35,7 @@
 
 1. 这不是普通 prompt，而是一个围绕华为云 KooCLI 的可执行云操作框架。
 2. 核心架构是 registry 控制面、safe exec 执行面、verifier 验证面、quality gate 回归面。
-3. v0.3 已从 ECS 单点闭环和多服务覆盖继续扩展到账号盘点、闲置审计、可观测、Billing/Cost request spec 和治理候选画像；v0.3.2 进一步把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 组织成 P0 任务级 lifecycle closure planner；P1 开始把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 组织成治理闭环 planner。准确 registry 服务数和 operation 计数以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `registry` 字段为准。
+3. v0.3 已从 ECS 单点闭环和多服务覆盖继续扩展到账号盘点、闲置审计、可观测、Billing/Cost request spec 和治理候选画像；v0.3.2 进一步把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 组织成 P0 任务级 lifecycle closure planner；P1 把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 组织成带 evidence command plan 和治理汇总的治理闭环 planner。准确 registry 服务数和 operation 计数以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `registry` 字段为准。
 4. 写类操作默认不自动提交，而是走 plan、dry-run、显式确认和后置验证，适合真实云资源场景的风险控制。
 5. 单测、架构契约、materials drift 和 coverage 脚本是回归门禁，用来持续防止 coverage 和安全边界退化。
 

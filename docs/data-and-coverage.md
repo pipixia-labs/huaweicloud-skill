@@ -244,7 +244,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | --- | --- | --- |
 | 完整闭环 | ECS | 查询、创建 JSON 校验、dry-run/submit 命令生成、job 轮询、ACTIVE 验证。 |
 | P0 任务闭环增强 | VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS | 保持原有 guarded/readiness/专用适配器边界，同时通过 `hcloud_lifecycle_closure_plan.py` 输出上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计。 |
-| P1 治理闭环计划 | TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo | 通过 `hcloud_governance_closure_plan.py` 输出治理范围、只读证据、风险/隐私门禁、review plan 和 curated 晋级缺口；不执行治理写操作，也不请求真实账单接口。 |
+| P1 治理闭环计划 | TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo | 通过 `hcloud_governance_closure_plan.py` 输出治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口；不执行治理写操作，Billing/BSS 不生成 live query 命令。 |
 | 重点增强 | IMS、KPS、NAT、IAM、DCS、RFS、UCS | 多数有 list/readiness 路径；部分有资源级查询；NAT 已接入通用 guarded flow；DCS/RFS/UCS 是 read-only curated。 |
 | 最小路径 | CCE | 有最小查询入口或专用适配，仍需补 smoke、playbook、risk profile 和 verifier 后再晋级为更完整闭环。 |
 | 晋级候选 | LTS 及后续治理/安全长尾服务 | 有 candidate profile、playbook 和 risk profile；是否晋级取决于 live read-smoke、目标查询、playbook、risk profile 和测试证据。 |

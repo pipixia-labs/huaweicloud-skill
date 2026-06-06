@@ -240,6 +240,7 @@ python3 scripts/hcloud_safe_exec.py \
 
 - `references/service-curation-profiles.json`：读取 candidate profile、readiness、resource query、playbook 和 risk profile。
 - `hcloud_curated_promotion_audit.py`：输出 live-smoke、target query、playbook 和 profile 的晋级缺口。
+- `hcloud_resource_discovery.py`、`hcloud_resource_query.py`：为非账单治理服务生成只读 evidence command plan，并把 target-scoped 查询缺参显式列出。
 - `hcloud_billing_readonly.py`：为 Billing/BSS 生成官方 API request spec，但不接受凭证、不发请求。
 
 输出固定分为五段：
@@ -262,6 +263,8 @@ python3 scripts/hcloud_safe_exec.py \
 | WAF | instance、host、certificate、policy/rule readback 和策略变更 hard gate。 |
 | DLI | auth、catalog、database、queue、SQL check 和分析 workload readiness。 |
 | CodeArtsRepo | repository、branch、merge request、member/deploy key 和 DevOps 元数据隐私边界。 |
+
+每个服务还会输出 `governance_summary`，包括当前状态、promotion value score、eligible/blocked 服务、缺失证据、billing spec 错误和 evidence command 数量。顶层 `governance_summary` 汇总所有 P1 服务组的 review-ready/evidence-gap/profile-only 状态。Billing/BSS 是例外：它只输出官方 request spec 和晋级缺口，不生成 live `hcloud BSS` 查询命令。
 
 ## 变更规划和风险门禁
 

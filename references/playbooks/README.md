@@ -58,6 +58,8 @@
   - CodeArtsRepo 晋级 curated 前的仓库、分支、成员和合并请求候选手册。
 - `dli-readiness.md`
   - DLI 晋级 curated 前的权限、catalog、database、queue 和 SQL 检查候选手册。
+- `billing-cost-governance.md`
+  - Billing/Cost request spec、账单权限、数据新鲜度和隐私边界治理手册。
 - `docker-remote-api-readiness.md`
   - 安装 Docker、开放 Remote API 并用协议探测验证 daemon。
 - `obs-boundary.md`
@@ -97,6 +99,7 @@
 - 目标是备份、恢复点或 vault 姿态：先看 `cbr-backup-posture.md`
 - 目标是资源合规、policy state 或跨账号 aggregator：按 `rms-config-governance.md` 或 `config-governance-readiness.md` 进入
 - 目标是日志发现或有限窗口日志查询：先看 `lts-log-readiness.md`
+- 目标是账单、成本分析或资源消费记录：先看 `billing-cost-governance.md`，只生成 request spec，不直接请求真实账单
 - 卡在上下文或认证：先看 `iam-context-bootstrap.md`
 - 卡在镜像、密钥对或网络依赖：按 `ims`、`kps`、`vpc` 对应 playbook 进入
 - 目标涉及 OBS：先看 `obs-boundary.md`，只读查询走 `hcloud_obs_readonly.py`，写类操作先走 `hcloud_obs_change_plan.py`

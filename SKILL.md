@@ -210,7 +210,7 @@ version: "0.3.2"
 | OBS 只读查询 | `hcloud_obs_readonly.py` | 走 `hcloud obs`/obsutil，不走普通 OpenAPI 形态。 |
 | 服务 readiness | `hcloud_service_readiness.py` | 多服务只读验收，缺目标 ID 则 skipped。 |
 | 生命周期闭环计划 | `hcloud_lifecycle_closure_plan.py` | P0 核心服务的六阶段 planner-only 闭环计划，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。 |
-| 治理闭环计划 | `hcloud_governance_closure_plan.py` | P1 治理服务的 planner-only 闭环计划，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo。 |
+| 治理闭环计划 | `hcloud_governance_closure_plan.py` | P1 治理服务的 planner-only 闭环计划，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，并输出 evidence command plan 和治理汇总。 |
 | registry 多服务 smoke | `hcloud_readonly_smoke.py` | 只读 smoke；`--execute` 才真实查询。 |
 | metadata-backed smoke | `hcloud_catalog_readonly_smoke.py` | 小批只读矩阵和失败分桶。 |
 | curated 晋级审计 | `hcloud_curated_promotion_audit.py` | 校验 profile、playbook、risk profile 和 live-smoke 门槛。 |
@@ -261,7 +261,7 @@ version: "0.3.2"
 - Billing/Cost 本地 feasibility probe，用于确认当前 bundled catalog 是否具备账单/成本直接候选；v0.3.1 可发现 metadata-backed `BSS`，但当前不等同于真实账单查询能力
 - curated promotion audit 输出 `value_ranked_candidates`，用于按“上好云、用好云、管好云”价值维度选择下一批治理候选
 - `hcloud_lifecycle_closure_plan.py` 提供 P0 核心服务的 planner-only 闭环计划入口，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，并把上下文/依赖发现、参数检查、风险门禁、受控执行、后置验证和治理审计统一成六阶段输出
-- `hcloud_governance_closure_plan.py` 提供 P1 治理闭环计划入口，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，把治理范围、只读证据、风险/隐私门禁、review plan 和 curated 晋级缺口统一输出
+- `hcloud_governance_closure_plan.py` 提供 P1 治理闭环计划入口，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，把治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口统一输出；Billing/BSS 只生成 request spec，不生成 live query 命令
 - VPC / IMS / KPS / IAM / EIP 创建前只读发现方法
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记
 - ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 的低覆盖查询登记，用于离线数据集回归和前置发现

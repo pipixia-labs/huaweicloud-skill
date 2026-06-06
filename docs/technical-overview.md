@@ -109,12 +109,12 @@ flowchart LR
 `hcloud_governance_closure_plan.py` 是 P1 增加的治理闭环层。它面向“管好云”的治理任务，不直接执行云命令，也不开放治理写操作，而是把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 组织成五阶段 planner-only 输出：
 
 - 治理范围与输入边界。
-- 只读证据计划。
+- 只读证据计划，包括 evidence command plan 和 target-scoped 参数缺口。
 - 风险与隐私门禁。
 - review plan。
 - curated 晋级缺口。
 
-这个脚本复用 `service-curation-profiles.json`、`hcloud_curated_promotion_audit.py` 和 `hcloud_billing_readonly.py`。它的工程意义是把标签、审计、备份、合规、账单、安全、数据分析和 DevOps 这类治理任务先收敛成可审计、可评审、可逐步晋级的证据链，而不是过早打开自动写策略。
+这个脚本复用 `service-curation-profiles.json`、`hcloud_curated_promotion_audit.py`、`hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和 `hcloud_billing_readonly.py`。它的工程意义是把标签、审计、备份、合规、账单、安全、数据分析和 DevOps 这类治理任务先收敛成可审计、可评审、可逐步晋级的证据链，而不是过早打开自动写策略。Billing/BSS 保持 request-spec-only，不生成 live `hcloud BSS` 查询命令。
 
 ### 5. 质量回归面
 

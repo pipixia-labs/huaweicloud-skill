@@ -2251,6 +2251,7 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertTrue(result["success"], result)
         self.assertTrue(result["planning_only"])
+        self.assertIn("planned_evidence_command_count", result["governance_summary"])
         self.assertEqual(
             set(result["selected_services"]),
             {"TMS", "CTS", "CBR", "RMS_CONFIG", "BILLING_BSS", "WAF", "DLI", "CODEARTSREPO"},
@@ -2277,9 +2278,14 @@ class MultiServiceToolsTest(unittest.TestCase):
         specs = evidence["billing_request_specs"]
         self.assertEqual({spec["operation"] for spec in specs}, {"monthly-sum", "cost-data", "resource-records"})
         self.assertTrue(all(spec["success"] for spec in specs))
+        evidence_plans = evidence["evidence_command_plans"]
+        self.assertEqual(evidence_plans["summary"]["planned_command_count"], 0)
+        self.assertIn("request specs only", evidence_plans["skipped_reason"])
         risk = next(stage for stage in service["stages"] if stage["id"] == "risk_and_privacy_gate")
         self.assertEqual(risk["risk_profiles"][0]["risk_profile"]["submit_policy"], "request_spec_only_no_credentials_no_http")
         self.assertTrue(all("requires_auth" in spec["request_spec"] for spec in specs))
+        promotion = next(stage for stage in service["stages"] if stage["id"] == "promotion_readiness")
+        self.assertEqual(promotion["profiles"][0]["service"], "BSS")
 
     def test_governance_closure_rms_alias_combines_rms_and_config(self) -> None:
         args = self.governance_args(service=["Config"])
@@ -2292,8 +2298,33 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(service["services"], ["RMS", "Config"])
         evidence = next(stage for stage in service["stages"] if stage["id"] == "read_only_evidence")
         self.assertEqual({item["service"] for item in evidence["readiness_operations"]}, {"RMS", "Config"})
+        evidence_plans = evidence["evidence_command_plans"]
+        self.assertGreater(evidence_plans["summary"]["discovery_plan_count"], 0)
+        self.assertGreater(evidence_plans["summary"]["resource_query_plan_count"], 0)
         promotion = next(stage for stage in service["stages"] if stage["id"] == "promotion_readiness")
         self.assertEqual({item["service"] for item in promotion["profiles"]}, {"RMS", "Config"})
+
+    def test_governance_closure_tms_generates_readonly_evidence_commands(self) -> None:
+        args = self.governance_args(
+            service=["TMS"],
+            param=[
+                "resource_id=res-1",
+                "resource_type=ecs",
+                "resource_types=ecs",
+                "tag_key=owner",
+                "tags=owner:team-a",
+            ],
+        )
+
+        result = hcloud_governance_closure_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        evidence = next(stage for stage in service["stages"] if stage["id"] == "read_only_evidence")
+        plans = evidence["evidence_command_plans"]
+        self.assertGreaterEqual(plans["summary"]["planned_command_count"], 4)
+        self.assertTrue(any(plan["operation"] == "ListProviders" and plan["commands"] for plan in plans["discovery_plans"]))
+        self.assertTrue(any(plan["operation"] == "ShowTagQuota" and plan["command"] for plan in plans["resource_query_plans"]))
 
     def test_governance_closure_waf_keeps_policy_changes_hard_gated(self) -> None:
         args = self.governance_args(service=["WAF"])

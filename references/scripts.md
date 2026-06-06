@@ -318,9 +318,9 @@ python3 scripts/hcloud_governance_closure_plan.py \
   --pretty
 ```
 
-Use this when the user asks for a P1 governance closure plan instead of a single governance command. The default service set is TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo. The planner returns five stages: governance scope, read-only evidence, risk/privacy gate, review plan, and promotion readiness.
+Use this when the user asks for a P1 governance closure plan instead of a single governance command. The default service set is TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo. The planner returns five stages: governance scope, read-only evidence, risk/privacy gate, review plan, and promotion readiness. The read-only evidence stage includes generated evidence command plans for supported non-billing services and missing target-parameter gaps for target-scoped queries.
 
-The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and keeps credentials outside the planner. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
+The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and keeps credentials outside the planner; it deliberately does not generate live `hcloud BSS` query commands. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
 
 ### Registry Read-Only Smoke
 

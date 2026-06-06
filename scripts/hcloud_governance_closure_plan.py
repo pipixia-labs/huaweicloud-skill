@@ -11,6 +11,8 @@ import hcloud_billing_readonly
 import hcloud_catalog
 import hcloud_common
 import hcloud_curated_promotion_audit
+import hcloud_resource_discovery
+import hcloud_resource_query
 
 
 P1_SERVICES = ("TMS", "CTS", "CBR", "RMS_CONFIG", "BILLING_BSS", "WAF", "DLI", "CODEARTSREPO")
@@ -178,6 +180,56 @@ SERVICE_TASKS: dict[str, dict[str, Any]] = {
     },
 }
 
+PARAM_ALIASES: dict[str, dict[str, str]] = {
+    "CBR": {
+        "vault_id": "vault_or_policy_id",
+        "policy_id": "vault_or_policy_id",
+        "backup_id": "backup_id",
+    },
+    "CodeArtsRepo": {
+        "repository_uuid": "repository_id",
+        "project_uuid": "project_id",
+        "repository_id": "repository_id",
+        "branch_name": "branch",
+    },
+    "DLI": {
+        "sql": "sql_check_scope",
+        "queue_name": "queue_name",
+        "database_name": "database_name",
+    },
+    "RMS": {
+        "domain_id": "domain_id",
+        "provider": "provider",
+        "resource_type": "resource_type",
+        "resource_id": "resource_id",
+        "policy_assignment_id": "policy_assignment_id",
+        "aggregator_id": "aggregator_id",
+    },
+    "Config": {
+        "domain_id": "domain_id",
+        "provider": "provider",
+        "resource_type": "resource_type",
+        "resource_id": "resource_id",
+        "policy_assignment_id": "policy_assignment_id",
+        "aggregator_id": "aggregator_id",
+        "conformance_pack_id": "conformance_pack_id",
+    },
+    "TMS": {
+        "resource_id": "resource_id",
+        "resource_type": "resource_type",
+        "resource_types": "resource_types",
+        "tags": "tags",
+        "key": "tag_key",
+    },
+    "WAF": {
+        "enterprise_project_id": "enterprise_project_id",
+        "policy_id": "policy_id",
+        "domain": "domain",
+        "host_id": "host_id",
+        "certificate_id": "certificate_id",
+    },
+}
+
 
 def canonical_service(value: str) -> str:
     """Return a canonical P1 governance service key."""
@@ -247,6 +299,154 @@ def build_billing_specs(params: dict[str, str]) -> list[dict[str, Any]]:
             }
         )
     return specs
+
+
+def discovery_args(args: argparse.Namespace, service: str, operation: str) -> SimpleNamespace:
+    """Return arguments for one metadata-backed governance discovery plan."""
+    return SimpleNamespace(
+        service=service,
+        operation=operation,
+        region=args.region,
+        project_id=args.project_id,
+        profile=args.profile,
+        limit=getattr(args, "limit", 10),
+        catalog_max_operations=1,
+        execute=False,
+        timeout=getattr(args, "timeout", 120),
+    )
+
+
+def query_params_for_operation(service: str, operation: str, params: dict[str, str]) -> list[str]:
+    """Return explicit query params relevant to an operation without leaking unrelated task params."""
+    required = hcloud_resource_query.required_params(service, operation)
+    aliases = PARAM_ALIASES.get(service, {})
+    selected: list[str] = []
+    for required_name in required:
+        if required_name in params:
+            selected.append(f"{required_name}={params[required_name]}")
+            continue
+        source_name = aliases.get(required_name)
+        if source_name and source_name in params:
+            selected.append(f"{required_name}={params[source_name]}")
+    return selected
+
+
+def query_args(args: argparse.Namespace, service: str, operation: str, params: dict[str, str]) -> SimpleNamespace:
+    """Return arguments for one target-scoped governance evidence query plan."""
+    return SimpleNamespace(
+        service=service,
+        operation=operation,
+        param=query_params_for_operation(service, operation, params),
+        arg=[],
+        region=args.region,
+        project_id=args.project_id,
+        profile=args.profile,
+        execute=False,
+        timeout=getattr(args, "timeout", 120),
+        allow_sensitive_read=False,
+    )
+
+
+def compact_discovery_plan(args: argparse.Namespace, service: str, operation: str) -> dict[str, Any]:
+    """Build a compact read-only discovery command plan."""
+    plan = hcloud_resource_discovery.build_plan(discovery_args(args, service, operation))
+    return {
+        "service": service,
+        "operation": operation,
+        "success": bool(plan.get("success")),
+        "mode": plan.get("mode"),
+        "metadata_backed": bool(plan.get("metadata_backed")),
+        "coverage": plan.get("coverage"),
+        "commands": plan.get("commands", []),
+        "error": plan.get("error"),
+        "required_params": plan.get("catalog_required_params", []),
+    }
+
+
+def compact_query_plan(
+    args: argparse.Namespace,
+    service: str,
+    operation: str,
+    params: dict[str, str],
+) -> dict[str, Any]:
+    """Build a compact target-scoped read query command plan."""
+    plan = hcloud_resource_query.build_plan(query_args(args, service, operation, params))
+    return {
+        "service": service,
+        "operation": plan.get("operation", operation),
+        "requested_operation": plan.get("requested_operation"),
+        "success": bool(plan.get("success")),
+        "mode": plan.get("mode"),
+        "metadata_backed": bool(plan.get("metadata_backed")),
+        "coverage": plan.get("coverage"),
+        "operation_scope": plan.get("operation_scope"),
+        "required_params": plan.get("required_params", []),
+        "provided_params": plan.get("provided_params", []),
+        "missing_params": plan.get("missing_params", []),
+        "command": plan.get("command"),
+        "command_shell": plan.get("command_shell"),
+        "risk": plan.get("risk"),
+        "error": plan.get("error"),
+    }
+
+
+def evidence_command_plans(
+    args: argparse.Namespace,
+    profile_entries: list[dict[str, Any]],
+    params: dict[str, str],
+    *,
+    request_spec_only: bool = False,
+) -> dict[str, Any]:
+    """Return read-only evidence command plans for governance profiles."""
+    if request_spec_only:
+        return {
+            "summary": {
+                "discovery_plan_count": 0,
+                "resource_query_plan_count": 0,
+                "planned_command_count": 0,
+                "missing_param_query_count": 0,
+            },
+            "discovery_plans": [],
+            "resource_query_plans": [],
+            "missing_param_items": [],
+            "skipped_reason": "Billing/BSS uses official API request specs only; this planner does not generate hcloud BSS live query commands.",
+        }
+
+    discovery_plans = []
+    query_plans = []
+    for entry in profile_entries:
+        service = entry["service"]
+        profile = entry.get("profile") or {}
+        for operation in profile.get("readiness_operations", []) if isinstance(profile, dict) else []:
+            discovery_plan = compact_discovery_plan(args, service, str(operation))
+            discovery_plans.append(discovery_plan)
+            if not discovery_plan.get("success"):
+                query_plans.append(compact_query_plan(args, service, str(operation), params))
+        for operation in profile.get("resource_query_operations", []) if isinstance(profile, dict) else []:
+            query_plans.append(compact_query_plan(args, service, str(operation), params))
+
+    planned_command_count = sum(len(plan.get("commands", [])) for plan in discovery_plans)
+    planned_command_count += sum(1 for plan in query_plans if plan.get("command"))
+    missing_param_items = [
+        {
+            "service": plan["service"],
+            "operation": plan["operation"],
+            "missing_params": plan.get("missing_params", []),
+        }
+        for plan in query_plans
+        if plan.get("missing_params")
+    ]
+    return {
+        "summary": {
+            "discovery_plan_count": len(discovery_plans),
+            "resource_query_plan_count": len(query_plans),
+            "planned_command_count": planned_command_count,
+            "missing_param_query_count": len(missing_param_items),
+        },
+        "discovery_plans": discovery_plans,
+        "resource_query_plans": query_plans,
+        "missing_param_items": missing_param_items,
+    }
 
 
 def load_profiles() -> dict[str, Any]:
@@ -320,7 +520,87 @@ def profile_operations(profile_entries: list[dict[str, Any]], field: str) -> lis
     return result
 
 
+def service_governance_summary(
+    service_key: str,
+    promotion: list[dict[str, Any]],
+    evidence: dict[str, Any],
+    billing_specs: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return a compact governance readiness summary for one P1 service group."""
+    if promotion:
+        scores = [int((entry.get("value") or {}).get("score") or 0) for entry in promotion]
+        eligible = [str(entry.get("service")) for entry in promotion if entry.get("eligible")]
+        blocked = [str(entry.get("service")) for entry in promotion if not entry.get("eligible")]
+        missing = [
+            {"service": entry.get("service"), "missing": entry.get("missing", [])}
+            for entry in promotion
+            if entry.get("missing")
+        ]
+        average_score = round(sum(scores) / len(scores), 1) if scores else 0
+    else:
+        eligible = []
+        blocked = []
+        missing = []
+        average_score = 0
+
+    billing_errors = [
+        {"operation": spec.get("operation"), "errors": (spec.get("validation") or {}).get("errors", [])}
+        for spec in billing_specs
+        if not spec.get("success")
+    ]
+    evidence_summary = evidence.get("summary", {})
+    if blocked or billing_errors or evidence_summary.get("missing_param_query_count"):
+        status = "evidence_gap"
+    elif eligible or service_key == "BILLING_BSS":
+        status = "review_ready"
+    else:
+        status = "profile_only"
+    return {
+        "status": status,
+        "average_value_score": average_score,
+        "eligible_services": eligible,
+        "blocked_services": blocked,
+        "promotion_missing": missing,
+        "billing_spec_errors": billing_errors,
+        "evidence_summary": evidence_summary,
+    }
+
+
+def aggregate_governance_summary(service_plans: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return a top-level P1 governance summary."""
+    statuses = [plan.get("governance_summary", {}).get("status") for plan in service_plans]
+    evidence_command_count = sum(
+        int(plan.get("governance_summary", {}).get("evidence_summary", {}).get("planned_command_count") or 0)
+        for plan in service_plans
+    )
+    missing_param_query_count = sum(
+        int(plan.get("governance_summary", {}).get("evidence_summary", {}).get("missing_param_query_count") or 0)
+        for plan in service_plans
+    )
+    blocked_services = [
+        service
+        for plan in service_plans
+        for service in plan.get("governance_summary", {}).get("blocked_services", [])
+    ]
+    eligible_services = [
+        service
+        for plan in service_plans
+        for service in plan.get("governance_summary", {}).get("eligible_services", [])
+    ]
+    return {
+        "service_group_count": len(service_plans),
+        "review_ready_group_count": statuses.count("review_ready"),
+        "evidence_gap_group_count": statuses.count("evidence_gap"),
+        "profile_only_group_count": statuses.count("profile_only"),
+        "eligible_services": sorted(dict.fromkeys(eligible_services)),
+        "blocked_services": sorted(dict.fromkeys(blocked_services)),
+        "planned_evidence_command_count": evidence_command_count,
+        "missing_param_query_count": missing_param_query_count,
+    }
+
+
 def build_service_plan(
+    args: argparse.Namespace,
     service_key: str,
     params: dict[str, str],
     profiles: dict[str, Any],
@@ -331,6 +611,8 @@ def build_service_plan(
     profile_entries = profile_summaries(service_key, profiles)
     promotion = promotion_entries(service_key, audits)
     billing_specs = build_billing_specs(params) if service_key == "BILLING_BSS" else []
+    evidence = evidence_command_plans(args, profile_entries, params, request_spec_only=service_key == "BILLING_BSS")
+    governance_summary = service_governance_summary(service_key, promotion, evidence, billing_specs)
     risk_profiles = [
         {
             "service": entry["service"],
@@ -346,6 +628,7 @@ def build_service_plan(
         "summary": task["summary"],
         "planning_only": True,
         "execution_supported": False,
+        "governance_summary": governance_summary,
         "stages": [
             {
                 "id": "governance_scope",
@@ -358,6 +641,7 @@ def build_service_plan(
                 "description": "Collect or plan read-only discovery and target-scoped evidence before any conclusion.",
                 "readiness_operations": profile_operations(profile_entries, "readiness_operations"),
                 "resource_query_operations": profile_operations(profile_entries, "resource_query_operations"),
+                "evidence_command_plans": evidence,
                 "billing_request_specs": billing_specs,
             },
             {
@@ -406,11 +690,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         service
         for service_key in selected
         for service in SERVICE_GROUPS[service_key]
-        if service.upper() != "BSS"
     ]
     profiles = load_profiles()
     audits = audit_map(underlying_services, args.min_live_ops)
-    service_plans = [build_service_plan(service_key, params, profiles, audits) for service_key in selected]
+    service_plans = [build_service_plan(args, service_key, params, profiles, audits) for service_key in selected]
     return {
         "success": True,
         "mode": "plan",
@@ -421,6 +704,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "profile": args.profile,
         "selected_services": selected,
         "service_count": len(service_plans),
+        "governance_summary": aggregate_governance_summary(service_plans),
         "services": service_plans,
         "global_boundaries": [
             "P1 governance closure is read-only/planner-only by default.",
@@ -438,9 +722,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--region", help="Explicit cli-region for generated review context.")
     parser.add_argument("--project-id", help="Optional project_id for generated review context.")
     parser.add_argument("--profile", help="Optional cli-profile for generated review context.")
+    parser.add_argument("--limit", type=int, default=10, help="Optional limit for generated read-only evidence commands.")
+    parser.add_argument("--timeout", type=int, default=120, help="Timeout value carried into generated read-only command plans.")
     parser.add_argument("--min-live-ops", type=int, default=2, help="Minimum live-read-smoked ops used in promotion audit.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
+    if args.limit < 1:
+        parser.error("--limit must be greater than 0.")
+    if args.timeout < 1:
+        parser.error("--timeout must be greater than 0.")
     if args.min_live_ops < 1:
         parser.error("--min-live-ops must be greater than 0.")
     return args
