@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import re
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = ROOT / "scripts"
 REFERENCES_DIR = ROOT / "references"
 REGISTRY_PATH = REFERENCES_DIR / "service-registry.json"
 
@@ -21,7 +24,16 @@ SECRET_HINTS = (
     "securitytoken",
     "x-auth-token",
     "auth-token",
-    "token",
+    "access-token",
+    "access_token",
+    "accesstoken",
+    "auth_token",
+    "bearer-token",
+    "bearer_token",
+    "refresh-token",
+    "refresh_token",
+    "session-token",
+    "session_token",
     "credential",
     "credentials",
     "password",
@@ -35,6 +47,17 @@ SECRET_HINTS = (
     "userdata",
 )
 OBSUTIL_SECRET_ARG_NAMES = {"-i", "-k", "-t", "-token"}
+MIN_REDACT_SECRET_LENGTH = 8
+
+
+def script_path(name: str) -> Path:
+    """Return an absolute path to a bundled script."""
+    return SCRIPTS_DIR / name
+
+
+def safe_exec_command_prefix() -> list[str]:
+    """Return the stable command prefix for the bundled safe executor."""
+    return ["python3", str(script_path("hcloud_safe_exec.py"))]
 
 
 def load_json(path: Path) -> Any:
@@ -70,9 +93,21 @@ def collect_known_secrets(config_path: Path | None = None) -> set[str]:
     for profile in config.get("profiles", []):
         for key in ("accessKeyId", "secretAccessKey", "securityToken"):
             value = profile.get(key)
-            if value:
+            if is_redactable_secret_value(value):
                 secrets.add(str(value))
     return secrets
+
+
+def is_redactable_secret_value(value: Any) -> bool:
+    """Return True when a scalar value is safe to redact by exact text match."""
+    if value is None:
+        return False
+    text = str(value).strip()
+    if len(text) < MIN_REDACT_SECRET_LENGTH:
+        return False
+    if text.isdigit():
+        return False
+    return True
 
 
 def looks_like_secret_arg(arg: str) -> bool:
@@ -88,11 +123,13 @@ def collect_inline_secrets(args: list[str]) -> set[str]:
     secrets: set[str] = set()
     for index, arg in enumerate(args):
         if "=" in arg and looks_like_secret_arg(arg.split("=", 1)[0]):
-            secrets.add(arg.split("=", 1)[1])
+            value = arg.split("=", 1)[1]
+            if is_redactable_secret_value(value):
+                secrets.add(value)
             continue
         if looks_like_secret_arg(arg) and index + 1 < len(args):
             next_arg = args[index + 1]
-            if next_arg and not next_arg.startswith("-"):
+            if next_arg and not next_arg.startswith("-") and is_redactable_secret_value(next_arg):
                 secrets.add(next_arg)
     return secrets
 
@@ -103,9 +140,9 @@ def collect_json_secrets(value: Any) -> set[str]:
     if isinstance(value, dict):
         for key, child in value.items():
             if looks_like_secret_arg(str(key)):
-                if isinstance(child, str) and child:
+                if isinstance(child, str) and is_redactable_secret_value(child):
                     secrets.add(child)
-                elif isinstance(child, (int, float, bool)):
+                elif isinstance(child, (int, float, bool)) and is_redactable_secret_value(child):
                     secrets.add(str(child))
                 continue
             secrets.update(collect_json_secrets(child))
@@ -127,8 +164,9 @@ def coerce_output_text(value: str | bytes | None) -> str:
 def redact_text(text: str | bytes | None, secrets: set[str]) -> str:
     """Replace exact secret values with a redaction marker."""
     redacted = coerce_output_text(text)
-    for secret in sorted((item for item in secrets if item), key=len, reverse=True):
-        redacted = redacted.replace(secret, "***")
+    safe_secrets = (item for item in secrets if is_redactable_secret_value(item))
+    for secret in sorted(safe_secrets, key=len, reverse=True):
+        redacted = re.sub(re.escape(secret), "***", redacted)
     return redacted
 
 
@@ -163,3 +201,9 @@ def redact_json(value: Any, secrets: set[str], key: str | None = None) -> Any:
     if isinstance(value, str):
         return redact_text(value, secrets)
     return value
+
+
+def stable_plan_token(value: Any) -> str:
+    """Return a short stable token for confirming an exact generated plan."""
+    serialized = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]

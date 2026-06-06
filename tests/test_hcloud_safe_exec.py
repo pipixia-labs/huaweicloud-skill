@@ -50,7 +50,7 @@ class SafeExecRedactionTest(unittest.TestCase):
 
     def test_redact_json_redacts_secret_keys_and_known_values(self) -> None:
         payload = {
-            "token": "token-value",
+            "accessToken": "token-value",
             "nested": {
                 "note": "prefix secret-value suffix",
                 "items": [{"adminPass": "password-value"}],
@@ -59,7 +59,7 @@ class SafeExecRedactionTest(unittest.TestCase):
 
         redacted = hcloud_safe_exec.redact_json(payload, {"secret-value"})
 
-        self.assertEqual(redacted["token"], "***")
+        self.assertEqual(redacted["accessToken"], "***")
         self.assertEqual(redacted["nested"]["note"], "prefix *** suffix")
         self.assertEqual(redacted["nested"]["items"][0]["adminPass"], "***")
 
@@ -127,7 +127,10 @@ class SafeExecRedactionTest(unittest.TestCase):
             )
             hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
             input_path = tmp_path / "input.json"
-            input_path.write_text(json.dumps({"adminPass": "password-value", "token": "token-value"}), encoding="utf-8")
+            input_path.write_text(
+                json.dumps({"adminPass": "password-value", "accessToken": "token-value"}),
+                encoding="utf-8",
+            )
             parsed_path = tmp_path / "parsed.json"
 
             completed = subprocess.run(

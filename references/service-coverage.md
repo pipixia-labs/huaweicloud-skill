@@ -73,7 +73,9 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 
 当前 metadata-backed operation 级 live smoke 证据见 `references/hcloud-service-confidence.json` 和 `tests/manual-validation-2026-06-05.md`。已通过只读 smoke 的 operation 可以标为 `live-read-smoked`；只有服务写入 `references/service-registry.json` 后才算 curated registry 覆盖。
 
-`DCS`、`RFS`、`UCS` 已从候选提升为 read-only curated registry 覆盖。下一批候选保留 `WAF`、`CodeArtsRepo`、`DLI`；这些服务已有 candidate profile、playbook、risk profile 和至少 2 条 `live-read-smoked` operation，是否进入 registry 仍取决于维护面决策。
+`DCS`、`RFS`、`UCS` 已从候选提升为 read-only curated registry 覆盖。下一批候选包括 `WAF`、`CodeArtsRepo`、`DLI`、`CTS`、`TMS`、`CBR`、`RMS`、`Config`、`LTS`。这些服务已有 candidate profile、playbook、risk profile 和用户价值标签；是否进入 registry 仍取决于 live read smoke 证据和维护面决策。
+
+`CTS`、`TMS`、`CBR`、`RMS`、`Config`、`LTS` 当前用于补齐“管好云”和“用好云”的治理、审计、备份、标签、资源合规和日志能力。它们仍是 metadata-backed candidate，不等同于默认可执行覆盖；晋级前至少需要补齐只读 live smoke、目标型查询样例和失败分桶记录。
 
 ## 已实测能力
 

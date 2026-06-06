@@ -98,6 +98,29 @@ class HcloudCommonTest(unittest.TestCase):
             ["hcloud", "configure", "set", "--secret-key", "***"],
         )
 
+    def test_safe_exec_command_prefix_uses_absolute_bundled_script(self) -> None:
+        prefix = hcloud_common.safe_exec_command_prefix()
+
+        self.assertEqual(prefix[0], "python3")
+        self.assertTrue(Path(prefix[1]).is_absolute())
+        self.assertEqual(Path(prefix[1]).name, "hcloud_safe_exec.py")
+
+    def test_redaction_avoids_generic_token_and_short_numeric_values(self) -> None:
+        payload = {
+            "nextPageToken": "page-token-value",
+            "accessToken": "credential-token-value",
+            "note": "keep page-token-value but hide credential-token-value",
+        }
+
+        redacted = hcloud_common.redact_json(payload, {"credential-token-value", "12345678"})
+
+        self.assertFalse(hcloud_common.looks_like_secret_arg("nextPageToken"))
+        self.assertTrue(hcloud_common.looks_like_secret_arg("accessToken"))
+        self.assertEqual(redacted["nextPageToken"], "page-token-value")
+        self.assertEqual(redacted["accessToken"], "***")
+        self.assertEqual(redacted["note"], "keep page-token-value but hide ***")
+        self.assertEqual(hcloud_common.redact_text("order id 12345678", {"12345678"}), "order id 12345678")
+
 
 if __name__ == "__main__":
     unittest.main()

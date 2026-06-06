@@ -14,6 +14,7 @@ load_json = hcloud_common.load_json
 
 
 SERVICE_COLLECTION_KEYS = {
+    "ECS": ("servers", "server", "cloudservers", "cloudserver", "items"),
     "EIP": ("publicips", "publicip", "eips", "floatingips", "items"),
     "VPC": (
         "vpcs",
@@ -102,6 +103,37 @@ ID_KEYS = (
     "config_id",
     "configuration_id",
 )
+SERVICE_FALLBACK_ID_KEYS = {
+    "ECS": ("id", "server_id"),
+    "EIP": ("id", "publicip_id"),
+    "VPC": (
+        "id",
+        "vpc_id",
+        "subnet_id",
+        "security_group_id",
+        "security_group_rule_id",
+        "port_id",
+    ),
+    "ELB": (
+        "id",
+        "loadbalancer_id",
+        "listener_id",
+        "pool_id",
+        "member_id",
+        "healthmonitor_id",
+        "certificate_id",
+    ),
+    "EVS": ("id", "volume_id", "snapshot_id"),
+    "NAT": ("id", "nat_gateway_id", "dnat_rule_id", "snat_rule_id", "transit_ip_id"),
+    "RDS": ("id", "instance_id", "config_id", "configuration_id"),
+    "CCE": ("id", "cluster_id"),
+    "CDN": ("id", "domain_id"),
+    "DNS": ("id", "zone_id", "recordset_id"),
+    "SCM": ("id", "certificate_id"),
+    "CES": ("id",),
+    "IMS": ("id", "image_id"),
+    "KPS": ("keypair_name",),
+}
 NAME_KEYS = (
     "name",
     "alias",
@@ -161,6 +193,7 @@ def collect_dicts(payload: Any, service: str) -> list[dict[str, Any]]:
     """Collect candidate resource dictionaries from common service response shapes."""
     service = service.upper()
     keys = SERVICE_COLLECTION_KEYS.get(service, ("items",))
+    fallback_id_keys = SERVICE_FALLBACK_ID_KEYS.get(service, ("id",))
     collected: list[dict[str, Any]] = []
 
     def visit(value: Any) -> None:
@@ -179,7 +212,7 @@ def collect_dicts(payload: Any, service: str) -> list[dict[str, Any]]:
                         collected.append(nested)
             elif isinstance(item, dict):
                 collected.append(item)
-        if not collected and any(normalize(value.get(key)) for key in ID_KEYS):
+        if not collected and any(normalize(value.get(key)) for key in fallback_id_keys):
             collected.append(value)
             return
         if not collected:

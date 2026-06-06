@@ -181,6 +181,10 @@ class HcloudCuratedPromotionAuditTest(unittest.TestCase):
         self.assertEqual(by_service["DCS"]["status"], "blocked")
         self.assertNotIn("live_read_smoked_operations:2/2", by_service["DCS"]["missing"])
         self.assertIn("curation_profile", by_service["DCS"]["missing"])
+        self.assertIn("用好云", by_service["DCS"]["value"]["tenant_goal_tags"])
+        self.assertTrue(result["criteria"]["includes_value_ranking"])
+        ranked_services = [item["service"] for item in result["value_ranked_candidates"]]
+        self.assertIn("DCS", ranked_services)
 
     def test_candidate_is_eligible_when_profile_and_evidence_are_complete(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -247,6 +251,10 @@ class HcloudCuratedPromotionAuditTest(unittest.TestCase):
                         "DCS": {
                             "status": "candidate",
                             "target_coverage": "medium",
+                            "lifecycle_stage": "promotion_candidate",
+                            "user_value": "Validate cache readiness before production traffic.",
+                            "tenant_goal_tags": ["用好云"],
+                            "scenario_tags": ["cache", "readiness"],
                             "readiness_operations": ["ListInstances"],
                             "resource_query_operations": ["ShowInstance"],
                             "playbooks": ["references/playbooks/dcs-readiness.md"],
@@ -275,6 +283,13 @@ class HcloudCuratedPromotionAuditTest(unittest.TestCase):
         self.assertEqual(candidate["status"], "eligible")
         self.assertEqual(candidate["missing"], [])
         self.assertEqual(candidate["profile"]["status"], "candidate")
+        self.assertEqual(candidate["profile"]["lifecycle_stage"], "promotion_candidate")
+        self.assertEqual(candidate["profile"]["user_value"], "Validate cache readiness before production traffic.")
+        self.assertEqual(candidate["value"]["promotion_priority"], "high")
+        self.assertIn("用好云", candidate["value"]["tenant_goal_tags"])
+        self.assertIn("readiness", candidate["value"]["scenario_tags"])
+        self.assertEqual(result["value_ranked_candidates"][0]["service"], "DCS")
+        self.assertIn("cache", result["value_ranked_candidates"][0]["scenario_tags"])
 
     def test_include_curated_reports_registry_profile_health(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -572,6 +572,26 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertEqual(summary["command_count"], 1)
         self.assertEqual(summary["verification_count"], 1)
 
+    def test_run_journal_redacts_sensitive_event_data_on_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            journal = Path(tmp_dir) / "run.jsonl"
+            entry = hcloud_run_journal.append_event(
+                journal,
+                {
+                    "type": "command",
+                    "adminPass": "password-value",
+                    "accessToken": "token-value",
+                    "stdout": "created with token-value",
+                },
+            )
+            raw_text = journal.read_text(encoding="utf-8")
+
+        self.assertEqual(entry["adminPass"], "***")
+        self.assertEqual(entry["accessToken"], "***")
+        self.assertEqual(entry["stdout"], "created with ***")
+        self.assertNotIn("password-value", raw_text)
+        self.assertNotIn("token-value", raw_text)
+
 
 if __name__ == "__main__":
     unittest.main()

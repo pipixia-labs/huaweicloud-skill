@@ -116,6 +116,137 @@ python3 scripts/hcloud_resource_discovery.py \
 
 Use for list/count style discovery. Curated registry services use registered query operations. Registry-outside services use generated catalog metadata and only auto-select read-only discovery operations without required business parameters. `--execute` is required for real cloud queries.
 
+### Account Inventory
+
+```bash
+python3 scripts/hcloud_account_inventory.py \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --limit=50 \
+  --pretty
+```
+
+Use this for a read-only account inventory plan across core services such as ECS, VPC, EIP, ELB, EVS, NAT, RDS, CCE, CDN, DNS, SCM, and OBS. Default mode only builds commands. Add `--execute` only after read-only collection is approved.
+
+```bash
+python3 scripts/hcloud_account_inventory.py \
+  --service EIP \
+  --service EVS \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --execute \
+  --pretty
+```
+
+Save executed JSON output when you need follow-up idle-resource analysis.
+
+### Idle Candidate Audit
+
+```bash
+python3 scripts/hcloud_idle_audit.py \
+  --inventory-json-file <saved-inventory-output.json> \
+  --pretty
+```
+
+Use this to analyze saved read-only JSON and identify review candidates such as unbound EIPs, unattached EVS volumes, stopped/abnormal ECS instances, unhealthy ELB resources, and RDS/NAT lifecycle review targets. The script does not generate delete, release, unsubscribe, stop, or resize commands; candidates require owner, tag, metric, backup, dependency, and billing checks before any action.
+
+You can also pass service-specific query output directly:
+
+```bash
+python3 scripts/hcloud_idle_audit.py \
+  --input-json-file EIP=<list-publicips-result.json> \
+  --input-json-file EVS=<list-volumes-result.json> \
+  --pretty
+```
+
+### Teardown Review Plan
+
+```bash
+python3 scripts/hcloud_teardown_plan.py \
+  --idle-audit-json-file <saved-idle-audit-output.json> \
+  --pretty
+```
+
+Use this after idle audit to produce a dependency-aware teardown review checklist. It is planner-only: every step has `executable=false` and `submit_command=null`. Build mutating commands only after fresh read-only evidence and explicit approval for each exact resource action.
+
+### Observability Readiness Plan
+
+```bash
+python3 scripts/hcloud_observability_plan.py \
+  --service ECS \
+  --target-id <server-id> \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --pretty
+```
+
+Use this before declaring a resource healthy or idle based on partial evidence. It builds a service-specific resource state check when a target ID is provided, plus a CES `ListMetrics` discovery plan. The planner intentionally does not assume exact namespace, metric names, or dimensions; discover them first, then choose the time range and period.
+
+`--execute` runs only approved read-only state and metric discovery commands. Alarm creation or notification-policy changes are not in this planner.
+
+### CES Alarm Planner
+
+```bash
+python3 scripts/hcloud_ces_alarm_plan.py \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --alarm-name cpu-high \
+  --namespace SYS.ECS \
+  --metric-name cpu_util \
+  --dimension instance_id=<server-id> \
+  --threshold 80 \
+  --pretty
+```
+
+Use this to discover CES metrics and existing alarm rules, then draft an alarm rule spec. The result is planner-only: it does not create or update CES alarms.
+
+### LTS Read-Only Logs
+
+```bash
+python3 scripts/hcloud_lts_readonly.py \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --log-group-id <group-id> \
+  --log-stream-id <stream-id> \
+  --start-time <start> \
+  --end-time <end> \
+  --keyword ERROR \
+  --pretty
+```
+
+Use this to discover LTS log groups/streams and build bounded read-only log queries. Logs may contain sensitive application data; keep time ranges and keywords narrow and summarize results.
+
+### Billing And Cost Capability Probe
+
+```bash
+python3 scripts/hcloud_billing_cost_probe.py --pretty
+```
+
+Use this as a local feasibility spike before promising billing or cost analysis. It inspects the bundled catalog and curated registry for direct BSS/Billing/Cost-style service support and separates direct service matches from weak keyword operation matches. It does not call live billing APIs and does not access invoice, order, payment, subscription, or spend data.
+
+If no direct billing/cost service is present, treat Billing/Cost as unsupported in the current skill version and research official Huawei Cloud docs before adding any live probe.
+
+### Billing And Cost Read-Only Request Planner
+
+```bash
+python3 scripts/hcloud_billing_readonly.py \
+  --operation monthly-sum \
+  --bill-cycle 2026-05 \
+  --service-type-code hws.service.type.ec2 \
+  --pretty
+```
+
+```bash
+python3 scripts/hcloud_billing_readonly.py \
+  --operation cost-data \
+  --begin-time 2026-05-01 \
+  --end-time 2026-05-31 \
+  --group-by CLOUD_SERVICE_TYPE \
+  --pretty
+```
+
+Use this to build a planner-only request spec for official Huawei Cloud Billing/Cost APIs such as monthly bill summary, cost analysis, and resource records. The script does not sign requests, accept credentials, or send HTTP traffic. Execute the generated spec only through a reviewed signed-request runner, Huawei Cloud SDK, or API Explorer after the user confirms account scope, time range, enterprise project scope, and permission boundary.
+
 ### Explicit Resource Query
 
 ```bash
@@ -212,6 +343,12 @@ python3 scripts/hcloud_curated_promotion_audit.py \
   --service WAF \
   --service CodeArtsRepo \
   --service DLI \
+  --service CTS \
+  --service TMS \
+  --service CBR \
+  --service RMS \
+  --service Config \
+  --service LTS \
   --min-live-ops 2 \
   --include-curated \
   --pretty
@@ -220,6 +357,8 @@ python3 scripts/hcloud_curated_promotion_audit.py \
 Use this before promoting metadata-backed services into `references/service-registry.json`. The audit checks the medium-coverage gate: enough `live-read-smoked` read operations, at least one target-scoped read candidate, at least one readiness discovery candidate, a complete `references/service-curation-profiles.json` candidate entry, existing playbook files, and complete risk-profile fields. A blocked result means the service should stay metadata-backed until the missing items are completed.
 
 Add `--include-curated` to audit the existing curated registry services for profile, playbook, and risk-profile completeness. This does not execute hcloud calls; it is a local maintenance gate.
+
+The audit also returns `value_ranked_candidates`, which scores candidates by promotion readiness and tenant-goal fit across 上好云、用好云、管好云. Use this ranking to choose the next grooming target; do not treat a high value score as permission to bypass missing evidence or playbooks.
 
 ## Change Planning And Guarded Flows
 

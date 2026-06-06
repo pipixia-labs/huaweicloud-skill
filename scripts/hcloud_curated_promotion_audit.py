@@ -11,7 +11,20 @@ import hcloud_catalog
 import hcloud_common
 
 
-DEFAULT_CANDIDATES = ("DCS", "RFS", "UCS", "WAF", "CodeArtsRepo", "DLI")
+DEFAULT_CANDIDATES = (
+    "DCS",
+    "RFS",
+    "UCS",
+    "WAF",
+    "CodeArtsRepo",
+    "DLI",
+    "CTS",
+    "TMS",
+    "CBR",
+    "RMS",
+    "Config",
+    "LTS",
+)
 PROFILES_PATH = hcloud_common.REFERENCES_DIR / "service-curation-profiles.json"
 REQUIRED_PROFILE_FIELDS = {
     "status",
@@ -26,6 +39,42 @@ REQUIRED_RISK_PROFILE_FIELDS = {
     "default_risk",
     "submit_policy",
     "verification_policy",
+}
+SERVICE_GOAL_TAGS = {
+    "ECS": {"上好云", "用好云"},
+    "VPC": {"上好云", "管好云"},
+    "EIP": {"上好云", "管好云"},
+    "ELB": {"上好云", "用好云"},
+    "EVS": {"上好云", "用好云"},
+    "NAT": {"上好云", "管好云"},
+    "RDS": {"用好云"},
+    "DCS": {"用好云"},
+    "CCE": {"上好云", "用好云"},
+    "CDN": {"上好云", "用好云"},
+    "DNS": {"上好云", "管好云"},
+    "SCM": {"上好云", "管好云"},
+    "OBS": {"上好云", "用好云", "管好云"},
+    "CES": {"用好云", "管好云"},
+    "RFS": {"上好云", "管好云"},
+    "UCS": {"用好云", "管好云"},
+    "WAF": {"管好云"},
+    "DLI": {"用好云", "管好云"},
+    "CTS": {"管好云"},
+    "TMS": {"上好云", "管好云"},
+    "CBR": {"用好云", "管好云"},
+    "RMS": {"管好云"},
+    "CONFIG": {"管好云"},
+    "LTS": {"用好云", "管好云"},
+}
+CATEGORY_GOAL_TAGS = {
+    "compute": {"上好云", "用好云"},
+    "network": {"上好云", "管好云"},
+    "storage": {"上好云", "用好云", "管好云"},
+    "database": {"用好云"},
+    "middleware": {"用好云"},
+    "containers": {"上好云", "用好云"},
+    "management & governance": {"管好云"},
+    "security & compliance": {"管好云"},
 }
 
 
@@ -181,6 +230,17 @@ def promotion_candidate(
     missing.extend(catalog_operation_missing_items(catalog_service, profile, "readiness_operations"))
     missing.extend(catalog_operation_missing_items(catalog_service, profile, "resource_query_operations"))
 
+    value = candidate_value_profile(
+        service_name=str(catalog_service.get("name") or service_name),
+        category=str(catalog_service.get("category") or ""),
+        eligible=not missing,
+        live_read_smoked_operation_count=len(live_ops),
+        min_live_ops=min_live_ops,
+        has_resource_query_candidate=bool(resource_ops),
+        has_readiness_discovery_candidate=bool(discovery_ops),
+        profile=profile,
+        missing=missing,
+    )
     return {
         "service": str(catalog_service.get("name") or service_name),
         "status": "eligible" if not missing else "blocked",
@@ -194,14 +254,109 @@ def promotion_candidate(
         "profile": profile_summary(profile),
         "missing": missing,
         "next_steps": promotion_next_steps(missing),
+        "value": value,
     }
+
+
+def tenant_goal_tags(service_name: str, category: str) -> list[str]:
+    """Return tenant-goal tags for service value ranking."""
+    tags = set(SERVICE_GOAL_TAGS.get(service_name.upper(), set()))
+    tags.update(CATEGORY_GOAL_TAGS.get(category.strip().lower(), set()))
+    return sorted(tags)
+
+
+def candidate_value_profile(
+    *,
+    service_name: str,
+    category: str,
+    eligible: bool,
+    live_read_smoked_operation_count: int,
+    min_live_ops: int,
+    has_resource_query_candidate: bool,
+    has_readiness_discovery_candidate: bool,
+    profile: dict[str, Any] | None,
+    missing: list[str],
+) -> dict[str, Any]:
+    """Return a value-oriented ranking profile for one promotion candidate."""
+    tags = set(tenant_goal_tags(service_name, category))
+    score = 20
+    reasons: list[str] = []
+    if eligible:
+        score += 30
+        reasons.append("Candidate meets current promotion gates.")
+    else:
+        score += max(0, 18 - len(set(missing)) * 2)
+        reasons.append("Candidate is blocked but may still be worth grooming if tenant value is high.")
+    if live_read_smoked_operation_count >= min_live_ops:
+        score += 15
+        reasons.append("Read-only live-smoke evidence meets the configured threshold.")
+    else:
+        score += min(10, live_read_smoked_operation_count * 5)
+    if has_resource_query_candidate:
+        score += 10
+        reasons.append("Has target-scoped read candidates for post-change or inventory verification.")
+    if has_readiness_discovery_candidate:
+        score += 10
+        reasons.append("Has parameter-light discovery operations for readiness and inventory.")
+    if profile:
+        score += 8
+        reasons.append("Has a curation profile to maintain service-specific policy.")
+        profile_goal_tags = profile.get("tenant_goal_tags", [])
+        if isinstance(profile_goal_tags, list):
+            tags.update(str(item) for item in profile_goal_tags if item)
+        if profile.get("user_value"):
+            score += 4
+            reasons.append("Profile documents user value for prioritization.")
+    if "管好云" in tags:
+        score += 8
+        reasons.append("Supports governance, risk, visibility, or control-plane management goals.")
+    if "用好云" in tags:
+        score += 5
+    if "上好云" in tags:
+        score += 5
+
+    score = min(score, 100)
+    if score >= 80:
+        priority = "high"
+    elif score >= 55:
+        priority = "medium"
+    else:
+        priority = "low"
+    return {
+        "score": score,
+        "promotion_priority": priority,
+        "tenant_goal_tags": sorted(tags),
+        "scenario_tags": sorted(str(item) for item in profile.get("scenario_tags", []) if item) if profile else [],
+        "reasons": reasons,
+    }
+
+
+def ranked_candidate_values(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return candidates sorted by value score without mutating candidate order."""
+    ranked = []
+    for candidate in candidates:
+        value = candidate.get("value")
+        if not isinstance(value, dict):
+            continue
+        ranked.append(
+            {
+                "service": candidate.get("service"),
+                "status": candidate.get("status"),
+                "eligible": candidate.get("eligible"),
+                "score": value.get("score"),
+                "promotion_priority": value.get("promotion_priority"),
+                "tenant_goal_tags": value.get("tenant_goal_tags", []),
+                "scenario_tags": value.get("scenario_tags", []),
+            }
+        )
+    return sorted(ranked, key=lambda item: (int(item.get("score") or 0), str(item.get("service") or "")), reverse=True)
 
 
 def profile_summary(profile: dict[str, Any] | None) -> dict[str, Any] | None:
     """Return a compact profile summary for audit output."""
     if not profile:
         return None
-    return {
+    summary = {
         "status": profile.get("status"),
         "target_coverage": profile.get("target_coverage"),
         "readiness_operations": profile.get("readiness_operations", []),
@@ -209,6 +364,18 @@ def profile_summary(profile: dict[str, Any] | None) -> dict[str, Any] | None:
         "playbooks": profile.get("playbooks", []),
         "risk_profile": profile.get("risk_profile", {}),
     }
+    for field in (
+        "lifecycle_stage",
+        "user_value",
+        "tenant_goal_tags",
+        "scenario_tags",
+        "min_live_read_smoked_operations",
+        "official_docs",
+        "known_shape_exceptions",
+    ):
+        if field in profile:
+            summary[field] = profile.get(field)
+    return summary
 
 
 def curated_service_health(
@@ -327,12 +494,14 @@ def audit(
             "requires_curation_profile": True,
             "requires_playbook_file": True,
             "requires_risk_profile": True,
+            "includes_value_ranking": True,
         },
         "candidate_count": len(candidates),
         "eligible_count": sum(1 for item in candidates if item.get("eligible")),
         "blocked_count": sum(1 for item in candidates if item.get("status") == "blocked"),
         "already_curated_count": sum(1 for item in candidates if item.get("status") == "already_curated"),
         "candidates": candidates,
+        "value_ranked_candidates": ranked_candidate_values(candidates),
     }
     if include_curated:
         result["curated_service_health"] = curated_service_health(registry, profiles)

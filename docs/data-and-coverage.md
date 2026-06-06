@@ -87,7 +87,7 @@ flowchart TD
 
 `references/service-registry.json` 是最重要的数据文件。它驱动通用 discovery、resource query、service readiness、smoke、planner 和 coverage 检查。
 
-`references/service-curation-profiles.json` 是 registry 的维护档案，不直接让服务进入 curated registry。它用于记录已有 curated 服务和候选服务的 readiness operation、resource query operation、playbook 和 risk profile，并由 `scripts/hcloud_curated_promotion_audit.py` 校验。
+`references/service-curation-profiles.json` 是 registry 的维护档案，不直接让服务进入 curated registry。它用于记录已有 curated 服务和候选服务的 readiness operation、resource query operation、playbook、risk profile 和可选价值标签，并由 `scripts/hcloud_curated_promotion_audit.py` 校验。
 
 当前 registry 摘要以脚本输出为准：
 
@@ -149,6 +149,10 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | `resource_query_operations` | 需要目标参数的资源级只读查询。 |
 | `playbooks` | 对应维护手册路径，文件必须存在。 |
 | `risk_profile` | mutation 风险姿态，必须声明 mutation policy、default risk、submit policy 和 verification policy。 |
+| `lifecycle_stage` | 可选字段，说明该服务处在 curated、candidate grooming 等生命周期阶段。 |
+| `user_value` | 可选字段，说明该服务对用户“上好云、用好云、管好云”的价值。 |
+| `tenant_goal_tags` | 可选字段，常见值为 `上好云`、`用好云`、`管好云`。 |
+| `scenario_tags` | 可选字段，用于标记 audit、backup、logs、tagging、compliance 等场景。 |
 
 ### Operation 分类
 
@@ -172,6 +176,14 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 
 - EIP 专用 flow：`scripts/hcloud_eip_change_flow.py`，Plan -> dry-run -> guarded submit -> `ShowPublicip` verify。
 - 多服务通用 flow：`scripts/hcloud_guarded_change_flow.py`，覆盖 VPC、ELB、EVS、NAT、RDS、CDN、DNS、SCM，Plan -> dry-run -> guarded submit -> resource Show* verify -> read-only smoke。
+
+当前还有几类 lifecycle planner，它们不等同于真实写操作：
+
+- 账号盘点：`scripts/hcloud_account_inventory.py` 生成核心服务只读 inventory 计划。
+- 闲置审计：`scripts/hcloud_idle_audit.py` 从保存的 JSON 输出识别保守候选，不生成删除命令。
+- 回收评审：`scripts/hcloud_teardown_plan.py` 生成依赖顺序和回收前检查项，所有步骤都是 planner-only。
+- 可观测：`scripts/hcloud_observability_plan.py`、`scripts/hcloud_ces_alarm_plan.py`、`scripts/hcloud_lts_readonly.py` 分别处理资源状态/CES metric、CES alarm 草案和 LTS 只读日志查询。
+- Billing/Cost：`scripts/hcloud_billing_readonly.py` 只生成官方 API request spec，不签名、不发请求。
 
 ## Coverage gate
 
@@ -228,8 +240,9 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | 层级 | 服务 | 当前能力 |
 | --- | --- | --- |
 | 完整闭环 | ECS | 查询、创建 JSON 校验、dry-run/submit 命令生成、job 轮询、ACTIVE 验证。 |
-| 重点增强 | VPC、IMS、KPS、EIP、RDS、EVS、ELB、NAT、IAM | 多数有 list/readiness 路径；部分有资源级查询；EIP 有专用 guarded flow；VPC/ELB/EVS/NAT/RDS 已接入通用 guarded flow。 |
-| 最小路径 | CCE、CDN、DNS、SCM、OBS、CES | 有最小查询入口或专用适配；CDN/DNS/SCM 已接入通用 guarded flow；OBS 有专用 obsutil planner-only。 |
+| 重点增强 | VPC、IMS、KPS、EIP、RDS、EVS、ELB、NAT、IAM、DCS、RFS、UCS | 多数有 list/readiness 路径；部分有资源级查询；EIP 有专用 guarded flow；VPC/ELB/EVS/NAT/RDS 已接入通用 guarded flow；DCS/RFS/UCS 是 read-only curated。 |
+| 最小路径 | CCE、CDN、DNS、SCM、OBS、CES | 有最小查询入口或专用适配；CDN/DNS/SCM 已接入通用 guarded flow；OBS 有专用 obsutil planner-only；CES 只承诺指标发现和 alarm planner-only。 |
+| 晋级候选 | WAF、CodeArtsRepo、DLI、CTS、TMS、CBR、RMS、Config、LTS | 有 candidate profile、playbook 和 risk profile；WAF/CodeArtsRepo/DLI 已达到当前 evidence gate，CTS/TMS/CBR/RMS/Config/LTS 仍需补 live read-smoke。 |
 
 OBS 是特殊服务，不通过普通 OpenAPI-style metadata，而通过 `hcloud obs`/obsutil 适配。
 

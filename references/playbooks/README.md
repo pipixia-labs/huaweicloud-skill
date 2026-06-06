@@ -32,6 +32,20 @@
   - 查询证书、证书详情和部署目标，保护证书材料和私钥边界。
 - `ces-metric-readiness.md`
   - 查询云监控指标前确认 namespace、dimension、period 和时间范围。
+- `observability-readiness.md`
+  - 用资源状态、CES 指标、CES alarm planner 和 LTS 只读日志建立可观测证据链。
+- `cts-audit-readiness.md`
+  - CTS 审计 trail、trace、关键事件通知和 OBS 投递检查候选手册。
+- `tms-tag-governance.md`
+  - TMS 标签 taxonomy、资源标签覆盖和成本分摊治理候选手册。
+- `cbr-backup-posture.md`
+  - CBR vault、backup、policy、protectable resource 备份姿态候选手册。
+- `rms-config-governance.md`
+  - RMS 资源清单、policy state 和 aggregator 治理候选手册。
+- `config-governance-readiness.md`
+  - Config resource recorder、policy、conformance pack 和资源合规候选手册。
+- `lts-log-readiness.md`
+  - LTS log group、stream、transfer 和有限窗口日志查询候选手册。
 - `dcs-readiness.md`
   - DCS curated 只读 readiness、实例配置和风险边界手册。
 - `rfs-stack-readiness.md`
@@ -77,6 +91,12 @@
 - 目标是 DNS 解析：先看 `dns-zone-record-readiness.md`
 - 目标是证书：先看 `scm-certificate-readiness.md`
 - 目标是监控指标：先看 `ces-metric-readiness.md`
+- 目标是综合判断资源健康、闲置或生产可用性：先看 `observability-readiness.md`
+- 目标是审计操作记录或事件追踪：先看 `cts-audit-readiness.md`
+- 目标是标签治理、成本分摊或资源归属：先看 `tms-tag-governance.md`
+- 目标是备份、恢复点或 vault 姿态：先看 `cbr-backup-posture.md`
+- 目标是资源合规、policy state 或跨账号 aggregator：按 `rms-config-governance.md` 或 `config-governance-readiness.md` 进入
+- 目标是日志发现或有限窗口日志查询：先看 `lts-log-readiness.md`
 - 卡在上下文或认证：先看 `iam-context-bootstrap.md`
 - 卡在镜像、密钥对或网络依赖：按 `ims`、`kps`、`vpc` 对应 playbook 进入
 - 目标涉及 OBS：先看 `obs-boundary.md`，只读查询走 `hcloud_obs_readonly.py`，写类操作先走 `hcloud_obs_change_plan.py`

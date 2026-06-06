@@ -4,10 +4,19 @@
 
 你不需要记住复杂的 `hcloud` 命令，也不需要直接调用仓库里的脚本。用户只用自然语言告诉 Agent 目标，Agent 负责选择 Skill 内部的工具、构造命令、检查风险和整理结果。
 
+## 核心理念：帮助租户上好云、用好云、管好云
+
+这个 Skill 的目标不是简单把云 API 暴露给 Agent，而是帮助租户把云资源生命周期走稳：
+
+- **上好云**：在创建或变更前先确认账号、region、project、VPC、子网、安全组、镜像、规格、密钥和依赖拓扑，优先走 plan、dry-run、风险识别和显式确认，避免一开始就把资源建错、暴露错或配错。
+- **用好云**：资源创建或调整后继续做 job、资源状态、SSH/应用、ELB 后端、EVS 文件系统、CES 指标、LTS 日志等验收，避免“API 返回成功”被误判成“业务已经可用”。
+- **管好云**：通过账号盘点、闲置候选审计、回收前检查、标签治理、备份姿态、审计 trace、资源合规、账单/成本 request spec 和 run journal，把长期运营中的成本、安全、可观测和可追溯问题纳入治理。
+
 它适合这些场景：
 
 - 你希望 Agent 直接基于 `hcloud` 操作华为云，而不是靠记忆猜 API。
 - 你需要先盘点账号、区域、项目和资源，再决定下一步动作。
+- 你需要识别闲置、备份、标签、审计、日志、监控等治理前置问题。
 - 你希望变更前有 dry-run、风险识别、确认门禁和变更后验证。
 - 你希望把认证、区域、项目、参数、输出格式等 CLI 问题转成 Agent 能理解的结构化错误。
 
@@ -109,6 +118,29 @@ hcloud configure list
 和 EIP 的当前状态，说明公网 IP、绑定关系和仍需处理的问题。
 ```
 
+#### 审计闲置资源和回收前检查
+
+```text
+使用 huaweicloud-skill 先做当前账号资源盘点，然后基于已保存的 JSON 查询结果
+识别可能闲置的 EIP、EVS、ECS、ELB、RDS、NAT 和安全组候选。只输出候选、
+证据、风险和回收前检查顺序，不要生成删除、释放或退订命令。
+```
+
+#### 检查可观测性和日志证据
+
+```text
+使用 huaweicloud-skill 检查这台 ECS 是否具备可观测证据。先查资源状态，
+再通过 CES 发现指标 namespace、metric 和 dimension；如需要日志，只生成
+LTS log group、stream 和有限时间窗口的只读查询计划。
+```
+
+#### 规划账单或成本查询
+
+```text
+使用 huaweicloud-skill 为 2026-05 的月度账单汇总生成华为云 Billing/Cost
+API request spec。只做请求规划，不签名、不发送请求、不从资源清单推断费用。
+```
+
 #### 用拓扑图沟通方案或结果
 
 ```text
@@ -142,6 +174,7 @@ flowchart LR
 - **metadata-backed 广覆盖**：内置 hcloud metadata catalog；运行时默认通过 `references/hcloud-service-catalog.index.json` 按服务懒加载，旧 full catalog `references/hcloud-service-catalog.generated.json` 保留用于兼容和完整 diff。准确覆盖规模以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 输出和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。registry 外服务默认只开放安全发现、显式参数只读查询和 planner-only 变更计划。
 - **可信度分层**：metadata-backed 服务默认标为 catalog-derived；只读 smoke、dry-run 支持性和后续 confidence 信息单独记录，不把未实测能力包装成 curated coverage。
 - **curated 维护门禁**：`references/service-curation-profiles.json` 记录 curated 服务和晋级候选的 readiness、resource query、playbook 和 risk profile；`hcloud_curated_promotion_audit.py` 用于阻止证据不足的服务提前进入 registry。
+- **生命周期治理**：账号盘点、闲置资源审计、teardown review、CES/LTS 可观测、Billing/Cost request spec 和 CTS/TMS/CBR/RMS/Config/LTS candidate profiles 帮助用户从“能上云”继续走到“用好云、管好云”。
 - **安全执行封装**：统一处理超时、敏感信息脱敏、JSON 解析、错误分类和输出裁剪。
 - **变更门禁**：变更类流程默认包含 dry-run、风险识别、显式确认、执行记录和变更后验证；metadata-backed 服务会根据 catalog category 抬高风险，安全合规、身份、密钥和治理类 mutation 会进入硬门禁。
 - **入口暴露限制**：SSH `22` 和常见 Web 端口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 的入方向规则会阻止 `0.0.0.0/0`。

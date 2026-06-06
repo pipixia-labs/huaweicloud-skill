@@ -85,6 +85,36 @@ class EcsCreatePlanTest(unittest.TestCase):
         self.assertIn("safe_exec_shell", result["commands"])
         self.assertIn("--cli-region=cn-north-4", result["commands"]["hcloud"])
 
+    def test_build_result_writes_redacted_journal_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            payload = minimal_payload()
+            payload["body"]["server"].pop("key_name")
+            payload["body"]["server"]["adminPass"] = "password-value"
+            path = Path(tmp_dir) / "ecs.json"
+            journal = Path(tmp_dir) / "journal.jsonl"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            args = SimpleNamespace(
+                json_input_file=str(path),
+                operation="CreateServers",
+                region="cn-north-4",
+                profile=None,
+                mode="dryrun",
+                confirm_submit=False,
+                allow_placeholders=False,
+                max_count=10,
+                allow_large_count=False,
+                journal=str(journal),
+            )
+
+            result = hcloud_ecs_create_plan.build_result(args)
+            raw_journal = journal.read_text(encoding="utf-8")
+            event = json.loads(raw_journal)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(event["type"], "plan")
+        self.assertEqual(event["stage"], "ecs_create_plan")
+        self.assertNotIn("password-value", raw_journal)
+
     def test_submit_mode_requires_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "ecs.json"

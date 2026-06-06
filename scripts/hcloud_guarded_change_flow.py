@@ -7,10 +7,12 @@ import argparse
 import json
 import shlex
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import hcloud_common
+import hcloud_run_journal
 import hcloud_resource_discovery
 import hcloud_resource_query
 import hcloud_service_change_plan
@@ -56,6 +58,7 @@ VERIFY_PROFILES = {
         ("Certificate", "ShowCertificate", {"certificate_id": ("certificate.id", "certificate_id", "id")}),
     ],
 }
+EXPECT_ABSENT_PREFIXES = ("BatchDelete", "Delete", "Detach", "Disassociate", "Unbind")
 
 
 def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
@@ -78,6 +81,14 @@ def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
             "parsed_json": None,
             "parsed_json_error": "hcloud_safe_exec.py did not return valid JSON.",
         }
+
+
+def append_journal_event(args: argparse.Namespace, event: dict[str, Any]) -> None:
+    """Append one flow event to the configured journal when requested."""
+    journal = getattr(args, "journal", None)
+    if not journal:
+        return
+    hcloud_run_journal.append_event(Path(journal), event)
 
 
 def normalize_param_name(value: str) -> str:
@@ -115,7 +126,30 @@ def service_plan_args(args: argparse.Namespace) -> SimpleNamespace:
     )
 
 
-def submit_guard_failure(args: argparse.Namespace, service_plan: dict[str, Any]) -> dict[str, Any] | None:
+def submit_token_payload(args: argparse.Namespace, service_plan: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact plan fields that must match before submit execution."""
+    commands = service_plan.get("commands", {})
+    return {
+        "service": args.service.upper(),
+        "operation": service_plan.get("operation") or args.operation,
+        "region": args.region,
+        "project_id": args.project_id,
+        "profile": args.profile,
+        "submit": commands.get("submit"),
+        "risk": service_plan.get("risk"),
+    }
+
+
+def expected_submit_token(args: argparse.Namespace, service_plan: dict[str, Any]) -> str:
+    """Return the confirmation token for the current guarded submit plan."""
+    return hcloud_common.stable_plan_token(submit_token_payload(args, service_plan))
+
+
+def submit_guard_failure(
+    args: argparse.Namespace,
+    service_plan: dict[str, Any],
+    submit_token: str,
+) -> dict[str, Any] | None:
     """Return a structured guard failure when submit preconditions are not met."""
     if not args.execute_submit:
         return None
@@ -137,6 +171,13 @@ def submit_guard_failure(args: argparse.Namespace, service_plan: dict[str, Any])
             "success": False,
             "error": "Submit execution requires a successful dry-run or --skip-dryrun.",
             "reason": "The planned operation is mutating and the risk gate marked dry-run as required.",
+        }
+    if getattr(args, "submit_token", None) != submit_token:
+        return {
+            "success": False,
+            "error": "Submit execution requires a valid --submit-token from the current plan.",
+            "reason": "The token binds submit execution to the exact reviewed cloud plan, target, and command.",
+            "next_action": "Rebuild the plan, review it, then pass submit_guard.submit_token with --submit-token.",
         }
     return None
 
@@ -164,6 +205,27 @@ def operation_resource_name(operation: str) -> str:
         if operation.startswith(prefix):
             return operation[len(prefix):]
     return operation
+
+
+def expects_absent_after_change(operation: str) -> bool:
+    """Return True when a change verification should accept an absent resource."""
+    return operation.startswith(EXPECT_ABSENT_PREFIXES)
+
+
+def verification_not_found(plan: dict[str, Any]) -> bool:
+    """Return True when an executed verification failed because the resource is absent."""
+    result = plan.get("result")
+    if not isinstance(result, dict):
+        return False
+    details = result.get("error_details")
+    if isinstance(details, dict) and details.get("category") == "not_found":
+        return True
+    cloud_error = result.get("cloud_error")
+    if isinstance(cloud_error, dict):
+        combined = f"{cloud_error.get('code') or ''} {cloud_error.get('message') or ''}".lower()
+        return "notfound" in combined or "not found" in combined or "does not exist" in combined
+    text = f"{result.get('stdout') or ''}\n{result.get('stderr') or ''}".lower()
+    return "notfound" in text or "not found" in text or "does not exist" in text
 
 
 def profile_token_matches(token: str, resource_name: str) -> bool:
@@ -314,13 +376,17 @@ def build_verify_plan(
             "explicit": sorted(explicit_params),
             "submit_result": sorted(set(params) - set(explicit_params)),
         },
-        "delete_operation": str(requested_operation).lower().startswith("delete"),
+        "expect_absent": expects_absent_after_change(str(requested_operation)),
     }
-    if plan["verification_profile"]["delete_operation"]:
-        plan["verification_profile"]["verification_intent"] = "expect_absent_or_deleted_state"
+    if plan["verification_profile"]["expect_absent"]:
+        plan["verification_profile"]["verification_intent"] = "expect_absent_or_detached_state"
         plan.setdefault("next_actions", []).append(
-            "For delete operations, a not_found response can be the expected verification outcome."
+            "For delete, detach, disassociate, or unbind operations, a not_found response can be the expected verification outcome."
         )
+        if args.execute_verify and not plan.get("success") and verification_not_found(plan):
+            plan["success"] = True
+            plan["absent_state_confirmed"] = True
+            plan["verification_profile"]["absent_state_confirmed"] = True
     return plan
 
 
@@ -361,7 +427,20 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         result["error"] = "Service plan did not produce dry-run/submit commands."
         return result
 
-    guard_failure = submit_guard_failure(args, service_plan)
+    submit_token = expected_submit_token(args, service_plan)
+    result["submit_guard"].update(
+        {
+            "submit_token": submit_token,
+            "submit_token_required": True,
+            "submit_token_provided": bool(getattr(args, "submit_token", None)),
+        }
+    )
+    result["next_steps"][2] = (
+        "Only use --execute-submit --confirm-submit --submit-token "
+        f"{submit_token} after explicit user approval for this exact cloud change."
+    )
+
+    guard_failure = submit_guard_failure(args, service_plan, submit_token)
     if guard_failure:
         result["success"] = False
         result["submit_guard_failure"] = guard_failure
@@ -372,6 +451,18 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         dryrun_result = execute_command(commands["dryrun_or_plan"], args.timeout)
         result["dryrun"] = dryrun_result
         result["dryrun_command_shell"] = shlex.join(commands["dryrun_or_plan"])
+        append_journal_event(
+            args,
+            {
+                "type": "command",
+                "stage": "dryrun",
+                "service": service,
+                "operation": args.operation,
+                "success": bool(dryrun_result.get("success")),
+                "command": commands["dryrun_or_plan"],
+                "result": dryrun_result,
+            },
+        )
         if not dryrun_result.get("success"):
             result["success"] = False
             result["next_steps"].append("Dry-run failed. Inspect dryrun.error_details/advice before changing arguments.")
@@ -383,6 +474,18 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         result["submit"] = submit_result
         result["submit_command_shell"] = shlex.join(commands["submit"])
         result["planning_only"] = False
+        append_journal_event(
+            args,
+            {
+                "type": "command",
+                "stage": "submit",
+                "service": service,
+                "operation": args.operation,
+                "success": bool(submit_result.get("success")),
+                "command": commands["submit"],
+                "result": submit_result,
+            },
+        )
         if not submit_result.get("success"):
             result["success"] = False
             result["next_steps"].append("Submit failed. Inspect submit.error_details/advice before retrying.")
@@ -397,6 +500,17 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     result["post_change_verification"] = verify_plan
     if args.execute_verify:
         result["success"] = bool(verify_plan.get("success"))
+        append_journal_event(
+            args,
+            {
+                "type": "verification",
+                "stage": "verify",
+                "service": service,
+                "operation": verify_plan.get("operation"),
+                "success": bool(verify_plan.get("success")),
+                "result": verify_plan,
+            },
+        )
         if not result["success"]:
             return result
 
@@ -407,6 +521,17 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
             readiness_result = hcloud_resource_discovery.execute_plan(readiness_plan, args.timeout)
             result["post_change_readiness"] = readiness_result
             result["success"] = bool(readiness_result.get("success"))
+            append_journal_event(
+                args,
+                {
+                    "type": "verification",
+                    "stage": "readiness",
+                    "service": service,
+                    "operation": "read_only_smoke_plan",
+                    "success": bool(readiness_result.get("success")),
+                    "result": readiness_result,
+                },
+            )
     elif args.execute_readiness:
         result["success"] = False
         result["post_change_readiness"] = {
@@ -431,11 +556,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute-dryrun", action="store_true", help="Execute the generated dry-run command.")
     parser.add_argument("--execute-submit", action="store_true", help="Execute the generated submit command.")
     parser.add_argument("--confirm-submit", action="store_true", help="Required with --execute-submit.")
+    parser.add_argument("--submit-token", help="Current plan token required with --execute-submit --confirm-submit.")
     parser.add_argument("--skip-dryrun", action="store_true", help="Allow submit without running dry-run first.")
     parser.add_argument("--execute-readiness", action="store_true", help="Execute the read-only post-change smoke plan.")
     parser.add_argument("--verify-operation", help="Explicit read operation for post-change resource verification.")
     parser.add_argument("--verify-param", action="append", default=[], help="Post-change verification parameter as KEY=VALUE. Can be repeated.")
     parser.add_argument("--execute-verify", action="store_true", help="Execute the post-change resource verification query.")
+    parser.add_argument("--journal", help="Optional JSONL journal path for executed dry-run/submit/verify events.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout for executed safe_exec commands.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()

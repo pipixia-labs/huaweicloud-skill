@@ -286,9 +286,7 @@ def assess_risk(
 
 def build_command(args: argparse.Namespace, use_dryrun: bool) -> list[str]:
     """Build a safe_exec command for a planned change operation."""
-    command = [
-        "python3",
-        "scripts/hcloud_safe_exec.py",
+    command = hcloud_common.safe_exec_command_prefix() + [
         "--service",
         args.service,
         "--operation",

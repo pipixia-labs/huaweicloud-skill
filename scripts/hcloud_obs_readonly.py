@@ -96,7 +96,7 @@ def command_parts(args: argparse.Namespace, operation: str) -> list[str]:
 
 def build_safe_exec_command(args: argparse.Namespace, operation: str) -> list[str]:
     """Build the safe_exec wrapper command for an OBS read-only operation."""
-    command = ["python3", "scripts/hcloud_safe_exec.py", "--command-part=obs"]
+    command = hcloud_common.safe_exec_command_prefix() + ["--command-part=obs"]
     for part in command_parts(args, operation):
         command.append(f"--command-part={part}")
     command.extend(["--timeout", str(args.timeout)])

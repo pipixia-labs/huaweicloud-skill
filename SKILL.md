@@ -1,7 +1,7 @@
 ---
 name: huaweicloud-skill
 description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更。适用于用户明确要走 CLI/KooCLI 路线，或任务需要通过 hcloud 直接发现 service/operation、构造命令、执行查询或变更、排查认证、网络、缓存与输出格式问题的场景；当华为云部署静态站、独立站或 Web 应用需要图片素材时，可通过华为云 ModelArts MaaS 图像生成 API 生成本地站点资产。
-version: "0.2.4"
+version: "0.3.0"
 ---
 
 # Huawei CLI Skill
@@ -198,6 +198,14 @@ version: "0.2.4"
 | ECS job 终态 | `hcloud_ecs_wait_job.py` | job 终态不等同于 ECS 可用。 |
 | ECS ACTIVE 验证 | `hcloud_ecs_verify_active.py` | 之后还要做 SSH/应用验收。 |
 | list/count 资源发现 | `hcloud_resource_discovery.py` | registry 或 metadata-backed discovery；默认不执行。 |
+| 账号资源盘点 | `hcloud_account_inventory.py` | 核心服务跨服务只读盘点 planner；`--execute` 才真实查询。 |
+| 闲置资源审计 | `hcloud_idle_audit.py` | 从已保存 JSON 查询结果识别 EIP/EVS/ECS/ELB/RDS/NAT 闲置候选，不生成删除命令。 |
+| 拆除/回收评审计划 | `hcloud_teardown_plan.py` | 从 idle audit 候选生成 planner-only 回收检查顺序；不生成 submit 命令。 |
+| 可观测前置计划 | `hcloud_observability_plan.py` | 为资源生成状态复核 + CES 指标发现的只读闭环计划。 |
+| CES 告警计划 | `hcloud_ces_alarm_plan.py` | CES metric/alarm 只读发现 + 告警规则 planner-only 草案，不 submit。 |
+| LTS 日志只读查询 | `hcloud_lts_readonly.py` | LTS log group/stream/logs 只读 planner；日志内容要窄范围处理。 |
+| 成本/账单能力探测 | `hcloud_billing_cost_probe.py` | 本地 catalog feasibility probe；不访问真实账单，不承诺已有 Billing API。 |
+| 成本/账单请求规划 | `hcloud_billing_readonly.py` | 基于华为云官方 Billing/Cost API 生成只读请求 spec；不签名、不发请求。 |
 | 显式参数只读查询 | `hcloud_resource_query.py` | 目标型 `Show*`/`Get*` 必须显式传参。 |
 | OBS 只读查询 | `hcloud_obs_readonly.py` | 走 `hcloud obs`/obsutil，不走普通 OpenAPI 形态。 |
 | 服务 readiness | `hcloud_service_readiness.py` | 多服务只读验收，缺目标 ID 则 skipped。 |
@@ -232,9 +240,9 @@ version: "0.2.4"
 - 华为云站点部署中如需生成图片资产，先读取 `references/maas-image-generation.md`，通过华为云 ModelArts MaaS 生成本地资产并完成图片质量检查后再部署。
 - 如果 live help 因网络或元数据问题失败，改走本地 meta cache 和 `references/`，不要瞎猜参数。
 
-## 当前首版覆盖
+## 当前版本覆盖
 
-首版重点覆盖以下内容：
+当前版本重点覆盖以下内容：
 
 - Huawei CLI 基本上下文探查
 - Huawei CLI 本地 meta cache 发现
@@ -243,6 +251,13 @@ version: "0.2.4"
 - ECS 查询与创建前准备
 - ECS 创建 JSON 本地校验、dry-run 命令生成、job 终态轮询和 ACTIVE 资源验证
 - service registry、只读资源发现、通用变更风险计划、run journal、材料漂移检查和问题集回归检查
+- 账号资源盘点 planner 和离线闲置资源候选审计，面向“管好云”的只读摸底与治理前置分析
+- planner-only teardown review，用于按依赖顺序评审闲置候选的回收前检查，不直接执行删除/释放/退订
+- 基于 CES `ListMetrics` 的可观测前置计划，用于先发现 namespace/metric/dimension，再结合资源状态和协议验收判断健康
+- CES alarm planner-only 和 LTS read-only 日志查询 planner，配套 `references/playbooks/observability-readiness.md`
+- Billing/Cost 目前先生成官方 API request spec，不从资源清单推断费用，也不默认执行真实账单查询
+- Billing/Cost 本地 feasibility probe，用于确认当前 bundled catalog 是否具备账单/成本只读接入条件；当前不等同于真实账单查询能力
+- curated promotion audit 输出 `value_ranked_candidates`，用于按“上好云、用好云、管好云”价值维度选择下一批治理候选
 - VPC / IMS / KPS / IAM / EIP 创建前只读发现方法
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记
 - ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 的低覆盖查询登记，用于离线数据集回归和前置发现
@@ -251,9 +266,9 @@ version: "0.2.4"
 - OBS `hcloud obs`/obsutil 只读适配器和 planner-only bucket/lifecycle/policy 变更计划
 - `hcloud_resource_detail_probe.py` 可对 EVS/NAT 等服务做 list-then-detail 抽样，有资源时执行 detail，无资源时结构化 skipped
 
-当前首版对 ECS 的 guidance 最完整。对 IAM、VPC、IMS、KPS、EIP 主要提供工作流、发现方法和部分目标查询；对 ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM、OBS、CES 提供低覆盖查询登记、第一层目标查询和 planner-only 计划，不承诺已经沉淀了全量稳定 operation 清单。
+当前对 ECS 的 guidance 最完整。对 IAM、VPC、IMS、KPS、EIP、DCS、RFS、UCS 主要提供工作流、发现方法和部分目标查询；对 ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM、OBS、CES 提供低覆盖查询登记、第一层目标查询和 planner-only 计划。CTS、TMS、CBR、RMS、Config、LTS 是治理候选 profile，不等同于 curated registry 覆盖；Billing/Cost 当前只生成 request spec，不执行真实账单请求。
 
-当前首版已经补了本地 meta cache 发现脚本和创建类示例模板；非 ECS 服务的 operation detail 缓存可能不完整，脚本会在缺少参数元数据时保守省略可选参数。
+当前版本已经补了本地 meta cache 发现脚本和创建类示例模板；非 ECS 服务的 operation detail 缓存可能不完整，脚本会在缺少参数元数据时保守省略可选参数。
 
 ## 示例模板
 

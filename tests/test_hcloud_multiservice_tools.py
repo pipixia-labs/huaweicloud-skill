@@ -40,6 +40,14 @@ hcloud_resource_query = load_module("hcloud_resource_query", SCRIPTS / "hcloud_r
 hcloud_resource_verify = load_module("hcloud_resource_verify", SCRIPTS / "hcloud_resource_verify.py")
 hcloud_service_readiness = load_module("hcloud_service_readiness", SCRIPTS / "hcloud_service_readiness.py")
 hcloud_service_change_plan = load_module("hcloud_service_change_plan", SCRIPTS / "hcloud_service_change_plan.py")
+hcloud_account_inventory = load_module("hcloud_account_inventory", SCRIPTS / "hcloud_account_inventory.py")
+hcloud_idle_audit = load_module("hcloud_idle_audit", SCRIPTS / "hcloud_idle_audit.py")
+hcloud_observability_plan = load_module("hcloud_observability_plan", SCRIPTS / "hcloud_observability_plan.py")
+hcloud_billing_cost_probe = load_module("hcloud_billing_cost_probe", SCRIPTS / "hcloud_billing_cost_probe.py")
+hcloud_billing_readonly = load_module("hcloud_billing_readonly", SCRIPTS / "hcloud_billing_readonly.py")
+hcloud_teardown_plan = load_module("hcloud_teardown_plan", SCRIPTS / "hcloud_teardown_plan.py")
+hcloud_ces_alarm_plan = load_module("hcloud_ces_alarm_plan", SCRIPTS / "hcloud_ces_alarm_plan.py")
+hcloud_lts_readonly = load_module("hcloud_lts_readonly", SCRIPTS / "hcloud_lts_readonly.py")
 
 
 class MultiServiceToolsTest(unittest.TestCase):
@@ -60,8 +68,10 @@ class MultiServiceToolsTest(unittest.TestCase):
             "execute_dryrun": False,
             "execute_submit": False,
             "confirm_submit": False,
+            "submit_token": None,
             "skip_dryrun": False,
             "execute_verify": False,
+            "journal": None,
             "timeout": 1,
         }
         values.update(overrides)
@@ -82,15 +92,150 @@ class MultiServiceToolsTest(unittest.TestCase):
             "execute_dryrun": False,
             "execute_submit": False,
             "confirm_submit": False,
+            "submit_token": None,
             "skip_dryrun": False,
             "execute_readiness": False,
             "verify_operation": None,
             "verify_param": ["security_group_rule_id=rule-1"],
             "execute_verify": False,
+            "journal": None,
             "timeout": 1,
         }
         values.update(overrides)
         return SimpleNamespace(**values)
+
+    def inventory_args(self, **overrides):
+        """Return default account inventory args for unit tests."""
+        values = {
+            "service": [],
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "limit": 10,
+            "obs_endpoint": None,
+            "obs_config": None,
+            "obs_payer": None,
+            "execute": False,
+            "strict": True,
+            "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def observability_args(self, **overrides):
+        """Return default observability plan args for unit tests."""
+        values = {
+            "service": "ECS",
+            "target_id": "server-1",
+            "target_name": "app-1",
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "limit": 10,
+            "execute": False,
+            "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def billing_probe_args(self, **overrides):
+        """Return default billing cost probe args for unit tests."""
+        values = {
+            "service_token": list(hcloud_billing_cost_probe.DEFAULT_SERVICE_TOKENS),
+            "operation_keyword": ["invoice"],
+            "limit": 5,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def billing_readonly_args(self, **overrides):
+        """Return default billing readonly planner args for unit tests."""
+        values = {
+            "operation": "monthly-sum",
+            "endpoint_base": hcloud_billing_readonly.DEFAULT_ENDPOINT_BASE,
+            "language": "zh_CN",
+            "bill_cycle": "2026-05",
+            "begin_time": None,
+            "end_time": None,
+            "time_measure_id": 1,
+            "group_by": ["CLOUD_SERVICE_TYPE"],
+            "filter": [],
+            "cost_type": "ORIGINAL_COST",
+            "amount_type": "PAYMENT_AMOUNT",
+            "service_type_code": None,
+            "resource_type": None,
+            "region_code": None,
+            "resource_id": None,
+            "enterprise_project_id": None,
+            "charge_mode": None,
+            "bill_type": None,
+            "method": None,
+            "sub_customer_id": None,
+            "include_zero_record": None,
+            "statistic_type": None,
+            "offset": 0,
+            "limit": 10,
+            "query": [],
+            "body_json_file": None,
+            "body_json_text": None,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def ces_alarm_args(self, **overrides):
+        """Return default CES alarm planner args for unit tests."""
+        values = {
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "limit": 10,
+            "alarm_name": "cpu-high",
+            "namespace": "SYS.ECS",
+            "metric_name": "cpu_util",
+            "dimension": ["instance_id=server-1"],
+            "comparison_operator": ">",
+            "threshold": 80.0,
+            "period": 300,
+            "evaluation_periods": 3,
+            "statistic": "average",
+            "notification_enabled": False,
+            "execute": False,
+            "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def lts_args(self, **overrides):
+        """Return default LTS readonly args for unit tests."""
+        values = {
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "limit": 10,
+            "log_group_id": None,
+            "log_stream_id": None,
+            "start_time": None,
+            "end_time": None,
+            "keyword": None,
+            "execute": False,
+            "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def current_eip_submit_token(self, args: SimpleNamespace) -> str:
+        """Return the submit token for a test EIP flow argument set."""
+        service_plan = hcloud_eip_change_flow.hcloud_service_change_plan.build_service_plan(
+            hcloud_eip_change_flow.service_plan_args(args)
+        )
+        return hcloud_eip_change_flow.expected_submit_token(args, service_plan)
+
+    def current_guarded_submit_token(self, args: SimpleNamespace) -> str:
+        """Return the submit token for a test generic guarded flow argument set."""
+        service_plan = hcloud_guarded_change_flow.hcloud_service_change_plan.build_service_plan(
+            hcloud_guarded_change_flow.service_plan_args(args)
+        )
+        return hcloud_guarded_change_flow.expected_submit_token(args, service_plan)
 
     def test_readonly_smoke_builds_registered_service_commands(self) -> None:
         args = SimpleNamespace(
@@ -119,6 +264,159 @@ class MultiServiceToolsTest(unittest.TestCase):
             command = item["plan"]["commands"][0]["command"]
             self.assertIn("--expect-json", command)
             self.assertIn("--arg=--cli-output=json", command)
+
+    def test_account_inventory_builds_core_readonly_plan(self) -> None:
+        result = hcloud_account_inventory.build_plan(self.inventory_args())
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertGreaterEqual(result["summary"]["check_count"], 10)
+        operations = {(check["service"], check["operation"]) for check in result["checks"]}
+        self.assertIn(("ECS", "ListCloudServers"), operations)
+        self.assertIn(("EIP", "ListPublicips"), operations)
+        self.assertIn(("OBS", "ListBuckets"), operations)
+        eip_check = next(check for check in result["checks"] if check["service"] == "EIP")
+        self.assertIn("--arg=--cli-output=json", eip_check["plan"]["commands"][0]["command"])
+        obs_check = next(check for check in result["checks"] if check["service"] == "OBS")
+        self.assertIn("--command-part=ls", obs_check["plan"]["command"])
+
+    def test_account_inventory_filters_services(self) -> None:
+        result = hcloud_account_inventory.build_plan(self.inventory_args(service=["EIP"]))
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["summary"]["check_count"], 1)
+        self.assertEqual(result["checks"][0]["service"], "EIP")
+        self.assertEqual(result["checks"][0]["operation"], "ListPublicips")
+
+    def test_observability_plan_builds_metric_and_state_checks(self) -> None:
+        result = hcloud_observability_plan.build_plan(self.observability_args())
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(result["metric_discovery_plan"]["service"], "CES")
+        self.assertEqual(result["metric_discovery_plan"]["commands"][0]["operation"], "ListMetrics")
+        self.assertEqual(result["resource_state_plan"]["operation"], "ShowServer")
+        self.assertIn("--arg=--server_id=server-1", result["resource_state_plan"]["command"])
+        self.assertTrue(result["hints"]["metric_discovery_first"])
+        self.assertIn("CPU utilization", result["hints"]["signals"])
+
+    def test_observability_plan_skips_state_check_without_target_id(self) -> None:
+        result = hcloud_observability_plan.build_plan(self.observability_args(target_id=None))
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["resource_state_plan"]["skipped"])
+        self.assertEqual(result["metric_discovery_plan"]["service"], "CES")
+
+    def test_billing_cost_probe_reports_no_direct_billing_service(self) -> None:
+        result = hcloud_billing_cost_probe.build_probe(self.billing_probe_args())
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["direct_service_count"], 0)
+        self.assertEqual(result["assessment"]["status"], "not_available_in_current_catalog")
+        self.assertFalse(result["assessment"]["can_run_live_billing_query"])
+        self.assertIn("No direct BSS/Billing/Cost service", result["assessment"]["blockers"][0])
+
+    def test_billing_cost_probe_reports_custom_catalog_candidate(self) -> None:
+        result = hcloud_billing_cost_probe.build_probe(
+            self.billing_probe_args(service_token=["DBSS"], operation_keyword=["audit"], limit=3)
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["direct_service_count"], 1)
+        self.assertEqual(result["direct_service_candidates"][0]["service"], "DBSS")
+        self.assertEqual(result["assessment"]["status"], "candidate_service_present")
+
+    def test_billing_readonly_builds_monthly_sum_request_spec(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(service_type_code="hws.service.type.ec2")
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertFalse(result["execution_supported"])
+        request = result["request_spec"]
+        self.assertEqual(request["method"], "GET")
+        self.assertEqual(request["path"], "/v2/bills/customer-bills/monthly-sum")
+        self.assertEqual(request["query"]["bill_cycle"], "2026-05")
+        self.assertIn("service_type_code=hws.service.type.ec2", request["url"])
+        self.assertIsNone(request["body"])
+
+    def test_billing_readonly_builds_generated_cost_data_body(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="cost-data",
+                begin_time="2026-05-01",
+                end_time="2026-05-31",
+                group_by=["CLOUD_SERVICE_TYPE", "REGION"],
+                filter=["CLOUD_SERVICE_TYPE=hws.service.type.ec2"],
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        request = result["request_spec"]
+        self.assertEqual(request["method"], "POST")
+        self.assertEqual(request["path"], "/v4/costs/cost-analysed-bills/query")
+        self.assertEqual(request["body_source"], "generated")
+        self.assertEqual(request["body"]["time_condition"]["begin_time"], "2026-05-01")
+        self.assertEqual(request["body"]["groupby"][1]["key"], "REGION")
+        self.assertEqual(request["body"]["filters"][0]["filter_factor"]["value"], ["hws.service.type.ec2"])
+
+    def test_billing_readonly_accepts_explicit_json_body(self) -> None:
+        body = {
+            "cycle": "2026-05",
+            "cloud_service_type": "hws.service.type.ec2",
+            "limit": 3,
+        }
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(operation="resource-records", body_json_text=json.dumps(body))
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["request_spec"]["path"], "/v2/bills/customer-bills/res-records/query")
+        self.assertEqual(result["request_spec"]["body_source"], "body-json-text")
+        self.assertEqual(result["request_spec"]["body"]["limit"], 3)
+
+    def test_billing_readonly_rejects_missing_cost_time_range(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(self.billing_readonly_args(operation="cost-data"))
+
+        self.assertFalse(result["success"])
+        self.assertIn("Missing required cost-data field", result["validation"]["errors"][0])
+
+    def test_ces_alarm_plan_is_planner_only(self) -> None:
+        result = hcloud_ces_alarm_plan.build_plan(self.ces_alarm_args())
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["metric_discovery_plan"]["commands"][0]["operation"], "ListMetrics")
+        self.assertEqual(result["existing_alarm_rules_plan"]["commands"][0]["operation"], "ListAlarmRules")
+        self.assertTrue(result["alarm_rule_planner"]["success"])
+        self.assertFalse(result["alarm_rule_planner"]["executable"])
+        self.assertIsNone(result["alarm_rule_planner"]["submit_command"])
+        self.assertEqual(result["alarm_rule_planner"]["rule_spec"]["metric_name"], "cpu_util")
+
+    def test_lts_readonly_builds_discovery_and_skips_log_query_without_params(self) -> None:
+        result = hcloud_lts_readonly.build_plan(self.lts_args())
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["log_group_plan"]["commands"][0]["operation"], "ListLogGroups")
+        self.assertEqual(result["log_stream_plan"]["commands"][0]["operation"], "ListLogStreams")
+        self.assertTrue(result["log_query_plan"]["skipped"])
+
+    def test_lts_readonly_builds_list_logs_query_with_required_params(self) -> None:
+        result = hcloud_lts_readonly.build_plan(
+            self.lts_args(
+                log_group_id="group-1",
+                log_stream_id="stream-1",
+                start_time="1700000000000",
+                end_time="1700000300000",
+                keyword="ERROR",
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["log_stream_plan"]["operation"], "ListLogStream")
+        self.assertEqual(result["log_query_plan"]["operation"], "ListLogs")
+        self.assertIn("--arg=--log_group_id=group-1", result["log_query_plan"]["command"])
+        self.assertIn("--arg=--keywords=ERROR", result["log_query_plan"]["command"])
 
     def test_readonly_smoke_uses_supported_cdn_cli_region(self) -> None:
         args = SimpleNamespace(
@@ -484,6 +782,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(result["planning_only"])
         self.assertEqual(result["service"], "EIP")
         self.assertEqual(result["service_plan"]["operation"], "UpdatePublicip")
+        self.assertTrue(result["submit_guard"]["submit_token_required"])
+        self.assertEqual(len(result["submit_guard"]["submit_token"]), 16)
         self.assertIn("--arg=--dryrun", result["service_plan"]["commands"]["dryrun_or_plan"])
         self.assertIn("--expect-json", result["service_plan"]["commands"]["submit"])
         self.assertNotIn("submit", result)
@@ -495,6 +795,17 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertFalse(result["success"])
         self.assertEqual(result["submit_guard_failure"]["error"], "Submit execution requires --confirm-submit.")
+
+    def test_eip_change_flow_requires_current_submit_token(self) -> None:
+        result = hcloud_eip_change_flow.build_flow(
+            self.eip_flow_args(execute_submit=True, execute_dryrun=True, confirm_submit=True)
+        )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(
+            result["submit_guard_failure"]["error"],
+            "Submit execution requires a valid --submit-token from the current plan.",
+        )
 
     def test_eip_change_flow_executes_dryrun_and_verify_with_mocks(self) -> None:
         with patch.object(
@@ -517,6 +828,28 @@ class MultiServiceToolsTest(unittest.TestCase):
         dryrun_mock.assert_called_once()
         verify_mock.assert_called_once()
 
+    def test_eip_change_flow_writes_journal_for_executed_steps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            journal = Path(tmp_dir) / "flow.jsonl"
+            with patch.object(
+                hcloud_eip_change_flow,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
+            ), patch.object(
+                hcloud_eip_change_flow.hcloud_resource_query,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
+            ):
+                result = hcloud_eip_change_flow.build_flow(
+                    self.eip_flow_args(execute_dryrun=True, execute_verify=True, journal=str(journal))
+                )
+            events = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual([event["stage"] for event in events], ["dryrun", "verify"])
+        self.assertEqual(events[0]["type"], "command")
+        self.assertEqual(events[1]["type"], "verification")
+
     def test_guarded_change_flow_builds_generic_plan(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args())
 
@@ -527,6 +860,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--cli-output=json", command)
         self.assertIn("--expect-json", command)
         self.assertIn("--arg=--dryrun", command)
+        self.assertTrue(result["submit_guard"]["submit_token_required"])
+        self.assertEqual(len(result["submit_guard"]["submit_token"]), 16)
         self.assertIn("post_change_readiness_plan", result)
         self.assertTrue(result["post_change_verification"]["success"])
         self.assertEqual(result["post_change_verification"]["operation"], "ShowSecurityGroupRule")
@@ -540,6 +875,17 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertEqual(result["submit_guard_failure"]["error"], "Submit execution requires --confirm-submit.")
         self.assertTrue(result["planning_only"])
+
+    def test_guarded_change_flow_requires_current_submit_token(self) -> None:
+        result = hcloud_guarded_change_flow.build_flow(
+            self.guarded_flow_args(execute_submit=True, execute_dryrun=True, confirm_submit=True)
+        )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(
+            result["submit_guard_failure"]["error"],
+            "Submit execution requires a valid --submit-token from the current plan.",
+        )
 
     def test_guarded_change_flow_blocks_metadata_hard_guard_submit(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(
@@ -602,6 +948,38 @@ class MultiServiceToolsTest(unittest.TestCase):
         dryrun_mock.assert_called_once()
         readiness_mock.assert_called_once()
 
+    def test_guarded_change_flow_writes_journal_for_dryrun_verify_and_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            journal = Path(tmp_dir) / "guarded.jsonl"
+            with patch.object(
+                hcloud_guarded_change_flow,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"ok": True}},
+            ), patch.object(
+                hcloud_guarded_change_flow.hcloud_resource_query,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"security_group_rule": {"id": "rule-1"}}},
+            ), patch.object(
+                hcloud_guarded_change_flow.hcloud_resource_discovery,
+                "execute_plan",
+                return_value={"success": True, "results": []},
+            ):
+                result = hcloud_guarded_change_flow.build_flow(
+                    self.guarded_flow_args(
+                        execute_dryrun=True,
+                        execute_verify=True,
+                        execute_readiness=True,
+                        journal=str(journal),
+                    )
+                )
+            events = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual([event["stage"] for event in events], ["dryrun", "verify", "readiness"])
+        self.assertEqual(events[0]["type"], "command")
+        self.assertEqual(events[1]["type"], "verification")
+        self.assertEqual(events[2]["type"], "verification")
+
     def test_guarded_change_flow_extracts_verify_id_from_submit_result(self) -> None:
         with patch.object(
             hcloud_guarded_change_flow,
@@ -615,15 +993,15 @@ class MultiServiceToolsTest(unittest.TestCase):
             "execute_command",
             return_value={"success": True, "parsed_json": {"security_group_rule": {"id": "rule-2"}}},
         ) as verify_mock:
-            result = hcloud_guarded_change_flow.build_flow(
-                self.guarded_flow_args(
-                    verify_param=[],
-                    execute_dryrun=True,
-                    execute_submit=True,
-                    confirm_submit=True,
-                    execute_verify=True,
-                )
+            args = self.guarded_flow_args(
+                verify_param=[],
+                execute_dryrun=True,
+                execute_submit=True,
+                confirm_submit=True,
+                execute_verify=True,
             )
+            args.submit_token = self.current_guarded_submit_token(args)
+            result = hcloud_guarded_change_flow.build_flow(args)
 
         self.assertTrue(result["success"], result)
         self.assertFalse(result["planning_only"])
@@ -683,6 +1061,22 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["post_change_verification"]["requested_operation"], "ShowDomain")
         self.assertEqual(result["post_change_verification"]["operation"], "ShowDomainDetail")
         self.assertIn("--arg=--cli-region=cn-north-1", result["post_change_verification"]["command"])
+
+    def test_guarded_change_flow_accepts_not_found_for_delete_verify(self) -> None:
+        with patch.object(
+            hcloud_guarded_change_flow.hcloud_resource_query,
+            "execute_command",
+            return_value={"success": False, "error_details": {"category": "not_found"}},
+        ):
+            result = hcloud_guarded_change_flow.build_flow(
+                self.guarded_flow_args(operation="DeleteSecurityGroupRule", execute_verify=True)
+            )
+
+        self.assertTrue(result["success"], result)
+        verification = result["post_change_verification"]
+        self.assertTrue(verification["success"])
+        self.assertTrue(verification["absent_state_confirmed"])
+        self.assertTrue(verification["verification_profile"]["expect_absent"])
 
     def test_guarded_change_flow_rejects_delegated_planner(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(
@@ -806,6 +1200,48 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--command-part=lifecycle", result["commands"]["submit"])
         self.assertIn("--command-part=-method=put", result["commands"]["submit"])
         self.assertIn("--command-part=-localfile=lifecycle.json", result["commands"]["submit"])
+
+    def test_obs_change_plan_flags_public_bucket_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            policy_path = Path(tmp_dir) / "policy.json"
+            policy_path.write_text(
+                json.dumps(
+                    {
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Principal": "*",
+                                "Action": ["obs:GetObject"],
+                                "Resource": "*",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = SimpleNamespace(
+                operation="PutBucketPolicy",
+                bucket="bucket-1",
+                local_file=str(policy_path),
+                json_input_file=None,
+                endpoint=None,
+                config=None,
+                payer=None,
+                arg=["-acl=public-read"],
+                timeout=1,
+            )
+
+            result = hcloud_obs_change_plan.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["risk"]["level"], "high")
+        codes = {item["code"] for item in result["risk"]["policy_risk_findings"]}
+        self.assertIn("public_principal", codes)
+        self.assertIn("wildcard_resource", codes)
+        self.assertIn("public_acl", codes)
+        self.assertTrue(
+            any("Review OBS policy_risk_findings" in warning for warning in result["plan"]["warnings"])
+        )
 
     def test_resource_query_rejects_missing_required_param(self) -> None:
         args = SimpleNamespace(
@@ -1113,6 +1549,133 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertTrue(result["success"], result)
 
+    def test_idle_audit_flags_review_candidates_without_destructive_actions(self) -> None:
+        result = hcloud_idle_audit.audit_payloads(
+            [
+                (
+                    "EIP",
+                    {
+                        "publicips": [
+                            {"id": "eip-1", "alias": "unused-eip", "status": "DOWN", "port_id": ""}
+                        ]
+                    },
+                ),
+                (
+                    "EVS",
+                    {
+                        "volumes": [
+                            {"id": "vol-1", "name": "old-data", "status": "available", "attachments": []}
+                        ]
+                    },
+                ),
+                (
+                    "ECS",
+                    {
+                        "servers": [
+                            {"id": "server-1", "name": "stopped-app", "status": "SHUTOFF"}
+                        ]
+                    },
+                ),
+            ]
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["candidate_count"], 3)
+        candidate_types = {candidate["candidate_type"] for candidate in result["candidates"]}
+        self.assertEqual(
+            candidate_types,
+            {"unbound_public_ip", "unattached_volume", "stopped_or_abnormal_instance"},
+        )
+        self.assertTrue(all(candidate["destructive_action_allowed"] is False for candidate in result["candidates"]))
+        self.assertIn("EIP", result["summary"]["by_service"])
+        self.assertIn("EVS", result["summary"]["by_service"])
+
+    def test_idle_audit_extracts_payloads_from_inventory_result(self) -> None:
+        inventory = {
+            "checks": [
+                {
+                    "service": "EIP",
+                    "plan": {
+                        "results": [
+                            {
+                                "result": {
+                                    "success": True,
+                                    "parsed_json": {
+                                        "publicips": [
+                                            {"id": "eip-1", "status": "DOWN", "port_id": None}
+                                        ]
+                                    },
+                                }
+                            }
+                        ]
+                    },
+                }
+            ]
+        }
+
+        payloads = hcloud_idle_audit.payloads_from_inventory(inventory)
+        result = hcloud_idle_audit.audit_payloads(payloads)
+
+        self.assertEqual(len(payloads), 1)
+        self.assertEqual(result["candidate_count"], 1)
+        self.assertEqual(result["candidates"][0]["service"], "EIP")
+
+    def test_idle_audit_flags_security_group_elb_and_rds_risks(self) -> None:
+        result = hcloud_idle_audit.audit_payloads(
+            [
+                (
+                    "VPC",
+                    {
+                        "security_group_rules": [
+                            {
+                                "id": "rule-1",
+                                "direction": "ingress",
+                                "protocol": "tcp",
+                                "port_range_min": 22,
+                                "port_range_max": 22,
+                                "remote_ip_prefix": "0.0.0.0/0",
+                            }
+                        ]
+                    },
+                ),
+                ("ELB", {"loadbalancers": [{"id": "lb-1", "listeners": [], "status": "ACTIVE"}]}),
+                (
+                    "RDS",
+                    {
+                        "instances": [
+                            {
+                                "id": "db-1",
+                                "name": "db",
+                                "status": "ACTIVE",
+                                "backup_policy": {"enabled": False, "keep_days": 0},
+                            }
+                        ]
+                    },
+                ),
+            ]
+        )
+
+        candidate_types = {candidate["candidate_type"] for candidate in result["candidates"]}
+        self.assertIn("public_sensitive_ingress_rule", candidate_types)
+        self.assertIn("load_balancer_without_listeners", candidate_types)
+        self.assertIn("database_backup_policy_review", candidate_types)
+
+    def test_teardown_plan_orders_candidates_and_never_generates_submit(self) -> None:
+        result = hcloud_teardown_plan.build_plan(
+            [
+                {"service": "ECS", "candidate_type": "stopped_or_abnormal_instance", "id": "server-1"},
+                {"service": "ELB", "candidate_type": "load_balancer_without_listeners", "id": "lb-1"},
+                {"service": "EIP", "candidate_type": "unbound_public_ip", "id": "eip-1"},
+            ]
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertFalse(result["destructive_action_allowed"])
+        self.assertEqual([step["service"] for step in result["steps"]], ["ELB", "EIP", "ECS"])
+        self.assertTrue(all(step["executable"] is False for step in result["steps"]))
+        self.assertTrue(all(step["submit_command"] is None for step in result["steps"]))
+
     def test_resource_verify_reports_status_mismatch(self) -> None:
         payload = {"instances": [{"id": "rds-1", "name": "db", "status": "BUILD"}]}
         args = SimpleNamespace(
@@ -1184,6 +1747,7 @@ class MultiServiceToolsTest(unittest.TestCase):
 
     def test_resource_verify_collects_singular_high_frequency_shapes(self) -> None:
         cases = [
+            ("ECS", {"servers": [{"id": "server-1", "status": "ACTIVE"}]}),
             ("VPC", {"vpc": {"id": "vpc-1", "status": "OK"}}),
             ("ELB", {"loadbalancer": {"id": "lb-1", "provisioning_status": "ACTIVE"}}),
             ("EVS", {"volume": {"id": "vol-1", "status": "available"}}),
@@ -1211,6 +1775,13 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertEqual(len(resources), 1)
         self.assertEqual(resources[0]["id"], "config-1")
+
+    def test_resource_verify_does_not_treat_control_plane_receipt_as_resource(self) -> None:
+        payload = {"request_id": "req-1", "resource_id": "server-1", "status": "SUCCESS"}
+
+        resources = hcloud_resource_verify.collect_dicts(payload, "EIP")
+
+        self.assertEqual(resources, [])
 
     def test_service_change_plan_adds_service_hints(self) -> None:
         args = SimpleNamespace(

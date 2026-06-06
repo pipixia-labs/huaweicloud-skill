@@ -18,9 +18,9 @@
 
 因此，skill 把这些风险收敛到框架层：先发现、再计划、再执行、最后验证，并让每一步都有机器可读输出。
 
-## v0.2 能力概览
+## 当前能力概览
 
-v0.2 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架：
+v0.3 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架和生命周期治理工具：
 
 | 指标 | 当前状态 |
 | --- | --- |
@@ -28,7 +28,7 @@ v0.2 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架�
 | metadata-backed catalog | 服务数、operation 数和 registry 外服务清单以 `hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 字段为准 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.2 / 0.2.0` |
+| 发布版本 | `v0.3 / 0.3.0` |
 
 ## 核心架构
 
@@ -78,7 +78,7 @@ flowchart LR
 
 ### 4. 验证面
 
-v0.2 明确区分几类验证：
+当前版本明确区分几类验证：
 
 - job 终态验证：例如 ECS `ShowJob`。
 - 资源终态验证：例如 ECS `ListServersDetails` 达到 `ACTIVE`。
@@ -121,7 +121,8 @@ v0.2 明确区分几类验证：
 ## 当前边界
 
 - ECS 是完整度最高的闭环；其他 curated 服务已具备 profile/playbook/risk-profile 维护档案和广度优先的 P0 风险门禁，但复杂业务语义 verifier 还需要继续扩展。
-- 非 ECS 服务的部分 KooCLI operation detail 在本地 metadata 中不完整，所以 v0.2 优先采用显式参数和 planner-first。
+- 非 ECS 服务的部分 KooCLI operation detail 在本地 metadata 中不完整，所以当前仍优先采用显式参数和 planner-first。
+- 账号盘点、闲置审计、teardown review、CES alarm、LTS log 和 Billing/Cost 都是只读或 planner-only 路线，不代表默认可以执行删除、释放、退订、告警创建或账单 HTTP 请求。
 - 通用 Show* 后置验证确认基础资源状态，不等同于完整业务验收。
 - 所有真实写操作仍需要用户按具体资源、region、project、风险和回滚方式确认。
 
@@ -129,5 +130,6 @@ v0.2 明确区分几类验证：
 
 1. 扩展更多服务专用 verifier，把通用 Show* 验证升级为更强的业务语义验证。
 2. 增加更多真实只读样本和 dry-run 样本，继续校准 registry 和参数白名单。
-3. 在 DCS、RFS、UCS 已进入 read-only curated registry 后，继续评估 WAF、CodeArtsRepo、DLI 是否值得进入下一批 curated 覆盖。
-4. 把 run journal 用到更多多步操作中，增强真实变更的审计和恢复能力。
+3. WAF、CodeArtsRepo、DLI 已达到当前 promotion audit 证据线，但是否写入 registry 仍取决于维护决策；CTS、TMS、CBR、RMS、Config、LTS 需要继续补 live read-smoke 证据。
+4. 为 Billing/Cost 增加经过评审的签名请求 runner 或 SDK 路线前，继续保持 request-spec-only。
+5. 把 run journal 用到更多多步操作中，增强真实变更的审计和恢复能力。

@@ -16,6 +16,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import hcloud_common
+import hcloud_run_journal
 
 
 PLACEHOLDER_PATTERN = re.compile(r"<[^<>]+>")
@@ -217,9 +218,7 @@ def validate_payload(
 
 def build_safe_exec_command(args: argparse.Namespace, json_input_file: Path) -> list[str]:
     """Build the hcloud_safe_exec.py command for the requested ECS create operation."""
-    command = [
-        "python3",
-        "scripts/hcloud_safe_exec.py",
+    command = hcloud_common.safe_exec_command_prefix() + [
         "--service",
         "ECS",
         "--operation",
@@ -338,7 +337,7 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
         "hcloud_shell": shlex.join(build_hcloud_command(args, json_input_file)),
     } if ready_to_run else {}
 
-    return {
+    result = {
         "success": validation["valid"],
         "ready_to_run": ready_to_run,
         "operation": args.operation,
@@ -348,6 +347,23 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
         "commands": commands,
         "next_steps": build_next_steps(args, validation),
     }
+    journal = getattr(args, "journal", None)
+    if journal:
+        hcloud_run_journal.append_event(
+            Path(journal),
+            {
+                "type": "plan",
+                "stage": "ecs_create_plan",
+                "service": "ECS",
+                "operation": args.operation,
+                "mode": args.mode,
+                "success": bool(result["success"]),
+                "ready_to_run": ready_to_run,
+                "validation": validation,
+                "commands": commands,
+            },
+        )
+    return result
 
 
 def parse_args() -> argparse.Namespace:
@@ -390,6 +406,7 @@ def parse_args() -> argparse.Namespace:
         help="Allow body.server.count above --max-count after confirming cost and quota impact.",
     )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print the JSON result.")
+    parser.add_argument("--journal", help="Optional JSONL journal path for validation/command-plan events.")
     args = parser.parse_args()
     if args.max_count < 1:
         parser.error("--max-count must be at least 1.")

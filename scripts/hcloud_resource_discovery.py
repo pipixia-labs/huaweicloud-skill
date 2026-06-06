@@ -142,9 +142,7 @@ def build_safe_exec_command(
     cli_region: str | None,
 ) -> tuple[list[str], list[str], list[dict[str, Any]], list[dict[str, str]], list[str]]:
     """Build a JSON-friendly safe_exec command for one list-only operation."""
-    command = [
-        "python3",
-        "scripts/hcloud_safe_exec.py",
+    command = hcloud_common.safe_exec_command_prefix() + [
         "--service",
         service,
         "--operation",

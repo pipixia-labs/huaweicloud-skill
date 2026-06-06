@@ -193,9 +193,7 @@ def build_command(
     """Build the safe_exec command for an explicit read query."""
     param_flag_names = param_flag_names or {}
     cli_region, region_resolution = hcloud_resource_discovery.resolve_cli_region(args, service_entry)
-    command = [
-        "python3",
-        "scripts/hcloud_safe_exec.py",
+    command = hcloud_common.safe_exec_command_prefix() + [
         "--service",
         command_service,
         "--operation",

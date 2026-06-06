@@ -233,7 +233,7 @@ python3 scripts/hcloud_safe_exec.py \
 
 ### `hcloud_guarded_change_flow.py`
 
-这个脚本是 v0.2 的 P0 多服务变更门禁。它把 `hcloud_service_change_plan.py` 的 planner-only 输出包装成可审计的变更链：
+这个脚本是多服务变更门禁。它把 `hcloud_service_change_plan.py` 的 planner-only 输出包装成可审计的变更链：
 
 ```mermaid
 flowchart LR
@@ -262,7 +262,7 @@ EIP 使用 `hcloud_eip_change_flow.py`，ECS 使用 ECS 专用闭环，OBS 使�
 
 - 默认只输出计划，不执行 dry-run、submit 或 verify。
 - `--execute-dryrun` 才会执行 dry-run 命令。
-- `--execute-submit` 必须同时带 `--confirm-submit`。
+- `--execute-submit` 必须同时带 `--confirm-submit` 和匹配当前计划的 submit token。
 - medium/high 风险操作提交前必须已经 dry-run，或显式 `--skip-dryrun`。
 - `--verify-param KEY=VALUE` 用于显式提供后置 Show* 查询所需目标 ID。
 - `--verify-operation <ShowOperation>` 可覆盖内置推断，用于还没有登记 profile 的变更。

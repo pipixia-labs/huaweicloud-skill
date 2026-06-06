@@ -176,7 +176,7 @@ python3 scripts/hcloud_ecs_verify_active.py \
 - 安全组
 - 根盘和数据盘类型
 
-当前首版 skill 对这些依赖不硬编码 operation 名，而是要求先发现当前 CLI 中可用的 operation：
+当前版本 skill 对这些依赖不硬编码 operation 名，而是要求先发现当前 CLI 中可用的 operation：
 
 - `hcloud IMS --help`
 - `hcloud KPS --help`

@@ -15,6 +15,15 @@
       "default_risk",
       "submit_policy",
       "verification_policy"
+    ],
+    "optional_value_fields": [
+      "lifecycle_stage",
+      "user_value",
+      "tenant_goal_tags",
+      "scenario_tags",
+      "min_live_read_smoked_operations",
+      "official_docs",
+      "known_shape_exceptions"
     ]
   },
   "services": {
@@ -488,6 +497,17 @@
       "status": "candidate",
       "target_coverage": "medium",
       "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "Validate data lake SQL, catalog, and queue readiness before production analytics workloads.",
+      "tenant_goal_tags": [
+        "用好云",
+        "管好云"
+      ],
+      "scenario_tags": [
+        "analytics",
+        "sql",
+        "governance"
+      ],
       "readiness_operations": [
         "ListAuthInfo",
         "ListCatalogs",
@@ -508,6 +528,223 @@
         "default_risk": "medium",
         "submit_policy": "no_submit_before_curated_promotion",
         "verification_policy": "auth_catalog_database_queue_and_sql_check_readback"
+      }
+    },
+    "CTS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "Confirm audit trail, key event notification, and trace query readiness for governance and incident review.",
+      "tenant_goal_tags": [
+        "管好云"
+      ],
+      "scenario_tags": [
+        "audit",
+        "trace",
+        "governance"
+      ],
+      "readiness_operations": [
+        "ListTrackers",
+        "ListOperations",
+        "ListQuotas"
+      ],
+      "resource_query_operations": [
+        "ListTraces",
+        "ListNotifications",
+        "ListTraceResources"
+      ],
+      "playbooks": [
+        "references/playbooks/cts-audit-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_hard_guard_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "tracker_trace_notification_and_obs_bucket_readback"
+      }
+    },
+    "TMS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "Inspect tag taxonomy, supported resource types, and resource tag coverage before governance or cost allocation work.",
+      "tenant_goal_tags": [
+        "上好云",
+        "管好云"
+      ],
+      "scenario_tags": [
+        "tagging",
+        "governance",
+        "cost-allocation"
+      ],
+      "readiness_operations": [
+        "ListProviders",
+        "ListPredefineTags",
+        "ListTagKeys",
+        "ShowTagQuota"
+      ],
+      "resource_query_operations": [
+        "ListResource",
+        "ShowResourceTag",
+        "ListTagValues",
+        "ListTags"
+      ],
+      "playbooks": [
+        "references/playbooks/tms-tag-governance.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_until_curated",
+        "default_risk": "medium",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "tag_key_value_provider_and_resource_tag_readback"
+      }
+    },
+    "CBR": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "Review backup vault, policy, backup, and protectable-resource posture before backup or recovery recommendations.",
+      "tenant_goal_tags": [
+        "用好云",
+        "管好云"
+      ],
+      "scenario_tags": [
+        "backup",
+        "recovery",
+        "resilience"
+      ],
+      "readiness_operations": [
+        "ListVault",
+        "ListBackups",
+        "ListPolicies",
+        "ShowSummary"
+      ],
+      "resource_query_operations": [
+        "ShowVault",
+        "ShowBackup",
+        "ShowPolicy",
+        "ListProtectable"
+      ],
+      "playbooks": [
+        "references/playbooks/cbr-backup-posture.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_hard_guard_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "vault_policy_backup_checkpoint_and_protectable_resource_readback"
+      }
+    },
+    "RMS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "Assess resource inventory, policy compliance, and aggregator readiness for governance reporting.",
+      "tenant_goal_tags": [
+        "管好云"
+      ],
+      "scenario_tags": [
+        "resource-inventory",
+        "compliance",
+        "aggregator"
+      ],
+      "readiness_operations": [
+        "ListBuiltInPolicyDefinitions",
+        "ListConfigurationAggregators",
+        "ListProviders"
+      ],
+      "resource_query_operations": [
+        "ListAllResources",
+        "ListResources",
+        "ShowResourceById",
+        "ListPolicyStatesByDomainId"
+      ],
+      "playbooks": [
+        "references/playbooks/rms-config-governance.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_hard_guard_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "resource_inventory_policy_state_and_aggregator_readback"
+      }
+    },
+    "Config": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "Validate Config resource recorder, policy, conformance pack, and advanced-query coverage for cloud governance.",
+      "tenant_goal_tags": [
+        "管好云"
+      ],
+      "scenario_tags": [
+        "resource-inventory",
+        "compliance",
+        "conformance-pack"
+      ],
+      "readiness_operations": [
+        "ListBuiltInPolicyDefinitions",
+        "ListConformancePacks",
+        "ListConfigurationAggregators",
+        "ListProviders"
+      ],
+      "resource_query_operations": [
+        "ListAllResources",
+        "ListResources",
+        "ShowResourceById",
+        "ListPolicyStatesByDomainId"
+      ],
+      "playbooks": [
+        "references/playbooks/config-governance-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_hard_guard_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "recorder_policy_conformance_pack_and_resource_readback"
+      }
+    },
+    "LTS": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "min_live_read_smoked_operations": 2,
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "Discover log groups, streams, access configs, transfers, and bounded log search readiness for observability workflows.",
+      "tenant_goal_tags": [
+        "用好云",
+        "管好云"
+      ],
+      "scenario_tags": [
+        "logs",
+        "observability",
+        "audit"
+      ],
+      "readiness_operations": [
+        "ListLogGroups",
+        "ListLogStreams",
+        "ListAccessConfig",
+        "ListTransfers"
+      ],
+      "resource_query_operations": [
+        "ListLogStream",
+        "ListLogs",
+        "ListCharts",
+        "ListNotificationTemplates"
+      ],
+      "playbooks": [
+        "references/playbooks/lts-log-readiness.md",
+        "references/playbooks/observability-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_hard_guard_until_curated",
+        "default_risk": "high",
+        "submit_policy": "no_submit_before_curated_promotion",
+        "verification_policy": "log_group_stream_index_transfer_and_bounded_query_readback"
       }
     }
   }

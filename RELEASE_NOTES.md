@@ -1,5 +1,49 @@
 # Release Notes
 
+## v0.3.0 / 0.3.0 - 2026-06-06
+
+v0.3.0 is the lifecycle governance upgrade after v0.2.4. It keeps the hcloud metadata-backed breadth from v0.2.4, then adds safer multi-step operation tracking, account inventory, idle-resource review, teardown review planning, observability readiness, Billing/Cost request planning, and the next governance candidate profiles. The release goal is to help users 上好云、用好云、管好云 without turning broad metadata coverage into unsafe default execution.
+
+### Changes Since v0.2.4
+
+- Hardens execution safety:
+  - Generated safe-exec commands use bundled script paths instead of cwd-relative script names.
+  - EIP and generic guarded submits require a plan-bound token.
+  - EIP, generic guarded flow, and ECS create planning can append redacted run-journal events.
+  - Delete/detach/disassociate verification can treat expected `not_found` as successful absent-state verification.
+  - Resource verifier fallback ID extraction is scoped by service.
+- Adds account governance tools:
+  - `hcloud_account_inventory.py` builds a read-only cross-service inventory plan.
+  - `hcloud_idle_audit.py` analyzes saved JSON results for conservative idle candidates.
+  - `hcloud_teardown_plan.py` creates a dependency-aware teardown review plan and never generates submit commands.
+- Extends observability:
+  - `hcloud_observability_plan.py` combines resource-state checks with CES metric discovery.
+  - `hcloud_ces_alarm_plan.py` discovers CES metrics/alarm rules and drafts alarm intent, but does not create or update alarms.
+  - `hcloud_lts_readonly.py` discovers LTS log groups/streams and builds bounded read-only log queries.
+  - `references/playbooks/observability-readiness.md` documents the resource state + CES + LTS readiness flow.
+- Adds Billing/Cost request planning:
+  - `hcloud_billing_cost_probe.py` remains a local catalog feasibility check.
+  - `hcloud_billing_readonly.py` builds planner-only request specs for official Billing/Cost APIs such as monthly bill summary, cost analysis, and resource records.
+  - The Billing/Cost planner does not accept credentials, sign requests, send HTTP traffic, or infer spend from resource inventory.
+- Expands curation grooming:
+  - Candidate profiles and playbooks were added for CTS, TMS, CBR, RMS, Config, and LTS.
+  - Curation audit now surfaces optional lifecycle, user-value, tenant-goal, and scenario metadata.
+  - CTS/TMS/CBR/RMS/Config/LTS remain metadata-backed candidates until live read-smoke evidence is collected.
+
+### Validation
+
+- `python3 -m unittest discover -s huaweicloud-skill/tests`: 172 tests passed.
+- `python3 -m compileall -q huaweicloud-skill/scripts`: passed.
+- `python3 scripts/hcloud_curated_promotion_audit.py --include-curated --pretty`: reported 19 curated services with 0 blocked curated-health findings.
+- `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- v0.3.0 does not make teardown, Billing/Cost, CES alarm, or LTS mutation workflows executable by default.
+- Idle audit and teardown planning identify review candidates only; they are not delete, release, unsubscribe, stop, or resize authorization.
+- Billing/Cost support is request-spec planning only until a reviewed signed-request runner or SDK path is added.
+- CTS, TMS, CBR, RMS, Config, and LTS are candidate profiles, not curated registry coverage.
+
 ## v0.2.4 / 0.2.4 - 2026-06-06
 
 v0.2.4 is the hcloud metadata coverage upgrade after v0.2.3. It adds a skill-owned hcloud catalog, metadata-backed broad coverage, confidence/audit tooling, lazy catalog loading, and the first read-only curated promotions from the new metadata work. The release keeps the safety boundary unchanged: generated catalog coverage does not mean all services are curated, and registry-outside mutation plans remain planner-only unless a dedicated guarded flow exists.

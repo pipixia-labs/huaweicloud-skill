@@ -10,6 +10,8 @@
   - 例如列实例、查规格、查售卖策略、查配置
 - 规划类
   - 例如创建前参数准备、依赖梳理、排查路径设计
+- 治理类
+  - 例如账号盘点、闲置审计、回收前检查、可观测证据、账单/成本请求规划
 - 变更类
   - 例如创建、修改、删除、启停、扩缩容
 
@@ -69,6 +71,14 @@ python3 scripts/hcloud_context_inspect.py --pretty
   - project
   - 依赖资源
   - 幂等和回滚考虑
+
+### 治理类默认规则
+
+- 账号盘点先走 `hcloud_account_inventory.py`，真实查询必须显式 `--execute`。
+- 闲置审计只读取保存的 JSON 输出，走 `hcloud_idle_audit.py`，候选不等于删除授权。
+- 回收前检查走 `hcloud_teardown_plan.py`，只输出依赖顺序和检查项，不生成 submit 命令。
+- 可观测先走资源状态和 CES metric discovery，再按需生成 CES alarm planner 或 LTS 只读日志查询。
+- Billing/Cost 先走 `hcloud_billing_cost_probe.py` 和 `hcloud_billing_readonly.py`；request spec 不等于已经签名或发送请求。
 
 ## Phase E: Execute
 
@@ -147,5 +157,6 @@ run journal 用于审计和断点恢复，不应写入 AK/SK、token、密码等
 
 - 不可逆删除
 - 真实创建或修改会产生费用
+- 账单、成本、日志、审计 trace 等输出可能包含敏感数据
 - 当前配置范围可能不是用户预期的账号或项目
 - 关键参数有多个候选且影响较大

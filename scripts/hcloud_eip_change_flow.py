@@ -7,11 +7,13 @@ import argparse
 import json
 import shlex
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import hcloud_common
 import hcloud_resource_query
+import hcloud_run_journal
 import hcloud_service_change_plan
 
 
@@ -35,6 +37,14 @@ def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
             "parsed_json": None,
             "parsed_json_error": "hcloud_safe_exec.py did not return valid JSON.",
         }
+
+
+def append_journal_event(args: argparse.Namespace, event: dict[str, Any]) -> None:
+    """Append one flow event to the configured journal when requested."""
+    journal = getattr(args, "journal", None)
+    if not journal:
+        return
+    hcloud_run_journal.append_event(Path(journal), event)
 
 
 def service_plan_args(args: argparse.Namespace) -> SimpleNamespace:
@@ -86,6 +96,26 @@ def target_publicip_id(args: argparse.Namespace, submit_result: dict[str, Any] |
     return None
 
 
+def submit_token_payload(args: argparse.Namespace, service_plan: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact plan fields that must match before submit execution."""
+    commands = service_plan.get("commands", {})
+    return {
+        "service": "EIP",
+        "operation": service_plan.get("operation") or args.operation,
+        "region": args.region,
+        "project_id": args.project_id,
+        "profile": args.profile,
+        "publicip_id": args.publicip_id,
+        "submit": commands.get("submit"),
+        "risk": service_plan.get("risk"),
+    }
+
+
+def expected_submit_token(args: argparse.Namespace, service_plan: dict[str, Any]) -> str:
+    """Return the confirmation token for the current EIP submit plan."""
+    return hcloud_common.stable_plan_token(submit_token_payload(args, service_plan))
+
+
 def build_verify_plan(args: argparse.Namespace, publicip_id: str | None) -> dict[str, Any]:
     """Build an EIP ShowPublicip verification plan when a target ID is known."""
     if not publicip_id:
@@ -116,7 +146,11 @@ def build_verify_plan(args: argparse.Namespace, publicip_id: str | None) -> dict
     )
 
 
-def submit_guard_failure(args: argparse.Namespace, service_plan: dict[str, Any]) -> dict[str, Any] | None:
+def submit_guard_failure(
+    args: argparse.Namespace,
+    service_plan: dict[str, Any],
+    submit_token: str,
+) -> dict[str, Any] | None:
     """Return a structured guard failure when submit preconditions are not met."""
     if not args.execute_submit:
         return None
@@ -132,6 +166,13 @@ def submit_guard_failure(args: argparse.Namespace, service_plan: dict[str, Any])
             "success": False,
             "error": "Submit execution requires a successful dry-run or --skip-dryrun.",
             "reason": "The planned operation is mutating and the risk gate marked dry-run as required.",
+        }
+    if getattr(args, "submit_token", None) != submit_token:
+        return {
+            "success": False,
+            "error": "Submit execution requires a valid --submit-token from the current plan.",
+            "reason": "The token binds submit execution to the exact reviewed EIP plan, target, and command.",
+            "next_action": "Rebuild the plan, review it, then pass submit_guard.submit_token with --submit-token.",
         }
     return None
 
@@ -161,7 +202,20 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     if not service_plan.get("success"):
         return result
 
-    guard_failure = submit_guard_failure(args, service_plan)
+    submit_token = expected_submit_token(args, service_plan)
+    result["submit_guard"].update(
+        {
+            "submit_token": submit_token,
+            "submit_token_required": True,
+            "submit_token_provided": bool(getattr(args, "submit_token", None)),
+        }
+    )
+    result["next_steps"][2] = (
+        "Only use --execute-submit --confirm-submit --submit-token "
+        f"{submit_token} after explicit user approval for the specific EIP change."
+    )
+
+    guard_failure = submit_guard_failure(args, service_plan, submit_token)
     if guard_failure:
         result["success"] = False
         result["submit_guard_failure"] = guard_failure
@@ -177,6 +231,18 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
             return result
         dryrun_result = execute_command(dryrun_command, args.timeout)
         result["dryrun"] = dryrun_result
+        append_journal_event(
+            args,
+            {
+                "type": "command",
+                "stage": "dryrun",
+                "service": "EIP",
+                "operation": args.operation,
+                "success": bool(dryrun_result.get("success")),
+                "command": dryrun_command,
+                "result": dryrun_result,
+            },
+        )
         if not dryrun_result.get("success"):
             result["success"] = False
             result["next_steps"].append("Dry-run failed. Inspect dryrun.error_details/advice before changing arguments.")
@@ -192,6 +258,18 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         submit_result = execute_command(submit_command, args.timeout)
         result["submit"] = submit_result
         result["planning_only"] = False
+        append_journal_event(
+            args,
+            {
+                "type": "command",
+                "stage": "submit",
+                "service": "EIP",
+                "operation": args.operation,
+                "success": bool(submit_result.get("success")),
+                "command": submit_command,
+                "result": submit_result,
+            },
+        )
         if not submit_result.get("success"):
             result["success"] = False
             result["next_steps"].append("Submit failed. Inspect submit.error_details/advice before retrying.")
@@ -203,6 +281,18 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         result["verification"] = verify_plan
         if args.execute_verify:
             result["success"] = bool(verify_plan.get("success"))
+            append_journal_event(
+                args,
+                {
+                    "type": "verification",
+                    "stage": "verify",
+                    "service": "EIP",
+                    "operation": "ShowPublicip",
+                    "target_id": publicip_id,
+                    "success": bool(verify_plan.get("success")),
+                    "result": verify_plan,
+                },
+            )
 
     if dryrun_result:
         result["dryrun_command_shell"] = shlex.join(commands.get("dryrun_or_plan", []))
@@ -226,8 +316,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute-dryrun", action="store_true", help="Execute the generated dry-run command.")
     parser.add_argument("--execute-submit", action="store_true", help="Execute the generated submit command.")
     parser.add_argument("--confirm-submit", action="store_true", help="Required with --execute-submit.")
+    parser.add_argument("--submit-token", help="Current plan token required with --execute-submit --confirm-submit.")
     parser.add_argument("--skip-dryrun", action="store_true", help="Allow submit without running dry-run first.")
     parser.add_argument("--execute-verify", action="store_true", help="Execute ShowPublicip verification.")
+    parser.add_argument("--journal", help="Optional JSONL journal path for executed dry-run/submit/verify events.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout for executed safe_exec commands.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()

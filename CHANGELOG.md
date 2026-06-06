@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 - 2026-06-06
+
+- Upgraded lifecycle coverage around 上好云、用好云、管好云 with account inventory, idle-resource audit, teardown review planning, observability readiness, Billing/Cost request planning, and governance candidate profiles.
+- Hardened change execution safety: generated safe-exec paths are workspace-stable, guarded submits require a plan-bound token, run journals are redacted, delete verification supports expected-absent semantics, and resource verifier fallback IDs are service-scoped.
+- Added `hcloud_account_inventory.py`, `hcloud_idle_audit.py`, `hcloud_teardown_plan.py`, `hcloud_observability_plan.py`, `hcloud_ces_alarm_plan.py`, `hcloud_lts_readonly.py`, `hcloud_billing_cost_probe.py`, and `hcloud_billing_readonly.py`.
+- Expanded idle/governance analysis to flag security-group sensitive ingress, empty or unhealthy ELB posture, weak RDS backup posture, and conservative VPC/security group review candidates without generating destructive commands.
+- Added planner-only CES alarm drafting and bounded LTS read-only log query planning; alarm creation and log mutations remain outside generic submit paths.
+- Added Billing/Cost API request-spec planning for official monthly bill summary, cost analysis, and resource record APIs. The planner does not sign requests, accept credentials, or send HTTP traffic.
+- Added candidate profiles and playbooks for CTS, TMS, CBR, RMS, Config, and LTS, plus value metadata and audit output for tenant-goal ranking.
+- Final local verification passed with 172 unit tests, script compile checks, and clean `git diff --check`.
+
 ## 0.2.4 - 2026-06-06
 
 - Added a bundled hcloud metadata catalog covering 125 services and 10,194 operations without depending on `huaweicloud-data`.

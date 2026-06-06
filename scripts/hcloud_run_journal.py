@@ -17,10 +17,19 @@ def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def append_event(path: Path, event: dict[str, Any]) -> dict[str, Any]:
-    """Append one event to a JSONL journal."""
+def append_event(path: Path, event: dict[str, Any], secrets: set[str] | None = None) -> dict[str, Any]:
+    """Append one redacted event to a JSONL journal."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    entry = {"timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **event}
+    known_secrets = set(secrets or set())
+    known_secrets.update(hcloud_common.collect_json_secrets(event))
+    entry = hcloud_common.redact_json(
+        {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "redaction_version": 1,
+            **event,
+        },
+        known_secrets,
+    )
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
     return entry
