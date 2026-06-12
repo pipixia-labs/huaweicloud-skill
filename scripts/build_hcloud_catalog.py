@@ -13,7 +13,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = Path.home() / ".hcloud" / "metaRepo"
-DEFAULT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.generated.json"
 DEFAULT_FINGERPRINT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.fingerprint.json"
 DEFAULT_INDEX_OUTPUT = ROOT / "references" / "hcloud-service-catalog.index.json"
 DEFAULT_SERVICE_OUTPUT_DIR = ROOT / "references" / "hcloud-service-catalog"
@@ -475,7 +474,11 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-meta-repo", default=str(DEFAULT_SOURCE), help="Source hcloud metaRepo directory.")
-    parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Generated catalog output path.")
+    parser.add_argument(
+        "--output",
+        default="",
+        help="Optional full generated catalog output path. Empty by default so committed assets stay below package size limits.",
+    )
     parser.add_argument(
         "--fingerprint-output",
         default=str(DEFAULT_FINGERPRINT_OUTPUT),
@@ -499,14 +502,15 @@ def main() -> int:
     """Generate the hcloud service catalog."""
     args = parse_args()
     source = Path(args.source_meta_repo).expanduser().resolve()
-    output = Path(args.output).expanduser().resolve()
     catalog = build_catalog(source)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    if args.pretty:
-        text = json.dumps(catalog, ensure_ascii=False, indent=2)
-    else:
-        text = json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
-    output.write_text(text + "\n", encoding="utf-8")
+    output = Path(args.output).expanduser().resolve() if args.output else None
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        if args.pretty:
+            text = json.dumps(catalog, ensure_ascii=False, indent=2)
+        else:
+            text = json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
+        output.write_text(text + "\n", encoding="utf-8")
     fingerprint_path = Path(args.fingerprint_output).expanduser().resolve() if args.fingerprint_output else None
     if fingerprint_path:
         fingerprint_path.parent.mkdir(parents=True, exist_ok=True)
@@ -525,7 +529,7 @@ def main() -> int:
         json.dumps(
             {
                 "success": True,
-                "output": str(output),
+                "output": str(output) if output else None,
                 "fingerprint_output": str(fingerprint_path) if fingerprint_path else None,
                 "index_output": str(index_path) if index_path else None,
                 "service_output_dir": str(service_output_dir) if index_path else None,

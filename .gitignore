@@ -8,3 +8,5 @@ progress.md
 
 .hcloud-prewarm-checkpoint.json
 *.checkpoint.json
+
+references/hcloud-service-catalog.generated.json

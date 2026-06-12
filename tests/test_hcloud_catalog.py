@@ -180,7 +180,7 @@ class HcloudCatalogTest(unittest.TestCase):
             self.assertTrue(hcloud_catalog.is_discovery_operation(operation))
 
     def test_confidence_sidecar_references_catalog_operations(self) -> None:
-        catalog = hcloud_catalog.load_catalog(ROOT / "references" / "hcloud-service-catalog.generated.json")
+        catalog = hcloud_catalog.load_catalog(ROOT / "references" / "hcloud-service-catalog.index.json")
         confidence = hcloud_catalog.load_confidence(ROOT / "references" / "hcloud-service-confidence.json")
 
         for service_name, service_entry in confidence.get("services", {}).items():

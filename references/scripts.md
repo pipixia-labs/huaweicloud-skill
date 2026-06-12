@@ -41,11 +41,11 @@ Use this to inspect the local KooCLI metadata cache: service presence, operation
 
 ### Catalog Audit And Rebuild
 
-Generated catalog is a compressed skill-owned catalog built from hcloud `metaRepo`. It is committed inside this skill and must not depend on `huaweicloud-data` or a source metaRepo at runtime. Runtime readers default to the lightweight `hcloud-service-catalog.index.json` plus per-service files under `hcloud-service-catalog/`; the full `hcloud-service-catalog.generated.json` remains for compatibility and full operation-level diffs.
+Generated catalog is a compressed skill-owned catalog built from hcloud `metaRepo`. It is committed inside this skill as the lightweight `hcloud-service-catalog.index.json` plus per-service files under `hcloud-service-catalog/`, and must not depend on `huaweicloud-data` or a source metaRepo at runtime. The full `hcloud-service-catalog.generated.json` is no longer committed; generate it only as a temporary local artifact when a full operation-level diff is required.
 
 As of v0.3.1, catalog generation merges `apis_en.json` and `apis_cn.json` at operation level. English metadata remains preferred for stable existing entries; Chinese metadata fills missing services, operations, and detail files. The current committed catalog source reports 198 local metadata services and 15,666 operations; use `hcloud_catalog_audit.py` as the current fact source rather than hard-coding these numbers elsewhere.
 
-Do not read `references/hcloud-service-catalog.generated.json` directly in an agent run. Access it through scripts such as `hcloud_catalog_audit.py`, `hcloud_resource_discovery.py`, `hcloud_resource_query.py`, or `hcloud_service_change_plan.py`.
+Do not read a full generated catalog directly in an agent run. Access catalog data through scripts such as `hcloud_catalog_audit.py`, `hcloud_resource_discovery.py`, `hcloud_resource_query.py`, or `hcloud_service_change_plan.py`.
 
 ```bash
 python3 scripts/hcloud_catalog_audit.py --pretty
@@ -60,20 +60,19 @@ python3 scripts/hcloud_catalog_diff.py \
   --pretty
 ```
 
-Use this during hcloud metadata upgrades to review added/removed services, added/removed operations, and required business parameter changes without manually reading the large generated catalog. Full catalogs produce operation-level details; compact fingerprints produce hash-level service changes. Do not pass the lazy index to this script; compare `hcloud-service-catalog.generated.json` or `hcloud-service-catalog.fingerprint.json`.
+Use this during hcloud metadata upgrades to review added/removed services, added/removed operations, and required business parameter changes without manually reading a large generated catalog. Compact fingerprints produce hash-level service changes and are the default review artifact. Full catalogs produce operation-level details only when you temporarily generate them with `build_hcloud_catalog.py --output`; do not commit that output, and do not pass the lazy index to this script.
 
 When rebuilding the catalog from a prepared metaRepo:
 
 ```bash
 python3 scripts/build_hcloud_catalog.py \
   --source-meta-repo <path-to-hcloud-metaRepo> \
-  --output <catalog-output-json> \
   --fingerprint-output <catalog-fingerprint-json> \
   --index-output <catalog-index-json> \
   --service-output-dir <per-service-catalog-dir>
 ```
 
-`hcloud-service-catalog.fingerprint.json` is a review aid. `hcloud-service-confidence.json` stores human/live evidence such as smoke confidence, dry-run support, and operation-level CLI shape exceptions such as unsupported optional args.
+Add `--output <temporary-full-catalog-json>` only when you need a local full catalog for operation-level diff review. `hcloud-service-catalog.fingerprint.json` is the committed review aid. `hcloud-service-confidence.json` stores human/live evidence such as smoke confidence, dry-run support, and operation-level CLI shape exceptions such as unsupported optional args.
 
 ## Safe Execution
 

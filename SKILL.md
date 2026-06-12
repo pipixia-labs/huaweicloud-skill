@@ -193,7 +193,7 @@ version: "0.3.3"
 | 多轮任务前缓存预热 | `hcloud_prewarm_cache.py` | 预热 service/operation help。 |
 | 真实 hcloud 查询或系统命令 | `hcloud_safe_exec.py` | 默认 JSON、脱敏、错误分桶。 |
 | 本地 KooCLI metadata 探查 | `hcloud_meta_lookup.py` | 查 service/operation detail cache。 |
-| generated catalog 审计/重建 | `hcloud_catalog_audit.py`、`build_hcloud_catalog.py` | 运行时走 index/per-service 懒加载；full catalog 只能脚本消费，不直接 Read 大 JSON。 |
+| generated catalog 审计/重建 | `hcloud_catalog_audit.py`、`build_hcloud_catalog.py` | 运行时走 index/per-service 懒加载；full catalog 只作为可选本地临时产物，不提交、不直接 Read 大 JSON。 |
 | ECS 创建前校验 | `hcloud_ecs_create_plan.py` | 检查 JSON、凭证、安全组和 dry-run/submit 命令。 |
 | ECS job 终态 | `hcloud_ecs_wait_job.py` | job 终态不等同于 ECS 可用。 |
 | ECS ACTIVE 验证 | `hcloud_ecs_verify_active.py` | 之后还要做 SSH/应用验收。 |

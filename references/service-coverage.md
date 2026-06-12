@@ -11,7 +11,7 @@
 - `Low`
   - 只有服务存在性或文档层 guidance，暂未形成稳定执行路径
 - `Metadata-backed`
-  - 不在 curated registry 中，但已进入 `references/hcloud-service-catalog.generated.json`
+  - 不在 curated registry 中，但已进入 `references/hcloud-service-catalog.index.json` 和 `references/hcloud-service-catalog/` 分片
   - 只作为保守兜底层：无必填业务参数的只读 discovery、显式参数只读查询、planner-only 变更计划
   - 不等同于有 playbook、专用 verifier 或真实云变更闭环
 
@@ -50,7 +50,7 @@
 
 ## Generated catalog 覆盖
 
-`references/hcloud-service-catalog.index.json` 和 `references/hcloud-service-catalog/` 是从 hcloud metadata 生成的运行时 lazy catalog；`references/hcloud-service-catalog.generated.json` 是兼容和完整 diff 用 full catalog。准确服务数、operation 数和 registry 外 metadata-backed 服务清单不要在文档中手写，应从下面的脚本输出读取：
+`references/hcloud-service-catalog.index.json` 和 `references/hcloud-service-catalog/` 是从 hcloud metadata 生成的运行时 lazy catalog；full catalog 只在维护期需要 operation 级完整 diff 时临时生成，不提交到仓库。准确服务数、operation 数和 registry 外 metadata-backed 服务清单不要在文档中手写，应从下面的脚本输出读取：
 
 ```bash
 python3 scripts/hcloud_catalog_audit.py --pretty

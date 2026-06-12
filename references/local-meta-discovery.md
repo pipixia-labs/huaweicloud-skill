@@ -4,7 +4,7 @@
 
 在 live help 不稳定、`APIE_ERROR` 常出现的环境里，尽量利用本地 `~/.hcloud/metaRepo` 做 discovery。
 
-当前 skill 还内置了从 hcloud metaRepo 生成的 catalog。运行时默认读取 `references/hcloud-service-catalog.index.json`，再按需加载 `references/hcloud-service-catalog/<service>.json`；`references/hcloud-service-catalog.generated.json` 作为 full catalog 保留用于兼容和完整 diff。准确覆盖规模以 `hcloud_catalog_audit.py --pretty` 的 `catalog` 字段和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。源 metaRepo 只在重新生成 catalog 或排查 metadata drift 时使用。
+当前 skill 还内置了从 hcloud metaRepo 生成的 catalog。运行时默认读取 `references/hcloud-service-catalog.index.json`，再按需加载 `references/hcloud-service-catalog/<service>.json`；full catalog 不再提交到仓库，只在维护期需要完整 diff 时临时生成。准确覆盖规模以 `hcloud_catalog_audit.py --pretty` 的 `catalog` 字段和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。源 metaRepo 只在重新生成 catalog 或排查 metadata drift 时使用。
 
 ## 为什么需要这一步
 
@@ -95,7 +95,6 @@ python3 scripts/hcloud_meta_lookup.py --service=IMS --allow-help-fallback --pret
 ```bash
 python3 scripts/build_hcloud_catalog.py \
   --source-meta-repo <path-to-hcloud-metaRepo> \
-  --output references/hcloud-service-catalog.generated.json \
   --fingerprint-output references/hcloud-service-catalog.fingerprint.json \
   --index-output references/hcloud-service-catalog.index.json \
   --service-output-dir references/hcloud-service-catalog
@@ -110,6 +109,7 @@ python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
 - 生成后的 JSON 会被 `hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和 `hcloud_service_change_plan.py` 作为 registry 外服务的 metadata-backed 兜底。
 - `hcloud-service-catalog.index.json` 和 `hcloud-service-catalog/` 是运行时懒加载入口；不要把 per-service JSON 当成 curated coverage。
 - `hcloud-service-catalog.fingerprint.json` 是小体积升级审查文件，用于快速比较服务、operation 和 required 参数漂移。
+- 如果维护期确实需要 operation 级完整 diff，可额外传 `--output <temporary-full-catalog-json>` 生成本地 full catalog；该文件不要提交。
 - `hcloud-service-confidence.json` 用于记录 live smoke、confidence 和 dry-run 支持性，不属于纯 metadata 生成结果。
 - audit 需要保持 `success=true`；如果 registry operation 在 catalog 中消失，应先修 registry 或确认服务是否改名。
 

@@ -1,5 +1,11 @@
 # Release Notes
 
+## Unreleased
+
+- Removed the committed `references/hcloud-service-catalog.generated.json` full catalog so ClawHub packages do not include a file over 10M.
+- Runtime catalog loading continues to use `references/hcloud-service-catalog.index.json` plus per-service files under `references/hcloud-service-catalog/`.
+- `build_hcloud_catalog.py` now skips full catalog output by default; pass `--output <temporary-full-catalog-json>` only for local operation-level diff review.
+
 ## v0.3.3 / 0.3.3 - 2026-06-06
 
 v0.3.3 is a scenario-closure patch after v0.3.2. It includes the P1 governance completion work and adds P2 scenario closure planning so the skill now has three planner-only closure layers: P0 lifecycle, P1 governance, and P2 scenario services.
@@ -183,7 +189,7 @@ v0.2.4 is the hcloud metadata coverage upgrade after v0.2.3. It adds a skill-own
 - Adds catalog maintenance tooling:
   - Catalog audit reports registry/catalog/metadata-backed summary fields.
   - Catalog diff and smoke-candidate tools support future metadata upgrades.
-  - Runtime catalog loading now uses an index plus per-service JSON files; the full generated catalog is retained for compatibility and complete diffs.
+  - Runtime catalog loading now uses an index plus per-service JSON files; the full generated catalog was retained for compatibility and complete diffs in this release, and was later removed from committed assets for ClawHub packaging.
 - Expands curated coverage:
   - DCS, RFS, and UCS are promoted to read-only curated registry coverage.
   - Curated registry count is now 19; metadata-backed service count is 107.

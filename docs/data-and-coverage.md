@@ -43,7 +43,7 @@ flowchart TD
 | `service-curation-profiles.json` | curated 服务维护档案和 metadata-backed 晋级候选门禁。 |
 | `hcloud-service-catalog.index.json` | generated catalog 的运行时轻量索引，按服务懒加载。 |
 | `hcloud-service-catalog/` | 每服务 generated catalog payload，脚本按需读取。 |
-| `hcloud-service-catalog.generated.json` | full generated catalog，保留用于兼容和完整 diff，不作为 agent 直接资料入口。 |
+| `hcloud-service-catalog.generated.json` | 可选本地临时 full catalog，仅用于维护期完整 diff；不提交到仓库，不作为 agent 直接资料入口。 |
 | `hcloud-service-catalog.fingerprint.json` | generated catalog 的小体积升级审查事实源。 |
 | `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar。 |
 | `playbooks/` | 面向具体任务的执行手册。 |

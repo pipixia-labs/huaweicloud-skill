@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Removed the committed full generated hcloud catalog so ClawHub packaging stays under the 10M single-file limit.
+- Kept runtime catalog loading on `hcloud-service-catalog.index.json` plus per-service JSON payloads, with full catalog generation available only as an explicit local maintenance artifact.
+- Updated catalog tests and documentation to use the lazy catalog path as the normal agent runtime path.
+
 ## 0.3.3 - 2026-06-06
 
 - Completed the first P1 governance closure planner with `hcloud_governance_closure_plan.py`, covering TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo.
@@ -47,7 +53,7 @@
 - Added a bundled hcloud metadata catalog covering 125 services and 10,194 operations without depending on `huaweicloud-data`.
 - Added metadata-backed discovery, explicit-parameter resource query, and planner-only mutation planning for registry-outside services.
 - Added catalog confidence tiers, sanitized read-only live smoke evidence, catalog diff/smoke-candidate tools, and curation promotion audits.
-- Split runtime catalog loading into index/per-service lazy files while retaining the full catalog for compatibility and complete diffs.
+- Split runtime catalog loading into index/per-service lazy files while retaining the full catalog for compatibility and complete diffs. The full catalog was later removed from committed assets for ClawHub packaging.
 - Promoted DCS, RFS, and UCS into read-only curated registry coverage, bringing curated services to 19 and metadata-backed services to 107.
 - Added live-read-smoked confidence for AOS `ListPrivateHooks`, ModelArts `ListAlgorithms`, and CBR `ListAgent`; CFW `ListDnsServers` remains evidence-only because the cloud response is not_found-shaped.
 - Consolidated MaaS image asset naming around `maas_text_to_image.py` while keeping the old qwen entrypoint compatible.
