@@ -23,6 +23,14 @@ python3 scripts/hcloud_scenario_router.py "<user-goal>" --pretty
 
 路由结果只用于选择 `references/playbooks/`、`references/guides/`、planner、SDK supplement 和 Terraform 候选；它不执行 hcloud、SDK 或 Terraform 操作。
 
+如果路由结果或用户原话明确指向 Terraform/IaC、环境复制、import、drift review 或长期纳管，再运行 Terraform 资产路由：
+
+```bash
+python3 scripts/hcloud_terraform_router.py "<user-goal>" --pretty
+```
+
+只读取 router 返回的少量 examples/reference。不要为了“支持 Terraform”而全量浏览 `examples/terraform/`，也不要把只读查询、状态核验或普通排障强行转成 Terraform。
+
 ## Phase B: Inspect Context
 
 默认先运行：
@@ -40,6 +48,14 @@ python3 scripts/hcloud_context_inspect.py --pretty
 - 确认本地 meta cache 是否存在
 
 如果上下文不完整，再考虑 `hcloud configure show` 或 `hcloud configure list`。
+
+当本轮要进入 Terraform 路线时，再运行：
+
+```bash
+python3 scripts/hcloud_terraform_context_inspect.py --pretty
+```
+
+目标是确认 Terraform CLI、hcloud、认证环境变量、provider cache、catalog 和禁止提交的 runtime artifact 状态。没有 Terraform CLI 时，可以生成 IaC 草案，但不能宣称已经 fmt/init/validate/plan。
 
 ## Phase C: Discover Service and Operation
 
@@ -77,8 +93,8 @@ python3 scripts/hcloud_context_inspect.py --pretty
 - 默认先用 `python3 scripts/hcloud_change_plan.py ... --pretty` 生成风险摘要
 - 支持 dry-run 时先 `--dryrun`
 - 优先把复杂 body 放进 `--cli-jsonInput`
-- 不使用 SDK generic runner 执行创建、修改、删除、启停、扩缩容等变更；这些仍走 hcloud guarded flow。后续 Terraform 作为独立 IaC 链路接入。
-- 当用户明确需要 IaC、环境复制、import/drift review 或长期纳管时，读取 `references/terraform-workflow.md`；Terraform 不替代本阶段的 hcloud 发现和后置验证。
+- 不使用 SDK generic runner 执行创建、修改、删除、启停、扩缩容等变更；这些仍走 hcloud guarded flow。Terraform 是独立 IaC 链路，不是 SDK runner 的扩展。
+- 当用户明确需要 IaC、环境复制、import/drift review 或长期纳管时，读取 `references/terraform-workflow.md` 和 `references/terraform/README.md`；先用 `hcloud_terraform_router.py` 选示例和 reference。Terraform 不替代本阶段的 hcloud 发现和后置验证。
 - 真执行前先补齐：
   - region
   - project

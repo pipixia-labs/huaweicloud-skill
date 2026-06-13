@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- No unreleased changes yet.
+- Terraform assets are now first-class local skill assets: 55 example stacks and supporting Markdown references are available through `examples/terraform/` and `references/terraform/`.
+- New Terraform catalog, context inspection, and router scripts let agents choose a small number of relevant IaC assets while keeping hcloud as the discovery and verification path.
+- Runtime artifacts remain excluded: `.terraform/`, state files, real tfvars, crash logs, and secrets must not be committed.
 
 ## v0.4 / 0.4.0 - 2026-06-13
 

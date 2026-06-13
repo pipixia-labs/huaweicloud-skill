@@ -13,6 +13,14 @@ import hcloud_common
 
 ROUTER_PATH = hcloud_common.REFERENCES_DIR / "scenario-router.json"
 
+TERRAFORM_ROUTE = {
+    "context_inspect": "scripts/hcloud_terraform_context_inspect.py",
+    "router": "scripts/hcloud_terraform_router.py",
+    "workflow": "references/terraform-workflow.md",
+    "asset_index": "references/terraform/README.md",
+    "boundary": "Use only when the user explicitly wants IaC, repeatable infrastructure, import, drift review, or long-term management.",
+}
+
 
 def normalize_token(value: str) -> str:
     """Return a lowercase alphanumeric/CJK-friendly token."""
@@ -89,6 +97,7 @@ def route(query: str, category: str | None = None, service: str | None = None, l
                 "planners": scenario.get("planners", []),
                 "sdk_supplements": scenario.get("sdk_supplements", []),
                 "terraform_candidate": scenario.get("terraform_candidate", False),
+                "terraform_route": TERRAFORM_ROUTE if scenario.get("terraform_candidate", False) else None,
             }
         )
     matches.sort(key=lambda item: (-int(item["score"]), str(item["id"])))

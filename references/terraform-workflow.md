@@ -1,6 +1,6 @@
 # Terraform Workflow
 
-Terraform 是后续 IaC 变更面，适合可重复创建、环境复制、长期纳管和 drift review。它不替代 hcloud 的上下文发现、只读核验和故障排查，也不由 SDK runner 承担。
+Terraform 是已接入的补充 IaC 变更面，适合可重复创建、环境复制、长期纳管、import 和 drift review。它不替代 hcloud 的上下文发现、只读核验和故障排查，也不由 SDK runner 承担。
 
 ## 三个执行面
 
@@ -31,9 +31,11 @@ Terraform 是后续 IaC 变更面，适合可重复创建、环境复制、长�
 1. **确认目标**
    - 明确是新建、纳管现有资源、复制环境、还是 drift review。
    - 记录 region、project、企业项目、资源命名、计费影响和回滚边界。
+   - 运行 `python3 scripts/hcloud_terraform_router.py "<user-goal>" --pretty`，只选择命中的少量 `examples/terraform/*` 和 `references/terraform/*`。
 
 2. **hcloud 发现现状**
    - 运行 `hcloud_context_inspect.py`。
+   - 运行 `hcloud_terraform_context_inspect.py`，确认 Terraform CLI、provider cache、环境变量和禁止提交的 runtime artifact。
    - 用 `hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和对应 playbook 收集现有 VPC、subnet、安全组、EIP、镜像、规格、RDS/ELB/CCE 等证据。
    - 对 SDK allowlist 中的补充点，可用 SDK metadata 验证参数类型和 request path。
 
@@ -48,6 +50,7 @@ Terraform 是后续 IaC 变更面，适合可重复创建、环境复制、长�
    - 运行 `terraform init`。
    - 运行 `terraform validate`。
    - 运行 `terraform plan`，并把新增、修改、删除、替换、费用和停机风险摘要给用户。
+   - 没有 Terraform CLI、provider 下载能力或本地 plugin cache 时，只能交付可审查草案和下一步环境缺口，不能宣称 plan 已通过。
 
 5. **显式确认后 apply**
    - 用户必须确认 exact plan、region、project、资源清单和风险。
@@ -77,13 +80,22 @@ Terraform 是后续 IaC 变更面，适合可重复创建、环境复制、长�
 - 不把 plan 中的替换、删除、停机、计费风险藏在长日志里。
 - 不在没有 hcloud 后置验证的情况下宣称 IaC 变更完成。
 
-## 未来接入建议
+## 本地资产面
 
-Terraform 接入应优先做独立脚本或 reference，而不是改造 SDK runner：
+Terraform 资产入口放在 `references/terraform/README.md`。当前已吸收：
 
-- `terraform_plan_helper.py`：读取 hcloud 发现结果，生成变量草案和检查清单。
-- `terraform_import_plan.md`：指导现有资源导入和 state 风险。
-- `terraform_provider_schema_cache`：缓存 provider schema，辅助字段校验。
-- `terraform_verify_with_hcloud.py`：从 Terraform output 生成 hcloud 后置验证计划。
+- 55 个 `examples/terraform/*` 示例，覆盖 ECS、EIP、EVS、ELB、RDS、OBS、CCE、NAT、DNS、DCS、治理、安全和可观测等服务。
+- `references/terraform/catalog/terraform-example-catalog.json`：示例路由 catalog。
+- `references/terraform/catalog/terraform-reference-catalog.json`：reference 路由 catalog。
+- Provider 认证、hcloud interop、discovery workflow、data source 选择、service variant、troubleshooting 和 inventory 文档。
 
-这些能力上线前，`huaweicloud-skill` 仍以 hcloud guarded flow 和 SDK supplement registry 为主。
+运行时先用 router 选资产，再按需读取。`inventories/` 只在用户问 provider 覆盖面、data source 覆盖面或维护 catalog 时读取。
+
+## 后续增强建议
+
+继续增强 Terraform 时，优先补独立脚本或 reference，而不是改造 SDK runner：
+
+- plan helper：读取 hcloud 发现结果，生成变量草案和检查清单。
+- import plan：指导现有资源导入和 state 风险。
+- provider schema cache：缓存 provider schema，辅助字段校验。
+- hcloud verifier：从 Terraform output 生成 hcloud 后置验证计划。

@@ -11,3 +11,10 @@ progress.md
 *.checkpoint.json
 
 references/hcloud-service-catalog.generated.json
+
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+crash.log

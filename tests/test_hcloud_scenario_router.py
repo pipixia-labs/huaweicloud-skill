@@ -31,6 +31,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("scripts/hcloud_ecs_create_plan.py", match["planners"])
         self.assertIn("ECS:ListFlavors", match["sdk_supplements"])
         self.assertTrue(match["terraform_candidate"])
+        self.assertEqual(match["terraform_route"]["router"], "scripts/hcloud_terraform_router.py")
 
     def test_category_and_service_hint_prefers_network_route(self) -> None:
         result = hcloud_scenario_router.route(
@@ -62,6 +63,8 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         }
 
         self.assertTrue((ROOT / "references" / "terraform-workflow.md").exists())
+        self.assertTrue((ROOT / "references" / "terraform" / "README.md").exists())
+        self.assertTrue((ROOT / "scripts" / "hcloud_terraform_router.py").exists())
         for scenario in router.get("scenarios", []):
             for key in ("primary_playbooks", "guides", "planners"):
                 for relative_path in scenario.get(key, []):

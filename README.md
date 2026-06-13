@@ -21,6 +21,7 @@
 - 你需要识别闲置、备份、标签、审计、日志、监控等治理前置问题。
 - 你希望变更前有 dry-run、风险识别、确认门禁和变更后验证。
 - 你希望把认证、区域、项目、参数、输出格式等 CLI 问题转成 Agent 能理解的结构化错误。
+- 你明确需要 Terraform/IaC 来做可重复创建、环境复制、import、drift review 或长期纳管，但仍希望先用 `hcloud` 发现现网、再 plan、最后用 `hcloud` 验证。
 
 ## 它怎么工作
 
@@ -31,8 +32,9 @@
 3. Agent 先用 curated service registry 和 playbook 判断是否有深度支持路径。
 4. 如果服务不在 registry 中，再使用 skill 自带的 generated hcloud catalog 做 metadata-backed 发现、显式只读查询或 planner-only 变更计划。
 5. 当 hcloud metadata 不足时，Agent 可以用已安装的 `huaweicloudsdk*` package 补充 SDK 参数类型、region/endpoint 和错误结构证据；SDK 不是默认执行面。
-6. 查询类任务直接走只读路径；变更类任务先做计划、dry-run 和风险识别。
-7. 只有用户明确确认后，Agent 才会执行真实变更，并继续做结果验证。
+6. 当用户明确需要 Terraform/IaC 时，Agent 先用 Terraform context inspect 和 router 选择少量本地示例/reference，再进入 fmt/init/validate/plan。
+7. 查询类任务直接走只读路径；变更类任务先做计划、dry-run 和风险识别。
+8. 只有用户明确确认后，Agent 才会执行真实变更，并继续做结果验证。
 
 ## 快速开始
 
@@ -56,6 +58,8 @@ hcloud configure list
 如果要使用 OBS 能力，还需要让 `hcloud obs ...` 或 `obsutil` 使用同一套可用的 AK/SK。OBS 的认证错误会被保留在结构化输出里，便于 Agent 继续诊断。
 
 SDK 补充能力不要求用户机器保存 SDK 源码。如果某个 curated 只读能力需要 SDK，请通过 pip 或其他包管理方式安装对应 package，例如 ECS 场景安装 `huaweicloudsdkecs`。没有安装 SDK package 时，Agent 应自动降级回 hcloud 主流程。
+
+Terraform 能力需要本机安装 Terraform CLI，并能访问华为云 Terraform provider。示例和 reference 已在 skill 内部，但真实 plan/apply 仍需要可用的 Terraform、provider 下载或本地 plugin cache、华为云认证环境变量，以及用户对 exact plan 的确认。Agent 不应把 `terraform apply -auto-approve` 作为默认建议。
 
 ### 2. 安装 Skill
 
@@ -108,6 +112,14 @@ SDK 补充能力不要求用户机器保存 SDK 源码。如果某个 curated �
 使用 huaweicloud-skill 规划新增一条安全组规则。SSH 和常见 Web 端口不要使用
 0.0.0.0/0，请先做 dry-run 和风险识别，列出需要我确认的来源 CIDR；
 在我明确确认前不要提交变更。
+```
+
+#### 用 Terraform 生成可重复 IaC
+
+```text
+使用 huaweicloud-skill，先检查 hcloud 和 Terraform 本地环境，然后为一套 ECS +
+EIP + 安全组的测试环境选择合适的 Terraform 示例和 reference。先输出 plan 前
+需要确认的变量、依赖和风险，不要直接 apply。
 ```
 
 #### 规划典型服务的闭环任务
@@ -215,7 +227,7 @@ flowchart LR
 - **多服务发现**：通过 registry、playbook 和 discovery 工具深度覆盖 ECS、VPC、EIP、EVS、IMS、KPS、RDS、ELB、OBS、CDN、IAM 等常用服务。
 - **metadata-backed 广覆盖**：内置 hcloud metadata catalog；v0.3.1 起按 operation 粒度合并英文 metadata，并用中文 metadata 补齐缺失服务、operation 和 detail。当前 audit 覆盖 198 个本地 metadata 服务、15,666 个 hcloud operation；本机 `hcloud --help` 在去掉 HCS/ManageOne 相关服务后可见 199 个服务。运行时默认通过 `references/hcloud-service-catalog.index.json` 按服务懒加载 `references/hcloud-service-catalog/` 分片；full catalog 不再作为提交资产，只在需要完整 diff 时由维护者临时生成。准确覆盖规模以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 输出和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。registry 外服务默认只开放安全发现、显式参数只读查询和 planner-only 变更计划。
 - **SDK 补充层**：SDK 只用于补强 hcloud 主链路，不以大而全为目标。运行时优先探测已安装的 `huaweicloudsdk*` package；`reference-projects/huaweicloud-sdk-python-v3` 只作为维护期参考。当前 SDK runner 只开放 `references/sdk-supplement-registry.json` 中登记的稳定只读操作，并保留 hcloud fallback plan。
-- **Terraform 预留工作流**：`references/terraform-workflow.md` 定义 Terraform 作为独立 IaC 面的进入条件、plan/validate/apply/verify 流程和安全边界；Terraform 不扩大 SDK allowlist，也不跳过 hcloud 后置验证。
+- **Terraform 受控 IaC 面**：吸收 55 个 Terraform 示例和核心 provider/reference/inventory 文档，通过 `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py` 和 `references/terraform/catalog/` 渐进选择资产。Terraform 不扩大 SDK allowlist，也不跳过 hcloud 现网发现、plan 确认和后置验证。
 - **可信度分层**：metadata-backed 服务默认标为 catalog-derived；只读 smoke、dry-run 支持性和后续 confidence 信息单独记录，不把未实测能力包装成 curated coverage。
 - **curated 维护门禁**：`references/service-curation-profiles.json` 记录 curated 服务和晋级候选的 readiness、resource query、playbook 和 risk profile；`hcloud_curated_promotion_audit.py` 用于阻止证据不足的服务提前进入 registry。
 - **生命周期治理**：账号盘点、闲置资源审计、teardown review、CES/LTS 可观测、Billing/Cost request spec 和 CTS/TMS/CBR/RMS/Config/LTS candidate profiles 帮助用户从“能上云”继续走到“用好云、管好云”。

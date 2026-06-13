@@ -1,7 +1,6 @@
 ---
 name: huaweicloud-skill
 description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更。适用于用户明确要走 CLI/KooCLI 路线，或任务需要通过 hcloud 直接发现 service/operation、构造命令、执行查询或变更、排查认证、网络、缓存与输出格式问题的场景；当华为云部署静态站、独立站或 Web 应用需要图片素材时，可通过华为云 ModelArts MaaS 图像生成 API 生成本地站点资产。
-version: "0.4.0"
 ---
 
 # Huawei CLI Skill
@@ -11,7 +10,7 @@ version: "0.4.0"
 - 这是一套基于 `hcloud` 的华为云执行型 skill。
 - SDK 是 `hcloud` 的补充，不是第二套大而全执行面。只有当 SDK 能让 `hcloud` 主链路更稳时才使用，例如补充参数类型、region/endpoint、错误结构、凭证来源线索，或执行少量 `references/sdk-supplement-registry.json` allowlist 内的稳定只读查询。
 - 用户机器不要求有 SDK 源码仓库；如果需要 SDK 补充能力，优先使用已安装的 `huaweicloudsdk*` Python package。`reference-projects/huaweicloud-sdk-python-v3` 只作为本仓库维护期参考。
-- 后续 Terraform 应作为 IaC 变更面接入；SDK 不承担通用创建、修改、删除等云变更职责。
+- Terraform 是 `hcloud` 的补充 IaC 变更面，适合可重复创建、环境复制、长期纳管、import 和 drift review；进入前先用本地 Terraform router/context inspect 选资产和查环境，不要全量浏览示例，也不要跳过 hcloud 发现与后置验证。
 - MaaS 图像生成只作为华为云 Web/独立站部署的辅助资产生成能力，必须使用华为云 ModelArts MaaS API，默认模型为 `qwen-image`，不作为通用生图入口，也不登记为 KooCLI service。
 - 目标不是背命令，而是让 agent 能稳定完成一条完整链路：
   - 识别上下文
@@ -145,17 +144,20 @@ version: "0.4.0"
 7. `references/scenario-router.json`
 8. `references/guides/`
 9. `references/terraform-workflow.md`
-10. `references/command-construction.md`
-11. `references/error-playbook.md`
-12. `references/output-and-query.md`
-13. `references/scripts.md`
-14. `references/service-registry.json`
-15. `references/service-curation-profiles.json`
-16. `scripts/hcloud_catalog_audit.py`
-17. `references/playbooks/`
-18. `references/source-map.md`
-19. `examples/README.md`
-20. `references/maas-image-generation.md`（MaaS 图像生成主参考；`references/qwen-image-generation.md` 为兼容旧文件名）
+10. `references/terraform/README.md`
+11. `references/terraform/catalog/terraform-example-catalog.json`
+12. `references/terraform/catalog/terraform-reference-catalog.json`
+13. `references/command-construction.md`
+14. `references/error-playbook.md`
+15. `references/output-and-query.md`
+16. `references/scripts.md`
+17. `references/service-registry.json`
+18. `references/service-curation-profiles.json`
+19. `scripts/hcloud_catalog_audit.py`
+20. `references/playbooks/`
+21. `references/source-map.md`
+22. `examples/README.md`
+23. `references/maas-image-generation.md`（MaaS 图像生成主参考；`references/qwen-image-generation.md` 为兼容旧文件名）
 
 原始 KooCLI 材料在 `materials/` 下，仅作为资料源，不应直接当作最终指令集使用。
 华为云官方文档优先从 `https://support.huaweicloud.com/intl/zh-cn/` 查证；涉及 API 字段语义时，以官方文档和实际 `hcloud --dryrun`/查询结果为准。
@@ -203,6 +205,9 @@ version: "0.4.0"
 | 本地 KooCLI metadata 探查 | `hcloud_meta_lookup.py` | 查 service/operation detail cache。 |
 | SDK 参数/region 补充 | `hcloud_sdk_catalog.py` | 读取已安装 SDK package 或维护期源码 fallback；只补证据，不执行云调用。 |
 | SDK allowlist 只读桥 | `hcloud_sdk_readonly.py` | 仅执行 `sdk-supplement-registry.json` 登记的稳定只读补充；保留 hcloud fallback。 |
+| Terraform 环境检查 | `hcloud_terraform_context_inspect.py` | 检查 Terraform CLI、hcloud、环境变量、provider cache 和禁止提交的运行时产物。 |
+| Terraform 资产路由 | `hcloud_terraform_router.py` | 按用户意图从 55 个示例和 reference catalog 中选少量资产；只路由，不执行 plan/apply。 |
+| Terraform catalog 维护 | `hcloud_terraform_catalog.py` | 生成 `references/terraform/catalog/*.json`；修改示例或 reference 后运行。 |
 | generated catalog 审计/重建 | `hcloud_catalog_audit.py`、`build_hcloud_catalog.py` | 运行时走 index/per-service 懒加载；full catalog 只作为可选本地临时产物，不提交、不直接 Read 大 JSON。 |
 | ECS 创建前校验 | `hcloud_ecs_create_plan.py` | 检查 JSON、凭证、安全组和 dry-run/submit 命令。 |
 | ECS job 终态 | `hcloud_ecs_wait_job.py` | job 终态不等同于 ECS 可用。 |
@@ -222,7 +227,7 @@ version: "0.4.0"
 | 生命周期闭环计划 | `hcloud_lifecycle_closure_plan.py` | P0 核心服务的六阶段 planner-only 闭环计划，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。 |
 | 治理闭环计划 | `hcloud_governance_closure_plan.py` | P1 治理服务的 planner-only 闭环计划，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，并输出 evidence command plan 和治理汇总。 |
 | P2 场景闭环计划 | `hcloud_p2_scenario_closure_plan.py` | P2 场景服务的 planner-only 闭环计划，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，并诚实标注 metadata evidence gap。 |
-| Terraform/IaC 工作流 | `references/terraform-workflow.md` | 当用户明确需要可重复 IaC、环境复制或长期纳管时读取；Terraform 不替代 hcloud 发现和后置验证。 |
+| Terraform/IaC 工作流 | `references/terraform-workflow.md`、`references/terraform/README.md` | 当用户明确需要可重复 IaC、环境复制、import/drift 或长期纳管时读取；Terraform 不替代 hcloud 发现和后置验证。 |
 | registry 多服务 smoke | `hcloud_readonly_smoke.py` | 只读 smoke；`--execute` 才真实查询。 |
 | metadata-backed smoke | `hcloud_catalog_readonly_smoke.py` | 小批只读矩阵和失败分桶。 |
 | curated 晋级审计 | `hcloud_curated_promotion_audit.py` | 校验 profile、playbook、risk profile 和 live-smoke 门槛。 |
@@ -252,6 +257,7 @@ version: "0.4.0"
 - ECS `ACTIVE` 后必须按 `references/playbooks/ecs-ssh-access-readiness.md` 做 SSH 验收；如果目标任务还包含 Web/Docker/WordPress 等应用，再进入对应服务 readiness。
 - `--cli-waiter` 有重复调用风险，默认只建议用于查询或状态轮询。
 - 华为云站点部署中如需生成图片资产，先读取 `references/maas-image-generation.md`，通过华为云 ModelArts MaaS 生成本地资产并完成图片质量检查后再部署。
+- 用户明确要 Terraform/IaC 时，先运行 `hcloud_terraform_context_inspect.py` 和 `hcloud_terraform_router.py`；只读取 router 命中的少量 example/reference。只读排障、状态核验和一次性 hcloud 变更不要强行转 Terraform。
 - 如果 live help 因网络或元数据问题失败，改走本地 meta cache 和 `references/`，不要瞎猜参数。
 
 ## 当前版本覆盖
@@ -275,6 +281,7 @@ version: "0.4.0"
 - `hcloud_lifecycle_closure_plan.py` 提供 P0 核心服务的 planner-only 闭环计划入口，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，并把上下文/依赖发现、参数检查、风险门禁、受控执行、后置验证和治理审计统一成六阶段输出
 - `hcloud_governance_closure_plan.py` 提供 P1 治理闭环计划入口，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，把治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口统一输出；Billing/BSS 只生成 request spec，不生成 live query 命令
 - `hcloud_p2_scenario_closure_plan.py` 提供 P2 场景闭环计划入口，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，把容器、网络、缓存、IaC、多集群、依赖、安全、数据库场景先收敛成只读 evidence plan、风险边界和下一步晋级缺口；安全和数据库族当前保持 metadata evidence gap，不宣称 curated 完整闭环
+- Terraform 资产面已吸收 55 个示例和核心 provider/reference/inventory 文档；运行时通过 `hcloud_terraform_router.py` 和 catalog 渐进选择，不默认全量读取。Terraform 可以生成和验证 IaC 草案，但 apply 仍需用户确认，完成后仍回到 hcloud 做状态和业务验收
 - VPC / IMS / KPS / IAM / EIP 创建前只读发现方法
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记
 - ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 的低覆盖查询登记，用于离线数据集回归和前置发现
@@ -309,4 +316,4 @@ version: "0.4.0"
 - 不要在未确认上下文前直接执行高风险删除或不可逆变更。
 - 不要把真实 AK/SK、token、密码写进文档、日志或最终回复。
 - 不要把表格输出当成机器可稳定解析的默认格式。
-- 本 skill 负责 CLI/KooCLI 路线；Terraform、MCP、IaC 等路线只在用户明确要求或项目路由规则指定时接管。
+- 本 skill 负责 CLI/KooCLI 主链路；Terraform/IaC 只在用户明确要求、场景路由命中或长期纳管确有价值时接管，并且必须保持 hcloud 发现、plan 确认和 hcloud 后置验证。

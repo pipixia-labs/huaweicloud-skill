@@ -77,9 +77,31 @@ python3 scripts/hcloud_sdk_supplement_audit.py --pretty
 
 Use this during maintenance before adding or changing any SDK supplement entry. It checks `references/sdk-supplement-registry.json` for hcloud-first boundaries, fallback runner existence, low-risk executable entries, and optional SDK metadata consistency. Add `--require-metadata` only on machines with installed SDK packages or the maintenance source tree available.
 
+### Terraform Asset Routing
+
+```bash
+python3 scripts/hcloud_terraform_context_inspect.py --pretty
+```
+
+Use this before generating or applying Terraform. It reports Terraform CLI availability, hcloud availability, redacted Terraform/Huawei Cloud environment variable status, local provider cache hints, catalog presence, and forbidden runtime artifacts such as `.terraform/`, `terraform.tfstate*`, real `*.tfvars`, and `crash.log`.
+
+```bash
+python3 scripts/hcloud_terraform_router.py \
+  "用 Terraform 创建一套 ECS 和 EIP 测试环境" \
+  --pretty
+```
+
+Use this when the user explicitly asks for Terraform/IaC, environment replication, import/drift review, or long-term resource management. The router selects a small set of examples and references from `references/terraform/catalog/` and `examples/terraform/`; it does not run `terraform`, create files, call hcloud, or apply changes. If the query is only readback, status checking, or troubleshooting without IaC intent, the router returns `recommended_runtime=hcloud`.
+
+```bash
+python3 scripts/hcloud_terraform_catalog.py --write --pretty
+```
+
+Use this during maintenance after changing `examples/terraform/` or `references/terraform/`. It rebuilds `terraform-example-catalog.json` and `terraform-reference-catalog.json`. Do not manually edit generated catalog JSON unless you are fixing a temporary local experiment.
+
 ### Terraform Workflow Reference
 
-Terraform is documented in `references/terraform-workflow.md`, not exposed as a generic SDK runner. Read it when the user explicitly wants repeatable IaC, environment replication, import/drift review, or long-term resource management. The workflow requires hcloud discovery before plan generation and hcloud verification after apply.
+Terraform is documented in `references/terraform-workflow.md` and indexed in `references/terraform/README.md`, not exposed as a generic SDK runner. Read it when the user explicitly wants repeatable IaC, environment replication, import/drift review, or long-term resource management. The workflow requires hcloud discovery before plan generation and hcloud verification after apply.
 
 ### Catalog Audit And Rebuild
 

@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "description": "Terraform reference catalog. Load core references first; use inventories only on explicit provider coverage questions.",
+  "reference_count": 17,
+  "default_route_count": 8,
+  "references": [
+    {
+      "id": "README",
+      "path": "references/terraform/README.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "本目录完整吸收原独立 Terraform skill 中对 `huaweicloud-skill` 有用的 Markdown 和 Terraform 示例资产，但运行时不要从这里“全量浏览”。Terraform 是 `hcloud` 的补充 IaC 面：用于可重复创建、环境复制、长期纳管、import 和 drift review；不是只读查询、排障和一次性小变更的默认入口。"
+    },
+    {
+      "id": "advanced-variant-catalog",
+      "path": "references/terraform/advanced-variant-catalog.md",
+      "category": "advanced",
+      "default_route": false,
+      "summary": "这份文档用于吸收参考仓库里还没有单独升级成新 `*_stack` 的“高级变体”信息。"
+    },
+    {
+      "id": "data-source-selection-guide",
+      "path": "references/terraform/data-source-selection-guide.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "这份文档用于补齐“什么时候该用哪个 data source”的规则。"
+    },
+    {
+      "id": "discovery-workflow",
+      "path": "references/terraform/discovery-workflow.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "华为云 Terraform 的默认工作流应该是“先探测依赖，再生成资源定义”，而不是直接凭经验写死参数。"
+    },
+    {
+      "id": "interop-with-hcloud",
+      "path": "references/terraform/interop-with-hcloud.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "本文件定义 Terraform 资产与 `huaweicloud-skill` / `hcloud` 主链路的协作边界。"
+    },
+    {
+      "id": "provider-capability-index",
+      "path": "references/terraform/inventories/provider-capability-index.md",
+      "category": "inventory",
+      "default_route": false,
+      "summary": "这份文档用于吸收参考仓库 `docs/resources` 和 `docs/data-sources` 里更宽的 provider 能力面。"
+    },
+    {
+      "id": "provider-data-source-inventory",
+      "path": "references/terraform/inventories/provider-data-source-inventory.md",
+      "category": "inventory",
+      "default_route": false,
+      "summary": "这份文档把参考仓库 `docs/data-sources` 中的 data source 家族完整搬运到 skill 内部，作为 discovery 能力面的总索引。"
+    },
+    {
+      "id": "provider-resource-inventory",
+      "path": "references/terraform/inventories/provider-resource-inventory.md",
+      "category": "inventory",
+      "default_route": false,
+      "summary": "这份文档把参考仓库 `docs/resources` 中的资源家族完整搬运到 skill 内部，作为 provider 资源覆盖面的总索引。"
+    },
+    {
+      "id": "reference-example-inventory",
+      "path": "references/terraform/inventories/reference-example-inventory.md",
+      "category": "inventory",
+      "default_route": false,
+      "summary": "这份文档把参考仓库中的 example 目录结构完整搬运到 skill 内部，方便后续删除参考仓库后仍能知道还有哪些可复用变体。"
+    },
+    {
+      "id": "module-blueprints",
+      "path": "references/terraform/module-blueprints.md",
+      "category": "advanced",
+      "default_route": false,
+      "summary": "本文件回答一个更偏实战的问题：当用户不是只要一段 `.tf`，而是想要“一个可维护的华为云 Terraform 项目”时，应该怎么组织。"
+    },
+    {
+      "id": "provider-auth",
+      "path": "references/terraform/provider-auth.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "本文件定义华为云 Terraform provider 的推荐写法，以及与 `huaweicloud-skill` / `hcloud` 主链路的环境变量协同规则。"
+    },
+    {
+      "id": "resource-mapping",
+      "path": "references/terraform/resource-mapping.md",
+      "category": "advanced",
+      "default_route": false,
+      "summary": "第一轮优先覆盖的华为云 Terraform 资源与 data source 映射如下。"
+    },
+    {
+      "id": "roadmap",
+      "path": "references/terraform/roadmap.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "这份文档只回答 3 个问题："
+    },
+    {
+      "id": "service-variant-guide",
+      "path": "references/terraform/service-variant-guide.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "这份文档用于补齐第一档里“高价值字段规则”和“同一服务不同变体怎么选”的信息。"
+    },
+    {
+      "id": "source-skill",
+      "path": "references/terraform/source-skill.md",
+      "category": "source-archive",
+      "default_route": false,
+      "summary": "华为云 Terraform 执行型 skill。它是一个自包含 skill，提供 provider 认证、资源模型、依赖发现、示例、排障规则和后续扩展入口，并允许把 Terraform 当成真正的执行介质，而不只是代码模板。"
+    },
+    {
+      "id": "baseline-scenarios",
+      "path": "references/terraform/tests/baseline-scenarios.md",
+      "category": "test-reference",
+      "default_route": false,
+      "summary": "本文件用于验证 `huaweicloud-skill` 的 Terraform 资产面是否真的让模型在华为云场景下输出正确风格的 Terraform。"
+    },
+    {
+      "id": "troubleshooting",
+      "path": "references/terraform/troubleshooting.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "症状："
+    }
+  ]
+}
