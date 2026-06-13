@@ -16,6 +16,35 @@
 
 这些结构保持简单，便于 JSON 序列化，也便于脚本通过 stdout 传递结构化结果。
 
+## 场景路由和执行面分流
+
+`hcloud_scenario_router.py` 是自然语言目标进入本 skill 后的轻量路由层。它读取 `references/scenario-router.json`，把用户目标映射到本地 playbook、guide、planner、SDK supplement 和 Terraform candidate。
+
+它不执行云操作，也不安装任何工具。它的输出只回答三个问题：
+
+- 这个目标像哪个云场景。
+- 应该优先读哪些本地资料和 planner。
+- 是否存在 SDK 补充点或 Terraform 候选路径。
+
+```mermaid
+flowchart LR
+    Goal["User goal"] --> Router["hcloud_scenario_router.py"]
+    Router --> Scenario["references/scenario-router.json"]
+    Scenario --> Playbook["playbooks/guides"]
+    Scenario --> Planner["hcloud planners"]
+    Scenario --> SDK["SDK supplement candidates"]
+    Scenario --> TF["Terraform candidate"]
+    SDK --> HCloud["hcloud fallback path"]
+    TF --> TFRouter["hcloud_terraform_router.py"]
+    Planner --> HCloud
+```
+
+设计要点：
+
+- 路由只做建议，不绕过 `references/workflow.md`。
+- Terraform candidate 只是“可以进入 IaC 路线”，不是自动创建 `.tf` 或执行 `terraform`。
+- SDK supplement candidate 只是“可以补证据”，不是允许调用任意 SDK API。
+
 ## 安全执行包装器
 
 `scripts/hcloud_safe_exec.py` 是最重要的执行入口。它支持两种命令形态：
@@ -135,6 +164,74 @@ python3 scripts/hcloud_safe_exec.py \
 - 输出前会脱敏。
 
 它适合在连续处理大量华为云任务前运行。
+
+## SDK 补充实现
+
+SDK 补充链路由三个脚本和一个 registry 组成：
+
+| 模块 | 职责 |
+| --- | --- |
+| `references/sdk-supplement-registry.json` | 控制哪些 SDK operation 可以作为 hcloud 补充，声明风险、用途、fallback runner 和执行边界。 |
+| `hcloud_sdk_catalog.py` | 从已安装 `huaweicloudsdk*` package 读取 client、request、region 等模型信息；维护期可 fallback 到 SDK 源码参考。 |
+| `hcloud_sdk_readonly.py` | 对 allowlist 内的稳定只读 operation 生成计划或显式执行；默认 plan mode，输出 hcloud fallback plan。 |
+| `hcloud_sdk_supplement_audit.py` | 校验 registry 是否仍符合 hcloud-first、小 allowlist、低风险只读和 fallback 约束。 |
+
+```mermaid
+flowchart LR
+    Need["hcloud metadata/help gap"] --> Registry["sdk-supplement-registry.json"]
+    Registry --> Catalog["hcloud_sdk_catalog.py"]
+    Catalog --> Evidence["request/region/error evidence"]
+    Registry --> ReadOnly["hcloud_sdk_readonly.py"]
+    ReadOnly --> SDKPkg["installed huaweicloudsdk* package"]
+    ReadOnly --> Fallback["hcloud fallback plan"]
+    Evidence --> HCloudPlan["hcloud query/verify plan"]
+    Fallback --> HCloudPlan
+```
+
+关键实现边界：
+
+- 用户机器不需要 SDK 源码；`reference-projects/huaweicloud-sdk-python-v3` 只用于维护期对照。
+- `hcloud_sdk_catalog.py` 可以在没有安装 SDK package 时返回能力缺口，调用方应降级回 hcloud。
+- `hcloud_sdk_readonly.py --execute` 只对 allowlist、read-only、low risk 的 operation 生效。
+- SDK runner 不负责 mutation、批量治理写操作或 Terraform/IaC。
+
+扩展 SDK supplement 时，先问“这个 SDK 补充是否让 hcloud 主链路更稳”。如果只是 SDK 也能做同一件事，不应该加入 allowlist。
+
+## Terraform 资产实现
+
+Terraform 支持由本地资产、catalog 和 router 组成。它不是 hcloud 的替代执行面，而是当用户目标需要 IaC 时，帮助 agent 选择少量相关示例和参考文档。
+
+| 模块 | 职责 |
+| --- | --- |
+| `references/terraform-workflow.md` | 定义 hcloud 发现、Terraform fmt/init/validate/plan、用户确认、apply 后 hcloud verify 的顺序。 |
+| `references/terraform/README.md` | Terraform 资产入口和目录角色说明。 |
+| `examples/terraform/` | 可复用 `.tf` 示例资产。 |
+| `references/terraform/catalog/*.json` | 示例和 reference 的机器可读路由索引。 |
+| `hcloud_terraform_context_inspect.py` | 检查 Terraform CLI、hcloud、认证环境变量、provider cache 和禁止提交的 runtime artifact。 |
+| `hcloud_terraform_router.py` | 根据用户目标选择少量 example/reference；不执行 `terraform`，不创建文件。 |
+| `hcloud_terraform_catalog.py` | 维护期重建 Terraform catalog。 |
+
+```mermaid
+flowchart LR
+    Goal["IaC goal"] --> Inspect["hcloud_terraform_context_inspect.py"]
+    Goal --> Router["hcloud_terraform_router.py"]
+    Router --> Catalog["terraform catalog"]
+    Catalog --> Examples["examples/terraform/*"]
+    Catalog --> References["references/terraform/*.md"]
+    References --> Workflow["terraform-workflow.md"]
+    Workflow --> HCloudDiscovery["hcloud discovery"]
+    Workflow --> TFPlan["terraform fmt/init/validate/plan"]
+    TFPlan --> Confirm["user confirms exact plan"]
+    Confirm --> Apply["terraform apply"]
+    Apply --> HCloudVerify["hcloud post-verify"]
+```
+
+关键实现边界：
+
+- 没有 Terraform CLI 时，可以生成或评审 IaC 草案，但不能宣称已完成 fmt/init/validate/plan。
+- Router 返回 `recommended_runtime=hcloud` 时，说明目标更适合只读查询、状态核验或普通排障，不应该强行转 Terraform。
+- 修改示例或 reference 后，运行 `hcloud_terraform_catalog.py --write --pretty` 重建 catalog，并跑 Terraform asset 测试。
+- 真实 `terraform apply` 前必须让用户确认 exact plan；仓库中不能提交 `.terraform/`、`terraform.tfstate*`、真实 `*.tfvars` 或凭证。
 
 ## Registry 驱动的查询
 
@@ -538,7 +635,9 @@ OBS 使用 `hcloud obs`，不是普通 `hcloud OBS Operation`。
 6. 如需验证资源状态，在 `hcloud_resource_verify.py` 中补 collection keys、ID/name/status 字段处理。
 7. 对 change operation 先纳入 planner-only，不直接开放 submit。
 8. 如果变更可以映射到安全的 Show* 后置查询，在 `hcloud_guarded_change_flow.py` 增加 verify profile。
-9. 增加 tests，至少覆盖 plan 生成、参数缺失、大小写 operation resolve、风险门禁和后置验证推断。
-10. 再根据真实只读验证结果决定是否补 playbook 或专用 flow。
+9. 如果 hcloud metadata 不足且 SDK 能补强主链路，再评估是否增加 SDK supplement allowlist；不要因为 SDK 存在就接入。
+10. 如果用户任务天然需要 IaC，再增加 Terraform example/reference，并更新 catalog/router；普通查询和排障不要强行转 Terraform。
+11. 增加 tests，至少覆盖 plan 生成、参数缺失、大小写 operation resolve、风险门禁、后置验证推断，以及新增 SDK/Terraform 路由边界。
+12. 再根据真实只读验证结果决定是否补 playbook 或专用 flow。
 
 不要一开始就写真实 submit 自动化。先证明 read-only 和 verifier 稳定。

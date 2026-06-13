@@ -1,10 +1,15 @@
 # Technical Overview
 
-`huaweicloud-skill` 是一个基于华为云 KooCLI (`hcloud`) 的执行型 skill。它的技术目标不是把云命令写进提示词，而是把 LLM 的云资源操作拆成可发现、可规划、可执行、可验证、可回归的工程链路。
+`huaweicloud-skill` 是一个 hcloud-first 的华为云执行型 skill。它的技术目标不是把云命令写进提示词，也不是把 SDK、Terraform 和 CLI 都做成大而全入口，而是把 LLM 的云资源操作拆成可发现、可规划、可执行、可验证、可回归的工程链路。
 
 ## 技术定位
 
-这个 skill 让 agent 能用 `hcloud` 查询、分析、规划和验证华为云资源操作。对于会影响费用、网络、可用性或数据状态的变更，默认走 plan、dry-run、显式确认和后置验证，而不是直接提交。
+这个 skill 让 agent 能以 `hcloud` 为主链路查询、分析、规划和验证华为云资源操作。SDK 和 Terraform 都是补充能力：
+
+- SDK 用于补充参数类型、region/endpoint、错误结构和少量 allowlist 内稳定只读查询。
+- Terraform 用于可重复 IaC、环境复制、长期纳管、import 和 drift review。
+
+对于会影响费用、网络、可用性或数据状态的变更，默认走 plan、dry-run、显式确认和后置验证，而不是直接提交。
 
 ## 设计动机
 
@@ -20,39 +25,86 @@
 
 ## 当前能力概览
 
-v0.3 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架和生命周期治理工具：
+v0.5 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架、生命周期治理工具、SDK 补充层和 Terraform 资产面：
 
 | 指标 | 当前状态 |
 | --- | --- |
 | curated registry | 服务数和 operation 计数以 `hcloud_catalog_audit.py --pretty` 的 `registry` 字段为准 |
 | metadata-backed catalog | 服务数、operation 数和 registry 外服务清单以 `hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 字段为准 |
+| SDK supplement | allowlist 以 `references/sdk-supplement-registry.json` 为准；运行时优先使用已安装 `huaweicloudsdk*` package |
+| Terraform assets | 示例和 reference 以 `references/terraform/catalog/*.json`、`examples/terraform/` 和 `references/terraform/` 为准 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.3 / 0.3.3` |
+| 发布版本 | `v0.5` |
 
 ## 核心架构
 
 ```mermaid
-flowchart LR
-    Intent["User intent"] --> Registry["Registry control plane"]
-    Registry --> Closure["Lifecycle closure planner"]
-    Registry --> Scenario["Scenario closure planner"]
+flowchart TD
+    Intent["User intent"] --> Skill["SKILL.md workflow"]
+    Intent --> Router["hcloud_scenario_router.py"]
+    Router --> Guides["playbooks and guides"]
+    Router --> HCloudPath["hcloud execution path"]
+    Router --> SDKPath["SDK supplement path"]
+    Router --> TerraformPath["Terraform IaC path"]
+
+    HCloudPath --> Registry["service-registry.json"]
+    Registry --> Closure["Lifecycle/governance/scenario planners"]
     Registry --> Plan["Planner and risk gate"]
     Registry --> Query["Read-only query builders"]
     Closure --> Plan
     Closure --> Query
-    Scenario --> Query
-    Scenario --> Plan
     Plan --> SafeExec["Safe execution wrapper"]
     Query --> SafeExec
     SafeExec --> HCloud["hcloud / hcloud obs"]
     HCloud --> Diagnosis["Structured result and error_details"]
     Diagnosis --> Verify["Resource/job/readiness verification"]
     Verify --> Result["Auditable result"]
+
+    SDKPath --> SDKRegistry["sdk-supplement-registry.json"]
+    SDKRegistry --> SDKCatalog["hcloud_sdk_catalog.py"]
+    SDKRegistry --> SDKRead["hcloud_sdk_readonly.py"]
+    SDKCatalog --> Query
+    SDKRead --> HCloudFallback["hcloud fallback plan"]
+    HCloudFallback --> Query
+
+    TerraformPath --> TFInspect["hcloud_terraform_context_inspect.py"]
+    TerraformPath --> TFRouter["hcloud_terraform_router.py"]
+    TFRouter --> TFCatalog["terraform catalog"]
+    TFCatalog --> TFExamples["examples/terraform"]
+    TFCatalog --> TFRefs["references/terraform"]
+    TFRefs --> HCloudPath
+
     Tests["tests/*.py"] --> Gates["Coverage and safety gates"]
-    Materials["materials/ + references/"] --> Gates
+    Materials["materials/ + references/ + examples/"] --> Gates
     Gates --> Registry
+    Gates --> SDKRegistry
+    Gates --> TFCatalog
 ```
+
+## 执行面选择框架
+
+开发者扩展能力时，先判断任务应该进入哪个执行面，而不是先问“能不能用某个工具”。
+
+```mermaid
+flowchart LR
+    Goal["Cloud goal"] --> Kind{"任务性质"}
+    Kind -->|状态查询/排障/一次性受控变更| HCloud["hcloud 主链路"]
+    Kind -->|hcloud metadata 不足或需要稳定只读补证| SDK["SDK supplement"]
+    Kind -->|可重复 IaC/import/drift/长期纳管| Terraform["Terraform IaC"]
+    SDK --> SDKGate["allowlist + installed package + hcloud fallback"]
+    SDKGate --> HCloud
+    Terraform --> TFGate["context inspect + router + fmt/init/validate/plan"]
+    TFGate --> HCloudVerify["hcloud discovery and post-verify"]
+    HCloud --> Verify["resource/readiness/governance evidence"]
+    HCloudVerify --> Verify
+```
+
+| 执行面 | 适合场景 | 不适合场景 | 关键边界 |
+| --- | --- | --- | --- |
+| hcloud | live 查询、排障、上下文发现、受控 dry-run/submit、后置验证。 | 长期环境复制和批量 IaC 纳管。 | 所有真实写操作仍要确认、dry-run 和验证。 |
+| SDK | hcloud metadata/help 不足时补参数、endpoint、request model、错误结构；少量稳定只读查询。 | 通用创建、修改、删除、启停、扩缩容。 | 只走 `sdk-supplement-registry.json` allowlist；机器上只要求已安装 package，不要求 SDK 源码。 |
+| Terraform | 可重复创建、环境复制、import、drift review、长期纳管。 | 只读状态核验、临时排障、一次性小变更。 | 先路由少量资产；apply 前必须确认 exact plan，apply 后回到 hcloud 验证。 |
 
 ### 1. Registry 控制面
 
@@ -130,6 +182,48 @@ flowchart LR
 
 当前 P2 组包括 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态服务和数据库族。对已经有 curation profile 的服务，脚本会复用 `hcloud_resource_discovery.py` 和 `hcloud_resource_query.py` 生成只读证据计划；对 HSS、SecMaster、CFW、DBSS、KMS、GaussDB、GaussDBforNoSQL、GaussDBforopenGauss、DDS、DDM、DWS 等 metadata-backed 组，脚本明确标记 `metadata_evidence_gap`，只输出可见性和证据缺口，不宣称 curated 成熟度。
 
+### 4.4 SDK 补充层
+
+SDK 补充层是 v0.4 增加的 hcloud 辅助能力。设计目标不是“SDK 能做什么都暴露给 agent”，而是解决 hcloud 主链路中的几个具体痛点：
+
+- KooCLI 本地 metadata 或 help 信息不完整时，用 SDK request model 补参数类型、path/query/body 位置和分页线索。
+- 需要 region/endpoint 线索时，用已安装 SDK package 作为证据源。
+- hcloud 错误结构不足以定位问题时，借助 SDK 模型补充可能的错误语义。
+- 对少量低风险、稳定、只读、已登记 operation，允许 `hcloud_sdk_readonly.py` 在显式执行模式下调用 SDK，同时输出 hcloud fallback plan。
+
+关键边界：
+
+- 运行时不要求用户机器有 SDK 源码仓库；只使用 pip 或其他方式安装的 `huaweicloudsdk*` package。
+- `reference-projects/huaweicloud-sdk-python-v3` 只作为维护期参考，不是用户运行时依赖。
+- SDK allowlist 由 `references/sdk-supplement-registry.json` 控制，不能临时把任意 SDK mutation 暴露成 runner。
+- SDK 执行结果必须标记为 supplement，并保留 hcloud 主链路的查询或验证计划。
+
+### 4.5 Terraform 资产面
+
+Terraform 资产面是 v0.5 增加的 IaC 补充能力。它吸收原独立 Terraform skill 中对当前项目有用的 Markdown 和 `.tf` 示例，但通过 catalog 和 router 控制读取范围，避免 agent 一次性浏览大量示例后迷路。
+
+Terraform 进入条件不是“也能创建资源”，而是任务天然需要 IaC：
+
+- 可重复创建一套环境。
+- 复制测试/生产环境结构。
+- 把现网资源 import 到代码管理。
+- 做 drift review。
+- 长期纳管基础设施变更。
+
+运行时链路是：
+
+1. `hcloud_terraform_context_inspect.py` 检查 Terraform CLI、hcloud、认证环境变量、provider cache 和禁止提交的 runtime artifact。
+2. `hcloud_terraform_router.py` 根据用户目标选择少量 example/reference。
+3. `references/terraform-workflow.md` 约束 hcloud 现网发现、Terraform fmt/init/validate/plan、用户确认 exact plan 和 apply 后 hcloud 后置验证。
+4. `hcloud_terraform_catalog.py` 只在维护期重建 `references/terraform/catalog/*.json`。
+
+关键边界：
+
+- Terraform 不替代 hcloud 的现网发现和后置验证。
+- 只读查询、状态核验、普通排障和一次性小变更不要强行转 Terraform。
+- 真实 `terraform apply` 必须基于用户确认的 exact plan，不默认 `-auto-approve`。
+- `.terraform/`、`terraform.tfstate*`、真实 `*.tfvars`、`crash.log` 和凭证类文件不能进入仓库。
+
 ### 5. 质量回归面
 
 质量门禁把 registry、风险分类、执行路径和资料漂移纳入可重复检查：
@@ -151,6 +245,8 @@ flowchart LR
 | 失败后只能自然语言猜原因 | `error_details` 给机器可读错误类别 |
 | 覆盖范围难以回归 | registry 检查、materials drift、契约测试回归 |
 | OBS 被误当成普通 OpenAPI 服务 | OBS 走 `hcloud obs`/obsutil 专用路径 |
+| hcloud metadata 不完整时容易卡住 | SDK supplement 补参数、endpoint 和少量稳定只读查询，并保留 hcloud fallback |
+| IaC 示例太多导致 agent 迷路 | Terraform catalog/router 只选择少量命中资产，仍要求 hcloud 发现和验证 |
 
 ## 典型开发入口
 
@@ -158,6 +254,8 @@ flowchart LR
 - 新增只读查询：优先走 `hcloud_resource_discovery.py` 或 `hcloud_resource_query.py`。
 - 新增写类能力：先接入 planner-only，再补 guarded flow 或专用 flow。
 - 新增后置验证：优先补 Show* resource query 和 verifier 规则。
+- 新增 SDK 补充：先证明 hcloud 主链路有明确痛点，再登记 `sdk-supplement-registry.json`、补 audit/test，不做 generic mutation runner。
+- 新增 Terraform 示例：先放入 `examples/terraform/` 或 `references/terraform/`，再重建 catalog、验证 router 命中和资产卫生。
 - 调整安全边界：同步修改风险分类、架构契约测试和覆盖检查。
 
 ## 当前边界
@@ -165,6 +263,8 @@ flowchart LR
 - ECS 是完整度最高的闭环；其他 curated 服务已具备 profile/playbook/risk-profile 维护档案和广度优先的 P0 风险门禁，但复杂业务语义 verifier 还需要继续扩展。
 - 非 ECS 服务的部分 KooCLI operation detail 在本地 metadata 中不完整，所以当前仍优先采用显式参数和 planner-first。
 - 账号盘点、闲置审计、teardown review、CES alarm、LTS log、Billing/Cost 和 P2 scenario closure 都是只读或 planner-only 路线，不代表默认可以执行删除、释放、退订、告警创建、账单 HTTP 请求、安全策略变更或数据库变更。
+- SDK 是补充证据源和窄 allowlist 只读桥，不是默认执行面；用户机器没有安装对应 `huaweicloudsdk*` package 时应自动降级回 hcloud 主流程。
+- Terraform 是 IaC 资产面，不是排障查询入口；没有 Terraform CLI 或 provider cache 时可以生成草案，但不能宣称已经 validate/plan/apply。
 - 通用 Show* 后置验证确认基础资源状态，不等同于完整业务验收。
 - 所有真实写操作仍需要用户按具体资源、region、project、风险和回滚方式确认。
 
@@ -174,4 +274,6 @@ flowchart LR
 2. 增加更多真实只读样本和 dry-run 样本，继续校准 registry 和参数白名单。
 3. WAF、CodeArtsRepo、DLI 已达到当前 promotion audit 证据线，但是否写入 registry 仍取决于维护决策；安全姿态服务和数据库族需要继续补 live read-smoke、playbook、risk profile 和 target-scoped 查询证据。
 4. 为 Billing/Cost 增加经过评审的签名请求 runner 或 SDK 路线前，继续保持 request-spec-only。
-5. 把 run journal 用到更多多步操作中，增强真实变更的审计和恢复能力。
+5. 为 SDK supplement 增加更多真实只读 smoke 记录，但继续坚持小 allowlist 和 hcloud fallback。
+6. 为 Terraform 补 import/drift review 的更强示例和验证清单，同时保持 router 渐进加载。
+7. 把 run journal 用到更多多步操作中，增强真实变更的审计和恢复能力。

@@ -15,11 +15,18 @@ flowchart TD
     References --> Skill["SKILL.md"]
     References --> Registry["references/service-registry.json"]
     References --> Curation["references/service-curation-profiles.json"]
+    References --> SDKRegistry["references/sdk-supplement-registry.json"]
+    References --> TFRefs["references/terraform/*"]
+    TFExamples["examples/terraform/*"] --> TFCatalog["references/terraform/catalog/*.json"]
     Registry --> Scripts["scripts/*.py"]
     Curation --> Scripts
+    SDKRegistry --> Scripts
+    TFCatalog --> Scripts
     Registry --> Coverage["check_question_coverage.py"]
     Tests["tests/*.py"] --> Scripts
     Tests --> Registry
+    Tests --> SDKRegistry
+    Tests --> TFCatalog
     Tests --> Coverage
 ```
 
@@ -41,11 +48,14 @@ flowchart TD
 | `service-coverage.md` | 人类可读服务覆盖矩阵。 |
 | `service-registry.json` | 机器可读服务覆盖和路由控制面。 |
 | `service-curation-profiles.json` | curated 服务维护档案和 metadata-backed 晋级候选门禁。 |
+| `sdk-supplement-registry.json` | SDK 补充 allowlist，控制哪些 SDK operation 可用于 hcloud 补证或少量稳定只读桥。 |
 | `hcloud-service-catalog.index.json` | generated catalog 的运行时轻量索引，按服务懒加载。 |
 | `hcloud-service-catalog/` | 每服务 generated catalog payload，脚本按需读取。 |
 | `hcloud-service-catalog.generated.json` | 可选本地临时 full catalog，仅用于维护期完整 diff；不提交到仓库，不作为 agent 直接资料入口。 |
 | `hcloud-service-catalog.fingerprint.json` | generated catalog 的小体积升级审查事实源。 |
 | `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar。 |
+| `terraform-workflow.md` | Terraform/IaC 与 hcloud 协同的运行时流程。 |
+| `terraform/` | Terraform provider、认证、发现、互操作、troubleshooting 和 catalog 说明。 |
 | `playbooks/` | 面向具体任务的执行手册。 |
 
 generated catalog 由 `scripts/build_hcloud_catalog.py` 从本地 KooCLI `metaRepo` 生成。v0.3.1 起生成器按 operation 粒度英文优先合并：英文 metadata 已有的 operation 保持英文摘要和 detail，中文 metadata 中新增的服务、operation 或 detail 作为 fallback 补齐。当前覆盖数字以 `python3 scripts/hcloud_catalog_audit.py --pretty` 为准；本次 catalog source 为 198 个本地 metadata 服务、15,666 个 operation，metadata-backed registry 外服务为 180 个。
@@ -190,6 +200,47 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - 治理闭环：`scripts/hcloud_governance_closure_plan.py` 为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成五阶段 governance closure 计划，不执行治理写操作。
 - P2 场景闭环：`scripts/hcloud_p2_scenario_closure_plan.py` 为 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族生成四阶段 scenario closure 计划，不执行集群、NAT、缓存、IaC、多集群、安全、密钥或数据库写操作。
 
+## SDK supplement registry
+
+`references/sdk-supplement-registry.json` 是 SDK 补充能力的控制数据。它和 `service-registry.json` 分开维护，是为了避免把 SDK 误解成第二套通用执行面。
+
+每个 SDK supplement entry 至少要说明：
+
+| 字段 | 含义 |
+| --- | --- |
+| `service` / `sdk_operation` / `hcloud_operation` | SDK 操作与 hcloud 操作的对应关系。 |
+| `requires_sdk_package` | 用户机器上需要安装的 `huaweicloudsdk*` package。 |
+| `purpose` / `value` | 为什么这个 SDK 补充能让 hcloud 主链路更稳。 |
+| `risk` / `read_only_required` / `execute_allowed` | 风险和是否允许窄只读执行。 |
+| `fallback` | SDK 不可用或不执行时回到哪个 hcloud runner。 |
+| `evidence` / `manual_smoke` / `status` | 测试、人工 smoke 和成熟度说明。 |
+
+维护原则：
+
+- 不因为 SDK 支持某个 API 就加入 registry。
+- 只加入能补参数、endpoint、request model、错误结构或稳定只读证据的 operation。
+- 每个 executable supplement 都必须有 hcloud fallback。
+- 修改后运行 `hcloud_sdk_supplement_audit.py` 和 SDK supplement 测试。
+
+## Terraform assets and catalogs
+
+Terraform 资产分两层：
+
+| 层级 | 文件 | 作用 |
+| --- | --- | --- |
+| 人类可读 reference | `references/terraform/*.md`、`references/terraform/inventories/` | 解释 provider、认证、discovery、互操作、troubleshooting 和资产覆盖。 |
+| 可复用示例 | `examples/terraform/*` | 面向常见 IaC 任务的 `.tf` 示例。 |
+| 机器可读 catalog | `references/terraform/catalog/terraform-example-catalog.json`、`terraform-reference-catalog.json` | 供 `hcloud_terraform_router.py` 渐进选择资产。 |
+
+Terraform catalog 的意义是“资产完整吸收，但运行时少量命中”。开发者不应该让 agent 默认读取所有示例，而应该通过 router 根据用户目标选择少量 reference 和 example。
+
+维护原则：
+
+- 修改 Terraform 示例或 reference 后运行 `hcloud_terraform_catalog.py --write --pretty`。
+- 用 `hcloud_terraform_context_inspect.py` 检查 `.terraform/`、`terraform.tfstate*`、真实 `*.tfvars`、`crash.log` 等 forbidden artifact。
+- 用 Terraform asset tests 检查 catalog、router 和资产卫生。
+- Terraform 示例不等同于已经执行过的云变更；真实 plan/apply 仍需要本机 Terraform CLI、provider、认证环境变量和用户确认。
+
 ## Coverage gate
 
 `scripts/check_question_coverage.py` 是 registry 覆盖和风险分类的质量门禁入口。开发者只需要理解它在本仓库中的作用：
@@ -224,6 +275,22 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 
 这些测试不调用真实 `hcloud`，主要验证输出契约和路由逻辑。
 
+### SDK 和 Terraform 测试
+
+`tests/test_hcloud_sdk_supplement.py` 覆盖 SDK 补充层：
+
+- SDK catalog 能从已安装 package 或维护期源码形态提取 request metadata。
+- SDK supplement registry 保持 hcloud-first、allowlist、fallback 和低风险只读边界。
+- SDK read-only bridge 默认 plan mode，执行路径必须通过 allowlist 和参数校验。
+
+`tests/test_hcloud_terraform_assets.py` 覆盖 Terraform 资产面：
+
+- example/reference catalog 与本地资产一致。
+- router 能把 IaC 目标路由到 Terraform，把普通状态查询留在 hcloud。
+- context inspect 能识别 Terraform CLI、环境变量、provider cache 和 forbidden artifact。
+
+这两组测试的共同目标是防止补充能力膨胀成不受控的第二执行面。
+
 ### 架构契约测试
 
 `tests/test_hcloud_architecture_contracts.py` 约束更高层的不变量：
@@ -248,6 +315,8 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | P0 任务闭环增强 | VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS | 保持原有 guarded/readiness/专用适配器边界，同时通过 `hcloud_lifecycle_closure_plan.py` 输出上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计。 |
 | P1 治理闭环计划 | TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo | 通过 `hcloud_governance_closure_plan.py` 输出治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口；不执行治理写操作，Billing/BSS 不生成 live query 命令。 |
 | P2 场景闭环计划 | CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态服务、数据库族 | 通过 `hcloud_p2_scenario_closure_plan.py` 输出场景范围、只读 evidence command plan、风险边界和下一步晋级缺口；CCE/NAT/DCS/RFS/UCS/IAM/KPS/IMS 复用已有 profile，安全姿态和数据库族保持 metadata evidence gap。 |
+| SDK 补充层 | ECS、IMS、VPC、ELB、RDS、CES、CCE 等 allowlist operation | 通过 `hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 补参数/endpoint/request model 和少量稳定只读执行；没有 SDK package 时降级到 hcloud fallback。 |
+| Terraform 资产面 | Terraform provider reference、核心 workflow 和本地 `.tf` 示例 | 通过 `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py` 和 catalog 支持 IaC 资产选择；不默认执行 plan/apply。 |
 | 晋级候选 | LTS 及后续治理/安全/数据库长尾服务 | 有 candidate profile、playbook、risk profile 或 metadata-backed 入口；是否晋级取决于 live read-smoke、目标查询、playbook、risk profile 和测试证据。 |
 
 OBS 是特殊服务，不通过普通 OpenAPI-style metadata，而通过 `hcloud obs`/obsutil 适配。
@@ -261,6 +330,7 @@ python3 -m unittest discover tests
 python3 scripts/hcloud_catalog_audit.py --fail-on-drift --pretty
 python3 scripts/check_materials_drift.py --pretty
 python3 scripts/check_question_coverage.py --pretty
+python3 scripts/hcloud_sdk_supplement_audit.py --pretty
 ```
 
 这组验证说明项目不是只写了文档和脚本，而是把覆盖、风险和执行路径纳入了可重复检查的质量门禁。涉及 guarded flow 的能力还应检查对应单测和只读 smoke 输出，不在本文硬编码一次性测试数量。

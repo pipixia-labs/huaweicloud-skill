@@ -9,6 +9,39 @@
 - `references/service-registry.json`
 - `scripts/`
 
+## 设计框架速览
+
+`huaweicloud-skill` 是 hcloud-first 的云任务执行框架。SDK 和 Terraform 都不是平行的大而全入口，而是在合适场景补强 hcloud 主链路：SDK 用于少量稳定只读补充和参数证据，Terraform 用于可重复 IaC、import 和 drift review。
+
+```mermaid
+flowchart LR
+    Goal["用户目标"] --> Router["场景路由"]
+    Router --> HCloud["hcloud 主链路"]
+    Router --> SDK["SDK 补充层"]
+    Router --> Terraform["Terraform IaC 资产面"]
+    HCloud --> Registry["service registry"]
+    HCloud --> SafeExec["safe exec"]
+    HCloud --> Verify["verify/readiness"]
+    SDK --> SDKRegistry["sdk supplement registry"]
+    SDK --> HCloud
+    Terraform --> TFCatalog["terraform catalog/examples"]
+    Terraform --> HCloud
+    Registry --> Tests["tests and coverage gates"]
+    TFCatalog --> Tests
+    SDKRegistry --> Tests
+```
+
+开发者看这个项目时，可以先把它理解成六个模块：
+
+| 模块 | 代表文件 | 作用 |
+| --- | --- | --- |
+| 运行时入口 | `SKILL.md`、`references/workflow.md` | 告诉 agent 什么时候触发、按什么顺序工作。 |
+| 场景路由 | `hcloud_scenario_router.py`、`references/scenario-router.json` | 把自然语言目标映射到 playbook、planner、SDK 补充点和 Terraform 候选。 |
+| hcloud 执行框架 | `service-registry.json`、`hcloud_safe_exec.py`、查询/变更/验证脚本 | 负责发现、计划、执行、脱敏、错误诊断和后置验证。 |
+| SDK 补充层 | `sdk-supplement-registry.json`、`hcloud_sdk_catalog.py`、`hcloud_sdk_readonly.py` | 使用已安装 SDK package 补参数、endpoint、错误结构和少量 allowlist 只读查询。 |
+| Terraform 资产面 | `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`references/terraform/`、`examples/terraform/` | 负责 IaC 环境检查、资产路由和示例渐进加载。 |
+| 质量门禁 | `tests/`、`check_question_coverage.py`、`check_materials_drift.py` | 防止服务覆盖、安全边界和资产索引退化。 |
+
 ## 阅读顺序
 
 建议按下面顺序阅读：
@@ -24,9 +57,9 @@
    - 适合评审产品价值、设计演示案例或扩展典型服务能力时阅读。
 4. [implementation-details.md](implementation-details.md)
    - 了解关键脚本如何工作。
-   - 重点包括安全执行、元数据发现、registry 驱动、ECS/EIP/OBS 特殊流程、通用 guarded flow 和验证器。
+   - 重点包括场景路由、安全执行、元数据发现、registry 驱动、SDK 补充、Terraform 资产路由、ECS/EIP/OBS 特殊流程、通用 guarded flow 和验证器。
 5. [data-and-coverage.md](data-and-coverage.md)
-   - 了解 `references/`、`materials/`、`service-registry.json`、coverage 脚本和测试之间的关系。
+   - 了解 `references/`、`materials/`、`service-registry.json`、SDK supplement registry、Terraform catalog、coverage 脚本和测试之间的关系。
    - 适合扩展服务覆盖或调整质量门禁时阅读。
 
 ## 技术主线
@@ -34,8 +67,8 @@
 阅读和维护本项目时，建议抓住下面这条技术主线：
 
 1. 这不是普通 prompt，而是一个围绕华为云 KooCLI 的可执行云操作框架。
-2. 核心架构是 registry 控制面、safe exec 执行面、verifier 验证面、quality gate 回归面。
-3. v0.3 已从 ECS 单点闭环和多服务覆盖继续扩展到账号盘点、闲置审计、可观测、Billing/Cost request spec 和治理候选画像；v0.3.2 进一步把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 组织成 P0 任务级 lifecycle closure planner；P1 把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 组织成带 evidence command plan 和治理汇总的治理闭环 planner；v0.3.3 把 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族组织成 P2 场景闭环 planner。准确 registry 服务数和 operation 计数以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `registry` 字段为准。
+2. 核心架构是场景路由、registry 控制面、safe exec 执行面、SDK 补充面、Terraform 资产面、verifier 验证面和 quality gate 回归面。
+3. v0.3 系列把 ECS 单点闭环扩展到 P0/P1/P2 的生命周期、治理和场景闭环 planner；v0.4 增加 SDK 补充层，但只做 hcloud 的补证和少量 allowlist 只读桥；v0.5 增加 Terraform 资产面，完整吸收 IaC 示例和 reference，但通过 router 渐进读取，不让 agent 在资产里迷路。准确 registry 服务数、operation 计数和 Terraform catalog 数量以对应 audit/catalog 脚本输出为准。
 4. 写类操作默认不自动提交，而是走 plan、dry-run、显式确认和后置验证，适合真实云资源场景的风险控制。
 5. 单测、架构契约、materials drift 和 coverage 脚本是回归门禁，用来持续防止 coverage 和安全边界退化。
 

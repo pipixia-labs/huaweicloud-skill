@@ -34,6 +34,31 @@
 | 结果判断 | API 返回成功容易被当成任务完成。 | 区分 job 终态、资源终态、机内状态、应用可达性、日志/指标证据和治理证据。 |
 | 治理边界 | 容易把资源清单、资源状态或规格推导成治理结论。 | 对闲置、回收、账单、合规、告警等任务保持 planner-only 或只读边界，不把候选结论当执行授权。 |
 
+## 执行面选择框架
+
+v0.4 和 v0.5 后，skill 不再只是“hcloud 脚本集合”，而是 hcloud-first 的云任务框架。开发者需要先判断任务进入哪个执行面：
+
+```mermaid
+flowchart LR
+    Goal["用户目标"] --> Intent{"任务类型"}
+    Intent -->|查询/排障/一次性受控变更| HCloud["hcloud 主链路"]
+    Intent -->|hcloud 信息不足/稳定只读补证| SDK["SDK 补充"]
+    Intent -->|可重复环境/import/drift/长期纳管| Terraform["Terraform"]
+    SDK --> HCloudPlan["hcloud fallback plan"]
+    Terraform --> HCloudDiscovery["hcloud 现网发现"]
+    HCloudDiscovery --> TFPlan["Terraform plan"]
+    TFPlan --> HCloudVerify["hcloud 后置验证"]
+    HCloud --> Evidence["状态、风险、验证和审计证据"]
+    HCloudPlan --> Evidence
+    HCloudVerify --> Evidence
+```
+
+| 执行面 | 什么时候使用 | 产出 | 不能做什么 |
+| --- | --- | --- | --- |
+| hcloud | 用户要查状态、排障、盘点、做一次性受控变更，或需要验证资源真实状态。 | JSON-friendly 命令、结构化错误、planner、dry-run、guarded submit、readiness/verifier。 | 不适合长期环境复制和 IaC 纳管。 |
+| SDK | hcloud metadata/help 不足，或者 allowlist 内稳定只读查询能补充参数、endpoint、request model 证据。 | SDK metadata 证据、少量只读 supplement result、hcloud fallback plan。 | 不做通用 mutation runner，不替代 hcloud guarded flow。 |
+| Terraform | 用户明确要 IaC、环境复制、import、drift review 或长期纳管。 | 选中的 `.tf` 示例、reference、fmt/init/validate/plan 流程和 apply 后 hcloud verify 清单。 | 不用于普通只读查询、临时排障和绕过用户确认的 apply。 |
+
 ## 云任务闭环能力
 
 `huaweicloud-skill` 对用户最直接的价值，可以概括为 6 类能力。
@@ -122,6 +147,10 @@ v0.3.3 补上 P2 场景服务。选择这些服务，是因为它们覆盖了 P0
 | HSS / SecMaster / CFW / DBSS / KMS | 安全姿态只读可见性和 evidence gap。 | 保持 metadata-backed evidence gap；安全策略、主机 agent、防火墙、审计和密钥变更 hard-gated。 |
 | GaussDB / GaussDBforNoSQL / GaussDBforopenGauss / DDS / DDM / DWS | 复用 RDS 的备份、连接、参数、重启影响和回滚证据模型。 | 保持 metadata-backed evidence gap；不从实例状态直接宣称数据库可用，不自动改参数、重启、恢复或删除。 |
 
+v0.4 的 SDK 补充层解决的是“hcloud 主链路有时缺参数证据”的问题，而不是把 SDK 扩展成第二套执行系统。典型价值是：创建 ECS 前补规格和镜像查询参数，排查 VPC/ELB/RDS/CCE 时补 Show* request model 和 region/endpoint 线索，可观测场景补 CES metric 查询参数。SDK supplement 的结论必须回到 hcloud 的 fallback plan、readiness 或 verifier 中闭合。
+
+v0.5 的 Terraform 资产面解决的是“长期可重复纳管”的问题，而不是替代 hcloud 排障。典型价值是：把 ECS + VPC + EIP + 安全组沉淀成可复用 `.tf`，把现网资源 import 到代码管理，或做 drift review。Terraform 进入后仍要先用 hcloud 发现现网，plan/apply 后仍要用 hcloud 验证资源状态和业务可用性。
+
 ## 服务补充能力总览
 
 从服务视角看，`huaweicloud-skill` 主要补的不是“更多命令”，而是每个服务在真实任务里最容易缺失的判断、门禁和验证环节。
@@ -142,6 +171,8 @@ v0.3.3 补上 P2 场景服务。选择这些服务，是因为它们覆盖了 P0
 | CES / LTS | metric namespace/dimension/time window 发现，log group/stream/keyword/time window 查询计划。 | 健康判断不硬编码指标名，也不拉取过多日志；结论有指标和日志证据。 |
 | CCE / UCS | cluster、node、addon、policy 和 fleet 只读 readiness。 | 容器和多集群场景先看状态和边界，写操作不默认开放。 |
 | DCS / RFS | 缓存实例健康、备份、配置、诊断；stack/template/resource/execution plan review。 | 缓存和 IaC 任务先看证据和计划影响，再考虑变更。 |
+| SDK supplement | ECS/IMS/VPC/ELB/RDS/CES/CCE 等 allowlist 只读补充。 | 在 hcloud metadata 不足时补参数、request model、endpoint 和少量稳定只读证据；不开放 SDK 通用变更。 |
+| Terraform assets | provider/reference、示例 `.tf`、import/drift/长期纳管 workflow。 | 当用户要 IaC 时选择少量相关资产，生成可评审计划；不替代 hcloud 发现和后置验证。 |
 | TMS / CTS / CBR / RMS / Config | 标签、审计、备份、合规、资源清单的 candidate、evidence gap 和 review plan。 | 让管云治理从口号变成可盘点、可追踪、可评审的清单。 |
 | Billing / Cost / BSS | 能力探测、官方 API request spec、权限和数据敏感边界；不签名、不发请求。 | 成本结论必须来自明确账单数据源，不从资源规格粗略推断费用。 |
 | WAF / HSS / SecMaster / CFW / DBSS / KMS | 安全姿态只读发现、policy/host/event/key 等高风险对象的 evidence gap。 | 安全服务先做可见性和证据，不把高风险策略变更过早自动化。 |
@@ -293,6 +324,21 @@ ELB 不是只创建 listener，还要确认后端 ECS、VPC、协议、端口和
 | 结论输出 | 可能给出未经验证的费用判断。 | 输出请求路径、参数、权限前提、数据新鲜度和执行方式建议。 |
 
 核心差异：不用 skill 时，容易用资源清单推费用；使用 skill 时，成本结论必须绑定明确账单数据源。
+
+### 任务 11：把现网环境沉淀成 Terraform
+
+这个任务的目标不是马上创建资源，而是把已经明确的云资源结构变成可重复、可评审、可长期纳管的 IaC。
+
+| 阶段 | 不使用 huaweicloud-skill | 使用 huaweicloud-skill |
+| --- | --- | --- |
+| 进入条件 | 可能只因为 Terraform 可用就强行改写所有任务。 | 先判断用户是否明确需要 IaC、环境复制、import、drift review 或长期纳管。 |
+| 现网发现 | 可能直接写 `.tf`，忽略现有 VPC、子网、安全组、EIP、ELB、RDS 等状态。 | 先用 hcloud discovery/query/readiness 获取现网证据和依赖关系。 |
+| 资产选择 | 可能浏览大量示例，混用不相关资源。 | 用 `hcloud_terraform_router.py` 从 catalog 中选择少量匹配示例和 reference。 |
+| 本地环境 | 可能默认 Terraform/provider 已可用。 | 用 `hcloud_terraform_context_inspect.py` 检查 Terraform CLI、认证环境变量、provider cache 和 forbidden artifact。 |
+| 计划执行 | 可能直接 apply 或建议 `-auto-approve`。 | 先 fmt/init/validate/plan，用户确认 exact plan 后才能 apply。 |
+| 后置验证 | 可能把 Terraform apply 成功当成业务完成。 | apply 后回到 hcloud 验证资源状态、网络路径和业务 readiness。 |
+
+核心差异：不用 skill 时，Terraform 容易变成另一种直接执行；使用 skill 时，Terraform 是可重复纳管链路，前后都被 hcloud 证据闭合。
 
 ## 如何判断 skill 是否真正帮上忙
 
