@@ -2,9 +2,34 @@
 
 ## Unreleased
 
+No unreleased changes yet.
+
+## v0.5 / 0.5.0 - 2026-06-13
+
+v0.5 makes Terraform a first-class, routed IaC asset plane inside `huaweicloud-skill` while preserving the hcloud-first safety model. It absorbs the prior standalone Terraform skill assets, adds catalog/context/router scripts, and keeps agents from browsing every Terraform example by default.
+
+### Changes Since v0.4
+
 - Terraform assets are now first-class local skill assets: 55 example stacks and supporting Markdown references are available through `examples/terraform/` and `references/terraform/`.
 - New Terraform catalog, context inspection, and router scripts let agents choose a small number of relevant IaC assets while keeping hcloud as the discovery and verification path.
 - Runtime artifacts remain excluded: `.terraform/`, state files, real tfvars, crash logs, and secrets must not be committed.
+- Scenario routing now returns a Terraform next-hop with context inspection, router, workflow, and asset index paths when the user explicitly needs IaC.
+- Active Terraform references and examples now use `hcloud` / `huaweicloud-skill` naming; the original source skill is retained only as an archive.
+- `SKILL.md` frontmatter now passes `skill-creator` quick validation.
+
+### Validation
+
+- `./.venv/bin/python /Users/wenhaojiang/.codex/skills/.system/skill-creator/scripts/quick_validate.py .`: passed.
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests`: 215 tests passed.
+- `python3 -m compileall -q scripts tests`: passed.
+- `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- v0.5 does not make Terraform an automatic apply path.
+- Terraform plan/apply still requires local Terraform/provider readiness, exact plan review, and explicit user confirmation.
+- hcloud remains the source of live discovery, readback, troubleshooting, and post-apply verification.
+- SDK allowlists are unchanged; Terraform support does not expand generic SDK execution.
 
 ## v0.4 / 0.4.0 - 2026-06-13
 

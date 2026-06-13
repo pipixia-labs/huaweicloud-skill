@@ -2,9 +2,15 @@
 
 ## Unreleased
 
+No unreleased changes yet.
+
+## 0.5.0 - 2026-06-13
+
 - Absorbed Terraform Markdown and `.tf` assets from the prior Huawei Terraform skill into `references/terraform/` and `examples/terraform/`, excluding runtime artifacts such as `.terraform/`, state files, real tfvars, and crash logs.
 - Added Terraform asset catalogs plus `hcloud_terraform_catalog.py`, `hcloud_terraform_context_inspect.py`, and `hcloud_terraform_router.py` so agents can select targeted examples/references without browsing all Terraform assets.
 - Updated hcloud-first workflow, README, script reference docs, and architecture docs to treat Terraform as a supplemental IaC plane with hcloud discovery before plan and hcloud verification after apply.
+- Cleaned active Terraform references and examples to use `hcloud` / `huaweicloud-skill` naming while keeping the original source skill only as an archive.
+- Removed the unsupported `version` field from `SKILL.md` frontmatter so `skill-creator` validation passes.
 
 ## 0.4.0 - 2026-06-13
 
