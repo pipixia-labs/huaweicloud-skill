@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-No unreleased changes yet.
+- SDK supplement docs now include the local SDK `3.1.199` reference snapshot, installed-package runtime rules, auth/region/endpoint guidance, and narrow candidate rules for future read-only supplements.
+- Terraform provider docs now include the local provider `1.93.0` snapshot, refreshed resource/data-source inventories, and stronger authentication/context guidance.
+- New maintenance script: `hcloud_terraform_provider_inventory.py` rebuilds provider inventories from the local provider reference checkout and detects drift.
+- Terraform context inspection now reports more provider environment aliases and warns when shared hcloud config is encrypted and therefore unsuitable for Terraform shared-config auth without an explicit risk decision.
 
 ## v0.5 / 0.5.0 - 2026-06-13
 
@@ -19,7 +22,7 @@ v0.5 makes Terraform a first-class, routed IaC asset plane inside `huaweicloud-s
 
 ### Validation
 
-- `./.venv/bin/python /Users/wenhaojiang/.codex/skills/.system/skill-creator/scripts/quick_validate.py .`: passed.
+- `skill-creator` quick validation: passed.
 - `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests`: 215 tests passed.
 - `python3 -m compileall -q scripts tests`: passed.
 - `git diff --check`: passed.

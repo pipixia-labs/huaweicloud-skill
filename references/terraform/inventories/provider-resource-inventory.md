@@ -2,18 +2,23 @@
 
 这份文档把参考仓库 `docs/resources` 中的资源家族完整搬运到 skill 内部，作为 provider 资源覆盖面的总索引。
 
+来源快照：`reference-projects/terraform-provider-huaweicloud`，provider changelog 顶部版本 `1.93.0`，日期 `June 12, 2026`。
+覆盖统计：1684 个条目，125 个家族。
+
 阅读方式：
-- 先按家族名查看 provider 是否已经覆盖某个方向。
+- 先按家族名查看 provider 是否覆盖某个方向。
 - 再结合 `provider-capability-index.md` 判断是否值得进入主线。
 - 再结合 `reference-example-inventory.md` 判断是否已经有成型 example。
+- 这份文件是生成索引；维护时用 `scripts/hcloud_terraform_provider_inventory.py` 从 provider docs 重建。
 
-## aad (8)
+## aad (9)
 - `aad_black_white_list`
 - `aad_change_specification`
 - `aad_domain`
 - `aad_domain_certificate`
 - `aad_domain_security_protection`
 - `aad_forward_rule`
+- `aad_instance`
 - `aad_policy_black_white_rule`
 - `aad_unblock_ip`
 
@@ -59,7 +64,7 @@
 - `api_gateway_environment`
 - `api_gateway_group`
 
-## apig (44)
+## apig (45)
 - `apig_acl_policy`
 - `apig_acl_policy_associate`
 - `apig_api`
@@ -73,6 +78,7 @@
 - `apig_appcode`
 - `apig_application`
 - `apig_application_acl`
+- `apig_application_ai_api_key`
 - `apig_application_authorization`
 - `apig_application_quota`
 - `apig_application_quota_associate`
@@ -105,7 +111,7 @@
 - `apig_throttling_policy_associate`
 - `apig_vpc_channel`
 
-## as (10)
+## as (11)
 - `as_bandwidth_policy`
 - `as_configuration`
 - `as_execute_policy`
@@ -116,6 +122,7 @@
 - `as_notification`
 - `as_planned_task`
 - `as_policy`
+- `as_warm_pool`
 
 ## asm (1)
 - `asm_mesh`
@@ -191,7 +198,7 @@
 - `cc_inter_region_bandwidth`
 - `cc_network_instance`
 
-## cce (24)
+## cce (26)
 - `cce_access_policy`
 - `cce_addon`
 - `cce_autopilot_addon`
@@ -203,6 +210,7 @@
 - `cce_cluster`
 - `cce_cluster_certificate_revoke`
 - `cce_cluster_log_config`
+- `cce_cluster_pod_identity_association`
 - `cce_cluster_upgrade`
 - `cce_image_cache`
 - `cce_namespace`
@@ -212,6 +220,7 @@
 - `cce_node_pool_nodes_add`
 - `cce_node_pool_scale`
 - `cce_node_sync`
+- `cce_nodes_certificate_rotatecredentials`
 - `cce_nodes_remove`
 - `cce_partition`
 - `cce_pvc`
@@ -275,26 +284,37 @@
 - `ces_resource_group`
 - `ces_resource_group_alarm_template_async_associate`
 
-## cfw (27)
+## cfw (38)
 - `cfw_acl_rule`
+- `cfw_add_dns_server`
 - `cfw_address_group`
 - `cfw_address_group_member`
+- `cfw_advanced_ips_rule`
 - `cfw_alarm_config`
 - `cfw_anti_virus`
 - `cfw_batch_delete_acl_rules`
+- `cfw_batch_delete_address_group_members`
+- `cfw_batch_delete_address_groups`
+- `cfw_batch_delete_domain_sets`
+- `cfw_batch_delete_service_group_members`
 - `cfw_batch_update_acl_rules_action`
+- `cfw_batch_update_ips_custom_rules`
 - `cfw_black_white_list`
 - `cfw_capture_task`
 - `cfw_delete_ip_blacklist`
 - `cfw_dns_resolution`
 - `cfw_domain_name_group`
+- `cfw_eip_alarm_whitelist`
+- `cfw_eip_all_protection_switch`
 - `cfw_eip_auto_protection`
 - `cfw_eip_protection`
+- `cfw_export_acl_rule`
 - `cfw_export_ip_blacklist`
 - `cfw_export_logs`
 - `cfw_firewall`
 - `cfw_import_ip_blacklist`
 - `cfw_ip_blacklist_retry`
+- `cfw_ip_blacklist_switch`
 - `cfw_ips_custom_rule`
 - `cfw_ips_rule_mode_change`
 - `cfw_lts_log`
@@ -463,8 +483,9 @@
 - `csms_secret_rotate`
 - `csms_secret_version_state`
 
-## css (22)
+## css (25)
 - `css_agency`
+- `css_agency_permission`
 - `css_ai_ops_setting`
 - `css_cluster`
 - `css_cluster_az_migrate`
@@ -485,7 +506,9 @@
 - `css_scan_task`
 - `css_snapshot`
 - `css_snapshot_restore`
+- `css_snapshot_setting`
 - `css_thesaurus`
+- `css_vpcep_connections_update`
 
 ## cts (4)
 - `cts_configuration`
@@ -493,7 +516,30 @@
 - `cts_notification`
 - `cts_tracker`
 
-## dataarts (35)
+## das (19)
+- `das_batch_set_sql_switch`
+- `das_binlog_parse_task`
+- `das_binlog_parse_task_export`
+- `das_database_instance_connection`
+- `das_database_user`
+- `das_dead_lock_switch`
+- `das_email_template`
+- `das_email_templates_batch_action`
+- `das_emails_batch_send`
+- `das_full_dead_lock_switch`
+- `das_history_transaction_export_task`
+- `das_history_transaction_switch`
+- `das_instance_group`
+- `das_instance_group_assign`
+- `das_lock_blocking_switch`
+- `das_search_path_switch`
+- `das_shared_connection`
+- `das_slow_log_export_task`
+- `das_sql_limiting_switch`
+
+## dataarts (48)
+- `dataarts_architecture_aggregation_logic_table`
+- `dataarts_architecture_approvals_batch_action`
 - `dataarts_architecture_batch_publish`
 - `dataarts_architecture_batch_publishment`
 - `dataarts_architecture_batch_unpublish`
@@ -508,6 +554,8 @@
 - `dataarts_architecture_reviewer`
 - `dataarts_architecture_subject`
 - `dataarts_architecture_table_model`
+- `dataarts_catalog_metadata_task`
+- `dataarts_catalog_metadata_task_action`
 - `dataarts_dataservice_api`
 - `dataarts_dataservice_api_action`
 - `dataarts_dataservice_api_auth`
@@ -517,18 +565,27 @@
 - `dataarts_dataservice_api_publishment`
 - `dataarts_dataservice_app`
 - `dataarts_dataservice_catalog`
+- `dataarts_dataservice_instance_log_dump`
 - `dataarts_dataservice_message_approve`
 - `dataarts_factory_job`
 - `dataarts_factory_job_action`
+- `dataarts_factory_job_export`
+- `dataarts_factory_job_import`
 - `dataarts_factory_resource`
 - `dataarts_factory_script`
+- `dataarts_factory_script_execute`
 - `dataarts_security_data_recognition_rule`
+- `dataarts_security_data_recognition_rule_group`
 - `dataarts_security_data_secrecy_level`
+- `dataarts_security_dynamic_masking_policy`
 - `dataarts_security_permission_set`
 - `dataarts_security_permission_set_member`
 - `dataarts_security_permission_set_privilege`
+- `dataarts_security_resource_permission_policy`
+- `dataarts_security_workspace_queue_associate`
 - `dataarts_studio_data_connection`
 - `dataarts_studio_instance`
+- `dataarts_studio_workspace_user`
 
 ## dbss (4)
 - `dbss_audit_risk_rule_action`
@@ -549,28 +606,43 @@
 - `dc_virtual_interface_accepter`
 - `dc_virtual_interface_switchover`
 
-## dcs (21)
+## dcs (36)
 - `dcs_account`
+- `dcs_all_sessions_kill`
+- `dcs_background_task_delete`
+- `dcs_background_task_detail`
 - `dcs_backup`
 - `dcs_backup_import_task`
 - `dcs_bigkey_analysis`
+- `dcs_center_task_delete`
 - `dcs_cluster_replica_switch`
 - `dcs_custom_template`
 - `dcs_diagnosis_task`
 - `dcs_hotkey_analysis`
 - `dcs_instance`
 - `dcs_instance_bandwidth_modify`
+- `dcs_instance_expired_key_scan`
 - `dcs_instance_expired_key_scan_task`
 - `dcs_instance_migration_task_stop`
+- `dcs_instance_minor_version_upgrade`
 - `dcs_instance_node_ip_remove`
 - `dcs_instance_public_access`
 - `dcs_instance_restore`
 - `dcs_instance_shard_bandwidth`
+- `dcs_login_web_cli`
+- `dcs_logout_web_cli`
 - `dcs_master_standby_switch`
 - `dcs_migration_task_exchange_ip`
 - `dcs_migration_task_rollback_ip`
+- `dcs_node_priority_config`
+- `dcs_node_status_change`
+- `dcs_offline_key_analysis`
 - `dcs_online_data__migration_task_restart`
 - `dcs_online_data_migration_task`
+- `dcs_redis_run_log_collect`
+- `dcs_sessions_kill`
+- `dcs_sessions_query`
+- `dcs_web_cli_command_execute`
 
 ## ddm (10)
 - `ddm_account`
@@ -584,10 +656,13 @@
 - `ddm_physical_sessions_kill`
 - `ddm_schema`
 
-## dds (25)
+## dds (30)
 - `dds_audit_log_delete`
 - `dds_audit_log_policy`
 - `dds_backup`
+- `dds_backup_download_policy`
+- `dds_backup_stop`
+- `dds_bind_gateway`
 - `dds_collection_restore`
 - `dds_database_role`
 - `dds_database_user`
@@ -600,6 +675,7 @@
 - `dds_instance_restart`
 - `dds_instance_restore`
 - `dds_instance_storage_space_update`
+- `dds_ip_address`
 - `dds_lts_log`
 - `dds_node_session_kill`
 - `dds_parameter_template`
@@ -608,6 +684,7 @@
 - `dds_parameter_template_copy`
 - `dds_parameter_template_reset`
 - `dds_primary_standby_switch`
+- `dds_readonly_node`
 - `dds_recycle_policy`
 - `dds_scheduled_task_cancel`
 
@@ -617,7 +694,7 @@
 ## dis (1)
 - `dis_stream`
 
-## dli (20)
+## dli (25)
 - `dli_agency`
 - `dli_database`
 - `dli_database_privilege`
@@ -626,9 +703,13 @@
 - `dli_datasource_connection_associate`
 - `dli_datasource_connection_privilege`
 - `dli_elastic_resource_pool`
+- `dli_flink_job_export`
+- `dli_flink_job_import`
 - `dli_flink_template`
 - `dli_flinkjar_job`
 - `dli_flinksql_job`
+- `dli_flinksql_job_savepoint`
+- `dli_flinksql_job_savepoint_import`
 - `dli_global_variable`
 - `dli_package`
 - `dli_permission`
@@ -636,10 +717,11 @@
 - `dli_spark_job`
 - `dli_spark_template`
 - `dli_sql_job`
+- `dli_sql_job_result_export`
 - `dli_sql_template`
 - `dli_table`
 
-## dms (49)
+## dms (53)
 - `dms_group`
 - `dms_instance`
 - `dms_kafka_background_task_delete`
@@ -647,6 +729,7 @@
 - `dms_kafka_consumer_group_topic_batch_delete`
 - `dms_kafka_instance`
 - `dms_kafka_instance_batch_action`
+- `dms_kafka_instance_log`
 - `dms_kafka_instance_public_access_switch`
 - `dms_kafka_instance_rebalance_log`
 - `dms_kafka_instance_restart`
@@ -676,8 +759,10 @@
 - `dms_rabbitmq_plugin`
 - `dms_rabbitmq_queue`
 - `dms_rabbitmq_queue_message_clear`
+- `dms_rabbitmq_recycle_instance_restore`
 - `dms_rabbitmq_user`
 - `dms_rabbitmq_vhost`
+- `dms_rabbitmq_volume_auto_expand_configuration`
 - `dms_rocketmq_consumer_group`
 - `dms_rocketmq_consumption_verify`
 - `dms_rocketmq_dead_letter_resend`
@@ -689,6 +774,7 @@
 - `dms_rocketmq_node_batch_restart`
 - `dms_rocketmq_topic`
 - `dms_rocketmq_user`
+- `dms_rocketmq_volume_auto_expand_configuration`
 
 ## dns (15)
 - `dns_custom_line`
@@ -710,28 +796,55 @@
 ## dnsv21 (1)
 - `dnsv21_ptrrecord`
 
-## drs (2)
+## drs (23)
+- `drs_backup_migration`
+- `drs_batch_delete_jobs`
+- `drs_batch_pause_task`
+- `drs_batch_retry_task`
+- `drs_batch_set_definer`
+- `drs_check_data_filter`
+- `drs_compare_job_cancel`
+- `drs_compare_policy`
+- `drs_connection`
+- `drs_download_batch_create_template`
+- `drs_driver_delete`
 - `drs_job`
+- `drs_job_clone`
+- `drs_job_configuration_update`
 - `drs_job_primary_standby_switch`
+- `drs_job_v5`
+- `drs_jobs_batch_stop`
+- `drs_lts_config`
+- `drs_object_compare`
+- `drs_pwd_batch_modify`
+- `drs_smn_batch_set`
+- `drs_stop_job`
+- `drs_update_data_progress_rules`
 
 ## dsc (3)
 - `dsc_alarm_notification`
 - `dsc_asset_obs`
 - `dsc_instance`
 
-## dws (21)
+## dws (28)
 - `dws_alarm_subscription`
 - `dws_cluster`
+- `dws_cluster_action`
+- `dws_cluster_eip_associate`
+- `dws_cluster_elb_associate`
+- `dws_cluster_exception_rule`
+- `dws_cluster_public_domain_associate`
 - `dws_cluster_restart`
 - `dws_cluster_user`
+- `dws_database_schema_adjust_action`
 - `dws_disaster_recovery_task`
 - `dws_event_subscription`
 - `dws_ext_data_source`
 - `dws_logical_cluster`
+- `dws_logical_cluster_plan`
 - `dws_logical_cluster_restart`
 - `dws_om_account_action`
 - `dws_parameter_configurations`
-- `dws_public_domain_associate`
 - `dws_snapshot`
 - `dws_snapshot_copy`
 - `dws_snapshot_policy`
@@ -740,9 +853,10 @@
 - `dws_workload_plan_execution`
 - `dws_workload_plan_stage`
 - `dws_workload_queue`
+- `dws_workload_queue_update_action`
 - `dws_workload_queue_user_associate`
 
-## eg (9)
+## eg (10)
 - `eg_connection`
 - `eg_custom_event_channel`
 - `eg_custom_event_source`
@@ -752,15 +866,22 @@
 - `eg_event_subscription`
 - `eg_event_subscription_batch_action`
 - `eg_event_subscription_target`
+- `eg_eventrouter_cluster`
 
-## elb (18)
+## eip (1)
+- `eip_bandwidth_associate`
+
+## elb (21)
 - `elb_active_standby_pool`
 - `elb_certificate`
 - `elb_certificate_private_key_echo`
+- `elb_domain_address`
+- `elb_domain_resolution`
 - `elb_ipgroup`
 - `elb_l7policy`
 - `elb_l7rule`
 - `elb_listener`
+- `elb_listener_copy`
 - `elb_loadbalancer`
 - `elb_loadbalancer_copy`
 - `elb_logtank`
@@ -849,71 +970,85 @@
 - `ga_health_check`
 - `ga_listener`
 
-## gaussdb (49)
+## gaussdb (42)
+- `gaussdb_asp_collect`
+- `gaussdb_backup`
+- `gaussdb_backup_stop`
 - `gaussdb_cassandra_instance`
+- `gaussdb_client_auth_config`
+- `gaussdb_client_auth_config_restore`
+- `gaussdb_database`
+- `gaussdb_dr_configuration_reset`
+- `gaussdb_dr_drill`
+- `gaussdb_dr_instance_primary_role_switch`
+- `gaussdb_dr_instance_to_primary`
+- `gaussdb_dr_log_cache`
+- `gaussdb_dr_record_delete`
+- `gaussdb_dr_relationship`
+- `gaussdb_dr_relationship_reestablish`
+- `gaussdb_eip_associate`
 - `gaussdb_influx_instance`
+- `gaussdb_instance`
+- `gaussdb_instance_node_startup`
+- `gaussdb_instance_node_stop`
+- `gaussdb_instance_password_reset`
+- `gaussdb_instance_plugin_license_config`
+- `gaussdb_instance_restart`
+- `gaussdb_instance_upgrade`
 - `gaussdb_mongo_instance`
-- `gaussdb_mysql_account`
-- `gaussdb_mysql_account_privilege`
-- `gaussdb_mysql_backup`
-- `gaussdb_mysql_database`
-- `gaussdb_mysql_eip_associate`
-- `gaussdb_mysql_instance`
-- `gaussdb_mysql_instance_node_config`
-- `gaussdb_mysql_instance_restart`
-- `gaussdb_mysql_instance_upgrade`
-- `gaussdb_mysql_instant_task_delete`
-- `gaussdb_mysql_lts_log`
-- `gaussdb_mysql_parameter_template`
-- `gaussdb_mysql_parameter_template_apply`
-- `gaussdb_mysql_parameter_template_compare`
-- `gaussdb_mysql_proxy`
-- `gaussdb_mysql_proxy_restart`
-- `gaussdb_mysql_quota`
-- `gaussdb_mysql_recycling_policy`
-- `gaussdb_mysql_restore`
-- `gaussdb_mysql_scheduled_task_cancel`
-- `gaussdb_mysql_scheduled_task_delete`
-- `gaussdb_mysql_sql_control_rule`
-- `gaussdb_mysql_table_restore`
-- `gaussdb_opengauss_backup`
-- `gaussdb_opengauss_backup_stop`
-- `gaussdb_opengauss_database`
-- `gaussdb_opengauss_eip_associate`
-- `gaussdb_opengauss_instance`
-- `gaussdb_opengauss_instance_node_startup`
-- `gaussdb_opengauss_instance_node_stop`
-- `gaussdb_opengauss_instance_restart`
-- `gaussdb_opengauss_instance_upgrade`
-- `gaussdb_opengauss_parameter_template`
-- `gaussdb_opengauss_parameter_template_apply`
-- `gaussdb_opengauss_parameter_template_compare`
-- `gaussdb_opengauss_parameter_template_reset`
-- `gaussdb_opengauss_primary_standby_switch`
-- `gaussdb_opengauss_quota`
-- `gaussdb_opengauss_recycling_policy`
-- `gaussdb_opengauss_restore`
-- `gaussdb_opengauss_schema`
-- `gaussdb_opengauss_sql_throttling_task`
-- `gaussdb_opengauss_sync_sql_throttling_task`
-- `gaussdb_opengauss_task_delete`
+- `gaussdb_parameter_template`
+- `gaussdb_parameter_template_apply`
+- `gaussdb_parameter_template_compare`
+- `gaussdb_parameter_template_reset`
+- `gaussdb_primary_standby_switch`
+- `gaussdb_quota`
+- `gaussdb_read_replica`
+- `gaussdb_recycling_policy`
 - `gaussdb_redis_eip_associate`
 - `gaussdb_redis_instance`
+- `gaussdb_restore`
+- `gaussdb_schema`
+- `gaussdb_sql_throttling_task`
+- `gaussdb_sync_sql_throttling_task`
+- `gaussdb_task_delete`
+- `gaussdb_wdr_snapshot`
+- `gaussdb_wdr_snapshot_collect`
 
-## geminidb (1)
+## geminidb (19)
+- `geminidb_account`
+- `geminidb_backup`
+- `geminidb_backup_stop`
+- `geminidb_command_disable`
+- `geminidb_database_operation`
+- `geminidb_dr_switchover_configuration`
+- `geminidb_eip_bind`
 - `geminidb_instance`
+- `geminidb_instance_restart`
+- `geminidb_memory_mapping`
+- `geminidb_memory_rule`
+- `geminidb_node_session_kill`
+- `geminidb_parameter_template`
+- `geminidb_parameter_template_compare`
+- `geminidb_parameter_template_copy`
+- `geminidb_parameter_template_reset`
+- `geminidb_primary_standby_switch`
+- `geminidb_recycling_policy`
+- `geminidb_scheduled_task_cancel`
 
 ## ges (3)
 - `ges_backup`
 - `ges_graph`
 - `ges_metadata`
 
-## global (3)
+## global (6)
 - `global_eip`
 - `global_eip_associate`
+- `global_eip_internet_bandwidth_associate`
+- `global_eip_segment`
+- `global_eip_segment_bandwidth_associate`
 - `global_internet_bandwidth`
 
-## hss (48)
+## hss (50)
 - `hss_antivirus_create_pay_per_scan_task`
 - `hss_antivirus_create_virus_scan_task`
 - `hss_antivirus_pay_per_scan_switch_status`
@@ -932,12 +1067,14 @@
 - `hss_container_network_cluster_sync`
 - `hss_container_network_policy_sync`
 - `hss_container_sync_cluster_information`
+- `hss_custom_rule`
 - `hss_event_alarm_white_list_delete`
 - `hss_event_login_white_list`
 - `hss_event_system_user_white_list`
 - `hss_event_unblock_ip`
 - `hss_file_download`
 - `hss_honeypot_port_policy`
+- `hss_host_batch_config`
 - `hss_host_group`
 - `hss_host_manual_detection`
 - `hss_host_protection`
@@ -1209,7 +1346,8 @@
 ## metastudio (1)
 - `metastudio_instance`
 
-## modelarts (13)
+## modelarts (18)
+- `modelarts_algorithm`
 - `modelarts_authorization`
 - `modelarts_dataset`
 - `modelarts_dataset_version`
@@ -1218,18 +1356,31 @@
 - `modelarts_model`
 - `modelarts_network`
 - `modelarts_notebook`
+- `modelarts_notebook_image_store`
 - `modelarts_notebook_mount_storage`
 - `modelarts_resource_pool`
 - `modelarts_resource_pool_node_batch_resize`
 - `modelarts_service`
+- `modelarts_training_experiment`
+- `modelarts_training_image_store`
+- `modelarts_training_job`
 - `modelarts_workspace`
 
-## modelartsv2 (5)
+## modelartsv2 (14)
 - `modelartsv2_node_batch_delete`
+- `modelartsv2_node_batch_lock`
+- `modelartsv2_node_batch_migrate`
 - `modelartsv2_node_batch_reboot`
+- `modelartsv2_node_batch_reset`
+- `modelartsv2_node_batch_unlock`
 - `modelartsv2_node_batch_unsubscribe`
 - `modelartsv2_service`
 - `modelartsv2_service_action`
+- `modelartsv2_workflow`
+- `modelartsv2_workflow_execution`
+- `modelartsv2_workflow_execution_action`
+- `modelartsv2_workflow_schedule`
+- `modelartsv2_workflow_subscription`
 
 ## mpc (2)
 - `mpc_transcoding_template`
@@ -1268,11 +1419,13 @@
 - `networking_vip`
 - `networking_vip_associate`
 
-## obs (6)
+## obs (8)
 - `obs_bucket`
 - `obs_bucket_acl`
+- `obs_bucket_bpa`
 - `obs_bucket_object`
 - `obs_bucket_object_acl`
+- `obs_bucket_object_restore`
 - `obs_bucket_policy`
 - `obs_bucket_replication`
 
@@ -1282,17 +1435,20 @@
 - `oms_migration_task_group`
 - `oms_sync_event`
 
-## organizations (11)
+## organizations (14)
 - `organizations_account`
 - `organizations_account_associate`
 - `organizations_account_invite`
 - `organizations_account_invite_accepter`
 - `organizations_account_invite_decliner`
 - `organizations_delegated_administrator`
+- `organizations_dry_run_policy`
+- `organizations_dry_run_policy_entity_attach`
 - `organizations_organization`
 - `organizations_organizational_unit`
 - `organizations_policy`
 - `organizations_policy_attach`
+- `organizations_policy_dry_run_configuration`
 - `organizations_trusted_service`
 
 ## ram (4)
@@ -1301,20 +1457,26 @@
 - `ram_resource_share_accepter`
 - `ram_resource_share_permission`
 
-## rds (56)
+## rds (66)
+- `rds_agent_job_modify`
+- `rds_agent_job_restart`
+- `rds_agent_job_switch`
 - `rds_backup`
 - `rds_backup_stop`
 - `rds_cross_region_backup_strategy`
 - `rds_database_logs_shrinking`
+- `rds_database_statistics_update`
 - `rds_distribution`
 - `rds_dr_instance_dr_capability`
 - `rds_dr_instance_to_primary`
+- `rds_event_operate`
 - `rds_extend_log_link`
 - `rds_instance`
 - `rds_instance_eip_associate`
 - `rds_instance_minor_version_upgrade`
 - `rds_instance_restart`
 - `rds_instant_task_delete`
+- `rds_intelligent_session_kill`
 - `rds_lts_config`
 - `rds_mysql_account`
 - `rds_mysql_binlog`
@@ -1325,6 +1487,7 @@
 - `rds_mysql_proxy_restart`
 - `rds_notify_replace_node`
 - `rds_parametergroup`
+- `rds_parametergroup_apply`
 - `rds_parametergroup_compare`
 - `rds_parametergroup_copy`
 - `rds_parametergroup_reset`
@@ -1345,24 +1508,40 @@
 - `rds_primary_standby_switch`
 - `rds_pub_and_sub_metadata_sync`
 - `rds_publication`
+- `rds_publication_snapshot_regenerate`
 - `rds_read_replica_instance`
 - `rds_recycling_policy`
 - `rds_restore`
 - `rds_restore_read_replica_database`
-- `rds_session_kill`
 - `rds_sql_audit`
 - `rds_sql_statistics_view_reset`
 - `rds_sqlserver_account`
 - `rds_sqlserver_database`
 - `rds_sqlserver_database_copy`
 - `rds_sqlserver_database_privilege`
+- `rds_standby_instance_rebuild`
+- `rds_subscription`
+- `rds_subscription_regenerate`
 - `rds_unlock_node_readonly_status`
 - `rds_wal_log_replay_switch`
 
-## rfs (3)
+## rfs (16)
+- `rfs_apply_execution_plan`
+- `rfs_continue_deploy_stack`
 - `rfs_execution_plan`
+- `rfs_execution_plan_v2`
 - `rfs_private_hook`
+- `rfs_private_module`
+- `rfs_private_module_version`
+- `rfs_private_provider`
+- `rfs_private_provider_version`
 - `rfs_stack`
+- `rfs_stack_rollback`
+- `rfs_stack_set`
+- `rfs_stack_set_deployment`
+- `rfs_template`
+- `rfs_template_analysis_variables`
+- `rfs_template_version`
 
 ## rgc (8)
 - `rgc_account`
@@ -1407,7 +1586,7 @@
 - `sdrs_replication_pair`
 - `sdrs_resize_replication`
 
-## secmaster (35)
+## secmaster (41)
 - `secmaster_alert`
 - `secmaster_alert_convert_incident`
 - `secmaster_alert_rule`
@@ -1416,7 +1595,10 @@
 - `secmaster_catalogue`
 - `secmaster_clone_playbook_version`
 - `secmaster_cloud_log_resource`
+- `secmaster_collect_config`
 - `secmaster_collector_channel_group`
+- `secmaster_collector_channel_operation`
+- `secmaster_component_template`
 - `secmaster_data_object_relations`
 - `secmaster_dataspace`
 - `secmaster_delete_policies`
@@ -1424,6 +1606,7 @@
 - `secmaster_indicator`
 - `secmaster_layout_field`
 - `secmaster_module`
+- `secmaster_node_expansion`
 - `secmaster_operation_connection`
 - `secmaster_pipe_consumption`
 - `secmaster_playbook`
@@ -1438,6 +1621,8 @@
 - `secmaster_search_condition`
 - `secmaster_soc_mapping_clone`
 - `secmaster_soc_mapping_delete`
+- `secmaster_soc_mapping_status`
+- `secmaster_update_workflow_instance`
 - `secmaster_workflow`
 - `secmaster_workflow_action`
 - `secmaster_workflow_version`
@@ -1479,7 +1664,7 @@
 - `sfs_turbo_obs_target`
 - `sfs_turbo_perm_rule`
 
-## smn (10)
+## smn (12)
 - `smn_logtank`
 - `smn_message_detection`
 - `smn_message_publish`
@@ -1490,6 +1675,8 @@
 - `smn_topic`
 - `smn_topic_attributes`
 - `smn_topic_subscriber`
+- `smn_topic_subscription`
+- `smn_topic_unsubscription`
 
 ## sms (10)
 - `sms_migration_project`
@@ -1539,6 +1726,39 @@
 - `swr_repository_tag`
 - `swr_temporary_login_command`
 
+## taurusdb (31)
+- `taurusdb_account`
+- `taurusdb_account_privilege`
+- `taurusdb_backup`
+- `taurusdb_backups_batch_delete`
+- `taurusdb_database`
+- `taurusdb_eip_associate`
+- `taurusdb_htap_sessions_kill`
+- `taurusdb_htap_starrocks_instance_restart`
+- `taurusdb_htap_starrocks_instance_upgrade`
+- `taurusdb_htap_starrocks_node_restart`
+- `taurusdb_instance`
+- `taurusdb_instance_node_config`
+- `taurusdb_instance_restart`
+- `taurusdb_instance_upgrade`
+- `taurusdb_instant_task_delete`
+- `taurusdb_lts_log`
+- `taurusdb_node_sessions_kill`
+- `taurusdb_parameter_template`
+- `taurusdb_parameter_template_apply`
+- `taurusdb_parameter_template_compare`
+- `taurusdb_primary_standby_switch`
+- `taurusdb_proxy`
+- `taurusdb_proxy_restart`
+- `taurusdb_quota`
+- `taurusdb_recycling_policy`
+- `taurusdb_restore`
+- `taurusdb_scheduled_task_cancel`
+- `taurusdb_scheduled_task_delete`
+- `taurusdb_sql_auto_throttling`
+- `taurusdb_sql_control_rule`
+- `taurusdb_table_restore`
+
 ## tms (2)
 - `tms_resource_tags`
 - `tms_tags`
@@ -1558,13 +1778,15 @@
 - `vod_transcoding_template_group`
 - `vod_watermark_template`
 
-## vpc (22)
+## vpc (24)
 - `vpc`
 - `vpc_address_group`
 - `vpc_bandwidth`
 - `vpc_bandwidth_associate`
 - `vpc_eip`
 - `vpc_eip_associate`
+- `vpc_eip_bandwidth_rule`
+- `vpc_eip_update_publicip_pool`
 - `vpc_eipv3_associate`
 - `vpc_flow_log`
 - `vpc_internet_gateway`
@@ -1582,10 +1804,12 @@
 - `vpc_traffic_mirror_filter_rule`
 - `vpc_traffic_mirror_session`
 
-## vpcep (5)
+## vpcep (7)
 - `vpcep_approval`
 - `vpcep_endpoint`
+- `vpcep_endpoint_upgrade`
 - `vpcep_service`
+- `vpcep_service_add_servers`
 - `vpcep_service_connection_update`
 - `vpcep_service_upgrade`
 
@@ -1720,4 +1944,3 @@
 - `workspace_user`
 - `workspace_user_action`
 - `workspace_user_group`
-

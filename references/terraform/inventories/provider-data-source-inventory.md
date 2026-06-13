@@ -2,9 +2,14 @@
 
 这份文档把参考仓库 `docs/data-sources` 中的 data source 家族完整搬运到 skill 内部，作为 discovery 能力面的总索引。
 
+来源快照：`reference-projects/terraform-provider-huaweicloud`，provider changelog 顶部版本 `1.93.0`，日期 `June 12, 2026`。
+覆盖统计：2239 个条目，115 个家族。
+
 阅读方式：
-- 当用户要求 discovery-first 时，先看相关服务家族下有哪些 data source。
-- 当某个服务已知 provider 支持但还没有现成示例时，这份索引是最直接的入口。
+- 先按家族名查看 provider 是否覆盖某个方向。
+- 再结合 `provider-capability-index.md` 判断是否值得进入主线。
+- 再结合 `reference-example-inventory.md` 判断是否已经有成型 example。
+- 这份文件是生成索引；维护时用 `scripts/hcloud_terraform_provider_inventory.py` 从 provider docs 重建。
 
 ## aad (26)
 - `aad_alarm_config`
@@ -123,7 +128,7 @@
 - `apig_signatures`
 - `apig_throttling_policies`
 
-## as (13)
+## as (14)
 - `as_activity_logs`
 - `as_configurations`
 - `as_group_quotas`
@@ -137,6 +142,7 @@
 - `as_policies`
 - `as_policy_execute_logs`
 - `as_quotas`
+- `as_warm_pool_instances`
 
 ## asm (1)
 - `asm_meshes`
@@ -233,17 +239,19 @@
 - `cc_supported_areas`
 - `cc_supported_regions`
 
-## cce (25)
+## cce (30)
 - `cce_access_policies`
 - `cce_addon_template`
 - `cce_addons`
 - `cce_autopilot_addon_templates`
 - `cce_autopilot_addons`
+- `cce_autopilot_chart_values`
 - `cce_autopilot_charts`
 - `cce_autopilot_cluster_certificate`
 - `cce_autopilot_cluster_log_configs`
 - `cce_autopilot_cluster_upgrade_info`
 - `cce_autopilot_clusters`
+- `cce_autopilot_release_history`
 - `cce_autopilot_releases`
 - `cce_chart_values`
 - `cce_charts`
@@ -251,6 +259,8 @@
 - `cce_cluster_certificate`
 - `cce_cluster_configuration_details`
 - `cce_cluster_configurations`
+- `cce_cluster_pod_identity_associations`
+- `cce_cluster_pod_identity_assume_agency`
 - `cce_cluster_upgrade_info`
 - `cce_clusters`
 - `cce_flavor_specifications`
@@ -258,6 +268,7 @@
 - `cce_node`
 - `cce_node_pool`
 - `cce_nodes`
+- `cce_release_history`
 - `cce_releases`
 
 ## cci (1)
@@ -334,14 +345,20 @@
 - `ces_resource_groups`
 - `ces_resource_tags`
 
-## cfw (36)
+## cfw (51)
 - `cfw_access_control_logs`
+- `cfw_access_log_statistic`
+- `cfw_access_log_statistic_detail`
 - `cfw_acl_rule_export_status`
+- `cfw_acl_rule_hit_info`
+- `cfw_acl_rule_import_status`
 - `cfw_acl_rule_tags`
 - `cfw_address_group_members`
 - `cfw_address_groups`
 - `cfw_advanced_ips_rules`
+- `cfw_attack_log_statistic`
 - `cfw_attack_log_statistics`
+- `cfw_attack_log_total`
 - `cfw_attack_log_trend`
 - `cfw_attack_logs`
 - `cfw_black_white_lists`
@@ -349,11 +366,15 @@
 - `cfw_capture_tasks`
 - `cfw_domain_name_groups`
 - `cfw_domain_name_parse_ip_list`
+- `cfw_domain_resolve_ip_list`
 - `cfw_eip_auto_protect_status`
 - `cfw_eip_count`
+- `cfw_firewall_config_quota`
+- `cfw_firewall_router`
 - `cfw_firewalls`
 - `cfw_flow_log_statistic_detail`
 - `cfw_flow_log_statistics`
+- `cfw_flow_log_trend`
 - `cfw_flow_logs`
 - `cfw_inspection_vpcs`
 - `cfw_ip_blacklist`
@@ -361,9 +382,12 @@
 - `cfw_ips_custom_rules`
 - `cfw_ips_rule_details`
 - `cfw_ips_rules`
+- `cfw_logs`
+- `cfw_organization_tree`
 - `cfw_protection_rules`
 - `cfw_regions`
 - `cfw_report`
+- `cfw_report_history`
 - `cfw_report_profiles`
 - `cfw_resource_tags`
 - `cfw_schedules`
@@ -371,6 +395,8 @@
 - `cfw_service_groups`
 - `cfw_sn_firewall_protection_status`
 - `cfw_tags`
+- `cfw_traffic_log_trend`
+- `cfw_vpcs_protection`
 
 ## cnad (5)
 - `cnad_advanced_alarm_notifications`
@@ -535,11 +561,14 @@
 - `csms_secrets_by_tags`
 - `csms_tasks`
 
-## css (20)
+## css (23)
 - `css_ai_ops_detectors`
+- `css_cluster_logs`
 - `css_cluster_tags`
+- `css_cluster_volume_usage`
 - `css_clusters`
 - `css_datastore_flavors`
+- `css_disk_types`
 - `css_elb_certificates`
 - `css_elb_loadbalancers`
 - `css_flavor_details`
@@ -570,18 +599,73 @@
 - `cts_trackers`
 - `cts_users`
 
-## dataarts (12)
-- `dataarts_architecture_ds_template_optionals`
+## das (18)
+- `das_binlog_exported_parse_tasks`
+- `das_binlogs`
+- `das_connection_instance_snapshots`
+- `das_database_instance_connections`
+- `das_database_users`
+- `das_email_send_records`
+- `das_history_transaction_exported_tasks`
+- `das_history_transactions`
+- `das_inspection_reports`
+- `das_instance_groups`
+- `das_instance_metadata_locks`
+- `das_instance_processes`
+- `das_instances`
+- `das_shared_connections`
+- `das_slow_log_details`
+- `das_slow_log_templates`
+- `das_sql_execution_plans`
+- `das_sql_limit_rules`
+
+## dataarts (47)
+- `dataarts_architecture_aggregation_logic_tables`
+- `dataarts_architecture_approvals`
+- `dataarts_architecture_business_metrics`
+- `dataarts_architecture_code_tables`
+- `dataarts_architecture_data_standard_template_customs`
+- `dataarts_architecture_data_standard_template_optionals`
+- `dataarts_architecture_data_standards`
+- `dataarts_architecture_directories`
 - `dataarts_architecture_model_statistic`
+- `dataarts_architecture_models`
+- `dataarts_architecture_processes`
+- `dataarts_architecture_subjects`
+- `dataarts_architecture_table_model_relations`
 - `dataarts_architecture_table_models`
+- `dataarts_catalog_metadata_tasks`
+- `dataarts_dataservice_api_authorized_apps`
 - `dataarts_dataservice_apis`
+- `dataarts_dataservice_app_authorized_apis`
+- `dataarts_dataservice_approvers`
 - `dataarts_dataservice_apps`
-- `dataarts_dataservice_authorized_apps`
+- `dataarts_dataservice_catalog_apis`
+- `dataarts_dataservice_catalogs`
 - `dataarts_dataservice_instances`
 - `dataarts_dataservice_messages`
+- `dataarts_factory_alarm_records`
 - `dataarts_factory_jobs`
+- `dataarts_factory_resources`
+- `dataarts_factory_scripts`
+- `dataarts_quality_consistency_tasks`
+- `dataarts_quality_rule_templates`
 - `dataarts_quality_tasks`
+- `dataarts_security_data_categories`
+- `dataarts_security_data_recognition_rule_groups`
+- `dataarts_security_data_recognition_rules`
+- `dataarts_security_data_secrecy_levels`
+- `dataarts_security_datasource_permissions`
+- `dataarts_security_dynamic_masking_policies`
+- `dataarts_security_permission_set_members`
+- `dataarts_security_permission_set_privileges`
+- `dataarts_security_permission_sets`
+- `dataarts_security_resource_permission_policies`
+- `dataarts_security_workspace_associated_queues`
 - `dataarts_studio_data_connections`
+- `dataarts_studio_instances`
+- `dataarts_studio_workspace_user_roles`
+- `dataarts_studio_workspace_users`
 - `dataarts_studio_workspaces`
 
 ## dbss (10)
@@ -612,23 +696,41 @@
 - `dc_virtual_interface_switchover_records`
 - `dc_virtual_interfaces`
 
-## dcs (18)
+## dcs (36)
 - `dcs_accounts`
 - `dcs_az`
+- `dcs_background_tasks`
+- `dcs_backup_file_links`
 - `dcs_backups`
+- `dcs_batch_instance_nodes`
 - `dcs_bigkey_analyses`
+- `dcs_center_tasks`
+- `dcs_clients`
 - `dcs_diagnosis_tasks`
 - `dcs_flavors`
 - `dcs_hotkey_analyses`
+- `dcs_instance_engine_version`
 - `dcs_instance_expired_key_scan_histories`
 - `dcs_instance_nodes`
+- `dcs_instance_parameter_modify_records`
+- `dcs_instance_rename_commands`
 - `dcs_instance_shards`
+- `dcs_instance_status`
+- `dcs_instance_topology`
 - `dcs_instances`
 - `dcs_maintainwindow`
 - `dcs_migration_task_logs`
 - `dcs_migration_tasks`
+- `dcs_offline_key_analyses`
+- `dcs_primary_dim_monitored_objects`
 - `dcs_product`
 - `dcs_quotas`
+- `dcs_redis_log_download_link`
+- `dcs_redis_run_logs`
+- `dcs_secondary_dim_monitored_objects`
+- `dcs_slow_logs`
+- `dcs_ssl_cert_download`
+- `dcs_tags`
 - `dcs_template_detail`
 - `dcs_templates`
 
@@ -693,19 +795,23 @@
 - `deh_quotas`
 - `deh_types`
 
-## dli (10)
+## dli (14)
 - `dli_datasource_auths`
 - `dli_datasource_connections`
 - `dli_elastic_resource_pools`
 - `dli_flink_templates`
 - `dli_flinkjar_jobs`
 - `dli_flinksql_jobs`
+- `dli_queues`
 - `dli_quotas`
+- `dli_spark_jobs`
 - `dli_spark_templates`
+- `dli_sql_defend_rules`
 - `dli_sql_jobs`
 - `dli_sql_templates`
+- `dli_system_sql_defend_rules`
 
-## dms (57)
+## dms (58)
 - `dms_az`
 - `dms_kafka_background_tasks`
 - `dms_kafka_consumer_group_members`
@@ -740,6 +846,7 @@
 - `dms_rabbitmq_instances`
 - `dms_rabbitmq_plugins`
 - `dms_rabbitmq_queues`
+- `dms_rabbitmq_recycle_instances`
 - `dms_rabbitmq_users`
 - `dms_rabbitmq_vhosts`
 - `dms_rocketmq_availability_zones`
@@ -788,20 +895,67 @@
 ## dnsv21 (1)
 - `dnsv21_ptrrecords`
 
-## drs (2)
+## drs (47)
+- `drs_actions`
+- `drs_agency_permissions`
 - `drs_availability_zones`
+- `drs_backup_migration_jobs`
+- `drs_batch_async_jobs`
+- `drs_batch_get_params`
+- `drs_batch_progresses`
+- `drs_batch_rpos_and_rtos`
+- `drs_batch_struct_detail`
+- `drs_batch_struct_process`
+- `drs_compare_content_detail`
+- `drs_compare_content_overview`
+- `drs_compare_line_detail`
+- `drs_compare_line_overview`
+- `drs_compare_policy`
+- `drs_compare_progress`
+- `drs_compare_result`
+- `drs_configuration_histories`
+- `drs_connections`
+- `drs_data_processing_rules`
+- `drs_db_object`
+- `drs_ddls`
+- `drs_dirty_data`
+- `drs_disaster_monitoring_data`
+- `drs_drivers`
+- `drs_health_compare_jobs`
+- `drs_health_compare_overview`
+- `drs_job_configurations`
+- `drs_job_links`
+- `drs_job_metering`
+- `drs_job_monitor_data`
+- `drs_job_object_support`
+- `drs_jobs`
+- `drs_name_validation`
 - `drs_node_types`
+- `drs_object_compare`
+- `drs_object_compare_detail`
+- `drs_object_mappings`
+- `drs_progress_data`
+- `drs_quotas`
+- `drs_replay_progress`
+- `drs_resource_instances`
+- `drs_subscriptions`
+- `drs_support_links`
+- `drs_table_compare`
+- `drs_tags`
+- `drs_timelines`
 
-## dws (31)
+## dws (33)
 - `dws_alarm_subscriptions`
 - `dws_availability_zones`
 - `dws_cluster_cns`
 - `dws_cluster_database_objects`
 - `dws_cluster_database_schemas`
 - `dws_cluster_database_users`
+- `dws_cluster_exception_rules`
 - `dws_cluster_logs`
 - `dws_cluster_nodes`
 - `dws_cluster_parameters`
+- `dws_cluster_snapshot_flavors`
 - `dws_cluster_snapshot_statistics`
 - `dws_cluster_topo_rings`
 - `dws_cluster_upgrade_records`
@@ -825,7 +979,7 @@
 - `dws_workload_queue_associated_users`
 - `dws_workload_queues`
 
-## eg (11)
+## eg (12)
 - `eg_connections`
 - `eg_custom_event_channels`
 - `eg_custom_event_sources`
@@ -835,11 +989,20 @@
 - `eg_event_subscriptions`
 - `eg_event_target_catalogs`
 - `eg_eventrouter_availability_zones`
+- `eg_eventrouter_clusters`
 - `eg_quotas`
 - `eg_traced_events`
 
-## elb (25)
+## eip (5)
+- `eip_publicip_count`
+- `eip_publicip_instances_count`
+- `eip_publicip_types`
+- `eip_publicips_by_tags`
+- `eip_quotas`
+
+## elb (30)
 - `elb_active_standby_pools`
+- `elb_all_l7rules`
 - `elb_all_members`
 - `elb_asynchronous_tasks`
 - `elb_availability_zones`
@@ -850,10 +1013,14 @@
 - `elb_ipgroups`
 - `elb_l7policies`
 - `elb_l7rules`
+- `elb_listener_tags`
 - `elb_listeners`
+- `elb_listeners_by_tags`
 - `elb_loadbalancer_feature_configurations`
 - `elb_loadbalancer_ports`
 - `elb_loadbalancer_status`
+- `elb_loadbalancer_tags`
+- `elb_loadbalancer_topology`
 - `elb_loadbalancers`
 - `elb_loadbalancers_by_tags`
 - `elb_logtanks`
@@ -948,103 +1115,133 @@
 - `fgs_service_trusted_agencies`
 - `fgs_trigger_types`
 
-## ga (9)
+## ga (13)
 - `ga_accelerators`
 - `ga_access_logs`
 - `ga_address_groups`
 - `ga_availability_zones`
+- `ga_byoip_pools`
 - `ga_endpoint_groups`
 - `ga_endpoints`
 - `ga_health_checks`
 - `ga_listeners`
+- `ga_pops`
+- `ga_quotas`
+- `ga_resources_by_tags`
 - `ga_tags`
 
-## gaussdb (71)
+## gaussdb (62)
+- `gaussdb_alarms`
+- `gaussdb_all_instances_metrics`
+- `gaussdb_asp_collection_results`
+- `gaussdb_available_flavors`
+- `gaussdb_backup_files`
+- `gaussdb_backups`
 - `gaussdb_cassandra_dedicated_resource`
 - `gaussdb_cassandra_flavors`
 - `gaussdb_cassandra_instance`
 - `gaussdb_cassandra_instances`
+- `gaussdb_client_auth_config_history`
+- `gaussdb_databases`
+- `gaussdb_datastores`
+- `gaussdb_dr_relationships`
+- `gaussdb_error_logs`
+- `gaussdb_flavors`
+- `gaussdb_global_slow_sql_detail`
 - `gaussdb_influx_instances`
-- `gaussdb_mysql_audit_log_download_links`
-- `gaussdb_mysql_auto_scaling_records`
-- `gaussdb_mysql_backups`
-- `gaussdb_mysql_configuration`
-- `gaussdb_mysql_configurations`
-- `gaussdb_mysql_database_character_set`
-- `gaussdb_mysql_databases`
-- `gaussdb_mysql_dedicated_resource`
-- `gaussdb_mysql_diagnosis_instances`
-- `gaussdb_mysql_diagnosis_statistics`
-- `gaussdb_mysql_engine_versions`
-- `gaussdb_mysql_error_logs`
-- `gaussdb_mysql_flavors`
-- `gaussdb_mysql_incremental_backups`
-- `gaussdb_mysql_instance`
-- `gaussdb_mysql_instances`
-- `gaussdb_mysql_instant_tasks`
-- `gaussdb_mysql_project_quotas`
-- `gaussdb_mysql_proxies`
-- `gaussdb_mysql_proxy_flavors`
-- `gaussdb_mysql_pt_applicable_instances`
-- `gaussdb_mysql_pt_apply_records`
-- `gaussdb_mysql_pt_modify_records`
-- `gaussdb_mysql_recycling_instances`
-- `gaussdb_mysql_restore_time_ranges`
-- `gaussdb_mysql_restored_tables`
+- `gaussdb_instance`
+- `gaussdb_instance_alarm_statistics`
+- `gaussdb_instance_coordinators`
+- `gaussdb_instance_dr_status`
+- `gaussdb_instance_features`
+- `gaussdb_instance_installed_plugins`
+- `gaussdb_instance_metrics`
+- `gaussdb_instance_nodes`
+- `gaussdb_instance_plugin_extensions`
+- `gaussdb_instance_snapshot`
+- `gaussdb_instance_status_statistics`
+- `gaussdb_instance_supported_plugins`
+- `gaussdb_instances`
+- `gaussdb_metric_group_metrics`
 - `gaussdb_mysql_scheduled_tasks`
-- `gaussdb_mysql_slow_logs`
 - `gaussdb_nosql_flavors`
-- `gaussdb_opengauss_available_flavors`
-- `gaussdb_opengauss_backup_files`
-- `gaussdb_opengauss_backups`
-- `gaussdb_opengauss_databases`
-- `gaussdb_opengauss_datastores`
-- `gaussdb_opengauss_error_logs`
-- `gaussdb_opengauss_flavors`
-- `gaussdb_opengauss_instance`
-- `gaussdb_opengauss_instance_coordinators`
-- `gaussdb_opengauss_instance_features`
-- `gaussdb_opengauss_instance_nodes`
-- `gaussdb_opengauss_instance_snapshot`
-- `gaussdb_opengauss_instances`
-- `gaussdb_opengauss_parameter_templates`
-- `gaussdb_opengauss_plugins`
-- `gaussdb_opengauss_predefined_tags`
-- `gaussdb_opengauss_project_quotas`
-- `gaussdb_opengauss_pt_applicable_instances`
-- `gaussdb_opengauss_pt_apply_records`
-- `gaussdb_opengauss_pt_modify_records`
-- `gaussdb_opengauss_quotas`
-- `gaussdb_opengauss_recycling_instances`
-- `gaussdb_opengauss_restorable_instances`
-- `gaussdb_opengauss_restore_time_ranges`
-- `gaussdb_opengauss_schemas`
-- `gaussdb_opengauss_slow_logs`
-- `gaussdb_opengauss_solution_template_setting`
-- `gaussdb_opengauss_sql_templates`
-- `gaussdb_opengauss_sql_throttling_tasks`
-- `gaussdb_opengauss_ssl_cert_download_link`
-- `gaussdb_opengauss_storage_types`
-- `gaussdb_opengauss_tags`
-- `gaussdb_opengauss_tasks`
-- `gaussdb_opengauss_top_io_traffics`
-- `gaussdb_opengauss_upgrade_versions`
+- `gaussdb_parameter_templates`
+- `gaussdb_plugins`
+- `gaussdb_predefined_tags`
+- `gaussdb_project_quotas`
+- `gaussdb_pt_applicable_instances`
+- `gaussdb_pt_apply_records`
+- `gaussdb_pt_modify_records`
+- `gaussdb_quotas`
+- `gaussdb_recycling_instances`
 - `gaussdb_redis_flavors`
 - `gaussdb_redis_instance`
+- `gaussdb_restorable_instances`
+- `gaussdb_restore_time_ranges`
+- `gaussdb_schemas`
+- `gaussdb_slow_logs`
+- `gaussdb_slow_sql_detail`
+- `gaussdb_slow_sql_list`
+- `gaussdb_slow_sql_nodes`
+- `gaussdb_solution_template_setting`
+- `gaussdb_sql_templates`
+- `gaussdb_sql_throttling_tasks`
+- `gaussdb_ssl_cert_download_link`
+- `gaussdb_storage_types`
+- `gaussdb_tags`
+- `gaussdb_tasks`
+- `gaussdb_top_io_traffics`
+- `gaussdb_upgrade_versions`
+- `gaussdb_wdr_snapshot_collection_results`
 
-## global (7)
+## geminidb (21)
+- `geminidb_accounts`
+- `geminidb_available_flavors`
+- `geminidb_backups`
+- `geminidb_database_versions`
+- `geminidb_dedicated_resources`
+- `geminidb_flavors`
+- `geminidb_instance_parameters_histories`
+- `geminidb_instance_sessions`
+- `geminidb_memory_mappings`
+- `geminidb_memory_rules`
+- `geminidb_node_session_statistics`
+- `geminidb_node_sessions`
+- `geminidb_pt_applicable_instances`
+- `geminidb_pt_application_records`
+- `geminidb_quotas`
+- `geminidb_recycling_instances`
+- `geminidb_restorable_time_window`
+- `geminidb_scheduled_tasks`
+- `geminidb_ssl_cert_download_link`
+- `geminidb_table_restored_databases`
+- `geminidb_table_restored_tables`
+
+## global (17)
 - `global_eip_access_sites`
+- `global_eip_bindings`
+- `global_eip_internet_bandwidth_limits`
 - `global_eip_pools`
 - `global_eip_quotas`
+- `global_eip_segment_support_masks`
+- `global_eip_segment_tags`
+- `global_eip_segments`
+- `global_eip_segments_by_tags`
+- `global_eip_support_regions`
 - `global_eip_tags`
+- `global_eip_tenant_support_regions`
 - `global_eips`
+- `global_eips_by_tags`
 - `global_internet_bandwidth_tags`
 - `global_internet_bandwidths`
+- `global_internet_bandwidths_by_tags`
 
-## hss (228)
+## hss (234)
 - `hss_agent_auto_upgrade_config`
 - `hss_agent_install_script`
 - `hss_agent_versions`
+- `hss_ai_component_detail`
+- `hss_ai_component_statistics`
 - `hss_antivirus_available_hosts`
 - `hss_antivirus_custom_scan_policies`
 - `hss_antivirus_handle_history`
@@ -1119,6 +1316,7 @@
 - `hss_cluster_protect_overview`
 - `hss_cluster_protect_policies`
 - `hss_cluster_protect_protection_items`
+- `hss_common_hosts`
 - `hss_common_task_statistics`
 - `hss_common_tasks`
 - `hss_configs`
@@ -1149,6 +1347,7 @@
 - `hss_container_network_statistics`
 - `hss_container_node_statistics`
 - `hss_container_nodes`
+- `hss_custom_rules`
 - `hss_event_alarm_white_lists`
 - `hss_event_att_ck_statistics`
 - `hss_event_handle_history`
@@ -1207,6 +1406,7 @@
 - `hss_overview_agent_statistics`
 - `hss_overview_hot_information`
 - `hss_overview_protection_statistics`
+- `hss_overview_risk_score`
 - `hss_overview_security_risks`
 - `hss_page_notices`
 - `hss_plugin_attachments`
@@ -1233,6 +1433,7 @@
 - `hss_resource_locked_status`
 - `hss_resource_quotas`
 - `hss_security_check_config`
+- `hss_security_reports`
 - `hss_setting_alarm_configuration`
 - `hss_setting_dictionaries`
 - `hss_setting_docker_plugin_install_script`
@@ -1461,30 +1662,49 @@
 - `lts_structuring_custom_templates`
 - `lts_transfers`
 
-## mapreduce (6)
+## mapreduce (9)
 - `mapreduce_availability_zones`
 - `mapreduce_available_flavors`
+- `mapreduce_cluster_files`
 - `mapreduce_cluster_jobs`
 - `mapreduce_cluster_nodes`
+- `mapreduce_cluster_synchronized_iam_objects`
 - `mapreduce_clusters`
+- `mapreduce_tags_quota`
 - `mapreduce_versions`
 
-## modelarts (10)
+## modelarts (20)
+- `modelarts_algorithms`
 - `modelarts_dataset_versions`
 - `modelarts_datasets`
+- `modelarts_devserver_flavors`
+- `modelarts_devserver_plugins`
 - `modelarts_model_templates`
 - `modelarts_models`
+- `modelarts_networks`
 - `modelarts_notebook_flavors`
 - `modelarts_notebook_images`
+- `modelarts_notebooks`
 - `modelarts_resource_flavors`
 - `modelarts_service_flavors`
 - `modelarts_services`
+- `modelarts_training_experiments`
+- `modelarts_training_job_engines`
+- `modelarts_training_job_flavors`
+- `modelarts_training_jobs`
+- `modelarts_workspace_quotas`
 - `modelarts_workspaces`
 
-## modelartsv2 (3)
+## modelartsv2 (9)
 - `modelartsv2_node_pool_nodes`
+- `modelartsv2_plugin_templates`
+- `modelartsv2_plugins`
 - `modelartsv2_resource_pool_nodes`
+- `modelartsv2_resource_pool_workloads`
 - `modelartsv2_resource_pools`
+- `modelartsv2_workflow_executions`
+- `modelartsv2_workflow_schedules`
+- `modelartsv2_workflows`
 
 ## nat (16)
 - `nat_dnat_rules`
@@ -1514,7 +1734,8 @@
 - `networking_secgroups_by_tags`
 - `networking_subnet_v2`
 
-## obs (2)
+## obs (3)
+- `obs_bucket_mirror_back_to_source_rules`
 - `obs_bucket_object`
 - `obs_buckets`
 
@@ -1530,11 +1751,13 @@
 - `oms_migration_tasks`
 - `oms_sync_task_statistics`
 
-## organizations (17)
+## organizations (19)
 - `organizations_accounts`
 - `organizations_close_account_status`
 - `organizations_create_account_status`
 - `organizations_delegated_services`
+- `organizations_dry_run_policies`
+- `organizations_dry_run_policy_attached_entities`
 - `organizations_effective_policies`
 - `organizations_organization`
 - `organizations_organizational_units`
@@ -1567,8 +1790,13 @@
 - `ram_shared_resources`
 - `ram_tags`
 
-## rds (73)
+## rds (89)
+- `rds_agent_job_histories`
+- `rds_agent_job_history_steps`
+- `rds_agent_jobs`
+- `rds_auto_ces_alarm`
 - `rds_available_flavors`
+- `rds_available_upgrade_small_versions`
 - `rds_backup_databases`
 - `rds_backup_files`
 - `rds_backups`
@@ -1586,6 +1814,7 @@
 - `rds_engine_versions`
 - `rds_error_log_link`
 - `rds_error_logs`
+- `rds_events`
 - `rds_extend_log_files`
 - `rds_extend_log_links`
 - `rds_flavors`
@@ -1594,8 +1823,11 @@
 - `rds_instance_parameters_histories`
 - `rds_instances`
 - `rds_instant_tasks`
+- `rds_intelligent_session_kill_history`
+- `rds_intelligent_session_kill_statistic`
 - `rds_lts_configs`
 - `rds_marketplace_engine_products`
+- `rds_merged_binlog_files`
 - `rds_mysql_accounts`
 - `rds_mysql_authorized_databases`
 - `rds_mysql_binlog`
@@ -1603,6 +1835,8 @@
 - `rds_mysql_databases`
 - `rds_mysql_proxies`
 - `rds_mysql_proxy_flavors`
+- `rds_parametergroup_applied_instances`
+- `rds_parametergroup_apply_histories`
 - `rds_parametergroups`
 - `rds_pg_accounts`
 - `rds_pg_databases`
@@ -1615,10 +1849,13 @@
 - `rds_pg_sql_limits`
 - `rds_predefined_tags`
 - `rds_publication_candidates`
+- `rds_publication_monitor`
+- `rds_publication_publication_subscription_profiles`
 - `rds_publications`
 - `rds_quotas`
 - `rds_read_replica_restorable_database`
 - `rds_recycling_instances`
+- `rds_remote_databases`
 - `rds_restore_time_ranges`
 - `rds_restored_databases`
 - `rds_restored_tables`
@@ -1636,11 +1873,33 @@
 - `rds_sqlserver_databases`
 - `rds_ssl_cert_download_links`
 - `rds_storage_types`
+- `rds_subscription_monitor`
+- `rds_subscriptions`
 - `rds_tags`
 - `rds_tasks`
 - `rds_top_sqls`
 - `rds_wal_log_recovery_time_window`
 - `rds_wal_log_replay_delay_status`
+
+## rfs (18)
+- `rfs_execution_plan_items`
+- `rfs_execution_plan_prices`
+- `rfs_execution_plans`
+- `rfs_private_hook_versions`
+- `rfs_private_hooks`
+- `rfs_private_module_versions`
+- `rfs_private_modules`
+- `rfs_private_provider_versions`
+- `rfs_private_providers`
+- `rfs_stack_instances`
+- `rfs_stack_outputs`
+- `rfs_stack_resources`
+- `rfs_stack_set_operation_metadata`
+- `rfs_stack_set_operations`
+- `rfs_stack_sets`
+- `rfs_stacks`
+- `rfs_template_versions`
+- `rfs_templates`
 
 ## rgc (29)
 - `rgc_account_compliance_status`
@@ -1730,7 +1989,7 @@
 - `sdrs_replication_pairs`
 - `sdrs_resource_rpo_statistics`
 
-## secmaster (76)
+## secmaster (89)
 - `secmaster_alert_rule_metrics`
 - `secmaster_alert_rule_template_detail`
 - `secmaster_alert_rule_template_metrics`
@@ -1741,7 +2000,9 @@
 - `secmaster_baseline_checkitems`
 - `secmaster_catalogues`
 - `secmaster_catalogues_search`
+- `secmaster_cloud_log_platforms`
 - `secmaster_cloud_log_resources`
+- `secmaster_collect_configs`
 - `secmaster_collector_channel_groups`
 - `secmaster_collector_channel_instances`
 - `secmaster_collector_cloudlog_regions`
@@ -1749,8 +2010,12 @@
 - `secmaster_collector_logstash_parsers`
 - `secmaster_collector_module_restrictions`
 - `secmaster_collector_module_templates`
+- `secmaster_collector_nodes`
 - `secmaster_collector_parser_templates`
+- `secmaster_compliance_packages`
+- `secmaster_component_all_templates`
 - `secmaster_component_detail`
+- `secmaster_component_history_configuration`
 - `secmaster_component_running_nodes`
 - `secmaster_component_templates`
 - `secmaster_components`
@@ -1767,11 +2032,14 @@
 - `secmaster_layouts`
 - `secmaster_mappings_functions`
 - `secmaster_metric_results`
+- `secmaster_metrics`
 - `secmaster_modules`
+- `secmaster_moniter_metric_stats`
 - `secmaster_notes`
 - `secmaster_operation_connections`
 - `secmaster_pipe_index`
 - `secmaster_pipes`
+- `secmaster_platform_managed`
 - `secmaster_playbook_action_instances`
 - `secmaster_playbook_actions`
 - `secmaster_playbook_approvals`
@@ -1787,18 +2055,22 @@
 - `secmaster_search_conditions`
 - `secmaster_security_reports`
 - `secmaster_siem_directories`
+- `secmaster_siem_shippers`
+- `secmaster_soc_attachment`
 - `secmaster_soc_component_action_detail`
 - `secmaster_soc_component_actions`
 - `secmaster_soc_component_detail`
 - `secmaster_soc_components`
 - `secmaster_soc_mappers`
 - `secmaster_soc_mappings`
+- `secmaster_soc_policys_search`
 - `secmaster_soc_preprocess_rules`
 - `secmaster_subscription_products`
 - `secmaster_subscription_resource`
 - `secmaster_table_consumption`
 - `secmaster_table_histograms`
 - `secmaster_tables`
+- `secmaster_tasks`
 - `secmaster_upgratation_version`
 - `secmaster_vpc_endpoint_services`
 - `secmaster_vulnerabilities`
@@ -1838,7 +2110,7 @@
 - `sfs_turbos`
 - `sfs_turbos_by_tags`
 
-## smn (9)
+## smn (10)
 - `smn_authorized_cloud_services`
 - `smn_logtanks`
 - `smn_message_templates`
@@ -1848,6 +2120,7 @@
 - `smn_tags`
 - `smn_topic_subscriptions`
 - `smn_topics`
+- `smn_topics_associate_resources`
 
 ## sms (10)
 - `sms_agent_configs`
@@ -1861,9 +2134,10 @@
 - `sms_task_ssl_certificate_and_private_key`
 - `sms_tasks`
 
-## swr (51)
+## swr (54)
 - `swr_domain_overviews`
 - `swr_domain_resource_reports`
+- `swr_enterprise_all_repositories`
 - `swr_enterprise_domain_names`
 - `swr_enterprise_feature_gates`
 - `swr_enterprise_image_signature_policies`
@@ -1879,6 +2153,8 @@
 - `swr_enterprise_instance_artifacts`
 - `swr_enterprise_instance_audit_logs`
 - `swr_enterprise_instance_registries`
+- `swr_enterprise_instance_repositories`
+- `swr_enterprise_instance_repository_tags`
 - `swr_enterprise_instance_tags`
 - `swr_enterprise_instances`
 - `swr_enterprise_jobs`
@@ -1891,8 +2167,6 @@
 - `swr_enterprise_replication_policy_execution_record_sub_tasks`
 - `swr_enterprise_replication_policy_execution_record_tasks`
 - `swr_enterprise_replication_policy_execution_records`
-- `swr_enterprise_repositories`
-- `swr_enterprise_repository_tags`
 - `swr_enterprise_resources_filter`
 - `swr_enterprise_retention_policies`
 - `swr_enterprise_retention_policy_execution_record_sub_tasks`
@@ -1912,12 +2186,58 @@
 - `swr_repositories`
 - `swr_shared_accounts`
 - `swr_shared_repositories`
+- `swr_signed_image_associated_image_tags`
+- `swr_signed_image_attachments`
 - `swr_sync_regions`
 
 ## swrv3 (3)
 - `swrv3_image_tags`
 - `swrv3_repositories`
 - `swrv3_shared_repositories`
+
+## taurusdb (42)
+- `taurusdb_audit_log_download_links`
+- `taurusdb_auto_scaling_records`
+- `taurusdb_backups`
+- `taurusdb_configuration`
+- `taurusdb_configurations`
+- `taurusdb_database_character_set`
+- `taurusdb_databases`
+- `taurusdb_dedicated_resource`
+- `taurusdb_diagnosis_instances`
+- `taurusdb_diagnosis_statistics`
+- `taurusdb_engine_versions`
+- `taurusdb_error_logs`
+- `taurusdb_flavors`
+- `taurusdb_htap_datastores`
+- `taurusdb_htap_flavors`
+- `taurusdb_htap_instances`
+- `taurusdb_htap_primary_instance_databases`
+- `taurusdb_htap_primary_instance_tables`
+- `taurusdb_htap_sessions`
+- `taurusdb_htap_starrocks_databases`
+- `taurusdb_htap_starrocks_nodes`
+- `taurusdb_htap_starrocks_parameters`
+- `taurusdb_htap_starrocks_replication_db_parameters`
+- `taurusdb_htap_starrocks_replications`
+- `taurusdb_htap_storage_types`
+- `taurusdb_incremental_backups`
+- `taurusdb_instance`
+- `taurusdb_instance_backups`
+- `taurusdb_instances`
+- `taurusdb_instant_tasks`
+- `taurusdb_mysql_proxies`
+- `taurusdb_node_sessions`
+- `taurusdb_project_quotas`
+- `taurusdb_proxy_flavors`
+- `taurusdb_pt_applicable_instances`
+- `taurusdb_pt_apply_records`
+- `taurusdb_pt_modify_records`
+- `taurusdb_recycling_instances`
+- `taurusdb_restore_time_ranges`
+- `taurusdb_restored_tables`
+- `taurusdb_slow_logs`
+- `taurusdb_sql_control_history_rules`
 
 ## tms (7)
 - `tms_quotas`
@@ -1932,8 +2252,9 @@
 - `vbs_backup`
 - `vbs_backup_policy`
 
-## vpc (38)
+## vpc (41)
 - `vpc`
+- `vpc_address_group_associated_resources`
 - `vpc_address_groups`
 - `vpc_bandwidth`
 - `vpc_bandwidth_addon_packages`
@@ -1943,6 +2264,7 @@
 - `vpc_eip`
 - `vpc_eip_common_pools`
 - `vpc_eip_pools`
+- `vpc_eip_public_ip_pool_types`
 - `vpc_eip_tags`
 - `vpc_eips`
 - `vpc_flow_logs`
@@ -1954,6 +2276,7 @@
 - `vpc_network_interfaces`
 - `vpc_network_interfaces_by_tags`
 - `vpc_peering_connection`
+- `vpc_peering_connections`
 - `vpc_quotas`
 - `vpc_route`
 - `vpc_route_ids`
@@ -1991,20 +2314,25 @@
 - `vpcv3_bandwidths`
 - `vpcv3_eips`
 
-## vpn (19)
+## vpn (24)
 - `vpn_access_policies`
 - `vpn_connection_health_checks`
+- `vpn_connection_ipsec_sa`
 - `vpn_connection_logs`
+- `vpn_connection_peer_configuration_export`
 - `vpn_connections`
 - `vpn_customer_gateways`
 - `vpn_gateway_availability_zones`
+- `vpn_gateway_certificates`
 - `vpn_gateway_jobs`
 - `vpn_gateway_route_tables`
 - `vpn_gateways`
+- `vpn_metrics`
 - `vpn_p2c_gateway_availability_zones`
 - `vpn_p2c_gateway_connections`
 - `vpn_p2c_gateway_jobs`
 - `vpn_p2c_gateways`
+- `vpn_peer_configuration_supported_devices`
 - `vpn_quotas`
 - `vpn_resource_instances`
 - `vpn_servers`
@@ -2015,7 +2343,7 @@
 ## vpnv51 (1)
 - `vpnv51_gateway_availability_zones`
 
-## waf (64)
+## waf (65)
 - `waf_address_groups`
 - `waf_alarm_notifications`
 - `waf_alarm_optional_event_types`
@@ -2043,6 +2371,7 @@
 - `waf_event_logs`
 - `waf_events`
 - `waf_geolocation_detail`
+- `waf_instance_tags`
 - `waf_overviews_abnormal`
 - `waf_overviews_attack_action_types`
 - `waf_overviews_attack_ip`
@@ -2150,4 +2479,3 @@
 - `workspace_user_groups`
 - `workspace_users`
 - `workspace_volume_products`
-

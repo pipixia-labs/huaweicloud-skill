@@ -19,6 +19,7 @@ if str(SCRIPTS) not in sys.path:
 
 import hcloud_terraform_catalog  # noqa: E402
 import hcloud_terraform_context_inspect  # noqa: E402
+import hcloud_terraform_provider_inventory  # noqa: E402
 import hcloud_terraform_router  # noqa: E402
 
 
@@ -109,6 +110,35 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertTrue(context["environment"]["HW_ACCESS_KEY"]["set"])
         self.assertNotIn("ak", json.dumps(context, ensure_ascii=False))
         self.assertTrue(context["readiness"]["can_generate"])
+        self.assertIn("shared_config", context)
+
+    def test_context_inspect_warns_on_encrypted_shared_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "config.json"
+            config_path.write_text('{"authEncrypt": "true", "profiles": []}\n', encoding="utf-8")
+            with mock.patch.dict(os.environ, {"HW_SHARED_CONFIG_FILE": str(config_path)}, clear=False):
+                context = hcloud_terraform_context_inspect.build_context(argparse.Namespace(workdir=Path(tmp_dir)))
+
+        self.assertEqual(context["shared_config"]["auth_encrypt"], "true")
+        self.assertFalse(context["shared_config"]["usable_for_provider_shared_config"])
+        self.assertIn("hcloud_shared_config_encrypted", context["readiness"]["warnings"])
+
+    def test_readiness_accepts_os_provider_env_aliases(self) -> None:
+        env = {key: {"set": False, "empty": False} for key in hcloud_terraform_context_inspect.TERRAFORM_ENV_KEYS}
+        env["OS_ACCESS_KEY"]["set"] = True
+        env["OS_SECRET_KEY"]["set"] = True
+        env["OS_REGION_NAME"]["set"] = True
+
+        result = hcloud_terraform_context_inspect.readiness(
+            {"found": True},
+            env,
+            forbidden=[],
+            shared_config={"usable_for_provider_shared_config": False, "warning": None},
+        )
+
+        self.assertTrue(result["auth"]["os_env_complete"])
+        self.assertTrue(result["auth"]["cloud_credentials_complete"])
+        self.assertTrue(result["can_plan"])
 
     def test_forbidden_artifacts_are_excluded_from_migrated_assets(self) -> None:
         scanned_roots = [ROOT / "references" / "terraform", ROOT / "examples" / "terraform"]
@@ -131,6 +161,40 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertTrue(any(path.endswith("terraform.tfvars") for path in findings))
         self.assertTrue(any(path.endswith(".terraform") for path in findings))
         self.assertFalse(any(path.endswith("terraform.tfvars.example") for path in findings))
+
+    def test_provider_inventory_builder_reads_provider_docs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            provider_root = Path(tmp_dir)
+            (provider_root / "docs" / "resources").mkdir(parents=True)
+            (provider_root / "docs" / "data-sources").mkdir(parents=True)
+            (provider_root / "docs" / "resources" / "ecs_instance.md").write_text("# x\n", encoding="utf-8")
+            (provider_root / "docs" / "resources" / "cce_cluster_pod_identity_association.md").write_text("# x\n", encoding="utf-8")
+            (provider_root / "docs" / "data-sources" / "dcs_instances.md").write_text("# x\n", encoding="utf-8")
+            (provider_root / "CHANGELOG.md").write_text("# CHANGELOG\n\n## 1.99.0 (June 30, 2026)\n", encoding="utf-8")
+
+            resources = hcloud_terraform_provider_inventory.build_inventory(provider_root, "resources")
+            data_sources = hcloud_terraform_provider_inventory.build_inventory(provider_root, "data-sources")
+            rendered = hcloud_terraform_provider_inventory.render_inventory("Test", "测试。", resources)
+
+        self.assertEqual(resources["count"], 2)
+        self.assertEqual(data_sources["count"], 1)
+        self.assertEqual(resources["snapshot"]["version"], "1.99.0")
+        self.assertIn("cce_cluster_pod_identity_association", rendered)
+
+    def test_provider_inventories_include_current_reference_snapshot(self) -> None:
+        resources = hcloud_terraform_provider_inventory.parse_inventory_items(
+            ROOT / "references" / "terraform" / "inventories" / "provider-resource-inventory.md"
+        )
+        data_sources = hcloud_terraform_provider_inventory.parse_inventory_items(
+            ROOT / "references" / "terraform" / "inventories" / "provider-data-source-inventory.md"
+        )
+
+        self.assertEqual(len(resources), 1684)
+        self.assertEqual(len(data_sources), 2239)
+        self.assertIn("apig_application_ai_api_key", resources)
+        self.assertIn("cce_cluster_pod_identity_association", resources)
+        self.assertIn("taurusdb_htap_sessions", data_sources)
+        self.assertIn("vpn_metrics", data_sources)
 
 
 if __name__ == "__main__":

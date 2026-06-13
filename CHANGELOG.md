@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-No unreleased changes yet.
+- Updated SDK supplement guidance from the local Python SDK reference snapshot, including installed-package runtime assumptions, SDK auth variables, Basic/Global credential selection, region/endpoint fallback, exception fields, Pod Identity notes, and narrow read-only candidate rules.
+- Refreshed Terraform provider resource/data-source inventories from the local provider `1.93.0` reference snapshot, covering 1684 resources and 2239 data sources.
+- Added `hcloud_terraform_provider_inventory.py` to regenerate provider inventories and fail on drift during maintenance.
+- Expanded Terraform provider auth/context guidance and `hcloud_terraform_context_inspect.py` for `HW_*`/`OS_*` aliases, shared hcloud config encryption warnings, assume role/OIDC hints, enterprise project, retry, signing, and provider context variables.
 
 ## 0.5.0 - 2026-06-13
 

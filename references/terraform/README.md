@@ -27,6 +27,19 @@
 | `inventories/` | provider 资源、data source、能力面和参考示例总索引；仅在用户问覆盖面或维护 catalog 时读取。 |
 | `source-skill.md` | 原独立 Terraform skill 的归档内容，不作为当前技能入口。 |
 
+## Provider inventory 维护
+
+`inventories/provider-resource-inventory.md` 和 `inventories/provider-data-source-inventory.md` 来自本地 `reference-projects/terraform-provider-huaweicloud/docs` 快照。当前快照是 provider changelog `1.93.0`，包含 1684 个 resource 和 2239 个 data source。
+
+维护时运行：
+
+```bash
+python3 scripts/hcloud_terraform_provider_inventory.py --write --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py --fail-on-drift --pretty
+```
+
+这些 inventory 只回答“provider 覆盖了什么”。它们不是默认路由清单，更不是执行许可清单。新增 resource/data source 进入示例或 agent 默认路线前，还要看是否符合 `hcloud` 发现、Terraform plan review、风险分级和后置验证要求。
+
 ## 资产卫生
 
 - 可以提交 `.terraform.lock.hcl` 和 `terraform.tfvars.example`。

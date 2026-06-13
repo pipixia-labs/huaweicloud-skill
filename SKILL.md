@@ -208,6 +208,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | Terraform 环境检查 | `hcloud_terraform_context_inspect.py` | 检查 Terraform CLI、hcloud、环境变量、provider cache 和禁止提交的运行时产物。 |
 | Terraform 资产路由 | `hcloud_terraform_router.py` | 按用户意图从 55 个示例和 reference catalog 中选少量资产；只路由，不执行 plan/apply。 |
 | Terraform catalog 维护 | `hcloud_terraform_catalog.py` | 生成 `references/terraform/catalog/*.json`；修改示例或 reference 后运行。 |
+| Terraform provider inventory 维护 | `hcloud_terraform_provider_inventory.py` | 从本地 provider reference docs 重建 resource/data-source inventory，并检查覆盖漂移；只用于维护。 |
 | generated catalog 审计/重建 | `hcloud_catalog_audit.py`、`build_hcloud_catalog.py` | 运行时走 index/per-service 懒加载；full catalog 只作为可选本地临时产物，不提交、不直接 Read 大 JSON。 |
 | ECS 创建前校验 | `hcloud_ecs_create_plan.py` | 检查 JSON、凭证、安全组和 dry-run/submit 命令。 |
 | ECS job 终态 | `hcloud_ecs_wait_job.py` | job 终态不等同于 ECS 可用。 |
@@ -281,7 +282,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - `hcloud_lifecycle_closure_plan.py` 提供 P0 核心服务的 planner-only 闭环计划入口，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，并把上下文/依赖发现、参数检查、风险门禁、受控执行、后置验证和治理审计统一成六阶段输出
 - `hcloud_governance_closure_plan.py` 提供 P1 治理闭环计划入口，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，把治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口统一输出；Billing/BSS 只生成 request spec，不生成 live query 命令
 - `hcloud_p2_scenario_closure_plan.py` 提供 P2 场景闭环计划入口，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，把容器、网络、缓存、IaC、多集群、依赖、安全、数据库场景先收敛成只读 evidence plan、风险边界和下一步晋级缺口；安全和数据库族当前保持 metadata evidence gap，不宣称 curated 完整闭环
-- Terraform 资产面已吸收 55 个示例和核心 provider/reference/inventory 文档；运行时通过 `hcloud_terraform_router.py` 和 catalog 渐进选择，不默认全量读取。Terraform 可以生成和验证 IaC 草案，但 apply 仍需用户确认，完成后仍回到 hcloud 做状态和业务验收
+- Terraform 资产面已吸收 55 个示例和核心 provider/reference/inventory 文档；当前 provider inventory 快照来自本地 `1.93.0` reference，覆盖 1684 个 resource 和 2239 个 data source。运行时通过 `hcloud_terraform_router.py` 和 catalog 渐进选择，不默认全量读取。Terraform 可以生成和验证 IaC 草案，但 apply 仍需用户确认，完成后仍回到 hcloud 做状态和业务验收
 - VPC / IMS / KPS / IAM / EIP 创建前只读发现方法
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记
 - ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 的低覆盖查询登记，用于离线数据集回归和前置发现

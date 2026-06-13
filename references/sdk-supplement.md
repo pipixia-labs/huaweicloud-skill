@@ -9,6 +9,56 @@
 - **SDK 源码参考**：`reference-projects/huaweicloud-sdk-python-v3` 只用于本仓库维护、测试和离线比对；用户机器不要求存在该目录。
 - **未来 IaC 面**：Terraform 应作为单独的 plan/validate/apply/verify 链路接入，不由 SDK runner 替代。
 
+## 参考快照
+
+当前维护参考来自 `reference-projects/huaweicloud-sdk-python-v3`：
+
+- 本地 `VERSION`：`3.1.199`
+- 本地 changelog 日期：`2026-06-11`
+- 运行时要求：用户机器不需要 SDK 源码，只需要按需安装 pip package
+- Python 要求：SDK 文档声明 Python 3.6+
+
+注意：这只是本仓库维护期快照。真实用户环境应以已安装 package 版本和当前 PyPI/SDK 中心为准；agent 不应假设用户机器存在 reference 源码。
+
+## 运行时认证与 region 线索
+
+SDK 补充层只读取或调用已安装的 `huaweicloudsdk*` package。典型安装方式：
+
+```bash
+pip install huaweicloudsdkecs
+pip install huaweicloudsdkvpc
+```
+
+`huaweicloudsdkall` 会安装集合包，但不建议 agent 默认要求用户安装全量集合；只有当任务确实跨多个服务且用户接受依赖体积时才提示。
+
+SDK 常见环境变量：
+
+| 变量 | 用途 |
+| --- | --- |
+| `HUAWEICLOUD_SDK_AK` | SDK Access Key |
+| `HUAWEICLOUD_SDK_SK` | SDK Secret Key |
+| `HUAWEICLOUD_SDK_SECURITY_TOKEN` | 临时凭证 token |
+| `HUAWEICLOUD_SDK_PROJECT_ID` | 区域级服务 project ID |
+| `HUAWEICLOUD_SDK_DOMAIN_ID` | 全局级服务 domain ID |
+
+认证选择：
+
+- 区域级服务优先使用 `BasicCredentials`，通常需要 project ID；新版 SDK 在使用永久 AK/SK 且 `with_region()` 时可自动查询 project ID。
+- 全局级服务使用 `GlobalCredentials`，通常需要 domain ID。
+- SDK 支持环境变量、profile、metadata、Pod Identity 等凭证来源；CCE Pod Identity 能减少明文 AK/SK 暴露，但只能在对应集群/身份配置完成后使用。
+
+Region/endpoint 选择：
+
+- 优先用 SDK 内置 region，例如 `{Service}Region.value_of("cn-north-4")`。
+- 显式 endpoint 可用于专属云、特殊网络或内置 region 不完整的场景，但通常需要显式 project/domain ID。
+- SDK 的 region 查找顺序包括环境变量、配置文件和内置 region；找不到时可能抛出 `KeyError`。
+- 自定义 endpoint 可通过形如 `HUAWEICLOUD_SDK_REGION_{SERVICE_NAME}_{REGION_ID}` 的环境变量补充；多 endpoint 需要确认 SDK 版本支持。
+
+异常处理：
+
+- `ClientRequestException` 通常包含 `status_code`、`request_id`、`error_code`、`error_msg`。
+- agent 只应把这些字段作为 hcloud 错误归因补充，不应因为 SDK 能返回更详细错误就绕过 hcloud 主链路。
+
 ## 什么时候用 SDK
 
 优先使用 SDK 的场景：
@@ -77,3 +127,14 @@ python3 scripts/hcloud_sdk_supplement_audit.py --require-metadata --pretty
 ```
 
 6. 为 runner 行为补单测。真实 `--execute` 前补人工 smoke 记录。
+
+## 候选池规则
+
+从 SDK reference 继续吸收新能力时，优先考虑下面这类只读补充：
+
+- CBR vault/policy 等备份姿态查询。
+- RFS stack、execution plan 等 IaC 状态元数据。
+- DCS instance、session、background task 等缓存可见性查询。
+- HSS、SecMaster、CFW 等安全姿态 list/show 查询，但默认 `execute_allowed=false`，先用于参数和证据规划。
+
+不要把这些能力自动变成 SDK 执行入口。只有当 hcloud 主链路有明确痛点、SDK package 可维护、operation 只读且经过 smoke/test 后，才允许进入 `sdk-supplement-registry.json`；数据库操作、密码重置、升级、kill session、删除、启停、扩缩容等 action/mutation 不进入 SDK runner。

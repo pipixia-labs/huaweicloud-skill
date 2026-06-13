@@ -99,6 +99,13 @@ python3 scripts/hcloud_terraform_catalog.py --write --pretty
 
 Use this during maintenance after changing `examples/terraform/` or `references/terraform/`. It rebuilds `terraform-example-catalog.json` and `terraform-reference-catalog.json`. Do not manually edit generated catalog JSON unless you are fixing a temporary local experiment.
 
+```bash
+python3 scripts/hcloud_terraform_provider_inventory.py --write --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py --fail-on-drift --pretty
+```
+
+Use this during maintenance after updating the local `reference-projects/terraform-provider-huaweicloud` checkout. It rebuilds provider resource/data-source inventories from `docs/resources` and `docs/data-sources`, records the local changelog snapshot, and detects inventory drift. These inventories are coverage indexes only; they do not grant execution permission.
+
 ### Terraform Workflow Reference
 
 Terraform is documented in `references/terraform-workflow.md` and indexed in `references/terraform/README.md`, not exposed as a generic SDK runner. Read it when the user explicitly wants repeatable IaC, environment replication, import/drift review, or long-term resource management. The workflow requires hcloud discovery before plan generation and hcloud verification after apply.

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -19,10 +20,56 @@ TERRAFORM_ENV_KEYS = (
     "HW_ACCESS_KEY",
     "HW_SECRET_KEY",
     "HW_REGION_NAME",
+    "HW_DOMAIN_ID",
+    "HW_DOMAIN_NAME",
+    "HW_USER_NAME",
+    "HW_USER_ID",
+    "HW_USER_PASSWORD",
     "HW_PROJECT_ID",
     "HW_PROJECT_NAME",
-    "HW_DOMAIN_NAME",
     "HW_SECURITY_TOKEN",
+    "HW_AUTH_TOKEN",
+    "HW_AUTH_URL",
+    "HW_CLOUD",
+    "HW_SHARED_CONFIG_FILE",
+    "HW_PROFILE",
+    "HW_ENTERPRISE_PROJECT_ID",
+    "HW_MAX_RETRIES",
+    "HW_ENABLE_FORCE_NEW",
+    "HW_SIGNING_ALGORITHM",
+    "HW_INSECURE",
+    "HW_ASSUME_ROLE_AGENCY_NAME",
+    "HW_ASSUME_ROLE_DOMAIN_NAME",
+    "HW_ASSUME_ROLE_DOMAIN_ID",
+    "HW_ASSUME_ROLE_DURATION",
+    "HW_ASSUME_ROLE_IDP_ID",
+    "HW_ASSUME_ROLE_ID_TOKEN",
+    "HW_ASSUME_ROLE_ID_TOKEN_FILE",
+    "OS_ACCESS_KEY",
+    "OS_SECRET_KEY",
+    "OS_REGION_NAME",
+    "OS_DOMAIN_ID",
+    "OS_USER_DOMAIN_ID",
+    "OS_PROJECT_DOMAIN_ID",
+    "OS_DOMAIN_NAME",
+    "OS_USER_DOMAIN_NAME",
+    "OS_PROJECT_DOMAIN_NAME",
+    "OS_USERNAME",
+    "OS_USER_ID",
+    "OS_PASSWORD",
+    "OS_PROJECT_ID",
+    "OS_PROJECT_NAME",
+    "OS_TENANT_ID",
+    "OS_TENANT_NAME",
+    "OS_AUTH_TOKEN",
+    "OS_AUTH_URL",
+    "OS_INSECURE",
+    "OS_CACERT",
+    "OS_CERT",
+    "OS_KEY",
+    "OS_AGENCY_NAME",
+    "OS_AGENCY_DOMAIN_NAME",
+    "OS_DELEGATED_PROJECT",
     "HUAWEICLOUD_ACCESS_KEY",
     "HUAWEICLOUD_SECRET_KEY",
     "HUAWEICLOUD_REGION",
@@ -44,6 +91,33 @@ def env_status() -> dict[str, dict[str, Any]]:
             "set": value is not None and value != "",
             "empty": value == "",
         }
+    return result
+
+
+def shared_config_status() -> dict[str, Any]:
+    """Inspect hcloud shared config usability for the Terraform provider."""
+    env_path = os.environ.get("HW_SHARED_CONFIG_FILE")
+    config_path = Path(env_path).expanduser() if env_path else Path.home() / ".hcloud" / "config.json"
+    result: dict[str, Any] = {
+        "path_source": "HW_SHARED_CONFIG_FILE" if env_path else "default_hcloud_config",
+        "exists": config_path.exists(),
+        "auth_encrypt": None,
+        "usable_for_provider_shared_config": False,
+        "warning": None,
+    }
+    if not config_path.exists():
+        return result
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        result["warning"] = "hcloud_shared_config_unreadable"
+        return result
+    auth_encrypt = str(config.get("authEncrypt", "")).lower()
+    result["auth_encrypt"] = auth_encrypt or None
+    if auth_encrypt == "false":
+        result["usable_for_provider_shared_config"] = True
+    elif auth_encrypt == "true":
+        result["warning"] = "hcloud_shared_config_encrypted"
     return result
 
 
@@ -120,12 +194,23 @@ def provider_cache_hints(workdir: Path) -> dict[str, Any]:
     }
 
 
-def readiness(terraform: dict[str, Any], env: dict[str, dict[str, Any]], forbidden: list[str]) -> dict[str, Any]:
+def readiness(
+    terraform: dict[str, Any],
+    env: dict[str, dict[str, Any]],
+    forbidden: list[str],
+    shared_config: dict[str, Any],
+) -> dict[str, Any]:
     """Return readiness flags and blockers."""
     has_terraform = bool(terraform.get("found"))
     has_hw_auth = env["HW_ACCESS_KEY"]["set"] and env["HW_SECRET_KEY"]["set"] and env["HW_REGION_NAME"]["set"]
+    has_os_auth = env["OS_ACCESS_KEY"]["set"] and env["OS_SECRET_KEY"]["set"] and env["OS_REGION_NAME"]["set"]
     has_huaweicloud_auth = env["HUAWEICLOUD_ACCESS_KEY"]["set"] and env["HUAWEICLOUD_SECRET_KEY"]["set"] and env["HUAWEICLOUD_REGION"]["set"]
-    has_auth = has_hw_auth or has_huaweicloud_auth
+    has_token_auth = (env["HW_AUTH_TOKEN"]["set"] or env["OS_AUTH_TOKEN"]["set"]) and (
+        env["HW_REGION_NAME"]["set"] or env["OS_REGION_NAME"]["set"]
+    )
+    has_shared_config_auth = bool(shared_config["usable_for_provider_shared_config"])
+    has_assume_role_hint = env["HW_ASSUME_ROLE_AGENCY_NAME"]["set"] or env["HW_ASSUME_ROLE_IDP_ID"]["set"]
+    has_auth = has_hw_auth or has_os_auth or has_huaweicloud_auth or has_token_auth or has_shared_config_auth
     blockers = []
     warnings = []
     if not has_terraform:
@@ -134,6 +219,12 @@ def readiness(terraform: dict[str, Any], env: dict[str, dict[str, Any]], forbidd
         warnings.append("terraform_runtime_artifacts_present")
     if not has_hw_auth and has_huaweicloud_auth:
         warnings.append("huaweicloud_env_set_but_hw_env_unset")
+    if has_os_auth and not has_hw_auth:
+        warnings.append("os_env_aliases_set")
+    if shared_config.get("warning"):
+        warnings.append(shared_config["warning"])
+    if has_assume_role_hint and not has_auth:
+        warnings.append("assume_role_hint_set_without_base_credentials")
     if not has_auth:
         warnings.append("terraform_cloud_credentials_unset")
     return {
@@ -146,7 +237,11 @@ def readiness(terraform: dict[str, Any], env: dict[str, dict[str, Any]], forbidd
         "warnings": warnings,
         "auth": {
             "hw_env_complete": has_hw_auth,
+            "os_env_complete": has_os_auth,
             "huaweicloud_env_complete": has_huaweicloud_auth,
+            "token_env_complete": has_token_auth,
+            "shared_config_usable": has_shared_config_auth,
+            "assume_role_hint_set": has_assume_role_hint,
             "cloud_credentials_complete": has_auth,
         },
         "execution_boundary": "plan/apply require credentials and explicit user confirmation; hcloud remains post-apply verification path",
@@ -158,6 +253,7 @@ def build_context(args: argparse.Namespace) -> dict[str, Any]:
     workdir = args.workdir.resolve()
     terraform = inspect_terraform()
     env = env_status()
+    shared_config = shared_config_status()
     forbidden = forbidden_artifacts(workdir)
     return {
         "success": True,
@@ -165,6 +261,7 @@ def build_context(args: argparse.Namespace) -> dict[str, Any]:
         "terraform": terraform,
         "hcloud": inspect_hcloud(),
         "environment": env,
+        "shared_config": shared_config,
         "provider_cache": provider_cache_hints(workdir),
         "asset_catalog": {
             "example_catalog": str(hcloud_terraform_catalog.EXAMPLE_CATALOG_PATH),
@@ -173,14 +270,19 @@ def build_context(args: argparse.Namespace) -> dict[str, Any]:
             "reference_catalog_exists": hcloud_terraform_catalog.REFERENCE_CATALOG_PATH.exists(),
         },
         "forbidden_artifacts": forbidden,
-        "readiness": readiness(terraform, env, forbidden),
+        "readiness": readiness(terraform, env, forbidden, shared_config),
     }
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workdir", type=Path, default=hcloud_common.ROOT, help="Directory to inspect for Terraform assets and artifacts.")
+    parser.add_argument(
+        "--workdir",
+        type=Path,
+        default=hcloud_common.ROOT,
+        help="Directory to inspect for Terraform assets and artifacts.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     return parser.parse_args()
 

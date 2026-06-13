@@ -195,6 +195,8 @@ SDK 补充层是 v0.4 增加的 hcloud 辅助能力。设计目标不是“SDK �
 
 - 运行时不要求用户机器有 SDK 源码仓库；只使用 pip 或其他方式安装的 `huaweicloudsdk*` package。
 - `reference-projects/huaweicloud-sdk-python-v3` 只作为维护期参考，不是用户运行时依赖。
+- 当前维护快照是 SDK `3.1.199`，但 agent 应以用户已安装 package 和当前包源为准；没有 package 时自动回退 hcloud。
+- SDK auth/region 线索来自 SDK 文档：`HUAWEICLOUD_SDK_AK`、`HUAWEICLOUD_SDK_SK`、临时 token、Basic/Global credentials、region/endpoint fallback、Pod Identity 和 `ClientRequestException` 字段。
 - SDK allowlist 由 `references/sdk-supplement-registry.json` 控制，不能临时把任意 SDK mutation 暴露成 runner。
 - SDK 执行结果必须标记为 supplement，并保留 hcloud 主链路的查询或验证计划。
 
@@ -216,6 +218,7 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 2. `hcloud_terraform_router.py` 根据用户目标选择少量 example/reference。
 3. `references/terraform-workflow.md` 约束 hcloud 现网发现、Terraform fmt/init/validate/plan、用户确认 exact plan 和 apply 后 hcloud 后置验证。
 4. `hcloud_terraform_catalog.py` 只在维护期重建 `references/terraform/catalog/*.json`。
+5. `hcloud_terraform_provider_inventory.py` 只在维护期从 provider docs 重建 resource/data-source inventory 并做 drift 检查。
 
 关键边界：
 
@@ -223,6 +226,8 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 - 只读查询、状态核验、普通排障和一次性小变更不要强行转 Terraform。
 - 真实 `terraform apply` 必须基于用户确认的 exact plan，不默认 `-auto-approve`。
 - `.terraform/`、`terraform.tfstate*`、真实 `*.tfvars`、`crash.log` 和凭证类文件不能进入仓库。
+- 当前 provider reference 快照是 `1.93.0`，inventory 覆盖 1684 个 resource 和 2239 个 data source；这些只是覆盖索引，不代表默认可路由或可执行。
+- shared hcloud config 对 Terraform 有加密限制。若 `hcloud_terraform_context_inspect.py` 报告 `hcloud_shared_config_encrypted`，需要先解释 `--cli-auth-encrypt=false` 的凭证风险，再考虑替代认证方式。
 
 ### 5. 质量回归面
 

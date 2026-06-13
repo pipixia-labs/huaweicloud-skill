@@ -18,10 +18,12 @@ flowchart TD
     References --> SDKRegistry["references/sdk-supplement-registry.json"]
     References --> TFRefs["references/terraform/*"]
     TFExamples["examples/terraform/*"] --> TFCatalog["references/terraform/catalog/*.json"]
+    TFProvider["reference-projects/terraform-provider-huaweicloud/docs"] --> TFInventory["references/terraform/inventories/provider-*-inventory.md"]
     Registry --> Scripts["scripts/*.py"]
     Curation --> Scripts
     SDKRegistry --> Scripts
     TFCatalog --> Scripts
+    TFInventory --> Scripts
     Registry --> Coverage["check_question_coverage.py"]
     Tests["tests/*.py"] --> Scripts
     Tests --> Registry
@@ -234,9 +236,12 @@ Terraform 资产分两层：
 
 Terraform catalog 的意义是“资产完整吸收，但运行时少量命中”。开发者不应该让 agent 默认读取所有示例，而应该通过 router 根据用户目标选择少量 reference 和 example。
 
+Provider inventory 是覆盖面索引，不是执行面。当前由 `scripts/hcloud_terraform_provider_inventory.py` 从本地 provider reference docs 生成，快照为 provider changelog `1.93.0`，覆盖 1684 个 resource 和 2239 个 data source。它的作用是回答“provider 有没有这个资源/数据源”，不能直接推导出“agent 应该默认使用 Terraform 创建/修改这个资源”。
+
 维护原则：
 
 - 修改 Terraform 示例或 reference 后运行 `hcloud_terraform_catalog.py --write --pretty`。
+- 更新本地 provider reference 后运行 `hcloud_terraform_provider_inventory.py --write --pretty` 和 `--fail-on-drift`。
 - 用 `hcloud_terraform_context_inspect.py` 检查 `.terraform/`、`terraform.tfstate*`、真实 `*.tfvars`、`crash.log` 等 forbidden artifact。
 - 用 Terraform asset tests 检查 catalog、router 和资产卫生。
 - Terraform 示例不等同于已经执行过的云变更；真实 plan/apply 仍需要本机 Terraform CLI、provider、认证环境变量和用户确认。
