@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- No unreleased changes yet.
+
+## 0.4.0 - 2026-06-13
+
 - Removed the committed full generated hcloud catalog so ClawHub packaging stays under the 10M single-file limit.
 - Kept runtime catalog loading on `hcloud-service-catalog.index.json` plus per-service JSON payloads, with full catalog generation available only as an explicit local maintenance artifact.
 - Updated catalog tests and documentation to use the lazy catalog path as the normal agent runtime path.

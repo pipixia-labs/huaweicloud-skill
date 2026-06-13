@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- No unreleased changes yet.
+
+## v0.4 / 0.4.0 - 2026-06-13
+
+v0.4 focuses on making the skill easier to use for real 上云/用云/管云 workflows without changing the safety model. The release adds a narrow SDK supplement layer, local scenario routing, service guides, Terraform workflow documentation, and keeps large generated catalog assets out of committed runtime files.
+
+### Changes Since v0.3.3
+
 - Removed the committed `references/hcloud-service-catalog.generated.json` full catalog so ClawHub packages do not include a file over 10M.
 - Runtime catalog loading continues to use `references/hcloud-service-catalog.index.json` plus per-service files under `references/hcloud-service-catalog/`.
 - `build_hcloud_catalog.py` now skips full catalog output by default; pass `--output <temporary-full-catalog-json>` only for local operation-level diff review.
@@ -13,6 +21,19 @@
   - `hcloud_scenario_router.py` maps broad natural-language goals to local playbooks, service guides, planners, SDK supplements, and Terraform candidates.
   - `references/guides/` covers ECS, VPC/network, ELB, RDS, CCE, OBS, observability, and governance boundaries.
 - Adds `references/terraform-workflow.md` to keep Terraform as a separate IaC route with hcloud discovery before plan generation and hcloud verification after apply.
+
+### Validation
+
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests`: 207 tests passed.
+- `python3 -m compileall -q scripts tests`: passed.
+- `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- v0.4 does not make SDK a generic execution plane.
+- SDK execution is limited to allowlisted, low-risk, read-only operations and keeps hcloud fallback plans.
+- Terraform remains a documented IaC route; it does not bypass hcloud discovery, explicit apply confirmation, or hcloud post-apply verification.
+- The removed full generated catalog remains available only as an explicit local maintenance artifact, not a committed skill asset.
 
 ## v0.3.3 / 0.3.3 - 2026-06-06
 
