@@ -18,6 +18,26 @@ python3 scripts/hcloud_context_inspect.py --pretty
 
 Use this first for real cloud tasks. It reports whether `hcloud` exists, active profile hints, configured region/project/domain values, and local metadata cache status. If `hcloud.found=false`, stop real cloud execution and direct the user to install KooCLI from Huawei Cloud's quickstart documentation.
 
+### Scenario Router
+
+```bash
+python3 scripts/hcloud_scenario_router.py \
+  "创建一套 ECS Web 服务，包含 VPC、ELB、监控和成本治理" \
+  --pretty
+```
+
+Use this before deep execution when the user describes a broad cloud goal. It maps natural language to local playbooks, service guides, planners, SDK supplements, and Terraform candidates. The router is local and planner-only: it does not install official skills, execute hcloud, call SDK APIs, or create Terraform files.
+
+You can pass a service/category hint when the user's wording is short:
+
+```bash
+python3 scripts/hcloud_scenario_router.py \
+  "公网入口和安全组检查" \
+  --category network \
+  --service VPC \
+  --pretty
+```
+
 ### Cache Prewarm
 
 ```bash
@@ -38,6 +58,28 @@ python3 scripts/hcloud_meta_lookup.py \
 ```
 
 Use this to inspect the local KooCLI metadata cache: service presence, operation count, operation detail, endpoint, and region metadata. Operation detail files are parsed as JSON first; YAML parsing is attempted only when PyYAML is available.
+
+### SDK Supplement Metadata
+
+```bash
+python3 scripts/hcloud_sdk_catalog.py --service ECS --operation ListFlavors --pretty
+```
+
+Use this only as an hcloud supplement. Runtime discovery prefers installed `huaweicloudsdk*` Python packages such as `huaweicloudsdkecs`. The optional `--sdk-root` points to a `huaweicloud-sdk-python-v3` source tree for maintenance and tests; user machines are not expected to have that source tree.
+
+The script reads SDK client/request/region files to expose method, resource path, query/path parameters, request types, sensitive fields, and static region examples. It does not execute cloud calls.
+
+### SDK Supplement Registry Audit
+
+```bash
+python3 scripts/hcloud_sdk_supplement_audit.py --pretty
+```
+
+Use this during maintenance before adding or changing any SDK supplement entry. It checks `references/sdk-supplement-registry.json` for hcloud-first boundaries, fallback runner existence, low-risk executable entries, and optional SDK metadata consistency. Add `--require-metadata` only on machines with installed SDK packages or the maintenance source tree available.
+
+### Terraform Workflow Reference
+
+Terraform is documented in `references/terraform-workflow.md`, not exposed as a generic SDK runner. Read it when the user explicitly wants repeatable IaC, environment replication, import/drift review, or long-term resource management. The workflow requires hcloud discovery before plan generation and hcloud verification after apply.
 
 ### Catalog Audit And Rebuild
 
@@ -116,6 +158,18 @@ python3 scripts/hcloud_resource_discovery.py \
 ```
 
 Use for list/count style discovery. Curated registry services use registered query operations. Registry-outside services use generated catalog metadata and only auto-select read-only discovery operations without required business parameters. `--execute` is required for real cloud queries.
+
+### SDK Read-Only Bridge
+
+```bash
+python3 scripts/hcloud_sdk_readonly.py \
+  --service ECS \
+  --operation ListFlavors \
+  --region=cn-north-4 \
+  --pretty
+```
+
+Use this only for curated, stable SDK read-only operations where SDK request models make the hcloud path easier to validate. It defaults to plan mode and includes the equivalent hcloud fallback plan. `--execute` imports the installed SDK package and calls the SDK only when the operation is allowlisted. Do not use this as a generic SDK mutation runner.
 
 ### Account Inventory
 

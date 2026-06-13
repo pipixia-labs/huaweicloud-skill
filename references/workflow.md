@@ -15,6 +15,14 @@
 - 变更类
   - 例如创建、修改、删除、启停、扩缩容
 
+如果用户目标是跨服务、宽泛场景或“上云/用云/管云”式任务，先运行本地场景路由：
+
+```bash
+python3 scripts/hcloud_scenario_router.py "<user-goal>" --pretty
+```
+
+路由结果只用于选择 `references/playbooks/`、`references/guides/`、planner、SDK supplement 和 Terraform 候选；它不执行 hcloud、SDK 或 Terraform 操作。
+
 ## Phase B: Inspect Context
 
 默认先运行：
@@ -42,6 +50,7 @@ python3 scripts/hcloud_context_inspect.py --pretty
 3. `hcloud --help`
 4. `hcloud <service> --help`
 5. `hcloud <service> <operation> --help`
+6. 只有当 hcloud metadata/help 不足时，才用 `python3 scripts/hcloud_sdk_catalog.py --service=<service> --operation=<operation> --pretty` 补充 SDK 参数类型、region、endpoint 或 path/query/body 证据
 
 原则：
 
@@ -49,6 +58,7 @@ python3 scripts/hcloud_context_inspect.py --pretty
 - 先看本地 meta cache 里有没有现成线索。
 - 先通过 service 级帮助确认当前 CLI 是否支持目标服务。
 - 当前 CLI 的 operation 清单比记忆更可信。
+- SDK 是补充证据源，不是默认执行面；用户机器通常只有 pip 安装的 `huaweicloudsdk*` package，不要求有 SDK 源码。
 
 ## Phase D: Build a Stable Command
 
@@ -60,12 +70,15 @@ python3 scripts/hcloud_context_inspect.py --pretty
   - 加过滤参数
   - 加 `--cli-query`
 - 对 registry 中已有的 list-only 操作，可以先用 `python3 scripts/hcloud_resource_discovery.py --service=<service> ... --pretty` 生成命令，再决定是否 `--execute`
+- 少量 `references/sdk-supplement-registry.json` allowlist 内的稳定 SDK 只读查询可以用 `hcloud_sdk_readonly.py` 生成计划或显式执行，但结果必须标注为 SDK supplement，并保留 hcloud fallback plan。
 
 ### 变更类默认规则
 
 - 默认先用 `python3 scripts/hcloud_change_plan.py ... --pretty` 生成风险摘要
 - 支持 dry-run 时先 `--dryrun`
 - 优先把复杂 body 放进 `--cli-jsonInput`
+- 不使用 SDK generic runner 执行创建、修改、删除、启停、扩缩容等变更；这些仍走 hcloud guarded flow。后续 Terraform 作为独立 IaC 链路接入。
+- 当用户明确需要 IaC、环境复制、import/drift review 或长期纳管时，读取 `references/terraform-workflow.md`；Terraform 不替代本阶段的 hcloud 发现和后置验证。
 - 真执行前先补齐：
   - region
   - project

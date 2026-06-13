@@ -12,6 +12,8 @@ from typing import Any
 
 import hcloud_catalog
 import hcloud_common
+import hcloud_sdk_catalog
+import hcloud_sdk_supplement_audit
 from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, normalize_token
 
 
@@ -45,6 +47,10 @@ def operation_param_names(service: str, operation: str) -> set[str]:
     if catalog_names:
         return catalog_names
 
+    sdk_names = sdk_supplement_param_names(service, operation)
+    if sdk_names:
+        return sdk_names
+
     meta_repo = Path.home() / ".hcloud" / "metaRepo"
     template_dir = collect_template_dirs(meta_repo).get(normalize_token(service))
     detail = load_operation_detail(template_dir, operation)
@@ -58,6 +64,36 @@ def operation_param_names(service: str, operation: str) -> set[str]:
         for name in param.get("name", []):
             names.add(str(name).lower())
     return names
+
+
+def sdk_supplement_param_names(service: str, operation: str) -> set[str]:
+    """Return parameter names from curated SDK supplement metadata."""
+    supplement = hcloud_sdk_supplement_audit.registry_entry_for_hcloud_operation(service, operation)
+    if not supplement:
+        return set()
+    sdk_operation = str(supplement.get("sdk_operation") or operation)
+    hint = hcloud_sdk_catalog.sdk_hint_for_operation(service, sdk_operation)
+    if not hint:
+        return set()
+    names = set()
+    for name in hint.get("query_params", []):
+        normalized = hcloud_catalog.normalize_param_name(str(name))
+        if normalized:
+            names.add(normalized)
+    for name in (hint.get("request_types") or {}):
+        normalized = hcloud_catalog.normalize_param_name(str(name))
+        if normalized:
+            names.add(normalized)
+    return names
+
+
+def sdk_supplement_context(service: str, operation: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Return curated SDK supplement entry and metadata hint for discovery output."""
+    supplement = hcloud_sdk_supplement_audit.registry_entry_for_hcloud_operation(service, operation)
+    if not supplement:
+        return None, None
+    sdk_operation = str(supplement.get("sdk_operation") or operation)
+    return supplement, hcloud_sdk_catalog.sdk_hint_for_operation(service, sdk_operation)
 
 
 def catalog_operation_param_names(service: str, operation: str) -> set[str]:
@@ -216,6 +252,11 @@ def build_command_item(args: argparse.Namespace, service: str, operation: str, s
         item["generated_args"] = generated_headers
     if unsupported_headers:
         item["unsupported_required_headers"] = unsupported_headers
+    sdk_supplement, sdk_hint = sdk_supplement_context(service, operation)
+    if sdk_supplement:
+        item["sdk_supplement"] = sdk_supplement
+    if sdk_hint:
+        item["sdk_evidence"] = sdk_hint
     return item
 
 

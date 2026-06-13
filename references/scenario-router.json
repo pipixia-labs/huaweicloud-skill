@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "description": "Natural-language scenario router for the hcloud-first Huawei Cloud skill. Inspired by official skill discovery, but routes to local registry, playbooks, SDK supplements, and Terraform candidates.",
+  "scenarios": [
+    {
+      "id": "ecs-compute-readiness",
+      "name": "ECS compute readiness",
+      "category": "compute",
+      "description": "Prepare, query, create-plan, and verify ECS instances, flavors, images, keypairs, jobs, and SSH readiness.",
+      "triggers": [
+        "ecs",
+        "云服务器",
+        "弹性云服务器",
+        "实例",
+        "flavor",
+        "规格",
+        "image",
+        "镜像",
+        "ssh",
+        "server"
+      ],
+      "services": [
+        "ECS",
+        "IMS",
+        "KPS",
+        "VPC"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/ecs-create-readiness.md",
+        "references/playbooks/ecs-ssh-access-readiness.md",
+        "references/playbooks/ims-image-discovery.md",
+        "references/playbooks/kps-keypair-discovery.md"
+      ],
+      "guides": [
+        "references/guides/ecs.md",
+        "references/guides/vpc.md"
+      ],
+      "planners": [
+        "scripts/hcloud_resource_discovery.py",
+        "scripts/hcloud_resource_query.py",
+        "scripts/hcloud_ecs_create_plan.py",
+        "scripts/hcloud_guarded_change_flow.py"
+      ],
+      "sdk_supplements": [
+        "ECS:ListFlavors",
+        "ECS:ShowServer",
+        "IMS:ListImages"
+      ],
+      "terraform_candidate": true
+    },
+    {
+      "id": "network-readiness",
+      "name": "VPC and public access readiness",
+      "category": "network",
+      "description": "Discover VPC, subnet, security group, EIP, NAT, ELB, DNS, and public access dependencies before exposing workloads.",
+      "triggers": [
+        "vpc",
+        "subnet",
+        "子网",
+        "安全组",
+        "security group",
+        "eip",
+        "公网",
+        "elb",
+        "负载均衡",
+        "dns",
+        "nat",
+        "端口"
+      ],
+      "services": [
+        "VPC",
+        "EIP",
+        "ELB",
+        "NAT",
+        "DNS"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/vpc-network-readiness.md",
+        "references/playbooks/vpc-resource-discovery.md",
+        "references/playbooks/eip-public-ip-readiness.md",
+        "references/playbooks/elb-http-backend-readiness.md",
+        "references/playbooks/dns-zone-record-readiness.md",
+        "references/playbooks/nat-gateway-readiness.md"
+      ],
+      "guides": [
+        "references/guides/vpc.md",
+        "references/guides/elb.md"
+      ],
+      "planners": [
+        "scripts/hcloud_resource_discovery.py",
+        "scripts/hcloud_resource_query.py",
+        "scripts/hcloud_eip_change_flow.py",
+        "scripts/hcloud_guarded_change_flow.py"
+      ],
+      "sdk_supplements": [
+        "VPC:ShowVpc",
+        "ELB:ShowLoadBalancer"
+      ],
+      "terraform_candidate": true
+    },
+    {
+      "id": "database-readiness",
+      "name": "Database readiness and governance",
+      "category": "database",
+      "description": "Plan and verify RDS/DCS/database configuration, backup posture, connectivity evidence, and safe review before changes.",
+      "triggers": [
+        "rds",
+        "database",
+        "数据库",
+        "mysql",
+        "postgresql",
+        "dcs",
+        "redis",
+        "备份",
+        "backup",
+        "参数组",
+        "configuration"
+      ],
+      "services": [
+        "RDS",
+        "DCS",
+        "CBR",
+        "VPC"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/rds-instance-readiness.md",
+        "references/playbooks/dcs-readiness.md",
+        "references/playbooks/cbr-backup-posture.md"
+      ],
+      "guides": [
+        "references/guides/rds.md",
+        "references/guides/governance.md"
+      ],
+      "planners": [
+        "scripts/hcloud_resource_discovery.py",
+        "scripts/hcloud_resource_query.py",
+        "scripts/hcloud_p2_scenario_closure_plan.py"
+      ],
+      "sdk_supplements": [
+        "RDS:ShowInstanceConfiguration"
+      ],
+      "terraform_candidate": true
+    },
+    {
+      "id": "observability-readiness",
+      "name": "Observability and service health",
+      "category": "governance",
+      "description": "Collect resource state, CES metrics, LTS log metadata, alarms, and readiness evidence before declaring workloads healthy or idle.",
+      "triggers": [
+        "监控",
+        "metric",
+        "metrics",
+        "ces",
+        "日志",
+        "lts",
+        "alarm",
+        "告警",
+        "health",
+        "readiness",
+        "可观测"
+      ],
+      "services": [
+        "CES",
+        "LTS",
+        "ECS",
+        "ELB"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/observability-readiness.md",
+        "references/playbooks/ces-metric-readiness.md",
+        "references/playbooks/lts-log-readiness.md"
+      ],
+      "guides": [
+        "references/guides/observability.md"
+      ],
+      "planners": [
+        "scripts/hcloud_observability_plan.py",
+        "scripts/hcloud_ces_alarm_plan.py",
+        "scripts/hcloud_lts_readonly.py"
+      ],
+      "sdk_supplements": [
+        "CES:ListMetrics"
+      ],
+      "terraform_candidate": false
+    },
+    {
+      "id": "audit-and-cost-governance",
+      "name": "Audit, cost, tag, and teardown governance",
+      "category": "governance",
+      "description": "Inventory resources, classify idle candidates, plan teardown review, and collect CTS/TMS/Billing/backup evidence.",
+      "triggers": [
+        "治理",
+        "管云",
+        "审计",
+        "cts",
+        "trace",
+        "tag",
+        "tms",
+        "账单",
+        "billing",
+        "cost",
+        "成本",
+        "闲置",
+        "回收",
+        "teardown"
+      ],
+      "services": [
+        "CTS",
+        "TMS",
+        "BSS",
+        "CBR",
+        "RMS",
+        "Config"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/cts-audit-readiness.md",
+        "references/playbooks/tms-tag-governance.md",
+        "references/playbooks/billing-cost-governance.md",
+        "references/playbooks/cbr-backup-posture.md"
+      ],
+      "guides": [
+        "references/guides/governance.md"
+      ],
+      "planners": [
+        "scripts/hcloud_account_inventory.py",
+        "scripts/hcloud_idle_audit.py",
+        "scripts/hcloud_teardown_plan.py",
+        "scripts/hcloud_governance_closure_plan.py"
+      ],
+      "sdk_supplements": [
+        "CTS:ListTraces"
+      ],
+      "terraform_candidate": false
+    },
+    {
+      "id": "container-readiness",
+      "name": "CCE and container platform readiness",
+      "category": "container",
+      "description": "Discover CCE clusters, nodes, network dependencies, metrics, and workload platform readiness.",
+      "triggers": [
+        "cce",
+        "kubernetes",
+        "k8s",
+        "容器",
+        "集群",
+        "cluster",
+        "node",
+        "节点"
+      ],
+      "services": [
+        "CCE",
+        "VPC",
+        "ELB",
+        "CES"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/cce-cluster-readiness.md",
+        "references/playbooks/vpc-network-readiness.md",
+        "references/playbooks/observability-readiness.md"
+      ],
+      "guides": [
+        "references/guides/cce.md",
+        "references/guides/vpc.md",
+        "references/guides/observability.md"
+      ],
+      "planners": [
+        "scripts/hcloud_resource_discovery.py",
+        "scripts/hcloud_resource_query.py",
+        "scripts/hcloud_p2_scenario_closure_plan.py"
+      ],
+      "sdk_supplements": [
+        "CCE:ShowCluster"
+      ],
+      "terraform_candidate": true
+    }
+  ]
+}

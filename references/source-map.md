@@ -8,6 +8,8 @@
 
 1. `references/`
 2. `materials/hcloud-docs-md/`
+3. 已安装的 `huaweicloudsdk*` package
+4. `reference-projects/huaweicloud-sdk-python-v3` 维护期源码参考
 
 解释：
 
@@ -17,6 +19,12 @@
 - `materials/hcloud-docs-md/`
   - 是主要阅读源。
   - 适合 `rg`、摘取命令示例、整理章节内容。
+- 已安装的 `huaweicloudsdk*` package
+  - 是 SDK 补充能力的运行时来源。
+  - 只用于参数、region/endpoint、错误结构和 allowlist 内只读 runner。
+- `reference-projects/huaweicloud-sdk-python-v3`
+  - 是本仓库维护和测试参考。
+  - 用户机器不要求存在该源码目录。
 
 ## 当前原始文档用途
 
@@ -67,3 +75,4 @@
 - skill 运行时优先看 `references/`
 - 只有在 `references/` 没覆盖时，才回到 `materials/`
 - 回到 `materials/` 时，使用保留的 `hcloud-docs-md/`
+- 回到 SDK 时，优先使用已安装 package；源码目录只做维护期 fallback

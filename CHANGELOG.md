@@ -5,6 +5,10 @@
 - Removed the committed full generated hcloud catalog so ClawHub packaging stays under the 10M single-file limit.
 - Kept runtime catalog loading on `hcloud-service-catalog.index.json` plus per-service JSON payloads, with full catalog generation available only as an explicit local maintenance artifact.
 - Updated catalog tests and documentation to use the lazy catalog path as the normal agent runtime path.
+- Added an SDK supplement layer that prefers installed `huaweicloudsdk*` packages, keeps SDK as an hcloud supplement, and gates executable SDK calls through `references/sdk-supplement-registry.json`.
+- Added SDK catalog, read-only bridge, and registry audit scripts, plus hcloud discovery/query integration for SDK request-type and path/query evidence.
+- Added `hcloud_scenario_router.py`, `references/scenario-router.json`, and service guides under `references/guides/` so broad 上云/用云/管云 goals can route to local playbooks, planners, SDK supplements, and Terraform candidates.
+- Added `references/terraform-workflow.md` to define Terraform as a separate IaC route with hcloud discovery before planning and hcloud verification after apply.
 
 ## 0.3.3 - 2026-06-06
 

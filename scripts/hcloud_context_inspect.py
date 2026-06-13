@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import hcloud_common
+import hcloud_sdk_catalog
 
 
 def safe_bool_text(value: Any) -> Any:
@@ -176,6 +177,22 @@ def inspect_hcloud_binary() -> dict[str, Any]:
     return result
 
 
+def inspect_sdk_runtime(sdk_root_path: Path) -> dict[str, Any]:
+    """Inspect optional Huawei Cloud Python SDK runtime/package availability."""
+    installed_packages = hcloud_sdk_catalog.find_installed_service_packages()
+    source_packages = hcloud_sdk_catalog.find_service_packages(sdk_root_path) if sdk_root_path.exists() else []
+    result: dict[str, Any] = {
+        "installed_package_count": len(installed_packages),
+        "installed_services_sample": sorted({str(package["service_key"]).upper() for package in installed_packages})[:80],
+        "source_root_exists": sdk_root_path.exists(),
+        "source_root_path": str(sdk_root_path),
+        "source_service_package_count": len(source_packages),
+        "role": "supplemental_to_hcloud",
+        "primary_runtime": "hcloud",
+    }
+    return result
+
+
 def build_summary(include_meta_files: bool) -> dict[str, Any]:
     """Build the complete local hcloud context summary."""
     home = Path.home()
@@ -185,6 +202,7 @@ def build_summary(include_meta_files: bool) -> dict[str, Any]:
         "config": inspect_config(hcloud_root / "config.json"),
         "meta_repo": inspect_meta_repo(hcloud_root / "metaRepo", include_meta_files),
         "meta_origin": inspect_meta_origin(hcloud_root / "metaOrigin", include_meta_files),
+        "sdk_runtime": inspect_sdk_runtime(hcloud_sdk_catalog.DEFAULT_SDK_ROOT),
     }
 
 

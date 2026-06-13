@@ -9,6 +9,9 @@ version: "0.3.3"
 ## 核心定位
 
 - 这是一套基于 `hcloud` 的华为云执行型 skill。
+- SDK 是 `hcloud` 的补充，不是第二套大而全执行面。只有当 SDK 能让 `hcloud` 主链路更稳时才使用，例如补充参数类型、region/endpoint、错误结构、凭证来源线索，或执行少量 `references/sdk-supplement-registry.json` allowlist 内的稳定只读查询。
+- 用户机器不要求有 SDK 源码仓库；如果需要 SDK 补充能力，优先使用已安装的 `huaweicloudsdk*` Python package。`reference-projects/huaweicloud-sdk-python-v3` 只作为本仓库维护期参考。
+- 后续 Terraform 应作为 IaC 变更面接入；SDK 不承担通用创建、修改、删除等云变更职责。
 - MaaS 图像生成只作为华为云 Web/独立站部署的辅助资产生成能力，必须使用华为云 ModelArts MaaS API，默认模型为 `qwen-image`，不作为通用生图入口，也不登记为 KooCLI service。
 - 目标不是背命令，而是让 agent 能稳定完成一条完整链路：
   - 识别上下文
@@ -138,17 +141,21 @@ version: "0.3.3"
 3. `references/cache-prewarm.md`
 4. `references/local-meta-discovery.md`
 5. `references/service-coverage.md`
-6. `references/command-construction.md`
-7. `references/error-playbook.md`
-8. `references/output-and-query.md`
-9. `references/scripts.md`
-10. `references/service-registry.json`
-11. `references/service-curation-profiles.json`
-12. `scripts/hcloud_catalog_audit.py`
-13. `references/playbooks/`
-14. `references/source-map.md`
-15. `examples/README.md`
-16. `references/maas-image-generation.md`（MaaS 图像生成主参考；`references/qwen-image-generation.md` 为兼容旧文件名）
+6. `references/sdk-supplement.md`
+7. `references/scenario-router.json`
+8. `references/guides/`
+9. `references/terraform-workflow.md`
+10. `references/command-construction.md`
+11. `references/error-playbook.md`
+12. `references/output-and-query.md`
+13. `references/scripts.md`
+14. `references/service-registry.json`
+15. `references/service-curation-profiles.json`
+16. `scripts/hcloud_catalog_audit.py`
+17. `references/playbooks/`
+18. `references/source-map.md`
+19. `examples/README.md`
+20. `references/maas-image-generation.md`（MaaS 图像生成主参考；`references/qwen-image-generation.md` 为兼容旧文件名）
 
 原始 KooCLI 材料在 `materials/` 下，仅作为资料源，不应直接当作最终指令集使用。
 华为云官方文档优先从 `https://support.huaweicloud.com/intl/zh-cn/` 查证；涉及 API 字段语义时，以官方文档和实际 `hcloud --dryrun`/查询结果为准。
@@ -190,9 +197,12 @@ version: "0.3.3"
 | 任务 | 首选脚本 | 说明 |
 | --- | --- | --- |
 | 上下文/认证/region/project 检查 | `hcloud_context_inspect.py` | 真实云任务第一步。 |
+| 自然语言场景路由 | `hcloud_scenario_router.py` | 把目标映射到本地 playbook、指南、planner、SDK 补充点和 Terraform 候选；不执行云操作。 |
 | 多轮任务前缓存预热 | `hcloud_prewarm_cache.py` | 预热 service/operation help。 |
 | 真实 hcloud 查询或系统命令 | `hcloud_safe_exec.py` | 默认 JSON、脱敏、错误分桶。 |
 | 本地 KooCLI metadata 探查 | `hcloud_meta_lookup.py` | 查 service/operation detail cache。 |
+| SDK 参数/region 补充 | `hcloud_sdk_catalog.py` | 读取已安装 SDK package 或维护期源码 fallback；只补证据，不执行云调用。 |
+| SDK allowlist 只读桥 | `hcloud_sdk_readonly.py` | 仅执行 `sdk-supplement-registry.json` 登记的稳定只读补充；保留 hcloud fallback。 |
 | generated catalog 审计/重建 | `hcloud_catalog_audit.py`、`build_hcloud_catalog.py` | 运行时走 index/per-service 懒加载；full catalog 只作为可选本地临时产物，不提交、不直接 Read 大 JSON。 |
 | ECS 创建前校验 | `hcloud_ecs_create_plan.py` | 检查 JSON、凭证、安全组和 dry-run/submit 命令。 |
 | ECS job 终态 | `hcloud_ecs_wait_job.py` | job 终态不等同于 ECS 可用。 |
@@ -212,6 +222,7 @@ version: "0.3.3"
 | 生命周期闭环计划 | `hcloud_lifecycle_closure_plan.py` | P0 核心服务的六阶段 planner-only 闭环计划，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。 |
 | 治理闭环计划 | `hcloud_governance_closure_plan.py` | P1 治理服务的 planner-only 闭环计划，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，并输出 evidence command plan 和治理汇总。 |
 | P2 场景闭环计划 | `hcloud_p2_scenario_closure_plan.py` | P2 场景服务的 planner-only 闭环计划，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，并诚实标注 metadata evidence gap。 |
+| Terraform/IaC 工作流 | `references/terraform-workflow.md` | 当用户明确需要可重复 IaC、环境复制或长期纳管时读取；Terraform 不替代 hcloud 发现和后置验证。 |
 | registry 多服务 smoke | `hcloud_readonly_smoke.py` | 只读 smoke；`--execute` 才真实查询。 |
 | metadata-backed smoke | `hcloud_catalog_readonly_smoke.py` | 小批只读矩阵和失败分桶。 |
 | curated 晋级审计 | `hcloud_curated_promotion_audit.py` | 校验 profile、playbook、risk profile 和 live-smoke 门槛。 |

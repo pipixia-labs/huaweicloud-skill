@@ -14,6 +14,8 @@ import hcloud_change_plan
 import hcloud_catalog
 import hcloud_common
 import hcloud_resource_discovery
+import hcloud_sdk_catalog
+import hcloud_sdk_supplement_audit
 from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, normalize_token
 
 
@@ -100,6 +102,15 @@ def arg_param_name(value: str) -> str | None:
     return normalize_param_name(token.split("=", 1)[0])
 
 
+def arg_param_value(value: str) -> tuple[str, str] | None:
+    """Extract normalized name/value from a raw --arg=... token."""
+    token = value.strip()
+    if not token.startswith("--") or "=" not in token:
+        return None
+    key, raw = token.split("=", 1)
+    return normalize_param_name(key), raw
+
+
 def operation_scope(service_entry: dict[str, Any], operation: str) -> str | None:
     """Return whether an operation is a generic or explicit-parameter read query."""
     if operation in service_entry.get("resource_query_operations", []):
@@ -180,6 +191,84 @@ def provided_param_names(args: argparse.Namespace, params: dict[str, str]) -> se
         if name:
             names.add(name)
     return names
+
+
+def sdk_supplement_for_hcloud(service: str, operation: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Return curated SDK supplement entry and metadata hint for a hcloud operation."""
+    supplement = hcloud_sdk_supplement_audit.registry_entry_for_hcloud_operation(service, operation)
+    if not supplement:
+        return None, None
+    sdk_operation = str(supplement.get("sdk_operation") or operation)
+    return supplement, hcloud_sdk_catalog.sdk_hint_for_operation(service, sdk_operation)
+
+
+def sdk_request_types(sdk_hint: dict[str, Any] | None) -> dict[str, str]:
+    """Return SDK request types keyed by normalized parameter name."""
+    if not sdk_hint:
+        return {}
+    request_types = sdk_hint.get("request_types") or {}
+    if not isinstance(request_types, dict):
+        return {}
+    return {normalize_param_name(str(key)): str(value) for key, value in request_types.items()}
+
+
+def validate_sdk_param_value(name: str, value: str, type_name: str) -> dict[str, Any] | None:
+    """Return a validation error for an SDK typed parameter value, if any."""
+    normalized_type = type_name.lower()
+    try:
+        if normalized_type in {"int", "integer"}:
+            int(value)
+        elif normalized_type in {"float", "double"}:
+            float(value)
+        elif normalized_type == "bool":
+            if value.lower() not in {"true", "false", "1", "0", "yes", "no"}:
+                raise ValueError("expected bool")
+    except ValueError:
+        return {
+            "param": name,
+            "value": value,
+            "expected_type": type_name,
+            "message": f"Parameter {name} must be {type_name} according to SDK metadata.",
+        }
+    return None
+
+
+def validate_sdk_typed_params(
+    args: argparse.Namespace,
+    params: dict[str, str],
+    sdk_hint: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Validate explicit parameters using curated SDK request type metadata."""
+    request_types = sdk_request_types(sdk_hint)
+    if not request_types:
+        return None
+    checked = []
+    errors = []
+    for name, value in params.items():
+        type_name = request_types.get(normalize_param_name(name))
+        if not type_name:
+            continue
+        checked.append({"param": name, "type": type_name, "source": "--param"})
+        error = validate_sdk_param_value(name, value, type_name)
+        if error:
+            errors.append(error)
+    for raw_arg in args.arg:
+        parsed = arg_param_value(raw_arg)
+        if not parsed:
+            continue
+        name, value = parsed
+        type_name = request_types.get(name)
+        if not type_name:
+            continue
+        checked.append({"param": name, "type": type_name, "source": "--arg"})
+        error = validate_sdk_param_value(name, value, type_name)
+        if error:
+            errors.append(error)
+    return {
+        "source": "sdk_supplement_registry",
+        "checked": checked,
+        "errors": errors,
+    }
 
 
 def build_command(
@@ -375,6 +464,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     params = parse_key_value(args.param, "--param")
     required = required_params(service, operation)
     missing = [name for name in required if name not in provided_param_names(args, params)]
+    sdk_supplement, sdk_hint = sdk_supplement_for_hcloud(service, operation)
     if missing:
         return {
             "success": False,
@@ -386,6 +476,19 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "provided_params": sorted(provided_param_names(args, params)),
             "missing_params": missing,
             "error": "Missing required explicit query parameters.",
+        }
+    sdk_validation = validate_sdk_typed_params(args, params, sdk_hint)
+    if sdk_validation and sdk_validation["errors"]:
+        return {
+            "success": False,
+            "service": service,
+            "operation": operation,
+            "requested_operation": requested_operation,
+            "operation_scope": scope,
+            "sdk_supplement": sdk_supplement,
+            "sdk_evidence": sdk_hint,
+            "sdk_param_validation": sdk_validation,
+            "error": "SDK supplement parameter validation failed.",
         }
 
     command, region_resolution = build_command(
@@ -423,6 +526,12 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         result["requested_operation"] = requested_operation
     if region_resolution:
         result["region_resolution"] = region_resolution
+    if sdk_supplement:
+        result["sdk_supplement"] = sdk_supplement
+    if sdk_hint:
+        result["sdk_evidence"] = sdk_hint
+    if sdk_validation:
+        result["sdk_param_validation"] = sdk_validation
     if args.execute:
         execution = execute_command(command, args.timeout)
         result["execution_success"] = execution.get("success", False)

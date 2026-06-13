@@ -10,10 +10,13 @@
 4. 通过统一包装器执行命令。
 5. 对返回结果做结构化错误诊断、资源状态验证和后续检查。
 
-当前架构重点是六个平面：
+当前架构重点是九个平面：
 
+- **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点和 Terraform 候选。
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
+- **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 使用已安装的 `huaweicloudsdk*` package 或维护期源码 fallback，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。
+- **IaC 参考面**：`references/terraform-workflow.md` 定义 Terraform 的进入条件、plan/validate/apply/verify 流程和 hcloud 后置验证边界。
 - **验证面**：job waiter、resource query、resource verifier、service readiness 分层确认结果。
 - **闭环面**：`hcloud_lifecycle_closure_plan.py` 把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 的 P0 典型任务组织成六阶段 planner-only 闭环。
 - **治理/场景面**：账号盘点、闲置审计、teardown review、可观测、Billing/Cost request spec、P1 governance closure、P2 scenario closure 和 curation profiles 支持生命周期治理和后续场景演进。
@@ -50,12 +53,20 @@ huaweicloud-skill/
 ```mermaid
 flowchart TD
     UserTask["User cloud task"] --> Skill["SKILL.md"]
+    UserTask --> Router["hcloud_scenario_router.py"]
+    Router --> ScenarioMap["references/scenario-router.json"]
+    ScenarioMap --> Guides["references/guides/*.md"]
+    ScenarioMap --> Workflow
+    ScenarioMap --> TerraformRef["references/terraform-workflow.md"]
     Skill --> Workflow["references/workflow.md"]
     Skill --> Registry["references/service-registry.json"]
     Workflow --> Context["hcloud_context_inspect.py"]
     Workflow --> Meta["hcloud_meta_lookup.py / hcloud_prewarm_cache.py"]
     Registry --> Discovery["hcloud_resource_discovery.py"]
     Registry --> Query["hcloud_resource_query.py"]
+    SDKRegistry["sdk-supplement-registry.json"] --> SDKMeta["hcloud_sdk_catalog.py\nSDK metadata supplement"]
+    SDKRegistry --> SDKRead["hcloud_sdk_readonly.py\nallowlisted SDK read-only"]
+    SDKMeta --> Query
     Registry --> Closure["hcloud_lifecycle_closure_plan.py"]
     Registry --> Scenario["hcloud_p2_scenario_closure_plan.py"]
     Registry --> ChangePlan["hcloud_service_change_plan.py"]

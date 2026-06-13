@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+.venv/
 
 task_plan.md
 findings.md
