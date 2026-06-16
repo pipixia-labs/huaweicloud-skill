@@ -49,16 +49,19 @@ flowchart LR
 1. [technical-overview.md](technical-overview.md)
    - 快速了解这个 skill 的技术定位、架构平面、核心优势和当前能力边界。
    - 适合第一次接手实现、评审架构或规划扩展路线时阅读。
-2. [architecture.md](architecture.md)
+2. [skill-value-analysis.md](skill-value-analysis.md)
+   - 详细说明 Agent 使用 `huaweicloud-skill` 和不使用它时，在上下文发现、API 选择、风险门禁、后置验证和治理沉淀上的差异，并给出测评集构造方法。
+   - 适合评审产品价值、设计演示案例或向外部解释收益时阅读。
+3. [architecture.md](architecture.md)
    - 了解整体分层、执行链路、模块边界。
    - 适合第一次接手本项目时阅读。
-3. [cloud-lifecycle-scenarios.md](cloud-lifecycle-scenarios.md)
+4. [cloud-lifecycle-scenarios.md](cloud-lifecycle-scenarios.md)
    - 了解执行“上云、用云、管云”任务时，用 `huaweicloud-skill` 和不用的差别。
    - 适合评审产品价值、设计演示案例或扩展典型服务能力时阅读。
-4. [implementation-details.md](implementation-details.md)
+5. [implementation-details.md](implementation-details.md)
    - 了解关键脚本如何工作。
    - 重点包括场景路由、安全执行、元数据发现、registry 驱动、SDK 补充、Terraform 资产路由、ECS/EIP/OBS 特殊流程、通用 guarded flow 和验证器。
-5. [data-and-coverage.md](data-and-coverage.md)
+6. [data-and-coverage.md](data-and-coverage.md)
    - 了解 `references/`、`materials/`、`service-registry.json`、SDK supplement registry、Terraform catalog、coverage 脚本和测试之间的关系。
    - 适合扩展服务覆盖或调整质量门禁时阅读。
 
