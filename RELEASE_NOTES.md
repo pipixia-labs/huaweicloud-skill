@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Adds a controlled Terraform generation guardrails reference and routes it as a core Terraform document.
-- Expands curated Terraform examples from 55 to 60 with sanitized VPC security group, VPC peering, NAT + VPC peering, CCE addon, and ELB + AS stacks.
+- Expands curated Terraform examples from 55 to 73 with sanitized network, CCE, ELB/NAT reuse, end-to-end ECS/ELB/RDS, OBS/CDN/DNS, and RDS engine-shape stacks.
+- Adds Terraform provider validation guidance for fmt/init/validate/schema/mirror/cache checks without adopting the upstream installer as an execution entry.
 - Terraform context inspection now reports read-only Terraform CLI config, provider mirror, and provider cache hints without installing Terraform or downloading providers.
 
 ## v0.5.1 / 0.5.1 - 2026-06-17

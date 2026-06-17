@@ -61,6 +61,21 @@ QUERY_VARIANT_HINTS = {
     "peering": ("peering",),
     "插件": ("addon",),
     "addon": ("addon",),
+    "coredns": ("coredns",),
+    "turbo": ("turbo",),
+    "分区": ("partition",),
+    "partition": ("partition",),
+    "只读副本": ("read_replica",),
+    "读副本": ("read_replica",),
+    "read replica": ("read_replica",),
+    "高可用": ("high_availability", "ha"),
+    "ha": ("high_availability", "ha"),
+    "mysql": ("mysql",),
+    "postgresql": ("postgresql",),
+    "sql server": ("sqlserver",),
+    "sqlserver": ("sqlserver",),
+    "静态网站": ("static_site",),
+    "static site": ("static_site",),
 }
 
 SERVICE_SYNONYMS = {
@@ -71,7 +86,9 @@ SERVICE_SYNONYMS = {
     "数据库": "RDS",
     "容器": "CCE",
     "集群": "CCE",
+    "节点池": "CCE",
     "对象存储": "OBS",
+    "静态网站": "OBS",
     "日志": "LTS",
     "监控": "CES",
     "域名": "DNS",
@@ -84,6 +101,7 @@ SERVICE_SYNONYMS = {
 
 CORE_REFERENCE_IDS = {
     "provider-auth",
+    "provider-validation",
     "generation-guardrails",
     "discovery-workflow",
     "interop-with-hcloud",
@@ -200,12 +218,13 @@ def score_example(example: dict[str, Any], query: str, services: set[str], categ
         if not query_matches_term(term, normalized, query_parts):
             continue
         if any(normalize_token(target) in normalized_example_id or target in example_intents for target in target_intents):
-            score += 8
-            reasons.append(f"variant:{term} +8")
+            bonus = 12 if "read_replica" in target_intents or "reuse_existing" in target_intents else 8
+            score += bonus
+            reasons.append(f"variant:{term} +{bonus}")
     if example.get("requires_existing_resources"):
         if has_reuse_intent:
-            score += 5
-            reasons.append("reuse intent +5")
+            score += 10
+            reasons.append("reuse intent +10")
         else:
             score -= 3
             reasons.append("reuse not requested -3")

@@ -20,7 +20,7 @@
 
 ## 当前成果
 
-- 60 套已吸收示例
+- 73 套已吸收示例
 - 全量 `Full support`
 - 一套较完整的 discovery-first 规则体系
 - 一套较完整的变体选择和 data source 选型规则
@@ -35,11 +35,10 @@
 - 先查询现网，再生成复用型 Terraform 配置
 
 但以下能力还没有系统补齐：
-- CCE coredns / autopilot
+- CCE autopilot。当前参考资产中没有可直接吸收的 autopilot 示例，不能把 `turbo-cluster` 当成 autopilot。
 - 多 region / 多 provider alias 的成体系示例
 - `enterprise_project_id` 场景
-- 更完整的复用型网络示例族，当前已补 VPC peering、安全组治理和 NAT + VPC peering 组合拓扑
-- 将多个基础资源拼成完整业务拓扑的端到端模板
+- APIG、DMS、DCS 等高频中间件/接入层的高价值变体
 - 将高级变体持续整理成更统一的增强版 example
 
 ## 当前文档分层
@@ -63,10 +62,10 @@
 - 现在最重要的是根据真实测试数据决定哪些服务要继续做深，而不是继续扩服务名录
 
 ### 第二阶段：补“复用型”和“组合型”示例
-优先补这些场景：
+已补齐第一批高收益场景：
 - 复用现网 CCE 依赖后创建 node pool
 - 复用现网 ELB 或 NAT 资源后补入口规则
-- 端到端业务拓扑示例，例如 `ECS + ELB + RDS`
+- 端到端业务拓扑示例，例如 `ECS + ELB + RDS`、`OBS + CDN + DNS`
 
 原因：
 - 这类场景最贴近真实项目改造
@@ -75,8 +74,7 @@
 
 ### 第三阶段：补 CCE 高阶能力
 建议逐步补：
-- CCE coredns addon
-- CCE autopilot
+- CCE autopilot，但需要先确认 provider 是否已有稳定资源/schema 或官方推荐实现
 - 节点池更细的伸缩和磁盘配置
 
 这部分可以优先参考 `advanced-variant-catalog.md` 中已经沉淀的 addon、partition、cluster 形态差异。
@@ -100,15 +98,19 @@
 
 如果按收益和风险平衡，推荐顺序如下：
 
-1. 复用型 ELB / NAT / APIG 示例
-2. 组合型业务拓扑示例
-3. CCE coredns / autopilot
-4. 多 region / provider alias
-5. `enterprise_project_id`
-6. CI 和更细粒度自动验证
-7. 对 imported examples 做进一步标准化统一
-8. 根据变体指南和 inventory 设计组合型示例
-9. 再判断是否进入新的能力族
+已完成：
+- 复用型 ELB / NAT / CCE node pool 示例
+- 组合型业务拓扑示例：`ECS + ELB + RDS`、`OBS + CDN + DNS`
+- CCE coredns / turbo / partition 和 RDS 形态矩阵
+
+下一步建议：
+1. APIG、DMS、DCS 等高频中间件/接入层变体
+2. CCE autopilot 可行性确认
+3. 多 region / provider alias
+4. `enterprise_project_id`
+5. CI 和更细粒度自动验证
+6. 对 imported examples 做进一步标准化统一
+7. 再判断是否进入新的能力族
 
 ## 维护建议
 

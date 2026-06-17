@@ -46,7 +46,7 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         catalog = self.load_example_catalog()
         actual_dirs = [path for path in (ROOT / "examples" / "terraform").iterdir() if path.is_dir()]
 
-        self.assertEqual(catalog["example_count"], 60)
+        self.assertEqual(catalog["example_count"], 73)
         self.assertEqual(catalog["example_count"], len(actual_dirs))
         self.assertEqual(catalog["default_route_count"], 12)
         self.assertTrue(all(Path(ROOT / item["path"]).exists() for item in catalog["examples"]))
@@ -58,6 +58,19 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
             "nat_vpc_peering_stack",
             "cce_addon_stack",
             "elb_as_stack",
+            "elb_reuse_stack",
+            "nat_reuse_stack",
+            "cce_node_pool_reuse_stack",
+            "ecs_elb_rds_stack",
+            "obs_cdn_dns_stack",
+            "cce_coredns_addon_stack",
+            "cce_turbo_cluster_stack",
+            "cce_node_partition_stack",
+            "rds_mysql_stack",
+            "rds_postgresql_ha_stack",
+            "rds_read_replica_stack",
+            "rds_mysql_eip_stack",
+            "rds_sqlserver_stack",
         }
 
         for example_id in absorbed_ids:
@@ -83,6 +96,7 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         for reference_id in {
             "README",
             "provider-auth",
+            "provider-validation",
             "generation-guardrails",
             "discovery-workflow",
             "interop-with-hcloud",
@@ -117,6 +131,7 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertEqual(result["matches"][0]["id"], "ecs_stack")
         reference_paths = {item["path"] for item in result["references"]}
         self.assertIn("references/terraform/provider-auth.md", reference_paths)
+        self.assertIn("references/terraform/provider-validation.md", reference_paths)
         self.assertIn("references/terraform/generation-guardrails.md", reference_paths)
 
     def test_router_can_find_absorbed_vpc_examples(self) -> None:
@@ -129,6 +144,29 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertTrue(peering["success"], json.dumps(peering, ensure_ascii=False))
         self.assertEqual(peering["service_hints"], ["VPC"])
         self.assertEqual(peering["matches"][0]["id"], "vpc_peering_stack")
+
+    def test_router_can_find_p0_p1_absorbed_examples(self) -> None:
+        cases = [
+            ("复用现网 ELB 增加 backend member", "elb_reuse_stack"),
+            ("复用现网 NAT 增加 SNAT 规则", "nat_reuse_stack"),
+            ("复用现网 CCE 集群新增节点池", "cce_node_pool_reuse_stack"),
+            ("Terraform 部署 ECS ELB RDS Web 服务", "ecs_elb_rds_stack"),
+            ("Terraform 创建 OBS CDN DNS 静态网站", "obs_cdn_dns_stack"),
+            ("给 CCE 集群管理 CoreDNS addon", "cce_coredns_addon_stack"),
+            ("创建 CCE Turbo 集群", "cce_turbo_cluster_stack"),
+            ("创建 CCE 分区 node partition 节点池", "cce_node_partition_stack"),
+            ("创建 RDS MySQL 单机实例", "rds_mysql_stack"),
+            ("创建 RDS PostgreSQL 高可用实例", "rds_postgresql_ha_stack"),
+            ("创建 RDS MySQL 只读副本", "rds_read_replica_stack"),
+            ("创建 RDS MySQL 并绑定 EIP", "rds_mysql_eip_stack"),
+            ("创建 RDS SQL Server 单机实例", "rds_sqlserver_stack"),
+        ]
+
+        for query, expected_id in cases:
+            with self.subTest(query=query):
+                result = hcloud_terraform_router.route(query, limit=5)
+                self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+                self.assertEqual(result["matches"][0]["id"], expected_id)
 
     def test_router_keeps_readback_and_debug_on_hcloud(self) -> None:
         result = hcloud_terraform_router.route("帮我查询 ECS 当前状态", limit=3)

@@ -31,6 +31,7 @@
 当前已吸收示例：
 - `elb_stack`
 - `elb_member_stack`
+- `elb_reuse_stack`
 - `elb_as_stack`
 
 仍值得复用的高级变体：
@@ -43,20 +44,26 @@
 当前已吸收示例：
 - `cce_stack`
 - `cce_node_pool_stack`
+- `cce_node_pool_reuse_stack`
 - `cce_addon_stack`
+- `cce_coredns_addon_stack`
+- `cce_turbo_cluster_stack`
+- `cce_node_partition_stack`
 
 仍值得复用的高级变体：
 - `addon-autoscaler`: 已吸收为 `cce_addon_stack`，适合复用现网集群补 autoscaler 治理
-- `addon-coredns`: 适合补基础网络插件管理
+- `addon-coredns`: 已吸收为 `cce_coredns_addon_stack`，适合补基础网络插件管理
 - `node`: 适合直接管理独立节点
-- `node-partition`: 适合补分区磁盘配置
-- `standard-cluster` / `turbo-cluster`: 适合补不同集群形态对比
+- `node-partition`: 已吸收为 `cce_node_partition_stack`，适合补分区磁盘配置
+- `standard-cluster` / `turbo-cluster`: `turbo-cluster` 已吸收为 `cce_turbo_cluster_stack`，适合补不同集群形态对比
+- `autopilot`: 当前参考资产中未发现可直接吸收的独立 autopilot 示例，后续需要基于真实 provider schema 和官方文档单独设计。
 
 ### NAT
 
 当前已吸收示例：
 - `nat_snat_stack`
 - `nat_dnat_stack`
+- `nat_reuse_stack`
 - `nat_vpc_peering_stack`
 
 仍值得复用的高级变体：
@@ -91,10 +98,11 @@
 
 当前已吸收示例：
 - `obs_stack`
+- `obs_cdn_dns_stack`
 
 仍值得复用的高级变体：
-- `bucket-with-website`: 适合静态网站托管
-- `object-upload-with-content`: 适合演示内联对象内容
+- `bucket-with-website`: 已吸收进 `obs_cdn_dns_stack` 的静态网站链路
+- `object-upload-with-content`: 已吸收进 `obs_cdn_dns_stack` 的页面对象上传链路
 - `object-upload-with-source`: 适合本地文件上传
 - `object-upload-with-encryption`: 适合对象级加密说明
 
@@ -102,15 +110,20 @@
 
 当前已吸收示例：
 - `rds_stack`
+- `rds_mysql_stack`
+- `rds_postgresql_ha_stack`
+- `rds_read_replica_stack`
+- `rds_mysql_eip_stack`
+- `rds_sqlserver_stack`
 
 仍值得复用的高级变体：
-- `mysql-single-instance`
-- `mysql-instance-associate-eip`
-- `postgresql-ha-instance`
-- `read-replica-instance`
-- `sqlserver-single-instance`
+- `mysql-single-instance`: 已吸收为 `rds_mysql_stack`
+- `mysql-instance-associate-eip`: 已吸收为 `rds_mysql_eip_stack`
+- `postgresql-ha-instance`: 已吸收为 `rds_postgresql_ha_stack`
+- `read-replica-instance`: 已吸收为 `rds_read_replica_stack`
+- `sqlserver-single-instance`: 已吸收为 `rds_sqlserver_stack`
 
-这些变体适合后续补“数据库形态矩阵”，而不只是 PostgreSQL 单一路径。
+这些变体已经形成第一版数据库形态矩阵，后续再根据真实命中补参数细化、备份策略和企业项目约束。
 
 ### DMS
 

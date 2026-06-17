@@ -4,6 +4,8 @@
 
 - Added Terraform generation guardrails for hcloud-first IaC generation, plan review, sensitive-data handling, example promotion checks, and post-apply hcloud verification.
 - Added five sanitized Terraform examples from the Huawei upstream asset library: `vpc_security_group_stack`, `vpc_peering_stack`, `nat_vpc_peering_stack`, `cce_addon_stack`, and `elb_as_stack`.
+- Added thirteen P0/P1 Terraform examples for reuse workflows, end-to-end topologies, CCE variants, and RDS engine shapes: `elb_reuse_stack`, `nat_reuse_stack`, `cce_node_pool_reuse_stack`, `ecs_elb_rds_stack`, `obs_cdn_dns_stack`, `cce_coredns_addon_stack`, `cce_turbo_cluster_stack`, `cce_node_partition_stack`, `rds_mysql_stack`, `rds_postgresql_ha_stack`, `rds_read_replica_stack`, `rds_mysql_eip_stack`, and `rds_sqlserver_stack`.
+- Added Terraform provider validation guidance and routed it as a core Terraform reference.
 - Enhanced Terraform context inspection with read-only CLI config, provider mirror, and global provider cache hints without adding installer or provider download behavior.
 
 ## 0.5.1 - 2026-06-17

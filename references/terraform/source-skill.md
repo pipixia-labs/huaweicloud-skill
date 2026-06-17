@@ -137,13 +137,13 @@ resource "huaweicloud_compute_instance" "web" {
 
 ## 如何开始
 
-当前 `huaweicloud-skill` 已维护 60 套 Terraform 示例。新增示例进入当前 skill 后，需要继续按当前项目的 hcloud-first、敏感信息和显式 apply 门禁使用；不要直接沿用原独立 skill 的执行入口。
+当前 `huaweicloud-skill` 已维护 73 套 Terraform 示例。新增示例进入当前 skill 后，需要继续按当前项目的 hcloud-first、敏感信息和显式 apply 门禁使用；不要直接沿用原独立 skill 的执行入口。
 
 推荐入口：
-- 想直接找可运行模板：看 [examples/README.md](examples/README.md)
-- 想知道同一服务有哪些高阶玩法：看 [Advanced Variant Catalog](references/advanced-variant-catalog.md)
-- 想知道该选哪个服务变体：看 [Service Variant Guide](references/service-variant-guide.md)
-- 想知道什么时候该用 data source：看 [Data Source Selection Guide](references/data-source-selection-guide.md)
+- 想直接找可运行模板：看 [examples/terraform/README.md](../../examples/terraform/README.md)
+- 想知道同一服务有哪些高阶玩法：看 [Advanced Variant Catalog](advanced-variant-catalog.md)
+- 想知道该选哪个服务变体：看 [Service Variant Guide](service-variant-guide.md)
+- 想知道什么时候该用 data source：看 [Data Source Selection Guide](data-source-selection-guide.md)
 - 想全面回查 provider 覆盖面：看三份 inventory 文档
 
 ## 当前收尾结论
@@ -166,17 +166,17 @@ resource "huaweicloud_compute_instance" "web" {
 - 优先补企业级约束，而不是继续堆服务名
 
 ## 参考资料
-- [Provider & Auth](references/provider-auth.md)
-- [Discovery Workflow](references/discovery-workflow.md)
-- [Resource Mapping](references/resource-mapping.md)
-- [Module Blueprints](references/module-blueprints.md)
-- [Advanced Variant Catalog](references/advanced-variant-catalog.md)
-- [Service Variant Guide](references/service-variant-guide.md)
-- [Interop With Huawei Skill](references/interop-with-huawei-skill.md)
-- [Data Source Selection Guide](references/data-source-selection-guide.md)
-- [Provider Capability Index](references/provider-capability-index.md)
-- [Reference Example Inventory](references/reference-example-inventory.md)
-- [Provider Resource Inventory](references/provider-resource-inventory.md)
-- [Provider Data Source Inventory](references/provider-data-source-inventory.md)
-- [Troubleshooting](references/troubleshooting.md)
-- [Roadmap](references/roadmap.md)
+- [Provider & Auth](provider-auth.md)
+- [Discovery Workflow](discovery-workflow.md)
+- [Resource Mapping](resource-mapping.md)
+- [Module Blueprints](module-blueprints.md)
+- [Advanced Variant Catalog](advanced-variant-catalog.md)
+- [Service Variant Guide](service-variant-guide.md)
+- [Interop With hcloud](interop-with-hcloud.md)
+- [Data Source Selection Guide](data-source-selection-guide.md)
+- [Provider Capability Index](inventories/provider-capability-index.md)
+- [Reference Example Inventory](inventories/reference-example-inventory.md)
+- [Provider Resource Inventory](inventories/provider-resource-inventory.md)
+- [Provider Data Source Inventory](inventories/provider-data-source-inventory.md)
+- [Troubleshooting](troubleshooting.md)
+- [Roadmap](roadmap.md)

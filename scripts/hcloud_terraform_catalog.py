@@ -227,6 +227,24 @@ def intents_for_example(example_id: str, services: list[str], category: str) -> 
         intents.add("peering")
     if "addon" in normalized_id:
         intents.add("addon")
+    if "coredns" in normalized_id:
+        intents.add("coredns")
+    if "turbo" in normalized_id:
+        intents.add("turbo")
+    if "partition" in normalized_id:
+        intents.add("partition")
+    if "replica" in normalized_id:
+        intents.add("read_replica")
+    if "ha" in normalized_id:
+        intents.add("high_availability")
+    if "mysql" in normalized_id:
+        intents.add("mysql")
+    if "postgresql" in normalized_id:
+        intents.add("postgresql")
+    if "sqlserver" in normalized_id:
+        intents.add("sqlserver")
+    if "cdn" in normalized_id and "dns" in normalized_id:
+        intents.add("static_site")
     if "node_pool" in normalized_id:
         intents.add("node_pool")
     if "member" in normalized_id:
@@ -294,6 +312,7 @@ def reference_category(path: Path) -> str:
         return "test-reference"
     if name in {
         "provider-auth.md",
+        "provider-validation.md",
         "generation-guardrails.md",
         "discovery-workflow.md",
         "interop-with-hcloud.md",

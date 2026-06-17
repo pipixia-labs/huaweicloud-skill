@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "Terraform example catalog. Use this for routing; do not browse every example by default.",
-  "example_count": 60,
+  "example_count": 73,
   "default_route_count": 12,
   "examples": [
     {
@@ -368,6 +368,125 @@
       ]
     },
     {
+      "id": "cce_coredns_addon_stack",
+      "path": "examples/terraform/cce_coredns_addon_stack",
+      "category": "container",
+      "services": [
+        "CCE"
+      ],
+      "intent": [
+        "addon",
+        "cce",
+        "container",
+        "coredns",
+        "create",
+        "iac",
+        "terraform"
+      ],
+      "recommended_for": "这个示例复用现网 CCE 集群，管理 CoreDNS addon。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "cce_node_partition_stack",
+      "path": "examples/terraform/cce_node_partition_stack",
+      "category": "container",
+      "services": [
+        "CCE"
+      ],
+      "intent": [
+        "cce",
+        "container",
+        "create",
+        "iac",
+        "partition",
+        "terraform"
+      ],
+      "recommended_for": "这个示例吸收上游 `cce/node-partition` 变体，用于在现网 CCE 集群上创建 partition，并把 node pool 放入该 partition。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "cce_node_pool_reuse_stack",
+      "path": "examples/terraform/cce_node_pool_reuse_stack",
+      "category": "reuse",
+      "services": [
+        "CCE"
+      ],
+      "intent": [
+        "cce",
+        "create",
+        "iac",
+        "node_pool",
+        "reuse",
+        "reuse_existing",
+        "terraform"
+      ],
+      "recommended_for": "这个示例复用现网 CCE 集群，只新增 node pool。",
+      "complexity": "high",
+      "default_route": false,
+      "requires_existing_resources": true,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
       "id": "cce_node_pool_stack",
       "path": "examples/terraform/cce_node_pool_stack",
       "category": "container",
@@ -443,6 +562,47 @@
         "README.md",
         "main.tf",
         "outputs.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "cce_turbo_cluster_stack",
+      "path": "examples/terraform/cce_turbo_cluster_stack",
+      "category": "container",
+      "services": [
+        "CCE",
+        "VPC"
+      ],
+      "intent": [
+        "cce",
+        "container",
+        "create",
+        "iac",
+        "terraform",
+        "turbo",
+        "vpc"
+      ],
+      "recommended_for": "这个示例吸收上游 `cce/turbo-cluster` 变体，用于创建 CCE Turbo/ENI 网络形态的集群。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
         "provider.tf",
         "terraform.tfvars.example",
         "variables.tf",
@@ -882,6 +1042,50 @@
       ]
     },
     {
+      "id": "ecs_elb_rds_stack",
+      "path": "examples/terraform/ecs_elb_rds_stack",
+      "category": "compute",
+      "services": [
+        "ECS",
+        "ELB",
+        "RDS",
+        "VPC"
+      ],
+      "intent": [
+        "compute",
+        "create",
+        "ecs",
+        "elb",
+        "iac",
+        "rds",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例提供一个最小 Web 服务拓扑：VPC/Subnet、安全组、ECS、RDS、ELB、listener、pool、member 和 health monitor。",
+      "complexity": "high",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
       "id": "ecs_reuse_stack",
       "path": "examples/terraform/ecs_reuse_stack",
       "category": "reuse",
@@ -1125,6 +1329,45 @@
         "README.md",
         "main.tf",
         "outputs.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "elb_reuse_stack",
+      "path": "examples/terraform/elb_reuse_stack",
+      "category": "reuse",
+      "services": [
+        "ELB"
+      ],
+      "intent": [
+        "create",
+        "elb",
+        "iac",
+        "reuse",
+        "reuse_existing",
+        "terraform"
+      ],
+      "recommended_for": "这个示例用于复用现网 ELB，只新增 listener、pool、member 和 health monitor。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": true,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
         "provider.tf",
         "terraform.tfvars.example",
         "variables.tf",
@@ -1581,6 +1824,45 @@
       ]
     },
     {
+      "id": "nat_reuse_stack",
+      "path": "examples/terraform/nat_reuse_stack",
+      "category": "reuse",
+      "services": [
+        "NAT"
+      ],
+      "intent": [
+        "create",
+        "iac",
+        "nat",
+        "reuse",
+        "reuse_existing",
+        "terraform"
+      ],
+      "recommended_for": "这个示例用于复用现网 NAT Gateway 和 EIP，只新增 SNAT/DNAT 规则。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": true,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
       "id": "nat_snat_stack",
       "path": "examples/terraform/nat_snat_stack",
       "category": "network",
@@ -1642,6 +1924,49 @@
         "vpc"
       ],
       "recommended_for": "这个示例从上游 Terraform 资产库中吸收并改写，用于演示两个 VPC 通过 peering 互联，并由一个 NAT Gateway 提供 SNAT/DNAT 能力。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "obs_cdn_dns_stack",
+      "path": "examples/terraform/obs_cdn_dns_stack",
+      "category": "network",
+      "services": [
+        "CDN",
+        "DNS",
+        "OBS"
+      ],
+      "intent": [
+        "cdn",
+        "create",
+        "dns",
+        "iac",
+        "network",
+        "obs",
+        "static_site",
+        "terraform"
+      ],
+      "recommended_for": "这个示例把 OBS 静态网站、CDN 加速域名和 DNS CNAME 记录放在一个受控链路里。",
       "complexity": "medium",
       "default_route": false,
       "requires_existing_resources": false,
@@ -1816,6 +2141,214 @@
         "README.md",
         "main.tf",
         "outputs.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "rds_mysql_eip_stack",
+      "path": "examples/terraform/rds_mysql_eip_stack",
+      "category": "network",
+      "services": [
+        "EIP",
+        "RDS",
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "eip",
+        "iac",
+        "mysql",
+        "network",
+        "rds",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例创建 MySQL RDS 并绑定 EIP，吸收上游 MySQL with EIP 形态。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "rds_mysql_stack",
+      "path": "examples/terraform/rds_mysql_stack",
+      "category": "database",
+      "services": [
+        "RDS",
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "database",
+        "iac",
+        "mysql",
+        "rds",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例创建单机 MySQL RDS 实例，补齐上游 MySQL single 形态。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "rds_postgresql_ha_stack",
+      "path": "examples/terraform/rds_postgresql_ha_stack",
+      "category": "database",
+      "services": [
+        "RDS",
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "database",
+        "high_availability",
+        "iac",
+        "postgresql",
+        "rds",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例创建 PostgreSQL HA RDS 实例，补齐上游 PostgreSQL HA 形态。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "rds_read_replica_stack",
+      "path": "examples/terraform/rds_read_replica_stack",
+      "category": "database",
+      "services": [
+        "RDS",
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "database",
+        "iac",
+        "rds",
+        "read_replica",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例创建 MySQL 主实例和只读副本，补齐上游 read replica 形态。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "rds_sqlserver_stack",
+      "path": "examples/terraform/rds_sqlserver_stack",
+      "category": "database",
+      "services": [
+        "RDS",
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "database",
+        "iac",
+        "rds",
+        "sqlserver",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例创建单机 SQL Server RDS 实例，补齐上游 SQL Server single 形态。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
         "provider.tf",
         "terraform.tfvars.example",
         "variables.tf",
@@ -2034,6 +2567,7 @@
         "sfs",
         "storage",
         "terraform",
+        "turbo",
         "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",

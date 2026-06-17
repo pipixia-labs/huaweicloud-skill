@@ -1,0 +1,7 @@
+region_name         = "cn-north-4"
+vpc_name            = "demo-pg-ha-vpc"
+subnet_name         = "demo-pg-ha-subnet"
+security_group_name = "demo-pg-ha-sg"
+rds_name            = "demo-pg-ha-rds"
+rds_password        = "replace-in-local-terraform-tfvars"
+availability_zones  = []
