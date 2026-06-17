@@ -20,6 +20,18 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
   - 校验结果
   - 处理常见错误
 
+## 推荐闭环流程
+
+当用户提出上云、用云或排障目标，且任务落在 P0 高频服务（VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS）时，优先按下面的本地闭环推进：
+
+1. 先用 `hcloud_scenario_router.py` 判断目标命中的 playbook、guide、planner、SDK supplement 或 Terraform 候选。
+2. 对 P0 任务运行 `hcloud_lifecycle_closure_plan.py`，生成六阶段 lifecycle plan 和 `acceptance_evidence_plan`。
+3. 需要采集验收证据时，运行 `hcloud_acceptance_probe_plan.py`，只生成非执行探测模板；不要把模板输出当作已采集证据。
+4. 证据采集后，把人工或工具整理出的本地 status JSON 交给 `hcloud_acceptance_evidence_result.py`，得到 `passed`、`warning`、`missing` 或 `blocked`。
+5. 需要写周报、评审成熟度或判断下一批补强目标时，运行 `hcloud_closure_maturity_audit.py`，诚实区分 ECS 样板、P0 task-level planner、P1/P2 planner-only 和 metadata-backed evidence gap。
+
+这个流程默认不执行 live probe、不处理凭据、不发账单请求、不开放治理/安全/数据库写操作。真实 submit 仍必须走对应 guarded flow，并获得用户对本次操作的明确确认。
+
 ## 通用质量规则
 
 这些规则面向真实云资源操作，不绑定任何内部场景。与其他说明冲突时，优先保证安全、可审计、可复现和可验证。
@@ -226,6 +238,9 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | OBS 只读查询 | `hcloud_obs_readonly.py` | 走 `hcloud obs`/obsutil，不走普通 OpenAPI 形态。 |
 | 服务 readiness | `hcloud_service_readiness.py` | 多服务只读验收，缺目标 ID 则 skipped。 |
 | 生命周期闭环计划 | `hcloud_lifecycle_closure_plan.py` | P0 核心服务的六阶段 planner-only 闭环计划，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。 |
+| 验收探测计划 | `hcloud_acceptance_probe_plan.py` | 从 lifecycle plan 生成非执行 probe 模板，不实际访问网络或云资源。 |
+| 验收结果判定 | `hcloud_acceptance_evidence_result.py` | 读取 lifecycle plan 和本地 evidence status JSON，输出 passed/warning/missing/blocked。 |
+| 闭环成熟度审计 | `hcloud_closure_maturity_audit.py` | 本地审计当前闭环层级，不执行 hcloud、SDK 或 Terraform。 |
 | 治理闭环计划 | `hcloud_governance_closure_plan.py` | P1 治理服务的 planner-only 闭环计划，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，并输出 evidence command plan 和治理汇总。 |
 | P2 场景闭环计划 | `hcloud_p2_scenario_closure_plan.py` | P2 场景服务的 planner-only 闭环计划，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，并诚实标注 metadata evidence gap。 |
 | Terraform/IaC 工作流 | `references/terraform-workflow.md`、`references/terraform/README.md` | 当用户明确需要可重复 IaC、环境复制、import/drift 或长期纳管时读取；Terraform 不替代 hcloud 发现和后置验证。 |
@@ -280,6 +295,8 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - Billing/Cost 本地 feasibility probe，用于确认当前 bundled catalog 是否具备账单/成本直接候选；v0.3.1 可发现 metadata-backed `BSS`，但当前不等同于真实账单查询能力
 - curated promotion audit 输出 `value_ranked_candidates`，用于按“上好云、用好云、管好云”价值维度选择下一批治理候选
 - `hcloud_lifecycle_closure_plan.py` 提供 P0 核心服务的 planner-only 闭环计划入口，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，并把上下文/依赖发现、参数检查、风险门禁、受控执行、后置验证和治理审计统一成六阶段输出
+- `hcloud_acceptance_probe_plan.py` 和 `hcloud_acceptance_evidence_result.py` 把 P0 lifecycle plan 继续推进到“如何采证”和“采到后如何判定”；前者只生成非执行模板，后者只读取本地 evidence status JSON
+- `hcloud_closure_maturity_audit.py` 汇总当前成熟度层级，避免把 planner-only、metadata-backed evidence gap 或 request spec 误说成完整执行闭环
 - `hcloud_governance_closure_plan.py` 提供 P1 治理闭环计划入口，覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo，把治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口统一输出；Billing/BSS 只生成 request spec，不生成 live query 命令
 - `hcloud_p2_scenario_closure_plan.py` 提供 P2 场景闭环计划入口，覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族，把容器、网络、缓存、IaC、多集群、依赖、安全、数据库场景先收敛成只读 evidence plan、风险边界和下一步晋级缺口；安全和数据库族当前保持 metadata evidence gap，不宣称 curated 完整闭环
 - Terraform 资产面已吸收 55 个示例和核心 provider/reference/inventory 文档；当前 provider inventory 快照来自本地 `1.93.0` reference，覆盖 1684 个 resource 和 2239 个 data source。运行时通过 `hcloud_terraform_router.py` 和 catalog 渐进选择，不默认全量读取。Terraform 可以生成和验证 IaC 草案，但 apply 仍需用户确认，完成后仍回到 hcloud 做状态和业务验收

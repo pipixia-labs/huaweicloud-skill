@@ -20,6 +20,24 @@ TERRAFORM_ROUTE = {
     "asset_index": "references/terraform/README.md",
     "boundary": "Use only when the user explicitly wants IaC, repeatable infrastructure, import, drift review, or long-term management.",
 }
+P0_CLOSURE_SERVICES = {"VPC", "EIP", "EVS", "ELB", "RDS", "OBS", "DNS", "SCM", "CDN", "CES", "LTS"}
+P0_ACCEPTANCE_FOLLOWUPS = [
+    {
+        "step": "task_lifecycle_plan",
+        "tool": "scripts/hcloud_lifecycle_closure_plan.py",
+        "purpose": "Build the six-stage P0 closure plan and acceptance_evidence_plan.",
+    },
+    {
+        "step": "probe_plan",
+        "tool": "scripts/hcloud_acceptance_probe_plan.py",
+        "purpose": "Turn acceptance evidence items into non-executing probe templates.",
+    },
+    {
+        "step": "local_evidence_result",
+        "tool": "scripts/hcloud_acceptance_evidence_result.py",
+        "purpose": "Evaluate collected local evidence statuses as passed/warning/missing/blocked.",
+    },
+]
 
 
 def normalize_token(value: str) -> str:
@@ -32,6 +50,14 @@ def load_router(path: Path = ROUTER_PATH) -> dict[str, Any]:
     if not path.exists():
         return {"schema_version": 1, "scenarios": []}
     return hcloud_common.load_json(path)
+
+
+def recommended_followups(scenario: dict[str, Any]) -> list[dict[str, str]]:
+    """Return standard local follow-up steps for a matched scenario."""
+    services = {str(service).upper() for service in scenario.get("services", [])}
+    if services & P0_CLOSURE_SERVICES:
+        return [dict(item) for item in P0_ACCEPTANCE_FOLLOWUPS]
+    return []
 
 
 def score_scenario(scenario: dict[str, Any], query: str, category: str | None = None, service: str | None = None) -> tuple[int, list[str]]:
@@ -95,6 +121,7 @@ def route(query: str, category: str | None = None, service: str | None = None, l
                 "primary_playbooks": scenario.get("primary_playbooks", []),
                 "guides": scenario.get("guides", []),
                 "planners": scenario.get("planners", []),
+                "recommended_followups": recommended_followups(scenario),
                 "sdk_supplements": scenario.get("sdk_supplements", []),
                 "terraform_candidate": scenario.get("terraform_candidate", False),
                 "terraform_route": TERRAFORM_ROUTE if scenario.get("terraform_candidate", False) else None,

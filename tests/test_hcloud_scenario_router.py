@@ -46,6 +46,15 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertEqual(match["id"], "network-readiness")
         self.assertIn("references/guides/vpc.md", match["guides"])
         self.assertIn("VPC:ShowVpc", match["sdk_supplements"])
+        followup_tools = [item["tool"] for item in match["recommended_followups"]]
+        self.assertEqual(
+            followup_tools,
+            [
+                "scripts/hcloud_lifecycle_closure_plan.py",
+                "scripts/hcloud_acceptance_probe_plan.py",
+                "scripts/hcloud_acceptance_evidence_result.py",
+            ],
+        )
 
     def test_unknown_goal_has_no_match(self) -> None:
         result = hcloud_scenario_router.route("烹饪晚饭和整理书架", limit=3)
@@ -73,6 +82,11 @@ class HcloudScenarioRouterTest(unittest.TestCase):
             for supplement in scenario.get("sdk_supplements", []):
                 with self.subTest(scenario=scenario.get("id"), sdk_supplement=supplement):
                     self.assertIn(supplement, sdk_entries)
+
+        route_result = hcloud_scenario_router.route("公网入口和安全组检查", category="network", service="VPC", limit=1)
+        for followup in route_result["matches"][0]["recommended_followups"]:
+            with self.subTest(followup=followup["tool"]):
+                self.assertTrue((ROOT / followup["tool"]).exists(), followup["tool"])
 
 
 if __name__ == "__main__":

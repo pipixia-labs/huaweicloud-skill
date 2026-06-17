@@ -22,6 +22,8 @@
   - 适合使用 `adminPass` 密码登录的 ECS `CreateServers` 请求体参考；密码必须先保存到受限权限 artifact。
 - `ecs-create-dryrun.md`
   - 说明维护者如何配合 dry-run 检查这些模板。
+- `eip-acceptance-closure.md`
+  - 展示 EIP lifecycle plan、probe plan、evidence status 和验收结果判定的离线闭环。
 
 ## 普通用户怎么用
 

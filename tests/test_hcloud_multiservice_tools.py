@@ -2565,6 +2565,35 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(probe["execution_boundary"], "not_executed")
         self.assertTrue(any("curl" in template for template in probe["probe_templates"]))
 
+    def test_offline_eip_acceptance_flow_end_to_end(self) -> None:
+        lifecycle_plan = hcloud_lifecycle_closure_plan.build_lifecycle_plan(
+            self.lifecycle_args(
+                service=["EIP"],
+                param=[
+                    "publicip_id=eip-1",
+                    "target_resource_id=server-1",
+                    "probe_url=https://example.com/health",
+                ],
+            )
+        )
+
+        probe_plan = hcloud_acceptance_probe_plan.build_probe_plan(lifecycle_plan)
+        result = hcloud_acceptance_evidence_result.evaluate_plan(
+            lifecycle_plan,
+            {
+                "evidence": {
+                    "publicip_readback": "passed",
+                    "binding_target_readback": "passed",
+                    "public_protocol_probe": "passed",
+                }
+            },
+        )
+
+        self.assertTrue(lifecycle_plan["success"], lifecycle_plan)
+        self.assertEqual(probe_plan["services"][0]["planned_probe_count"], 3)
+        self.assertEqual(result["overall_status"], "passed")
+        self.assertEqual(result["services"][0]["summary"]["passed"], 3)
+
     def test_resource_verify_cli_reads_safe_exec_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "result.json"

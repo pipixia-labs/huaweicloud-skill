@@ -2,10 +2,35 @@
 
 ## Unreleased
 
+## v0.5.1 / 0.5.1 - 2026-06-17
+
+v0.5.1 is a small closure-maturity patch after v0.5. It makes the recommended offline acceptance chain easier for agents and users to follow while keeping live execution boundaries unchanged.
+
+### Changes Since v0.5
+
+- P0 lifecycle plans now emit structured `acceptance_evidence_plan` items for cloud readback, runtime checks, protocol probes, observability, governance, and missing inputs.
+- New acceptance tools:
+  - `hcloud_acceptance_probe_plan.py` generates non-executing probe templates from lifecycle evidence requirements.
+  - `hcloud_acceptance_evidence_result.py` evaluates collected local evidence into `passed`, `warning`, `missing`, or `blocked` outcomes.
+  - `hcloud_closure_maturity_audit.py` reports closure tiers honestly instead of implying full closed-loop maturity where only planners exist.
+- `SKILL.md`, scenario routing, and examples now describe the recommended chain: scenario route -> lifecycle closure plan -> acceptance probe plan -> evidence result.
+- `examples/eip-acceptance-closure.md` adds a concrete offline EIP acceptance flow that users can copy into real validation work after supplying their own evidence.
 - SDK supplement docs now include the local SDK `3.1.199` reference snapshot, installed-package runtime rules, auth/region/endpoint guidance, and narrow candidate rules for future read-only supplements.
-- Terraform provider docs now include the local provider `1.93.0` snapshot, refreshed resource/data-source inventories, and stronger authentication/context guidance.
+- Terraform provider docs now include the local provider `1.93.0` snapshot, refreshed inventories covering 1684 resources and 2239 data sources, and stronger authentication/context guidance.
 - New maintenance script: `hcloud_terraform_provider_inventory.py` rebuilds provider inventories from the local provider reference checkout and detects drift.
 - Terraform context inspection now reports more provider environment aliases and warns when shared hcloud config is encrypted and therefore unsuitable for Terraform shared-config auth without an explicit risk decision.
+
+### Validation
+
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests`: 225 tests passed.
+- `python3 -m compileall -q scripts tests`: passed.
+- `git diff --check`: passed.
+
+### Compatibility and Safety Notes
+
+- v0.5.1 does not add automatic live probes, Terraform apply automation, generic SDK execution, or Billing/BSS live queries.
+- Acceptance probe plans are templates; users or guarded workflows must still collect real evidence explicitly.
+- P1/P2 closure remains planner-only unless a service has a dedicated guarded flow.
 
 ## v0.5 / 0.5.0 - 2026-06-13
 
