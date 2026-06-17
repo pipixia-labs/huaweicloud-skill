@@ -54,6 +54,15 @@ REUSE_TERMS = {
     "纳管",
 }
 
+QUERY_VARIANT_HINTS = {
+    "安全组": ("security_group", "secgroup"),
+    "security group": ("security_group", "secgroup"),
+    "对等连接": ("peering",),
+    "peering": ("peering",),
+    "插件": ("addon",),
+    "addon": ("addon",),
+}
+
 SERVICE_SYNONYMS = {
     "云服务器": "ECS",
     "弹性云服务器": "ECS",
@@ -66,12 +75,16 @@ SERVICE_SYNONYMS = {
     "日志": "LTS",
     "监控": "CES",
     "域名": "DNS",
+    "虚拟私有云": "VPC",
+    "安全组": "VPC",
+    "对等连接": "VPC",
     "出网": "NAT",
     "入站": "NAT",
 }
 
 CORE_REFERENCE_IDS = {
     "provider-auth",
+    "generation-guardrails",
     "discovery-workflow",
     "interop-with-hcloud",
     "service-variant-guide",
@@ -156,6 +169,9 @@ def score_example(example: dict[str, Any], query: str, services: set[str], categ
     """Return score and reasons for one Terraform example."""
     normalized = normalize_token(query)
     query_parts = latin_parts(query)
+    example_id = str(example.get("id") or "")
+    normalized_example_id = normalize_token(example_id)
+    example_intents = {str(intent) for intent in example.get("intent", [])}
     score = 0
     reasons: list[str] = []
     has_reuse_intent = any(normalize_token(term) in normalized for term in REUSE_TERMS)
@@ -170,10 +186,22 @@ def score_example(example: dict[str, Any], query: str, services: set[str], categ
         if service in example.get("services", []):
             score += 10
             reasons.append(f"service:{service} +10")
+    if services:
+        extra_services = [service for service in example.get("services", []) if service not in services]
+        if extra_services:
+            penalty = min(4, len(extra_services) * 2)
+            score -= penalty
+            reasons.append(f"extra service scope -{penalty}")
     for intent in example.get("intent", []):
         if query_matches_term(str(intent), normalized, query_parts):
             score += 4
             reasons.append(f"intent:{intent} +4")
+    for term, target_intents in QUERY_VARIANT_HINTS.items():
+        if not query_matches_term(term, normalized, query_parts):
+            continue
+        if any(normalize_token(target) in normalized_example_id or target in example_intents for target in target_intents):
+            score += 8
+            reasons.append(f"variant:{term} +8")
     if example.get("requires_existing_resources"):
         if has_reuse_intent:
             score += 5
@@ -181,7 +209,7 @@ def score_example(example: dict[str, Any], query: str, services: set[str], categ
         else:
             score -= 3
             reasons.append("reuse not requested -3")
-    for token in hcloud_terraform_catalog.token_parts(str(example.get("id") or "")):
+    for token in hcloud_terraform_catalog.token_parts(example_id):
         if token and token in query_parts:
             score += 3
             reasons.append(f"id:{token} +3")

@@ -1,8 +1,8 @@
 # Terraform Huawei Examples
 
-这个目录收纳 `huaweicloud-skill` 已吸收并验证过的 Terraform 示例工程。
+这个目录收纳 `huaweicloud-skill` 已吸收并纳入校验流程的 Terraform 示例工程。
 
-当前共有 55 套已验证示例。建议先按场景找入口，而不是从服务名开始翻。
+当前共有 60 套已吸收示例。建议先按场景找入口，而不是从服务名开始翻。
 
 ## Starter
 
@@ -27,6 +27,7 @@
 
 - `cce_stack`: 标准 CCE 集群
 - `cce_node_pool_stack`: 标准 CCE 集群 + 节点池
+- `cce_addon_stack`: 复用现网 CCE 集群管理 autoscaler addon
 - `apig_stack`: APIG 专享实例与插件
 - `dcs_stack`: Redis DCS
 - `dms_stack`: RabbitMQ DMS
@@ -41,6 +42,9 @@
 - `elb_member_stack`: ELB + member + monitor 完整入口链
 - `nat_snat_stack`: 统一出网 NAT
 - `nat_dnat_stack`: 公网 DNAT 转发链路
+- `nat_vpc_peering_stack`: NAT + VPC Peering 跨 VPC 出网/中转拓扑
+- `vpc_peering_stack`: 两个 VPC 的 peering 和路由闭环
+- `vpc_security_group_stack`: 独立安全组规则治理
 - `vpn_stack`: VPN Gateway
 - `er_stack`: ER + VPC Attachment
 - `cc_stack`: CC Bandwidth Package
@@ -83,6 +87,7 @@
 - `sms_stack`: SMS Migration Project
 - `oms_stack`: OMS Migration Task
 - `as_stack`: AS Scaling Group
+- `elb_as_stack`: ELB + AS + CES 伸缩入口拓扑
 - `bms_stack`: BMS Instance
 - `eg_stack`: EG Event Subscription
 
@@ -148,16 +153,20 @@
 
 ## 当前验证状态
 
-以上示例都已经跑过以下检查：
+示例进入 catalog 前至少要跑过以下检查：
 - `terraform fmt -check -recursive`
+- catalog 重新生成并能被 router 命中
+- 不包含真实 AK/SK、密码、私钥、`terraform.tfvars`、state 或 `.terraform/` 运行缓存
+
+具备本地 provider cache 或可访问 provider mirror 时，再运行：
 - `terraform init -backend=false`
 - `terraform validate`
 
 说明：
-- 目录中的 `.terraform.lock.hcl` 保留，用于固定 provider 版本选择
+- 已生成的 `.terraform.lock.hcl` 可以保留，用于固定 provider 版本选择
 - `.terraform/` 运行缓存不保留
 - 每个示例目录都提供了 `terraform.tfvars.example`
-- 可通过 `examples/validate_examples.sh` 统一跑格式化和校验检查
+- 可通过 `examples/terraform/validate_examples.sh` 统一跑格式化和校验检查
 
 ## 使用建议
 
@@ -170,8 +179,8 @@
 当前 examples 已经覆盖基础计算、存储、数据库、容器、入口、出网、服务接入、镜像仓库、备份、组织治理、迁移项目、VPN、ER、CDN、日志、安全、消息、标签、迁移和运维链路。
 如果继续扩展，建议优先做这三类，而不是继续零散补单个资源：
 
-- 复用型示例：例如复用现网 CCE、ELB、NAT 依赖
-- 组合型示例：例如 `ECS + ELB + RDS` 这样的端到端业务拓扑
+- 复用型示例：例如复用现网 ELB、NAT、RDS 依赖
+- 组合型示例：例如 `ECS + ELB + RDS`、`OBS + CDN + DNS` 这样的端到端业务拓扑
 - 企业级约束：例如多 region、provider alias、`enterprise_project_id`
 
 更完整的阶段规划见 [references/roadmap.md](../references/roadmap.md)。

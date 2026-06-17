@@ -12,7 +12,7 @@
 - 同时兼容 `HW_*` 和 `HUAWEI_*` 环境变量语义
 - 支持和 `hcloud` 联动，适合“先查现网，再沉淀 Terraform”
 - 已经形成 discovery-first 的默认工作流，而不是直接硬编码华为云参数
-- 已经提供统一示例校验脚本 `examples/validate_examples.sh`
+- 已经提供统一示例校验脚本 `examples/terraform/validate_examples.sh`
 - 已经建立支持矩阵，开始按批次扩服务覆盖面
 - 已经把参考仓库中高价值的高级变体和 provider 能力面沉淀到内部 references，不再只有服务名和最小示例
 - 已经补齐第一档深化资料：服务变体选择和 data source 选型规则
@@ -20,7 +20,7 @@
 
 ## 当前成果
 
-- 55 套已验证示例
+- 60 套已吸收示例
 - 全量 `Full support`
 - 一套较完整的 discovery-first 规则体系
 - 一套较完整的变体选择和 data source 选型规则
@@ -35,10 +35,10 @@
 - 先查询现网，再生成复用型 Terraform 配置
 
 但以下能力还没有系统补齐：
-- CCE addon / autopilot
+- CCE coredns / autopilot
 - 多 region / 多 provider alias 的成体系示例
 - `enterprise_project_id` 场景
-- 更完整的复用型网络示例族
+- 更完整的复用型网络示例族，当前已补 VPC peering、安全组治理和 NAT + VPC peering 组合拓扑
 - 将多个基础资源拼成完整业务拓扑的端到端模板
 - 将高级变体持续整理成更统一的增强版 example
 
@@ -75,7 +75,7 @@
 
 ### 第三阶段：补 CCE 高阶能力
 建议逐步补：
-- CCE addon
+- CCE coredns addon
 - CCE autopilot
 - 节点池更细的伸缩和磁盘配置
 
@@ -100,9 +100,9 @@
 
 如果按收益和风险平衡，推荐顺序如下：
 
-1. 复用型 CCE / ELB / NAT / APIG 示例
+1. 复用型 ELB / NAT / APIG 示例
 2. 组合型业务拓扑示例
-3. CCE addon / autopilot
+3. CCE coredns / autopilot
 4. 多 region / provider alias
 5. `enterprise_project_id`
 6. CI 和更细粒度自动验证
@@ -114,7 +114,7 @@
 
 后续继续迭代时，建议保持这些约束：
 - 每新增一个示例，都补 `terraform.tfvars.example`
-- 每新增一个示例，都跑 `examples/validate_examples.sh`
+- 每新增一个示例，都跑 `examples/terraform/validate_examples.sh`
 - provider 版本约束调整后，重新跑全量示例校验
 - 不要把本机绝对路径写进 skill 文档
 - 不要把 `task_plan.md`、`findings.md`、`progress.md` push 到 GitHub

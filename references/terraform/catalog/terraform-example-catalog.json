@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "Terraform example catalog. Use this for routing; do not browse every example by default.",
-  "example_count": 55,
+  "example_count": 60,
   "default_route_count": 12,
   "examples": [
     {
@@ -10,7 +10,8 @@
       "category": "security",
       "services": [
         "AntiDDoS",
-        "SMN"
+        "SMN",
+        "VPC"
       ],
       "intent": [
         "antiddos",
@@ -18,7 +19,8 @@
         "iac",
         "security",
         "smn",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "medium",
@@ -91,14 +93,16 @@
       "path": "examples/terraform/apig_stack",
       "category": "platform",
       "services": [
-        "APIG"
+        "APIG",
+        "VPC"
       ],
       "intent": [
         "apig",
         "create",
         "iac",
         "platform",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "medium",
@@ -132,14 +136,16 @@
       "path": "examples/terraform/as_stack",
       "category": "compute",
       "services": [
-        "AS"
+        "AS",
+        "VPC"
       ],
       "intent": [
         "as",
         "compute",
         "create",
         "iac",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create an Auto Scaling group with configuration in",
       "complexity": "medium",
@@ -169,14 +175,16 @@
       "path": "examples/terraform/bms_stack",
       "category": "compute",
       "services": [
-        "BMS"
+        "BMS",
+        "VPC"
       ],
       "intent": [
         "bms",
         "compute",
         "create",
         "iac",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create a BMS instance in HuaweiCloud.",
       "complexity": "medium",
@@ -206,14 +214,16 @@
       "path": "examples/terraform/cbh_stack",
       "category": "security",
       "services": [
-        "CBH"
+        "CBH",
+        "VPC"
       ],
       "intent": [
         "cbh",
         "create",
         "iac",
         "security",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create a CBH basic instance in HuaweiCloud.",
       "complexity": "medium",
@@ -243,14 +253,16 @@
       "path": "examples/terraform/cbr_stack",
       "category": "governance",
       "services": [
-        "CBR"
+        "CBR",
+        "VPC"
       ],
       "intent": [
         "cbr",
         "create",
         "governance",
         "iac",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "medium",
@@ -317,11 +329,51 @@
       ]
     },
     {
+      "id": "cce_addon_stack",
+      "path": "examples/terraform/cce_addon_stack",
+      "category": "container",
+      "services": [
+        "CCE"
+      ],
+      "intent": [
+        "addon",
+        "cce",
+        "container",
+        "create",
+        "iac",
+        "terraform"
+      ],
+      "recommended_for": "这个示例从上游 Terraform 资产库中吸收并改写，用于给现有 CCE 集群安装或管理 autoscaler addon。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
       "id": "cce_node_pool_stack",
       "path": "examples/terraform/cce_node_pool_stack",
       "category": "container",
       "services": [
-        "CCE"
+        "CCE",
+        "VPC"
       ],
       "intent": [
         "cce",
@@ -329,7 +381,8 @@
         "create",
         "iac",
         "node_pool",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "low",
@@ -363,14 +416,16 @@
       "path": "examples/terraform/cce_stack",
       "category": "container",
       "services": [
-        "CCE"
+        "CCE",
+        "VPC"
       ],
       "intent": [
         "cce",
         "container",
         "create",
         "iac",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "low",
@@ -404,14 +459,16 @@
       "path": "examples/terraform/cci_stack",
       "category": "container",
       "services": [
-        "CCI"
+        "CCI",
+        "VPC"
       ],
       "intent": [
         "cci",
         "container",
         "create",
         "iac",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create a Cloud Container Instance (CCI) network",
       "complexity": "medium",
@@ -632,14 +689,16 @@
       "path": "examples/terraform/dcs_stack",
       "category": "database",
       "services": [
-        "DCS"
+        "DCS",
+        "VPC"
       ],
       "intent": [
         "create",
         "database",
         "dcs",
         "iac",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "medium",
@@ -747,14 +806,16 @@
       "path": "examples/terraform/dms_stack",
       "category": "platform",
       "services": [
-        "DMS"
+        "DMS",
+        "VPC"
       ],
       "intent": [
         "create",
         "dms",
         "iac",
         "platform",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create a DMS RabbitMQ basic instance in HuaweiCloud.",
       "complexity": "medium",
@@ -825,7 +886,8 @@
       "path": "examples/terraform/ecs_reuse_stack",
       "category": "reuse",
       "services": [
-        "ECS"
+        "ECS",
+        "VPC"
       ],
       "intent": [
         "create",
@@ -833,7 +895,8 @@
         "iac",
         "reuse",
         "reuse_existing",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个“复用现网网络资源”的华为云 Terraform 示例，用于：",
       "complexity": "low",
@@ -867,14 +930,16 @@
       "path": "examples/terraform/ecs_stack",
       "category": "compute",
       "services": [
-        "ECS"
+        "ECS",
+        "VPC"
       ],
       "intent": [
         "compute",
         "create",
         "ecs",
         "iac",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "low",
@@ -945,14 +1010,16 @@
       "path": "examples/terraform/eip_stack",
       "category": "network",
       "services": [
-        "EIP"
+        "EIP",
+        "VPC"
       ],
       "intent": [
         "create",
         "eip",
         "iac",
         "network",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建一个独立 EIP。",
       "complexity": "low",
@@ -982,11 +1049,56 @@
       ]
     },
     {
+      "id": "elb_as_stack",
+      "path": "examples/terraform/elb_as_stack",
+      "category": "compute",
+      "services": [
+        "AS",
+        "CES",
+        "ELB",
+        "VPC"
+      ],
+      "intent": [
+        "as",
+        "ces",
+        "compute",
+        "create",
+        "elb",
+        "iac",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例从上游 Terraform 资产库中吸收并改写，用于创建独享型 ELB、监听器、后端池、AS 配置、AS 组和 CES 触发的伸缩策略。",
+      "complexity": "high",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
       "id": "elb_member_stack",
       "path": "examples/terraform/elb_member_stack",
       "category": "network",
       "services": [
-        "ELB"
+        "ELB",
+        "VPC"
       ],
       "intent": [
         "backend_member",
@@ -994,7 +1106,8 @@
         "elb",
         "iac",
         "network",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "low",
@@ -1028,14 +1141,16 @@
       "path": "examples/terraform/elb_stack",
       "category": "network",
       "services": [
-        "ELB"
+        "ELB",
+        "VPC"
       ],
       "intent": [
         "create",
         "elb",
         "iac",
         "network",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "low",
@@ -1069,14 +1184,16 @@
       "path": "examples/terraform/er_stack",
       "category": "network",
       "services": [
-        "ER"
+        "ER",
+        "VPC"
       ],
       "intent": [
         "create",
         "er",
         "iac",
         "network",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "medium",
@@ -1110,14 +1227,16 @@
       "path": "examples/terraform/esw_stack",
       "category": "network",
       "services": [
-        "ESW"
+        "ESW",
+        "VPC"
       ],
       "intent": [
         "create",
         "esw",
         "iac",
         "network",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create an instance in HuaweiCloud ESW service.",
       "complexity": "medium",
@@ -1229,14 +1348,16 @@
       "path": "examples/terraform/hss_stack",
       "category": "security",
       "services": [
-        "HSS"
+        "HSS",
+        "VPC"
       ],
       "intent": [
         "create",
         "hss",
         "iac",
         "security",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create an HSS host group in HuaweiCloud.",
       "complexity": "medium",
@@ -1420,7 +1541,8 @@
       "path": "examples/terraform/nat_dnat_stack",
       "category": "network",
       "services": [
-        "NAT"
+        "NAT",
+        "VPC"
       ],
       "intent": [
         "create",
@@ -1428,7 +1550,8 @@
         "inbound",
         "nat",
         "network",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "medium",
@@ -1462,7 +1585,8 @@
       "path": "examples/terraform/nat_snat_stack",
       "category": "network",
       "services": [
-        "NAT"
+        "NAT",
+        "VPC"
       ],
       "intent": [
         "create",
@@ -1470,7 +1594,8 @@
         "nat",
         "network",
         "outbound",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "low",
@@ -1488,6 +1613,47 @@
         "README.md",
         "main.tf",
         "outputs.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "nat_vpc_peering_stack",
+      "path": "examples/terraform/nat_vpc_peering_stack",
+      "category": "network",
+      "services": [
+        "NAT",
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "iac",
+        "nat",
+        "network",
+        "peering",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例从上游 Terraform 资产库中吸收并改写，用于演示两个 VPC 通过 peering 互联，并由一个 NAT Gateway 提供 SNAT/DNAT 能力。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
         "provider.tf",
         "terraform.tfvars.example",
         "variables.tf",
@@ -1666,14 +1832,16 @@
       "path": "examples/terraform/rds_stack",
       "category": "database",
       "services": [
-        "RDS"
+        "RDS",
+        "VPC"
       ],
       "intent": [
         "create",
         "database",
         "iac",
         "rds",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "low",
@@ -1781,14 +1949,16 @@
       "path": "examples/terraform/sdrs_stack",
       "category": "migration",
       "services": [
-        "SDRS"
+        "SDRS",
+        "VPC"
       ],
       "intent": [
         "create",
         "iac",
         "migration",
         "sdrs",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "This example provides best practice code for using Terraform to create a SDRS protection group in HuaweiCloud.",
       "complexity": "medium",
@@ -1855,14 +2025,16 @@
       "path": "examples/terraform/sfs_turbo_stack",
       "category": "storage",
       "services": [
-        "SFS"
+        "SFS",
+        "VPC"
       ],
       "intent": [
         "create",
         "iac",
         "sfs",
         "storage",
-        "terraform"
+        "terraform",
+        "vpc"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
       "complexity": "medium",
@@ -2048,10 +2220,89 @@
       ]
     },
     {
+      "id": "vpc_peering_stack",
+      "path": "examples/terraform/vpc_peering_stack",
+      "category": "network",
+      "services": [
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "iac",
+        "network",
+        "peering",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例从上游 Terraform 资产库中吸收并改写，用于创建两个 VPC、对应 subnet、VPC peering connection 和双向路由。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
+      "id": "vpc_security_group_stack",
+      "path": "examples/terraform/vpc_security_group_stack",
+      "category": "network",
+      "services": [
+        "VPC"
+      ],
+      "intent": [
+        "create",
+        "iac",
+        "network",
+        "security_group",
+        "terraform",
+        "vpc"
+      ],
+      "recommended_for": "这个示例从上游 Terraform 资产库中吸收并改写，用于创建一个独立安全组和一组可审查的安全组规则。",
+      "complexity": "medium",
+      "default_route": false,
+      "requires_existing_resources": false,
+      "entry_files": [
+        "versions.tf",
+        "provider.tf",
+        "variables.tf",
+        "main.tf"
+      ],
+      "files": [
+        "README.md",
+        "main.tf",
+        "provider.tf",
+        "terraform.tfvars.example",
+        "variables.tf",
+        "versions.tf"
+      ],
+      "validation": [
+        "fmt",
+        "init-backend-false",
+        "validate"
+      ]
+    },
+    {
       "id": "vpcep_stack",
       "path": "examples/terraform/vpcep_stack",
       "category": "network",
       "services": [
+        "VPC",
         "VPCEP"
       ],
       "intent": [
@@ -2059,6 +2310,7 @@
         "iac",
         "network",
         "terraform",
+        "vpc",
         "vpcep"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",
@@ -2093,6 +2345,7 @@
       "path": "examples/terraform/vpn_stack",
       "category": "network",
       "services": [
+        "VPC",
         "VPN"
       ],
       "intent": [
@@ -2100,6 +2353,7 @@
         "iac",
         "network",
         "terraform",
+        "vpc",
         "vpn"
       ],
       "recommended_for": "这是一个最小可运行的华为云 Terraform 示例，用于创建：",

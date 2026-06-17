@@ -46,10 +46,34 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         catalog = self.load_example_catalog()
         actual_dirs = [path for path in (ROOT / "examples" / "terraform").iterdir() if path.is_dir()]
 
-        self.assertEqual(catalog["example_count"], 55)
+        self.assertEqual(catalog["example_count"], 60)
         self.assertEqual(catalog["example_count"], len(actual_dirs))
         self.assertEqual(catalog["default_route_count"], 12)
         self.assertTrue(all(Path(ROOT / item["path"]).exists() for item in catalog["examples"]))
+
+    def test_absorbed_upstream_examples_are_cataloged_and_sanitized(self) -> None:
+        absorbed_ids = {
+            "vpc_security_group_stack",
+            "vpc_peering_stack",
+            "nat_vpc_peering_stack",
+            "cce_addon_stack",
+            "elb_as_stack",
+        }
+
+        for example_id in absorbed_ids:
+            with self.subTest(example_id=example_id):
+                example = self.example_by_id(example_id)
+                example_path = ROOT / example["path"]
+
+                self.assertIn("terraform.tfvars.example", example["files"])
+                self.assertNotIn("terraform.tfvars", example["files"])
+                self.assertIn("versions.tf", example["entry_files"])
+                self.assertIn("provider.tf", example["entry_files"])
+                self.assertTrue((example_path / "README.md").exists())
+
+        self.assertIn("VPC", self.example_by_id("vpc_security_group_stack")["services"])
+        self.assertIn("VPC", self.example_by_id("vpc_peering_stack")["services"])
+        self.assertIn("VPC", self.example_by_id("nat_vpc_peering_stack")["services"])
 
     def test_reference_catalog_has_core_and_inventory_routes(self) -> None:
         catalog = self.load_reference_catalog()
@@ -59,6 +83,7 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         for reference_id in {
             "README",
             "provider-auth",
+            "generation-guardrails",
             "discovery-workflow",
             "interop-with-hcloud",
             "service-variant-guide",
@@ -90,7 +115,20 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertEqual(result["recommended_runtime"], "terraform")
         self.assertEqual(result["service_hints"], ["ECS"])
         self.assertEqual(result["matches"][0]["id"], "ecs_stack")
-        self.assertIn("references/terraform/provider-auth.md", {item["path"] for item in result["references"]})
+        reference_paths = {item["path"] for item in result["references"]}
+        self.assertIn("references/terraform/provider-auth.md", reference_paths)
+        self.assertIn("references/terraform/generation-guardrails.md", reference_paths)
+
+    def test_router_can_find_absorbed_vpc_examples(self) -> None:
+        security_group = hcloud_terraform_router.route("用 Terraform 创建安全组并限制入口来源", limit=3)
+        peering = hcloud_terraform_router.route("用 Terraform 创建两个 VPC 的对等连接和路由", limit=3)
+
+        self.assertTrue(security_group["success"], json.dumps(security_group, ensure_ascii=False))
+        self.assertEqual(security_group["service_hints"], ["VPC"])
+        self.assertEqual(security_group["matches"][0]["id"], "vpc_security_group_stack")
+        self.assertTrue(peering["success"], json.dumps(peering, ensure_ascii=False))
+        self.assertEqual(peering["service_hints"], ["VPC"])
+        self.assertEqual(peering["matches"][0]["id"], "vpc_peering_stack")
 
     def test_router_keeps_readback_and_debug_on_hcloud(self) -> None:
         result = hcloud_terraform_router.route("帮我查询 ECS 当前状态", limit=3)
@@ -111,6 +149,38 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertNotIn("ak", json.dumps(context, ensure_ascii=False))
         self.assertTrue(context["readiness"]["can_generate"])
         self.assertIn("shared_config", context)
+        self.assertIn("terraform_cli_config", context)
+        self.assertIn("inspect_only", context["terraform_cli_config"]["notes"])
+        self.assertIn("global_provider_cache_candidates", context["provider_cache"])
+
+    def test_context_inspect_reports_terraform_cli_mirror_hints(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "terraformrc"
+            config_path.write_text(
+                '\n'.join(
+                    [
+                        "provider_installation {",
+                        "  network_mirror {",
+                        '    url = "https://mirrors.huaweicloud.com/terraform/"',
+                        '    include = ["registry.terraform.io/huaweicloud/*"]',
+                        "  }",
+                        "  direct {}",
+                        "}",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with mock.patch.dict(os.environ, {"TF_CLI_CONFIG_FILE": str(config_path)}, clear=False):
+                result = hcloud_terraform_context_inspect.terraform_cli_config_hints()
+
+        self.assertEqual(result["path_source"], "TF_CLI_CONFIG_FILE")
+        self.assertTrue(result["exists"])
+        self.assertTrue(result["readable"])
+        self.assertTrue(result["has_provider_installation"])
+        self.assertTrue(result["uses_network_mirror"])
+        self.assertTrue(result["allows_direct"])
+        self.assertTrue(result["huaweicloud_mirror_configured"])
 
     def test_context_inspect_warns_on_encrypted_shared_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -82,6 +82,8 @@ SERVICE_ALIASES = {
     "sms": "SMS",
     "swr": "SWR",
     "tms": "TMS",
+    "vpc": "VPC",
+    "networking": "VPC",
     "vpcep": "VPCEP",
     "vpn": "VPN",
     "waf": "WAF",
@@ -103,6 +105,7 @@ CATEGORY_BY_SERVICE = {
     "ELB": "network",
     "NAT": "network",
     "DNS": "network",
+    "VPC": "network",
     "CDN": "network",
     "VPCEP": "network",
     "VPN": "network",
@@ -218,6 +221,12 @@ def intents_for_example(example_id: str, services: list[str], category: str) -> 
     normalized_id = normalize_token(example_id)
     if "reuse" in normalized_id:
         intents.add("reuse_existing")
+    if "security_group" in normalized_id or "secgroup" in normalized_id:
+        intents.add("security_group")
+    if "peering" in normalized_id:
+        intents.add("peering")
+    if "addon" in normalized_id:
+        intents.add("addon")
     if "node_pool" in normalized_id:
         intents.add("node_pool")
     if "member" in normalized_id:
@@ -283,7 +292,17 @@ def reference_category(path: Path) -> str:
         return "inventory"
     if "tests" in parts:
         return "test-reference"
-    if name in {"provider-auth.md", "discovery-workflow.md", "interop-with-hcloud.md", "service-variant-guide.md", "data-source-selection-guide.md", "troubleshooting.md", "roadmap.md", "README.md"}:
+    if name in {
+        "provider-auth.md",
+        "generation-guardrails.md",
+        "discovery-workflow.md",
+        "interop-with-hcloud.md",
+        "service-variant-guide.md",
+        "data-source-selection-guide.md",
+        "troubleshooting.md",
+        "roadmap.md",
+        "README.md",
+    }:
         return "core"
     if name == "source-skill.md":
         return "source-archive"

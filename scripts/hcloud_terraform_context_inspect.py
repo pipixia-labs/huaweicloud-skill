@@ -80,6 +80,12 @@ TERRAFORM_ENV_KEYS = (
     "HTTPS_PROXY",
     "NO_PROXY",
 )
+HUAWEICLOUD_MIRROR_URL = "https://mirrors.huaweicloud.com/terraform/"
+PROVIDER_CACHE_CANDIDATES = (
+    Path.home() / ".terraform.d" / "providers" / "registry.terraform.io" / "huaweicloud" / "huaweicloud",
+    Path.home() / ".terraform.d" / "plugins" / "registry.terraform.io" / "huaweicloud" / "huaweicloud",
+    Path.home() / ".terraform.d" / "plugins" / "local-registry" / "huaweicloud" / "huaweicloud",
+)
 
 
 def env_status() -> dict[str, dict[str, Any]]:
@@ -185,13 +191,61 @@ def provider_cache_hints(workdir: Path) -> dict[str, Any]:
     lock_files = sorted(path for path in workdir.rglob(".terraform.lock.hcl")) if workdir.exists() else []
     terraform_dirs = sorted(path for path in workdir.rglob(".terraform") if path.is_dir()) if workdir.exists() else []
     plugin_cache = os.environ.get("TF_PLUGIN_CACHE_DIR")
+    global_candidates = [
+        {
+            "path": str(path),
+            "exists": path.exists(),
+        }
+        for path in PROVIDER_CACHE_CANDIDATES
+    ]
     return {
         "lock_file_count": len(lock_files),
         "lock_files_sample": [str(path) for path in lock_files[:10]],
         "local_terraform_dir_count": len(terraform_dirs),
         "plugin_cache_dir": plugin_cache,
         "plugin_cache_dir_exists": bool(plugin_cache and Path(plugin_cache).exists()),
+        "global_provider_cache_candidates": global_candidates,
     }
+
+
+def terraform_cli_config_hints() -> dict[str, Any]:
+    """Inspect Terraform CLI config hints without modifying local files."""
+    env_path = os.environ.get("TF_CLI_CONFIG_FILE")
+    default_path = Path(os.environ.get("APPDATA", "")) / "terraform.rc" if os.name == "nt" else Path.home() / ".terraformrc"
+    config_path = Path(env_path).expanduser() if env_path else default_path
+    result: dict[str, Any] = {
+        "path_source": "TF_CLI_CONFIG_FILE" if env_path else "default",
+        "path": str(config_path),
+        "exists": config_path.exists(),
+        "readable": False,
+        "has_provider_installation": False,
+        "uses_network_mirror": False,
+        "uses_filesystem_mirror": False,
+        "allows_direct": False,
+        "huaweicloud_mirror_configured": False,
+        "notes": [
+            "inspect_only",
+            "no_terraform_install_or_provider_download_attempted",
+        ],
+    }
+    if not config_path.exists():
+        return result
+    try:
+        content = config_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return result
+    lowered = content.lower()
+    result.update(
+        {
+            "readable": True,
+            "has_provider_installation": "provider_installation" in lowered,
+            "uses_network_mirror": "network_mirror" in lowered,
+            "uses_filesystem_mirror": "filesystem_mirror" in lowered,
+            "allows_direct": "direct" in lowered,
+            "huaweicloud_mirror_configured": HUAWEICLOUD_MIRROR_URL in content,
+        }
+    )
+    return result
 
 
 def readiness(
@@ -263,6 +317,7 @@ def build_context(args: argparse.Namespace) -> dict[str, Any]:
         "environment": env,
         "shared_config": shared_config,
         "provider_cache": provider_cache_hints(workdir),
+        "terraform_cli_config": terraform_cli_config_hints(),
         "asset_catalog": {
             "example_catalog": str(hcloud_terraform_catalog.EXAMPLE_CATALOG_PATH),
             "reference_catalog": str(hcloud_terraform_catalog.REFERENCE_CATALOG_PATH),

@@ -16,9 +16,10 @@
 
 | 路径 | 角色 |
 | --- | --- |
-| `catalog/terraform-example-catalog.json` | 55 个 Terraform 示例的路由索引。 |
+| `catalog/terraform-example-catalog.json` | 60 个 Terraform 示例的路由索引。 |
 | `catalog/terraform-reference-catalog.json` | Terraform reference 的核心/高级/清单索引。 |
 | `provider-auth.md` | Provider 和环境变量协同规则。 |
+| `generation-guardrails.md` | Terraform 生成、验证、敏感信息和 apply 边界门禁。 |
 | `discovery-workflow.md` | hcloud 发现现网后再生成 IaC 的流程。 |
 | `interop-with-hcloud.md` | Terraform 与 hcloud 的协作边界。 |
 | `service-variant-guide.md` | 同一服务不同变体的选择规则。 |

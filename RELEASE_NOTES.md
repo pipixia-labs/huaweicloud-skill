@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Adds a controlled Terraform generation guardrails reference and routes it as a core Terraform document.
+- Expands curated Terraform examples from 55 to 60 with sanitized VPC security group, VPC peering, NAT + VPC peering, CCE addon, and ELB + AS stacks.
+- Terraform context inspection now reports read-only Terraform CLI config, provider mirror, and provider cache hints without installing Terraform or downloading providers.
+
 ## v0.5.1 / 0.5.1 - 2026-06-17
 
 v0.5.1 is a small closure-maturity patch after v0.5. It makes the recommended offline acceptance chain easier for agents and users to follow while keeping live execution boundaries unchanged.

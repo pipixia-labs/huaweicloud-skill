@@ -14,7 +14,7 @@
 
 ### ECS
 
-当前已验证示例：
+当前已吸收示例：
 - `ecs_stack`
 - `ecs_reuse_stack`
 
@@ -28,23 +28,25 @@
 
 ### ELB
 
-当前已验证示例：
+当前已吸收示例：
 - `elb_stack`
 - `elb_member_stack`
+- `elb_as_stack`
 
 仍值得复用的高级变体：
 - `dedicated-loadbalancer-with-full-configuration`: 适合补独享型 ELB 的全量监听、池、健康检查参数
 - `shared-loadbalancer-with-full-configuration`: 适合共享型 ELB 的完整配置对照
-- `dedicated-loadbalancer-with-as`: 适合后续做 `ELB + AS` 组合型示例
+- `dedicated-loadbalancer-with-as`: 已吸收为 `elb_as_stack`，适合 `ELB + AS + CES` 组合型入口拓扑
 
 ### CCE
 
-当前已验证示例：
+当前已吸收示例：
 - `cce_stack`
 - `cce_node_pool_stack`
+- `cce_addon_stack`
 
 仍值得复用的高级变体：
-- `addon-autoscaler`: 适合补集群弹性治理
+- `addon-autoscaler`: 已吸收为 `cce_addon_stack`，适合复用现网集群补 autoscaler 治理
 - `addon-coredns`: 适合补基础网络插件管理
 - `node`: 适合直接管理独立节点
 - `node-partition`: 适合补分区磁盘配置
@@ -52,21 +54,24 @@
 
 ### NAT
 
-当前已验证示例：
+当前已吸收示例：
 - `nat_snat_stack`
 - `nat_dnat_stack`
+- `nat_vpc_peering_stack`
 
 仍值得复用的高级变体：
-- `nat-gateway-vpc-peering`: 适合补跨 VPC 出网或中转拓扑
+- `nat-gateway-vpc-peering`: 已吸收为 `nat_vpc_peering_stack`，适合跨 VPC 出网或中转拓扑
 
 ### VPC
 
-当前已验证示例：
+当前已吸收示例：
 - `ecs_stack`、`elb_stack`、`nat_*_stack` 已经内嵌最小 VPC 逻辑
+- `vpc_peering_stack`
+- `vpc_security_group_stack`
 
 仍值得复用的高级变体：
-- `peering`: 适合补跨 VPC 互联
-- `security-group`: 适合单独展示规则治理
+- `peering`: 已吸收为 `vpc_peering_stack`，适合跨 VPC 互联
+- `security-group`: 已吸收为 `vpc_security_group_stack`，适合单独展示规则治理
 - `vip`: 适合高可用漂移 IP 或虚拟 IP 场景
 
 ### VPN / ER / CC / DC / ESW
@@ -84,7 +89,7 @@
 
 ### OBS
 
-当前已验证示例：
+当前已吸收示例：
 - `obs_stack`
 
 仍值得复用的高级变体：
@@ -95,7 +100,7 @@
 
 ### RDS
 
-当前已验证示例：
+当前已吸收示例：
 - `rds_stack`
 
 仍值得复用的高级变体：
@@ -109,7 +114,7 @@
 
 ### DMS
 
-当前已验证示例：
+当前已吸收示例：
 - `dms_stack` 只覆盖 RabbitMQ
 
 仍值得复用的高级变体：
@@ -120,7 +125,7 @@
 
 ### DCS
 
-当前已验证示例：
+当前已吸收示例：
 - `dcs_stack`
 
 仍值得复用的高级变体：
@@ -129,7 +134,7 @@
 
 ### CBR
 
-当前已验证示例：
+当前已吸收示例：
 - `cbr_stack`
 
 仍值得复用的高级变体：
@@ -140,7 +145,7 @@
 
 ### EVS
 
-当前已验证示例：
+当前已吸收示例：
 - `evs_stack`
 
 仍值得复用的高级变体：
@@ -149,7 +154,7 @@
 
 ### SWR
 
-当前已验证示例：
+当前已吸收示例：
 - `swr_stack`
 
 仍值得复用的高级变体：
@@ -162,7 +167,7 @@
 
 ### APIG
 
-当前已验证示例：
+当前已吸收示例：
 - `apig_stack`
 
 仍值得复用的高级变体：
@@ -174,7 +179,7 @@
 
 ### WAF
 
-当前已验证示例：
+当前已吸收示例：
 - `waf_stack`
 
 仍值得复用的高级变体：
@@ -185,7 +190,7 @@
 
 ### Anti-DDoS
 
-当前已验证示例：
+当前已吸收示例：
 - `antiddos_stack`
 
 仍值得复用的高级变体：
@@ -220,7 +225,7 @@
 
 ### IAM / Identity Center
 
-当前已验证示例：
+当前已吸收示例：
 - `iam_stack`
 - `identity_center_stack`
 
@@ -230,7 +235,7 @@
 
 ### IMS
 
-当前已验证示例：
+当前已吸收示例：
 - `ims_stack`
 
 仍值得复用的高级变体：

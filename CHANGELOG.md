@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added Terraform generation guardrails for hcloud-first IaC generation, plan review, sensitive-data handling, example promotion checks, and post-apply hcloud verification.
+- Added five sanitized Terraform examples from the Huawei upstream asset library: `vpc_security_group_stack`, `vpc_peering_stack`, `nat_vpc_peering_stack`, `cce_addon_stack`, and `elb_as_stack`.
+- Enhanced Terraform context inspection with read-only CLI config, provider mirror, and global provider cache hints without adding installer or provider download behavior.
+
 ## 0.5.1 - 2026-06-17
 
 - Added structured P0 `acceptance_evidence_plan` output to `hcloud_lifecycle_closure_plan.py` so VPC/EIP/EVS/ELB/RDS/OBS/DNS/SCM/CDN/CES+LTS plans expose cloud, runtime, protocol, observability, governance, and missing-input evidence items.

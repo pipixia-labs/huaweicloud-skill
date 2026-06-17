@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "description": "Terraform reference catalog. Load core references first; use inventories only on explicit provider coverage questions.",
-  "reference_count": 17,
-  "default_route_count": 8,
+  "reference_count": 18,
+  "default_route_count": 9,
   "references": [
     {
       "id": "README",
@@ -31,6 +31,13 @@
       "category": "core",
       "default_route": true,
       "summary": "华为云 Terraform 的默认工作流应该是“先探测依赖，再生成资源定义”，而不是直接凭经验写死参数。"
+    },
+    {
+      "id": "generation-guardrails",
+      "path": "references/terraform/generation-guardrails.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "本文件把上游 Terraform generator 中可复用的生成规则吸收到 `huaweicloud-skill`，但统一到当前项目的 hcloud-first 边界：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须回到 hcloud 做状态和业务验收。"
     },
     {
       "id": "interop-with-hcloud",

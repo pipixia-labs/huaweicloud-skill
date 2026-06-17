@@ -84,10 +84,10 @@ Terraform 是已接入的补充 IaC 变更面，适合可重复创建、环境�
 
 Terraform 资产入口放在 `references/terraform/README.md`。当前已吸收：
 
-- 55 个 `examples/terraform/*` 示例，覆盖 ECS、EIP、EVS、ELB、RDS、OBS、CCE、NAT、DNS、DCS、治理、安全和可观测等服务。
+- 60 个 `examples/terraform/*` 示例，覆盖 ECS、VPC/安全组、EIP、EVS、ELB、RDS、OBS、CCE、NAT、DNS、DCS、治理、安全和可观测等服务。
 - `references/terraform/catalog/terraform-example-catalog.json`：示例路由 catalog。
 - `references/terraform/catalog/terraform-reference-catalog.json`：reference 路由 catalog。
-- Provider 认证、hcloud interop、discovery workflow、data source 选择、service variant、troubleshooting 和 inventory 文档。
+- Provider 认证、生成门禁、hcloud interop、discovery workflow、data source 选择、service variant、troubleshooting 和 inventory 文档。
 
 运行时先用 router 选资产，再按需读取。`inventories/` 只在用户问 provider 覆盖面、data source 覆盖面或维护 catalog 时读取。
 

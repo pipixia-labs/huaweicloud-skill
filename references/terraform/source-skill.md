@@ -137,7 +137,7 @@ resource "huaweicloud_compute_instance" "web" {
 
 ## 如何开始
 
-当前 skill 已维护 55 套通过 `terraform fmt -check -recursive`、`terraform init -backend=false`、`terraform validate` 的示例。
+当前 `huaweicloud-skill` 已维护 60 套 Terraform 示例。新增示例进入当前 skill 后，需要继续按当前项目的 hcloud-first、敏感信息和显式 apply 门禁使用；不要直接沿用原独立 skill 的执行入口。
 
 推荐入口：
 - 想直接找可运行模板：看 [examples/README.md](examples/README.md)
