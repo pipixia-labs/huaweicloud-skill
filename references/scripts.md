@@ -387,7 +387,28 @@ python3 scripts/hcloud_lifecycle_closure_plan.py \
 
 Use this when the user asks for a task-level closure plan rather than a single low-level command. v0.3.2 covers the P0 closure set: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS. Without `--service`, it generates closure profiles for all P0 services. The planner returns six stages: context/dependency discovery, operation/parameter planning, risk/security gates, controlled execution/error handling, post-change verification, and governance/audit follow-up.
 
-The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unsafe VPC ingress such as `0.0.0.0/0` on SSH/Web ports is hard-blocked before any submit path exists. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only.
+The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unsafe VPC ingress such as `0.0.0.0/0` on SSH/Web ports is hard-blocked before any submit path exists. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only. The `post_change_verification` stage includes an `acceptance_evidence_plan` with service-specific evidence items and missing-input status; it plans acceptance evidence but does not run live probes.
+
+### Acceptance Probe Plan
+
+```bash
+python3 scripts/hcloud_acceptance_probe_plan.py \
+  --plan-file=<lifecycle-plan.json> \
+  --pretty
+```
+
+Use this after lifecycle closure planning to turn `acceptance_evidence_plan` items into non-executing probe templates. It may suggest commands such as bounded `curl`, DNS lookup, HTTPS chain, guest disk checks, or metric/log query templates, but it never runs them. Treat generated templates as reviewable next steps, not proof that evidence has been collected.
+
+### Acceptance Evidence Result
+
+```bash
+python3 scripts/hcloud_acceptance_evidence_result.py \
+  --plan-file=<lifecycle-plan.json> \
+  --evidence-file=<local-evidence-status.json> \
+  --pretty
+```
+
+Use this after evidence has been collected and summarized locally. The evidence file maps evidence item IDs, such as `publicip_readback` or `guest_device_filesystem`, to `passed`, `warning`, `missing`, or `blocked`. The evaluator is local only: it does not parse raw secrets, execute probes, call hcloud, or infer success from missing evidence.
 
 ### Governance Closure Plan
 
@@ -418,6 +439,14 @@ python3 scripts/hcloud_p2_scenario_closure_plan.py \
 Use this when the user asks to continue P2 scenario closure after the P0/P1 lifecycle and governance planners. Without `--group`, it plans all P2 groups: CCE, NAT, DCS, RFS, UCS, IAM/KPS/IMS dependencies, security posture, and database family. The planner returns four stages: scenario scope, read-only evidence, risk boundary, and next closure steps.
 
 The script is planner-only and does not execute `hcloud` or submit cluster, NAT, cache, stack, fleet, security, key, IAM, or database changes. Curated-profile services generate discovery and target-scoped read-only command plans when enough parameters exist. Security posture services (`HSS`, `SecMaster`, `CFW`, `DBSS`, `KMS`) and database-family services (`GaussDB`, `GaussDBforNoSQL`, `GaussDBforopenGauss`, `DDS`, `DDM`, `DWS`) stay metadata-backed evidence-gap plans in this release; that status is intentional and must not be described as curated maturity.
+
+### Closure Maturity Audit
+
+```bash
+python3 scripts/hcloud_closure_maturity_audit.py --pretty
+```
+
+Use this before status reports or promotion planning to summarize current closure maturity tiers. The audit is local and planner-only: it reports ECS as the current end-to-end sample, P0 as task-level planner maturity with `acceptance_evidence_plan`, P1/P2 as planner-only, and metadata-backed services as evidence gaps until smoke, playbooks, risk profiles, and verifiers are complete. It does not execute `hcloud`, call SDK APIs, or inspect Terraform state.
 
 ### Registry Read-Only Smoke
 

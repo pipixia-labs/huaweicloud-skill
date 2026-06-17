@@ -55,6 +55,15 @@ hcloud_governance_closure_plan = load_module(
 hcloud_p2_scenario_closure_plan = load_module(
     "hcloud_p2_scenario_closure_plan", SCRIPTS / "hcloud_p2_scenario_closure_plan.py"
 )
+hcloud_closure_maturity_audit = load_module(
+    "hcloud_closure_maturity_audit", SCRIPTS / "hcloud_closure_maturity_audit.py"
+)
+hcloud_acceptance_evidence_result = load_module(
+    "hcloud_acceptance_evidence_result", SCRIPTS / "hcloud_acceptance_evidence_result.py"
+)
+hcloud_acceptance_probe_plan = load_module(
+    "hcloud_acceptance_probe_plan", SCRIPTS / "hcloud_acceptance_probe_plan.py"
+)
 
 
 class MultiServiceToolsTest(unittest.TestCase):
@@ -2072,6 +2081,32 @@ class MultiServiceToolsTest(unittest.TestCase):
         operations = [item["operation"] for item in readiness_checks]
         self.assertIn("ShowSecurityGroupRule", operations)
 
+    def test_lifecycle_closure_eip_has_structured_acceptance_evidence(self) -> None:
+        args = self.lifecycle_args(
+            service=["EIP"],
+            param=[
+                "publicip_id=eip-1",
+                "target_resource_id=server-1",
+                "probe_url=https://example.com/health",
+            ],
+        )
+
+        result = hcloud_lifecycle_closure_plan.build_lifecycle_plan(args)
+
+        self.assertTrue(result["success"], result)
+        service = result["services"][0]
+        verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
+        evidence_plan = verification["acceptance_evidence_plan"]
+        self.assertEqual(evidence_plan["service"], "EIP")
+        self.assertEqual(evidence_plan["acceptance_level"], "task_level_acceptance_evidence_plan")
+        self.assertEqual(evidence_plan["summary"]["ready_item_count"], 3)
+        self.assertEqual(evidence_plan["summary"]["missing_input_item_count"], 0)
+        self.assertEqual(
+            {item["id"] for item in evidence_plan["evidence_items"]},
+            {"publicip_readback", "binding_target_readback", "public_protocol_probe"},
+        )
+        self.assertTrue(any("ShowPublicip" in boundary for boundary in evidence_plan["claim_boundaries"]))
+
     def test_lifecycle_closure_evs_distinguishes_cloud_and_guest_readiness(self) -> None:
         args = self.lifecycle_args(
             service=["EVS"],
@@ -2091,6 +2126,10 @@ class MultiServiceToolsTest(unittest.TestCase):
         verification = next(stage for stage in service["stages"] if stage["id"] == "post_change_verification")
         self.assertTrue(any("fstab" in check for check in verification["checks"]))
         self.assertTrue(any("write test" in check for check in verification["checks"]))
+        evidence_plan = verification["acceptance_evidence_plan"]
+        guest_item = next(item for item in evidence_plan["evidence_items"] if item["id"] == "guest_device_filesystem")
+        self.assertEqual(guest_item["status"], "missing_inputs")
+        self.assertIn("filesystem", guest_item["missing_any_of_inputs"])
 
     def test_lifecycle_closure_elb_requires_backend_health_and_security_group(self) -> None:
         args = self.lifecycle_args(
@@ -2443,6 +2482,88 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertFalse(result["success"])
         self.assertIn("NOT_A_GROUP", result["unsupported_groups"])
+
+    def test_closure_maturity_audit_reports_planner_boundaries(self) -> None:
+        result = hcloud_closure_maturity_audit.build_audit()
+
+        self.assertTrue(result["success"], result)
+        self.assertFalse(result["all_services_ecs_level"])
+        tiers = {tier["id"]: tier for tier in result["tiers"]}
+        self.assertEqual(tiers["ecs_end_to_end_sample"]["status"], "sample_reference")
+        self.assertIn("acceptance_evidence_plan", tiers["p0_task_level_planner"]["closure_outputs"])
+        self.assertEqual(tiers["p1_governance_planner_only"]["execution_boundary"], "planner_only_or_request_spec_only")
+        self.assertEqual(tiers["p2_scenario_planner_only"]["execution_boundary"], "planner_only_no_submit")
+        self.assertEqual(tiers["metadata_backed_evidence_gap"]["status"], "evidence_gap_until_promoted")
+        self.assertEqual(result["summary"]["p0_service_count"], len(hcloud_lifecycle_closure_plan.CLOSURE_SERVICES))
+
+    def test_acceptance_evidence_result_evaluates_local_statuses(self) -> None:
+        plan = hcloud_lifecycle_closure_plan.build_lifecycle_plan(
+            self.lifecycle_args(
+                service=["EIP"],
+                param=[
+                    "publicip_id=eip-1",
+                    "target_resource_id=server-1",
+                    "probe_url=https://example.com/health",
+                ],
+            )
+        )
+        evidence = {
+            "evidence": {
+                "publicip_readback": "passed",
+                "binding_target_readback": {"status": "passed", "summary": "bound to server-1"},
+                "public_protocol_probe": {"status": "warning", "summary": "HTTP returned 503"},
+            }
+        }
+
+        result = hcloud_acceptance_evidence_result.evaluate_plan(plan, evidence)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["overall_status"], "warning")
+        service = result["services"][0]
+        self.assertEqual(service["service"], "EIP")
+        self.assertEqual(service["summary"]["passed"], 2)
+        self.assertEqual(service["summary"]["warning"], 1)
+        protocol = next(item for item in service["item_results"] if item["id"] == "public_protocol_probe")
+        self.assertEqual(protocol["reason"], "HTTP returned 503")
+
+    def test_acceptance_evidence_result_marks_missing_unsupplied_evidence(self) -> None:
+        plan = hcloud_lifecycle_closure_plan.build_lifecycle_plan(
+            self.lifecycle_args(service=["EVS"], param=["volume_id=vol-1", "server_id=server-1", "mountpoint=/data"])
+        )
+
+        result = hcloud_acceptance_evidence_result.evaluate_plan(
+            plan,
+            {"evidence": {"volume_readback": "passed"}},
+        )
+
+        self.assertEqual(result["overall_status"], "missing")
+        service = result["services"][0]
+        guest = next(item for item in service["item_results"] if item["id"] == "guest_device_filesystem")
+        self.assertEqual(guest["status"], "missing")
+        self.assertIn("filesystem", guest["reason"])
+
+    def test_acceptance_probe_plan_builds_non_executing_templates(self) -> None:
+        plan = hcloud_lifecycle_closure_plan.build_lifecycle_plan(
+            self.lifecycle_args(
+                service=["EIP"],
+                param=[
+                    "publicip_id=eip-1",
+                    "target_resource_id=server-1",
+                    "probe_url=https://example.com/health",
+                ],
+            )
+        )
+
+        result = hcloud_acceptance_probe_plan.build_probe_plan(plan)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(result["execution_boundary"], "templates_only_no_live_probe")
+        service = result["services"][0]
+        probe = next(item for item in service["probes"] if item["id"] == "public_protocol_probe")
+        self.assertEqual(probe["status"], "planned")
+        self.assertEqual(probe["execution_boundary"], "not_executed")
+        self.assertTrue(any("curl" in template for template in probe["probe_templates"]))
 
     def test_resource_verify_cli_reads_safe_exec_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

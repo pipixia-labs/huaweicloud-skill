@@ -613,6 +613,272 @@ SERVICE_CLOSURE_PROFILES: dict[str, dict[str, Any]] = {
     },
 }
 
+SERVICE_ACCEPTANCE_EVIDENCE: dict[str, dict[str, Any]] = {
+    "VPC": {
+        "completion_rule": "Network changes are accepted only after rule readback and an entry-path probe from the approved source are both accounted for.",
+        "claim_boundaries": [
+            "A security group rule readback does not prove the application is reachable.",
+            "Do not claim public readiness when the approved source CIDR or target entry path is missing.",
+        ],
+        "items": [
+            {
+                "id": "security_group_rule_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back the target security group and rule, including direction, protocol, ports, source CIDR, and attached workloads.",
+                "required_inputs": ["security_group_id"],
+                "any_of_inputs": ["security_group_rule_id", "direction"],
+            },
+            {
+                "id": "entry_path_probe",
+                "layer": "protocol_or_network",
+                "description": "Verify the intended ECS, EIP, or ELB entry path from the approved source CIDR and expected protocol/port.",
+                "required_inputs": ["remote_ip_prefix", "port_range_min"],
+                "any_of_inputs": ["target_resource_id", "vpc_id", "subnet_id"],
+            },
+        ],
+    },
+    "EIP": {
+        "completion_rule": "Public entry changes are accepted only after EIP readback, target binding evidence, and the relevant protocol path are checked.",
+        "claim_boundaries": [
+            "ShowPublicip success does not prove SSH, HTTP, or application reachability.",
+            "Unbound EIPs may still carry cost until release or bandwidth policy is reviewed.",
+        ],
+        "items": [
+            {
+                "id": "publicip_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back public IP status, address, bandwidth, billing mode, and current binding target.",
+                "required_inputs": ["publicip_id"],
+            },
+            {
+                "id": "binding_target_readback",
+                "layer": "cloud_control_plane",
+                "description": "Verify the exact ECS port, ELB, NAT, or other target resource that should own the EIP binding.",
+                "any_of_inputs": ["target_resource_id", "target_port_id"],
+            },
+            {
+                "id": "public_protocol_probe",
+                "layer": "protocol_or_network",
+                "description": "Probe the expected public protocol through the EIP after ECS/ELB and security group evidence is collected.",
+                "any_of_inputs": ["probe_url", "target_resource_id", "target_port_id"],
+            },
+        ],
+    },
+    "EVS": {
+        "completion_rule": "Storage work is accepted only after cloud attachment and guest filesystem readiness are both evidenced.",
+        "claim_boundaries": [
+            "An EVS volume in-use state does not prove the guest OS can read and write it.",
+            "Formatting, repartitioning, detach, delete, and resize remain data-risk actions until explicitly approved.",
+        ],
+        "items": [
+            {
+                "id": "volume_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back volume status, size, type, AZ, attachment target, and recent job state when applicable.",
+                "required_inputs": ["volume_id"],
+            },
+            {
+                "id": "guest_device_filesystem",
+                "layer": "guest_runtime",
+                "description": "Inside the ECS, collect device discovery, partition/filesystem, mountpoint, fstab-by-UUID, df, and write-test evidence.",
+                "required_inputs": ["server_id", "mountpoint"],
+                "any_of_inputs": ["device", "filesystem"],
+            },
+        ],
+    },
+    "ELB": {
+        "completion_rule": "Load-balancing work is accepted only after ELB topology, backend health, security-group reachability, and protocol probes are covered.",
+        "claim_boundaries": [
+            "Listener or pool creation does not prove backend service readiness.",
+            "Member ONLINE evidence should be paired with an application protocol probe before declaring user-path success.",
+        ],
+        "items": [
+            {
+                "id": "elb_topology_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back load balancer, listener, pool, member, and health monitor topology.",
+                "required_inputs": ["loadbalancer_id"],
+                "any_of_inputs": ["listener_id", "pool_id", "member_id"],
+            },
+            {
+                "id": "backend_health",
+                "layer": "service_readiness",
+                "description": "Verify backend member health, backend ECS status, and security group allowance from the ELB subnet.",
+                "any_of_inputs": ["member_id", "backend_server_id", "backend_address"],
+            },
+            {
+                "id": "elb_protocol_probe",
+                "layer": "protocol_or_network",
+                "description": "Probe HTTP/TCP through the ELB entry point with expected host, path, port, and status behavior.",
+                "any_of_inputs": ["probe_url", "listener_port", "backend_port"],
+            },
+        ],
+    },
+    "RDS": {
+        "completion_rule": "Database work is accepted only after instance, backup, parameter, network, and bounded client connection evidence are covered.",
+        "claim_boundaries": [
+            "An available RDS instance state does not prove application connection readiness.",
+            "Parameter, resize, reboot, restore, and delete actions remain high risk until backup and rollback evidence are reviewed.",
+        ],
+        "items": [
+            {
+                "id": "instance_backup_parameter_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back instance state, backup policy, configuration/parameter state, endpoint, and pending restart state.",
+                "required_inputs": ["instance_id"],
+            },
+            {
+                "id": "client_connection_probe",
+                "layer": "application_runtime",
+                "description": "Run a bounded connection probe from the intended client network with least-privilege credentials.",
+                "required_inputs": ["database_port"],
+                "any_of_inputs": ["vpc_id", "subnet_id", "security_group_id", "probe_source"],
+            },
+            {
+                "id": "rollback_boundary",
+                "layer": "governance",
+                "description": "Record latest backup posture, maintenance window, restart impact, and rollback owner before risky changes.",
+                "any_of_inputs": ["rollback_plan", "backup_retention_days", "maintenance_window"],
+            },
+        ],
+    },
+    "OBS": {
+        "completion_rule": "Bucket work is accepted only after bucket readback, policy/lifecycle evidence, and user-path evidence for static sites or public access.",
+        "claim_boundaries": [
+            "Bucket existence does not prove object availability or safe public access.",
+            "Lifecycle rules can delete data and must not be accepted without retention evidence.",
+        ],
+        "items": [
+            {
+                "id": "bucket_stat_policy_lifecycle",
+                "layer": "cloud_control_plane",
+                "description": "Read back bucket stat, policy, lifecycle configuration, and public-access posture through the OBS adapter.",
+                "required_inputs": ["bucket"],
+            },
+            {
+                "id": "static_site_or_object_probe",
+                "layer": "protocol_or_network",
+                "description": "For static sites or published objects, verify index/error documents, CDN/DNS linkage, and HTTP/HTTPS response.",
+                "required_inputs": ["bucket"],
+                "any_of_inputs": ["static_website", "probe_url", "domain_name"],
+            },
+            {
+                "id": "retention_review",
+                "layer": "governance",
+                "description": "Record owner, data classification, lifecycle retention, and public access justification.",
+                "any_of_inputs": ["retention_policy", "owner", "public_access_intent"],
+            },
+        ],
+    },
+    "DNS": {
+        "completion_rule": "DNS work is accepted only after record readback, resolver evidence, and rollback values are documented.",
+        "claim_boundaries": [
+            "API update success does not prove global DNS propagation.",
+            "Application cutover should not be accepted without protocol probes on representative URLs.",
+        ],
+        "items": [
+            {
+                "id": "recordset_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back zone and recordset values, type, TTL, and conflict state.",
+                "required_inputs": ["zone_id", "recordset_id"],
+            },
+            {
+                "id": "dns_resolution_probe",
+                "layer": "protocol_or_network",
+                "description": "Verify resolution from at least one resolver and record TTL/cache expectations.",
+                "required_inputs": ["record_name"],
+                "any_of_inputs": ["records", "ttl"],
+            },
+            {
+                "id": "cutover_rollback",
+                "layer": "governance",
+                "description": "Record rollback records and pair application cutover with HTTP/HTTPS probes when applicable.",
+                "any_of_inputs": ["rollback_records", "probe_url"],
+            },
+        ],
+    },
+    "SCM": {
+        "completion_rule": "Certificate work is accepted only after certificate detail, deployment target, and public HTTPS chain evidence are covered.",
+        "claim_boundaries": [
+            "Certificate upload success does not prove HTTPS is served by the target entry point.",
+            "Private key or secret material must not be collected as normal acceptance evidence.",
+        ],
+        "items": [
+            {
+                "id": "certificate_detail_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back certificate domain/SAN, status, issuer, expiration, and deployment target reference.",
+                "required_inputs": ["certificate_id"],
+            },
+            {
+                "id": "https_chain_probe",
+                "layer": "protocol_or_network",
+                "description": "Verify HTTPS handshake and certificate chain from the public endpoint.",
+                "required_inputs": ["domain_name"],
+                "any_of_inputs": ["target_service", "target_resource_id"],
+            },
+        ],
+    },
+    "CDN": {
+        "completion_rule": "CDN work is accepted only after domain/origin/cache readback and representative CDN-vs-origin protocol evidence.",
+        "claim_boundaries": [
+            "CDN configuration success does not prove cache propagation or origin health.",
+            "Refresh/preheat scope should be reviewed before broad cache operations.",
+        ],
+        "items": [
+            {
+                "id": "cdn_domain_config_readback",
+                "layer": "cloud_control_plane",
+                "description": "Read back domain status, origin, HTTPS, certificate, and cache configuration.",
+                "required_inputs": ["domain_id"],
+            },
+            {
+                "id": "cdn_and_origin_probe",
+                "layer": "protocol_or_network",
+                "description": "Probe representative URLs through CDN and, when needed, directly against the origin.",
+                "required_inputs": ["domain_name"],
+                "any_of_inputs": ["origin", "probe_url"],
+            },
+            {
+                "id": "cache_change_review",
+                "layer": "governance",
+                "description": "Record affected paths, expected propagation delay, refresh/preheat scope, and rollback origin.",
+                "any_of_inputs": ["cache_rules", "refresh_paths", "rollback_origin"],
+            },
+        ],
+    },
+    "CES_LTS": {
+        "completion_rule": "Health conclusions are accepted only after resource state, metrics, logs, and user-path probes are separated into observed facts and missing evidence.",
+        "claim_boundaries": [
+            "A single metric, log query, or status field is not enough to declare healthy, idle, or failed.",
+            "LTS evidence must stay bounded by time, stream, and keyword to avoid sensitive broad dumps.",
+        ],
+        "items": [
+            {
+                "id": "metric_window",
+                "layer": "observability",
+                "description": "Discover CES metric namespace/dimension/period and collect a bounded metric window.",
+                "required_inputs": ["start_time", "end_time"],
+                "any_of_inputs": ["namespace", "metric_name", "dimension"],
+            },
+            {
+                "id": "bounded_log_window",
+                "layer": "observability",
+                "description": "Collect bounded LTS log evidence by group, stream, time window, and keyword when logs are needed.",
+                "required_inputs": ["log_group_id", "log_stream_id", "start_time", "end_time"],
+                "any_of_inputs": ["keyword", "target_id"],
+            },
+            {
+                "id": "user_path_probe",
+                "layer": "protocol_or_network",
+                "description": "Pair resource state, metrics, and logs with a protocol or application probe where user impact matters.",
+                "any_of_inputs": ["probe_url", "target_id", "target_service"],
+            },
+        ],
+    },
+}
+
 
 def parse_key_values(values: list[str]) -> dict[str, str]:
     """Parse repeated KEY=VALUE inputs."""
@@ -636,6 +902,64 @@ def param_tokens(params: dict[str, str]) -> list[str]:
 def missing_inputs(profile: dict[str, Any], params: dict[str, str]) -> list[str]:
     """Return recommended input names that were not supplied."""
     return [name for name in profile["recommended_inputs"] if name not in params]
+
+
+def evidence_item_status(item: dict[str, Any], params: dict[str, str]) -> dict[str, Any]:
+    """Return one acceptance evidence item with input-gap status."""
+    required = list(item.get("required_inputs", []))
+    any_of = list(item.get("any_of_inputs", []))
+    missing_required = [name for name in required if name not in params]
+    missing_any_of = any_of if any_of and not any(name in params for name in any_of) else []
+    status = "ready_to_collect" if not missing_required and not missing_any_of else "missing_inputs"
+    return {
+        "id": item["id"],
+        "layer": item["layer"],
+        "description": item["description"],
+        "required_inputs": required,
+        "any_of_inputs": any_of,
+        "missing_required_inputs": missing_required,
+        "missing_any_of_inputs": missing_any_of,
+        "status": status,
+    }
+
+
+def build_acceptance_evidence_plan(
+    service: str,
+    params: dict[str, str],
+    readiness_plan: dict[str, Any],
+    extra_evidence_plans: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a structured service-specific acceptance evidence plan."""
+    spec = SERVICE_ACCEPTANCE_EVIDENCE.get(service, {})
+    items = [evidence_item_status(item, params) for item in spec.get("items", [])]
+    missing_inputs_by_item = {
+        item["id"]: sorted(set(item["missing_required_inputs"] + item["missing_any_of_inputs"]))
+        for item in items
+        if item["status"] == "missing_inputs"
+    }
+    readiness_checks = sum(len(entry.get("checks", [])) for entry in readiness_plan.get("services", []))
+    return {
+        "service": service,
+        "acceptance_level": "task_level_acceptance_evidence_plan",
+        "execution_boundary": "planner_only_no_live_probe",
+        "completion_rule": spec.get(
+            "completion_rule",
+            "Accept the task only after applicable cloud, runtime, protocol, and governance evidence is collected.",
+        ),
+        "evidence_items": items,
+        "summary": {
+            "total_item_count": len(items),
+            "ready_item_count": sum(1 for item in items if item["status"] == "ready_to_collect"),
+            "missing_input_item_count": sum(1 for item in items if item["status"] == "missing_inputs"),
+            "planned_readiness_check_count": readiness_checks,
+            "extra_evidence_plan_count": len(extra_evidence_plans or {}),
+        },
+        "missing_inputs_by_item": missing_inputs_by_item,
+        "claim_boundaries": spec.get(
+            "claim_boundaries",
+            ["Do not treat API success as task completion without service-specific acceptance evidence."],
+        ),
+    }
 
 
 def readiness_targets(profile: dict[str, Any], params: dict[str, str]) -> list[str]:
@@ -859,6 +1183,12 @@ def build_stage_plan(
             "checks": profile["verification_checks"],
             "readiness_targets": readiness_targets(profile, params),
             "resource_verifier": "scripts/hcloud_resource_verify.py",
+            "acceptance_evidence_plan": build_acceptance_evidence_plan(
+                service,
+                params,
+                readiness_plan,
+                extra_evidence_plans,
+            ),
             "evidence_rule": "Do not treat API submit success as service readiness; verify resource, binding, health, guest, or protocol state as applicable.",
         },
         {

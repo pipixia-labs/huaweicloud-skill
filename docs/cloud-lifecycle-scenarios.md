@@ -100,6 +100,12 @@ v0.3.2 开始把这个原则落到一个统一脚本入口：`hcloud_lifecycle_c
 -> 治理与审计沉淀
 ```
 
+当前 P0 planner 的 `post_change_verification` 阶段还会输出结构化 `acceptance_evidence_plan`。它把每个服务的验收证据拆成云控制面、机内/运行时、协议/网络、可观测性和治理项，并标记哪些证据已经具备输入、哪些还缺 target ID、探测 URL、时间窗口、回滚值等输入。这个字段仍然只是 planner 输出，不会自动执行 live probe。
+
+在这个基础上，`hcloud_acceptance_probe_plan.py` 可以从 lifecycle plan 生成非执行的探测模板，`hcloud_acceptance_evidence_result.py` 可以读取本地 evidence status JSON，把验收结果汇总成 `passed`、`warning`、`missing` 或 `blocked`。这一步补的是“验收证据如何采、采到后如何判定”，仍然不处理真实凭据、不发起云请求、不执行网络探测。
+
+为了避免把不同层级的能力混在一起，当前还提供 `hcloud_closure_maturity_audit.py` 做本地成熟度审计：ECS 是端到端样板，P0 是任务级 planner，P1/P2 是 planner-only，metadata-backed 广覆盖服务在补齐 smoke、playbook、risk profile 和 verifier 前仍是 evidence gap。
+
 P1 进一步把管云治理任务落到 `hcloud_governance_closure_plan.py`。这个入口同样不是 submit 通道，而是把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 整理成五阶段 planner-only 输出：
 
 ```text

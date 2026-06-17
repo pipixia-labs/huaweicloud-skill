@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added structured P0 `acceptance_evidence_plan` output to `hcloud_lifecycle_closure_plan.py` so VPC/EIP/EVS/ELB/RDS/OBS/DNS/SCM/CDN/CES+LTS plans expose cloud, runtime, protocol, observability, governance, and missing-input evidence items.
+- Added `hcloud_acceptance_evidence_result.py` and `hcloud_acceptance_probe_plan.py` so P0 acceptance can move from "what to collect" to local `passed`/`warning`/`missing`/`blocked` evaluation and non-executing probe templates.
+- Added `hcloud_closure_maturity_audit.py` to report current closure tiers honestly: ECS as the end-to-end sample, P0 as task-level planner, P1/P2 as planner-only, and metadata-backed services as evidence gaps until promoted.
 - Updated SDK supplement guidance from the local Python SDK reference snapshot, including installed-package runtime assumptions, SDK auth variables, Basic/Global credential selection, region/endpoint fallback, exception fields, Pod Identity notes, and narrow read-only candidate rules.
 - Refreshed Terraform provider resource/data-source inventories from the local provider `1.93.0` reference snapshot, covering 1684 resources and 2239 data sources.
 - Added `hcloud_terraform_provider_inventory.py` to regenerate provider inventories and fail on drift during maintenance.
