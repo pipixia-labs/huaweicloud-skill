@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-06-18
+
+- Added BSS/Billing semantic routing, fixed `cn-north-1`/`cn` hcloud read-only command plans, pagination warnings, and a protected-identifier result summarizer.
+- Added v0.6 acceptance scenarios for beginner setup, low-cost website hosting, cost governance, CES metric troubleshooting, mid-enterprise governance, Terraform plan-review, and security-group reuse.
+- Added a script audience manifest so runtime, guarded-change, supplement, maintenance, internal-library, and compatibility scripts have explicit review boundaries before any future consolidation.
+- Moved long runtime safety rules from `SKILL.md` into `references/runtime-safety-boundaries.md` and added `references/versioning-policy.md` so release docs remain the version truth source.
+- Added cross-region/EPS inventory planning, scoped idle-audit summaries, and an IAM action hint catalog used by permission-error diagnostics.
+- Added COC readiness and entry-level web-hosting playbooks so low-cost OBS/Flexus/ECS website choices and remote-execution fallback paths are explicit.
 - Added Terraform generation guardrails for hcloud-first IaC generation, plan review, sensitive-data handling, example promotion checks, and post-apply hcloud verification.
 - Added five sanitized Terraform examples from the Huawei upstream asset library: `vpc_security_group_stack`, `vpc_peering_stack`, `nat_vpc_peering_stack`, `cce_addon_stack`, and `elb_as_stack`.
 - Added thirteen P0/P1 Terraform examples for reuse workflows, end-to-end topologies, CCE variants, and RDS engine shapes: `elb_reuse_stack`, `nat_reuse_stack`, `cce_node_pool_reuse_stack`, `ecs_elb_rds_stack`, `obs_cdn_dns_stack`, `cce_coredns_addon_stack`, `cce_turbo_cluster_stack`, `cce_node_partition_stack`, `rds_mysql_stack`, `rds_postgresql_ha_stack`, `rds_read_replica_stack`, `rds_mysql_eip_stack`, and `rds_sqlserver_stack`.

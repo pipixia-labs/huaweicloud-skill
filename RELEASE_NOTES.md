@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.6 / 0.6.0 - 2026-06-18
+
+v0.6 turns the v0.5.1 closure-maturity baseline into a broader practical cloud-assistant release for beginner, small-business, and mid-enterprise users. It expands cost, environment setup, monitoring, Terraform review, low-cost hosting, permission troubleshooting, and inventory governance while keeping the hcloud-first safety model.
+
+### Changes Since v0.5.1
+
 - Adds BSS/Billing semantic routing, fixed `cn-north-1`/`cn` hcloud read-only command plans, pagination warnings, and a protected-identifier result summarizer.
 - Adds v0.6 acceptance scenarios for beginner setup, low-cost website hosting, cost governance, CES metric troubleshooting, mid-enterprise governance, Terraform plan-review, and security-group reuse.
 - Adds a script audience manifest so runtime, guarded-change, supplement, maintenance, internal-library, and compatibility scripts have explicit review boundaries before any future consolidation.
@@ -12,6 +18,21 @@
 - Expands curated Terraform examples from 55 to 73 with sanitized network, CCE, ELB/NAT reuse, end-to-end ECS/ELB/RDS, OBS/CDN/DNS, and RDS engine-shape stacks.
 - Adds Terraform provider validation guidance for fmt/init/validate/schema/mirror/cache checks without adopting the upstream installer as an execution entry.
 - Terraform context inspection now reports read-only Terraform CLI config, provider mirror, and provider cache hints without installing Terraform or downloading providers.
+
+### Validation
+
+- `python3 -m unittest discover tests`: 252 tests passed.
+- `python3 -m compileall -q scripts tests`: passed.
+- `git diff --check`: passed.
+- `skill-creator` quick validation: passed.
+
+### Compatibility and Safety Notes
+
+- v0.6 does not add automatic live probes, generic SDK mutation execution, Terraform apply automation, or broad submit surfaces.
+- Billing/BSS support is read-only planning plus approved safe_exec command plans and redacted result summarization; it does not default to live billing reads.
+- Terraform remains a plan-review and IaC drafting aid in this release; import, drift automation, remote state, and blueprints are left for later v0.6.x work.
+- Inventory, idle audit, and teardown review remain evidence and planning surfaces; candidates are not deletion, release, stop, or downsize approvals.
+- COC readiness documents remote-execution boundaries and fallback decisions; it does not make COC a new default execution plane.
 
 ## v0.5.1 / 0.5.1 - 2026-06-17
 
