@@ -26,7 +26,7 @@ terraform {
 
 - 本地 provider changelog 顶部版本：`1.93.0`
 - 本地 changelog 日期：`June 12, 2026`
-- 本地 provider docs inventory：1684 个 resource，2239 个 data source
+- 本地 provider docs inventory：1689 个 resource，2251 个 data source
 
 注意：这表示本仓库当前吸收的 reference snapshot，不等同于用户机器或 Terraform Registry 一定已经可用的最新版本。真实执行前仍应以 `terraform init` 下载到的 provider 版本、`.terraform.lock.hcl` 和 Terraform Registry 为准。
 

@@ -15,6 +15,9 @@ from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 SCRIPT = ROOT / "scripts" / "hcloud_safe_exec.py"
 SPEC = importlib.util.spec_from_file_location("hcloud_safe_exec", SCRIPT)
 assert SPEC and SPEC.loader
@@ -111,6 +114,24 @@ class SafeExecRedactionTest(unittest.TestCase):
         self.assertEqual(details["cloud_error_code"], "InvalidAccessKeyId")
         self.assertIn("AK/SK", details["advice"])
 
+    def test_permission_error_includes_iam_action_hint(self) -> None:
+        parsed = {"error_code": "ECS.403", "error_msg": "AccessDenied: not authorized"}
+
+        details = hcloud_safe_exec.classify_common_error(
+            "OPENAPI_ERROR",
+            "",
+            "",
+            parsed,
+            service="ECS",
+            operation="ListCloudServers",
+        )
+
+        self.assertIsNotNone(details)
+        self.assertEqual(details["category"], "permission")
+        self.assertEqual(details["permission_hint"]["service"], "ECS")
+        self.assertEqual(details["permission_hint"]["match"], "operation")
+        self.assertIn("ecs:cloudServers:list", details["permission_hint"]["required_actions"])
+
     def test_cli_redacts_parsed_json_and_parsed_json_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -197,13 +218,50 @@ class SafeExecRedactionTest(unittest.TestCase):
                 env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
             )
 
-            result = json.loads(completed.stdout)
+        result = json.loads(completed.stdout)
 
         self.assertNotEqual(completed.returncode, 0)
         self.assertFalse(result["success"])
         self.assertEqual(result["error_type"], "OPENAPI_ERROR")
         self.assertEqual(result["error_details"]["category"], "region_or_endpoint")
         self.assertIn("region", result["advice"].lower())
+
+    def test_cli_emits_permission_hint_from_failed_json_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, sys\n"
+                "print('[OPENAPI_ERROR] request failed')\n"
+                "print(json.dumps({'error_code': 'VPC.403', 'error_msg': 'AccessDenied: permission denied'}))\n"
+                "sys.exit(1)\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "VPC",
+                    "--operation",
+                    "ListSecurityGroupRules",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+            result = json.loads(completed.stdout)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_details"]["category"], "permission")
+        self.assertIn("permission_hint", result["error_details"])
+        self.assertIn("vpc:securityGroupRules:list", result["error_details"]["permission_hint"]["required_actions"])
 
 
 if __name__ == "__main__":

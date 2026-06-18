@@ -3,7 +3,7 @@
 这份文档把参考仓库 `docs/data-sources` 中的 data source 家族完整搬运到 skill 内部，作为 discovery 能力面的总索引。
 
 来源快照：`reference-projects/terraform-provider-huaweicloud`，provider changelog 顶部版本 `1.93.0`，日期 `June 12, 2026`。
-覆盖统计：2239 个条目，115 个家族。
+覆盖统计：2251 个条目，114 个家族。
 
 阅读方式：
 - 先按家族名查看 provider 是否覆盖某个方向。
@@ -599,7 +599,7 @@
 - `cts_trackers`
 - `cts_users`
 
-## das (18)
+## das (19)
 - `das_binlog_exported_parse_tasks`
 - `das_binlogs`
 - `das_connection_instance_snapshots`
@@ -615,11 +615,12 @@
 - `das_instances`
 - `das_shared_connections`
 - `das_slow_log_details`
+- `das_slow_log_exported_tasks`
 - `das_slow_log_templates`
 - `das_sql_execution_plans`
 - `das_sql_limit_rules`
 
-## dataarts (47)
+## dataarts (48)
 - `dataarts_architecture_aggregation_logic_tables`
 - `dataarts_architecture_approvals`
 - `dataarts_architecture_business_metrics`
@@ -656,6 +657,7 @@
 - `dataarts_security_data_recognition_rules`
 - `dataarts_security_data_secrecy_levels`
 - `dataarts_security_datasource_permissions`
+- `dataarts_security_datasource_urls`
 - `dataarts_security_dynamic_masking_policies`
 - `dataarts_security_permission_set_members`
 - `dataarts_security_permission_set_privileges`
@@ -811,7 +813,7 @@
 - `dli_sql_templates`
 - `dli_system_sql_defend_rules`
 
-## dms (58)
+## dms (60)
 - `dms_az`
 - `dms_kafka_background_tasks`
 - `dms_kafka_consumer_group_members`
@@ -826,6 +828,7 @@
 - `dms_kafka_maintainwindows`
 - `dms_kafka_message_diagnosis_tasks`
 - `dms_kafka_messages`
+- `dms_kafka_recycle_instances`
 - `dms_kafka_smart_connect_tasks`
 - `dms_kafka_tags`
 - `dms_kafka_topic_broker_disk_usages`
@@ -865,6 +868,7 @@
 - `dms_rocketmq_message_traces`
 - `dms_rocketmq_messages`
 - `dms_rocketmq_migration_tasks`
+- `dms_rocketmq_recycle_instances`
 - `dms_rocketmq_tags`
 - `dms_rocketmq_topic_access_users`
 - `dms_rocketmq_topic_consumer_groups`
@@ -1130,7 +1134,7 @@
 - `ga_resources_by_tags`
 - `ga_tags`
 
-## gaussdb (62)
+## gaussdb (64)
 - `gaussdb_alarms`
 - `gaussdb_all_instances_metrics`
 - `gaussdb_asp_collection_results`
@@ -1144,6 +1148,7 @@
 - `gaussdb_client_auth_config_history`
 - `gaussdb_databases`
 - `gaussdb_datastores`
+- `gaussdb_dr_operation_records`
 - `gaussdb_dr_relationships`
 - `gaussdb_error_logs`
 - `gaussdb_flavors`
@@ -1176,6 +1181,7 @@
 - `gaussdb_recycling_instances`
 - `gaussdb_redis_flavors`
 - `gaussdb_redis_instance`
+- `gaussdb_remaining_quotas`
 - `gaussdb_restorable_instances`
 - `gaussdb_restore_time_ranges`
 - `gaussdb_schemas`
@@ -1194,13 +1200,15 @@
 - `gaussdb_upgrade_versions`
 - `gaussdb_wdr_snapshot_collection_results`
 
-## geminidb (21)
+## geminidb (23)
 - `geminidb_accounts`
 - `geminidb_available_flavors`
 - `geminidb_backups`
+- `geminidb_big_keys`
 - `geminidb_database_versions`
 - `geminidb_dedicated_resources`
 - `geminidb_flavors`
+- `geminidb_hot_keys`
 - `geminidb_instance_parameters_histories`
 - `geminidb_instance_sessions`
 - `geminidb_memory_mappings`
@@ -1595,7 +1603,8 @@
 - `iotda_spaces`
 - `iotda_upgrade_packages`
 
-## kms (12)
+## kms (13)
+- `kms_aliases`
 - `kms_custom_keys_by_tags`
 - `kms_data_key`
 - `kms_dedicated_keystores`
@@ -1608,9 +1617,6 @@
 - `kms_public_key`
 - `kms_quotas`
 - `kms_retirable_grants`
-
-## kms-aliases (1)
-- `kms-aliases`
 
 ## koogallery (1)
 - `koogallery_assets`
@@ -1989,7 +1995,7 @@
 - `sdrs_replication_pairs`
 - `sdrs_resource_rpo_statistics`
 
-## secmaster (89)
+## secmaster (92)
 - `secmaster_alert_rule_metrics`
 - `secmaster_alert_rule_template_detail`
 - `secmaster_alert_rule_template_metrics`
@@ -2035,6 +2041,7 @@
 - `secmaster_metrics`
 - `secmaster_modules`
 - `secmaster_moniter_metric_stats`
+- `secmaster_nodes`
 - `secmaster_notes`
 - `secmaster_operation_connections`
 - `secmaster_pipe_index`
@@ -2053,8 +2060,10 @@
 - `secmaster_reports_emails`
 - `secmaster_retrieve_scripts`
 - `secmaster_search_conditions`
+- `secmaster_search_logs`
 - `secmaster_security_reports`
 - `secmaster_siem_directories`
+- `secmaster_siem_shipper_authorizations`
 - `secmaster_siem_shippers`
 - `secmaster_soc_attachment`
 - `secmaster_soc_component_action_detail`
@@ -2195,7 +2204,7 @@
 - `swrv3_repositories`
 - `swrv3_shared_repositories`
 
-## taurusdb (42)
+## taurusdb (43)
 - `taurusdb_audit_log_download_links`
 - `taurusdb_auto_scaling_records`
 - `taurusdb_backups`
@@ -2220,6 +2229,7 @@
 - `taurusdb_htap_starrocks_parameters`
 - `taurusdb_htap_starrocks_replication_db_parameters`
 - `taurusdb_htap_starrocks_replications`
+- `taurusdb_htap_starrocks_users`
 - `taurusdb_htap_storage_types`
 - `taurusdb_incremental_backups`
 - `taurusdb_instance`

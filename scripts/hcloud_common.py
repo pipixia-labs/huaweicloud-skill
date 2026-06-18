@@ -48,6 +48,21 @@ SECRET_HINTS = (
 )
 OBSUTIL_SECRET_ARG_NAMES = {"-i", "-k", "-t", "-token"}
 MIN_REDACT_SECRET_LENGTH = 8
+INLINE_SECRET_ASSIGNMENT_RE = re.compile(
+    r"(?P<key>--?[A-Za-z0-9_.:-]+)(?P<sep>=)(?P<quote>['\"]?)(?P<value>[^\s'\"`,}\]]+)(?P=quote)"
+)
+JSON_SECRET_FIELD_RE = re.compile(
+    r"(?P<prefix>(?P<key_quote>['\"])(?P<key>[^'\"]+)(?P=key_quote)\s*:\s*)"
+    r"(?P<value_quote>['\"])(?P<value>.*?)(?P=value_quote)"
+)
+COMMAND_KEYS = {
+    "command",
+    "safe_exec",
+    "hcloud",
+    "dryrun",
+    "dryrun_or_plan",
+    "submit",
+}
 
 
 def script_path(name: str) -> Path:
@@ -118,6 +133,14 @@ def looks_like_secret_arg(arg: str) -> bool:
     return any(hint in lowered for hint in SECRET_HINTS)
 
 
+def looks_like_command_key(key: str | None) -> bool:
+    """Return True when a JSON key usually stores command tokens."""
+    if key is None:
+        return False
+    normalized = key.strip().replace("-", "_").lower()
+    return normalized in COMMAND_KEYS or normalized.endswith("_command")
+
+
 def collect_inline_secrets(args: list[str]) -> set[str]:
     """Collect secret values passed directly via CLI argument tokens."""
     secrets: set[str] = set()
@@ -127,7 +150,7 @@ def collect_inline_secrets(args: list[str]) -> set[str]:
             if is_redactable_secret_value(value):
                 secrets.add(value)
             continue
-        if looks_like_secret_arg(arg) and index + 1 < len(args):
+        if looks_like_secret_arg(arg.split("=", 1)[0]) and index + 1 < len(args):
             next_arg = args[index + 1]
             if next_arg and not next_arg.startswith("-") and is_redactable_secret_value(next_arg):
                 secrets.add(next_arg)
@@ -161,13 +184,31 @@ def coerce_output_text(value: str | bytes | None) -> str:
     return value
 
 
+def redact_inline_secret_assignments(text: str) -> str:
+    """Redact obvious inline secret assignments in shell or JSON text."""
+
+    def replace_cli_assignment(match: re.Match[str]) -> str:
+        key = match.group("key")
+        if not looks_like_secret_arg(key):
+            return match.group(0)
+        return f"{key}{match.group('sep')}{match.group('quote')}***{match.group('quote')}"
+
+    def replace_json_field(match: re.Match[str]) -> str:
+        if not looks_like_secret_arg(match.group("key")):
+            return match.group(0)
+        return f"{match.group('prefix')}{match.group('value_quote')}***{match.group('value_quote')}"
+
+    redacted = INLINE_SECRET_ASSIGNMENT_RE.sub(replace_cli_assignment, text)
+    return JSON_SECRET_FIELD_RE.sub(replace_json_field, redacted)
+
+
 def redact_text(text: str | bytes | None, secrets: set[str]) -> str:
     """Replace exact secret values with a redaction marker."""
     redacted = coerce_output_text(text)
     safe_secrets = (item for item in secrets if is_redactable_secret_value(item))
     for secret in sorted(safe_secrets, key=len, reverse=True):
         redacted = re.sub(re.escape(secret), "***", redacted)
-    return redacted
+    return redact_inline_secret_assignments(redacted)
 
 
 def redact_command(command: list[str], secrets: set[str]) -> list[str]:
@@ -182,7 +223,7 @@ def redact_command(command: list[str], secrets: set[str]) -> list[str]:
         if "=" in item and looks_like_secret_arg(item.split("=", 1)[0]):
             key = item.split("=", 1)[0]
             redacted.append(f"{key}=***")
-        elif looks_like_secret_arg(item):
+        elif looks_like_secret_arg(item.split("=", 1)[0]):
             redacted.append(item)
             redact_next = True
         else:
@@ -197,6 +238,9 @@ def redact_json(value: Any, secrets: set[str], key: str | None = None) -> Any:
     if isinstance(value, dict):
         return {item_key: redact_json(child, secrets, str(item_key)) for item_key, child in value.items()}
     if isinstance(value, list):
+        if looks_like_command_key(key) and all(isinstance(child, str) for child in value):
+            command = [str(child) for child in value]
+            return redact_command(command, secrets | collect_inline_secrets(command))
         return [redact_json(child, secrets) for child in value]
     if isinstance(value, str):
         return redact_text(value, secrets)

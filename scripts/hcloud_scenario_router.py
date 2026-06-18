@@ -12,6 +12,7 @@ import hcloud_common
 
 
 ROUTER_PATH = hcloud_common.REFERENCES_DIR / "scenario-router.json"
+SERVICE_ALIAS_PATH = hcloud_common.REFERENCES_DIR / "service-aliases.json"
 
 TERRAFORM_ROUTE = {
     "context_inspect": "scripts/hcloud_terraform_context_inspect.py",
@@ -52,6 +53,17 @@ def load_router(path: Path = ROUTER_PATH) -> dict[str, Any]:
     return hcloud_common.load_json(path)
 
 
+def load_service_aliases(path: Path = SERVICE_ALIAS_PATH) -> dict[str, str]:
+    """Load Chinese-English service aliases for query expansion."""
+    if not path.exists():
+        return {}
+    data = hcloud_common.load_json(path)
+    aliases = data.get("aliases", {})
+    if not isinstance(aliases, dict):
+        return {}
+    return {str(alias): str(service).upper() for alias, service in aliases.items()}
+
+
 def recommended_followups(scenario: dict[str, Any]) -> list[dict[str, str]]:
     """Return standard local follow-up steps for a matched scenario."""
     services = {str(service).upper() for service in scenario.get("services", [])}
@@ -60,10 +72,17 @@ def recommended_followups(scenario: dict[str, Any]) -> list[dict[str, str]]:
     return []
 
 
-def score_scenario(scenario: dict[str, Any], query: str, category: str | None = None, service: str | None = None) -> tuple[int, list[str]]:
+def score_scenario(
+    scenario: dict[str, Any],
+    query: str,
+    category: str | None = None,
+    service: str | None = None,
+    service_aliases: dict[str, str] | None = None,
+) -> tuple[int, list[str]]:
     """Return match score and reasons for one scenario."""
     query_token = normalize_token(query)
     query_lower = query.lower()
+    scenario_services = {str(item).upper() for item in scenario.get("services", [])}
     score = 0
     reasons: list[str] = []
 
@@ -77,6 +96,14 @@ def score_scenario(scenario: dict[str, Any], query: str, category: str | None = 
         if service_token in services:
             score += 8
             reasons.append("service match +8")
+
+    for alias, mapped_service in (service_aliases or {}).items():
+        alias_text = str(alias)
+        if mapped_service not in scenario_services:
+            continue
+        if alias_text.lower() in query_lower or normalize_token(alias_text) in query_token:
+            score += 8
+            reasons.append(f"alias:{alias_text}->{mapped_service} +8")
 
     name = str(scenario.get("name") or "")
     if normalize_token(name) and normalize_token(name) in query_token:
@@ -103,11 +130,18 @@ def score_scenario(scenario: dict[str, Any], query: str, category: str | None = 
 def route(query: str, category: str | None = None, service: str | None = None, limit: int = 5, router_path: Path = ROUTER_PATH) -> dict[str, Any]:
     """Route a user goal to local scenario entries."""
     router = load_router(router_path)
+    service_aliases = load_service_aliases()
     matches = []
     for scenario in router.get("scenarios", []):
         if not isinstance(scenario, dict):
             continue
-        score, reasons = score_scenario(scenario, query, category=category, service=service)
+        score, reasons = score_scenario(
+            scenario,
+            query,
+            category=category,
+            service=service,
+            service_aliases=service_aliases,
+        )
         if score <= 0:
             continue
         matches.append(

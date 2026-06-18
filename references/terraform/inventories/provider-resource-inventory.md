@@ -3,7 +3,7 @@
 这份文档把参考仓库 `docs/resources` 中的资源家族完整搬运到 skill 内部，作为 provider 资源覆盖面的总索引。
 
 来源快照：`reference-projects/terraform-provider-huaweicloud`，provider changelog 顶部版本 `1.93.0`，日期 `June 12, 2026`。
-覆盖统计：1684 个条目，125 个家族。
+覆盖统计：1689 个条目，124 个家族。
 
 阅读方式：
 - 先按家族名查看 provider 是否覆盖某个方向。
@@ -721,7 +721,7 @@
 - `dli_sql_template`
 - `dli_table`
 
-## dms (53)
+## dms (54)
 - `dms_group`
 - `dms_instance`
 - `dms_kafka_background_task_delete`
@@ -739,6 +739,7 @@
 - `dms_kafka_message_produce`
 - `dms_kafka_partition_reassign`
 - `dms_kafka_permissions`
+- `dms_kafka_recycle_instance_restore`
 - `dms_kafka_smart_connect`
 - `dms_kafka_smart_connect_task`
 - `dms_kafka_smart_connect_task_action`
@@ -1014,7 +1015,7 @@
 - `gaussdb_wdr_snapshot`
 - `gaussdb_wdr_snapshot_collect`
 
-## geminidb (19)
+## geminidb (20)
 - `geminidb_account`
 - `geminidb_backup`
 - `geminidb_backup_stop`
@@ -1034,6 +1035,7 @@
 - `geminidb_primary_standby_switch`
 - `geminidb_recycling_policy`
 - `geminidb_scheduled_task_cancel`
+- `geminidb_sessions_close`
 
 ## ges (3)
 - `ges_backup`
@@ -1234,7 +1236,7 @@
 - `iotda_space`
 - `iotda_upgrade_package`
 
-## kms (19)
+## kms (20)
 - `kms_alias`
 - `kms_alias_associate`
 - `kms_cancel_key_deletion`
@@ -1252,11 +1254,9 @@
 - `kms_key_update_primary_region`
 - `kms_retire_grant`
 - `kms_rsa_datakey_pair`
+- `kms_sign`
 - `kms_verify_mac`
 - `kms_verify_sign`
-
-## kms-sign (1)
-- `kms-sign`
 
 ## kps (8)
 - `kps_batch_export_private_key`
@@ -1586,7 +1586,7 @@
 - `sdrs_replication_pair`
 - `sdrs_resize_replication`
 
-## secmaster (41)
+## secmaster (44)
 - `secmaster_alert`
 - `secmaster_alert_convert_incident`
 - `secmaster_alert_rule`
@@ -1598,9 +1598,12 @@
 - `secmaster_collect_config`
 - `secmaster_collector_channel_group`
 - `secmaster_collector_channel_operation`
+- `secmaster_collector_parser`
 - `secmaster_component_template`
+- `secmaster_configuration_dictionary`
 - `secmaster_data_object_relations`
 - `secmaster_dataspace`
+- `secmaster_delete_nodes`
 - `secmaster_delete_policies`
 - `secmaster_incident`
 - `secmaster_indicator`

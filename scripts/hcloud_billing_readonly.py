@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build planner-only Huawei Cloud billing and cost API request specs."""
+"""Build planner-only Huawei Cloud billing and cost specs plus hcloud command plans."""
 
 from __future__ import annotations
 
@@ -15,6 +15,9 @@ import hcloud_common
 
 DEFAULT_ENDPOINT_BASE = "https://bss-intl.myhuaweicloud.com"
 BILL_CYCLE_RE = re.compile(r"^\d{4}-\d{2}$")
+SEMANTIC_CATALOG_PATH = hcloud_common.REFERENCES_DIR / "billing" / "semantic-catalog.json"
+BSS_CLI_REGION = "cn-north-1"
+BSS_CLI_LANG = "cn"
 
 OPERATIONS: dict[str, dict[str, Any]] = {
     "monthly-sum": {
@@ -61,6 +64,74 @@ OPERATION_ALIASES = {
     "resource-consumption": "resource-fee-records",
     "resource-fees": "resource-fee-records",
 }
+SOURCE_OPERATION_TO_PLANNER = {
+    f"BSS/{metadata['title']}": operation for operation, metadata in OPERATIONS.items()
+}
+
+
+def load_semantic_catalog(path: Path = SEMANTIC_CATALOG_PATH) -> dict[str, Any]:
+    """Load the local billing semantic catalog."""
+    if not path.exists():
+        return {"entry_points": {}, "entities": {}}
+    return hcloud_common.load_json(path)
+
+
+def semantic_entry_point_names() -> list[str]:
+    """Return known billing semantic entry point names."""
+    return sorted(load_semantic_catalog().get("entry_points", {}))
+
+
+def build_semantic_route(entry_point: str | None, catalog: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Return semantic billing route metadata for an entry point."""
+    if not entry_point:
+        return None
+    catalog = catalog or load_semantic_catalog()
+    entry = catalog.get("entry_points", {}).get(entry_point)
+    if not isinstance(entry, dict):
+        return {
+            "entry_point": entry_point,
+            "found": False,
+            "error": "Unknown billing semantic entry point.",
+        }
+
+    entities = catalog.get("entities", {})
+    entity_details = {
+        name: entities.get(name, {})
+        for name in entry.get("ontology_entities", [])
+    }
+    source_operations = sorted(
+        {
+            operation
+            for details in entity_details.values()
+            for operation in details.get("source_operations", [])
+        }
+    )
+    supported_operations = sorted(
+        set(entry.get("supported_planner_operations", []))
+        | {
+            SOURCE_OPERATION_TO_PLANNER[operation]
+            for operation in source_operations
+            if operation in SOURCE_OPERATION_TO_PLANNER
+        }
+    )
+    supported_source_operations = sorted(
+        operation for operation in source_operations if operation in SOURCE_OPERATION_TO_PLANNER
+    )
+    return {
+        "entry_point": entry_point,
+        "found": True,
+        "required_context": entry.get("required_context", {}),
+        "triggers": entry.get("triggers", []),
+        "money_basis": entry.get("required_context", {}).get("money_basis", []),
+        "ontology_entities": entry.get("ontology_entities", []),
+        "entity_details": entity_details,
+        "source_operations": source_operations,
+        "supported_planner_operations": supported_operations,
+        "supported_source_operations": supported_source_operations,
+        "unsupported_source_operations": [
+            operation for operation in source_operations if operation not in set(supported_source_operations)
+        ],
+    }
 
 
 def parse_key_values(values: list[str]) -> dict[str, str]:
@@ -232,15 +303,125 @@ def build_url(endpoint_base: str, path: str, query: dict[str, Any]) -> str:
     return f"{base}{path}?{urlencode(query)}"
 
 
+def cli_defaults(catalog: dict[str, Any]) -> dict[str, str]:
+    """Return fixed BSS KooCLI defaults."""
+    defaults = catalog.get("bss_cli_defaults", {})
+    return {
+        "cli_region": str(defaults.get("cli_region") or BSS_CLI_REGION),
+        "cli_lang": str(defaults.get("cli_lang") or BSS_CLI_LANG),
+    }
+
+
 def operation_name(raw_operation: str) -> str:
     """Resolve a user-facing operation name or alias."""
     return OPERATION_ALIASES.get(raw_operation, raw_operation)
 
 
+def scalar_cli_value(value: Any) -> str:
+    """Return a stable KooCLI scalar argument value."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def flatten_cli_args(prefix: str, value: Any) -> list[str]:
+    """Flatten a JSON-like body into KooCLI dot-notation arguments."""
+    if value in (None, "", []):
+        return []
+    if isinstance(value, dict):
+        args: list[str] = []
+        for key, child in value.items():
+            args.extend(flatten_cli_args(f"{prefix}.{key}", child))
+        return args
+    if isinstance(value, list):
+        args = []
+        for index, child in enumerate(value, start=1):
+            args.extend(flatten_cli_args(f"{prefix}.{index}", child))
+        return args
+    return [f"--{prefix}={scalar_cli_value(value)}"]
+
+
+def hcloud_safe_exec_command(operation: str, args: list[str], defaults: dict[str, str]) -> list[str]:
+    """Return a safe_exec wrapped read-only BSS command."""
+    command = hcloud_common.safe_exec_command_prefix() + [
+        "--service",
+        "BSS",
+        "--operation",
+        operation,
+        "--arg=--cli-output=json",
+        "--expect-json",
+    ]
+    command.append(f"--arg=--cli-region={defaults['cli_region']}")
+    command.append(f"--arg=--cli-lang={defaults['cli_lang']}")
+    command.extend(f"--arg={item}" for item in args)
+    return command
+
+
+def build_hcloud_command_plan(
+    operation: str,
+    metadata: dict[str, Any],
+    request_spec: dict[str, Any],
+    body_source: str | None,
+    defaults: dict[str, str],
+) -> dict[str, Any]:
+    """Return a reviewed hcloud read-only command plan or a blocked reason."""
+    blocked_reasons: list[str] = []
+    cli_args: list[str] = []
+
+    if metadata["method"] == "POST" and body_source != "generated":
+        blocked_reasons.append("Explicit JSON bodies are kept as request specs; this planner only maps generated safe fields to KooCLI dot notation.")
+
+    for key, value in request_spec.get("query", {}).items():
+        if value not in (None, "", []):
+            cli_args.append(f"--{key}={scalar_cli_value(value)}")
+    body = request_spec.get("body")
+    if body and not blocked_reasons:
+        for key, value in body.items():
+            cli_args.extend(flatten_cli_args(key, value))
+
+    safe_exec_command = hcloud_safe_exec_command(metadata["title"], cli_args, defaults) if not blocked_reasons else None
+    return {
+        "supported": not blocked_reasons,
+        "blocked_reasons": blocked_reasons,
+        "read_only": True,
+        "service": "BSS",
+        "operation": metadata["title"],
+        "cli_defaults": defaults,
+        "hcloud_args": cli_args,
+        "safe_exec_command": safe_exec_command,
+        "execution_requires_user_approval": True,
+        "sensitivity": {
+            "level": "high",
+            "reason": "Billing data can expose account identifiers, resource identifiers, order data, and spend.",
+        },
+        "output_boundary": {
+            "summarize_by_default": True,
+            "raw_output_allowed_only_after_scope_confirmation": True,
+            "protected_identifiers": load_semantic_catalog().get("protected_identifiers", []),
+        },
+    }
+
+
+def pagination_scope(query: dict[str, Any], body: dict[str, Any] | None) -> dict[str, Any]:
+    """Return pagination completeness metadata for billing queries."""
+    source = body if body is not None else query
+    offset = source.get("offset") if isinstance(source, dict) else None
+    limit = source.get("limit") if isinstance(source, dict) else None
+    return {
+        "offset": offset,
+        "limit": limit,
+        "complete_result_claim_allowed": False,
+        "reason": "A single billing page is partial until total_count and all intended pages are reviewed.",
+    }
+
+
 def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
     """Build a planner-only billing/cost API request specification."""
-    operation = operation_name(args.operation)
+    operation = operation_name(args.operation or "monthly-sum")
     metadata = OPERATIONS[operation]
+    semantic_catalog = load_semantic_catalog()
+    defaults = cli_defaults(semantic_catalog)
+    semantic_route = build_semantic_route(getattr(args, "entry_point", None), semantic_catalog)
     query: dict[str, Any] = {}
     body: dict[str, Any] | None = None
     body_source: str | None = None
@@ -276,6 +457,19 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         "body_source": body_source,
         "requires_auth": "customer AK/SK signature or customer token; credentials are intentionally not accepted by this planner.",
     }
+    command_plan = build_hcloud_command_plan(operation, metadata, request_spec, body_source, defaults)
+
+    warnings = [
+        "This script does not sign or send HTTP requests.",
+        "Billing and cost data can contain account, resource, and spend-sensitive information; keep output scope narrow.",
+        "Do not infer spend from resource inventory when billing APIs are unavailable.",
+        "BSS hcloud templates must use --cli-region=cn-north-1 and --cli-lang=cn regardless of normal project region.",
+        "Do not claim full-account totals from one page unless pagination has been completed and checked.",
+    ]
+    if semantic_route and semantic_route.get("found") and operation not in semantic_route.get("supported_planner_operations", []):
+        warnings.append(
+            "The selected operation is not the first-fit planner operation for the semantic entry point; review semantic_route.supported_planner_operations."
+        )
 
     return {
         "success": not errors,
@@ -283,16 +477,16 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         "planning_only": True,
         "operation": operation,
         "title": metadata["title"],
+        "semantic_route": semantic_route,
+        "bss_cli_defaults": defaults,
         "request_spec": request_spec,
+        "hcloud_command_plan": command_plan,
+        "pagination_scope": pagination_scope(query, body),
         "validation": {
             "errors": errors,
-            "warnings": [
-                "This script does not sign or send HTTP requests.",
-                "Billing and cost data can contain account, resource, and spend-sensitive information; keep output scope narrow.",
-                "Do not infer spend from resource inventory when billing APIs are unavailable.",
-            ],
+            "warnings": warnings,
         },
-        "execution_supported": False,
+        "execution_supported": bool(command_plan.get("supported")) and not errors,
         "official_docs": {
             "url": metadata["doc_url"],
             "permission": metadata["permission"],
@@ -300,7 +494,7 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         },
         "next_steps": [
             "Confirm the account scope, enterprise project scope, time range, and permission boundary with the user.",
-            "Use API Explorer, Huawei Cloud SDK, or a reviewed signed-request runner to execute this spec if live billing data is approved.",
+            "If live billing access is approved, run only the generated hcloud_command_plan.safe_exec_command and summarize the redacted result.",
             "Summarize billing output instead of pasting full raw records unless the user explicitly asks for the raw data scope.",
         ],
     }
@@ -309,7 +503,8 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--operation", choices=sorted(list(OPERATIONS) + list(OPERATION_ALIASES)), default="monthly-sum")
+    parser.add_argument("--operation", choices=sorted(list(OPERATIONS) + list(OPERATION_ALIASES)))
+    parser.add_argument("--entry-point", choices=semantic_entry_point_names(), help="Optional billing semantic entry point.")
     parser.add_argument("--endpoint-base", default=DEFAULT_ENDPOINT_BASE, help="Billing endpoint base URL.")
     parser.add_argument("--language", default="zh_CN", help="X-Language header value.")
     parser.add_argument("--bill-cycle", help="Billing cycle in YYYY-MM format.")
@@ -338,7 +533,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--body-json-text", help="Explicit JSON request body text for POST operations.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
-    args.operation = operation_name(args.operation)
+    if args.operation is None and args.entry_point:
+        route = build_semantic_route(args.entry_point)
+        supported = route.get("supported_planner_operations", []) if route else []
+        args.operation = supported[0] if supported else "monthly-sum"
+    args.operation = operation_name(args.operation or "monthly-sum")
     if args.offset < 0:
         parser.error("--offset must be greater than or equal to 0.")
     if args.limit < 1:

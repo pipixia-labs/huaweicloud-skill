@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "description": "Script audience and consolidation manifest for huaweicloud-skill v0.6. It documents who should use each script without physically merging scripts in this release.",
+  "consolidation_policy": {
+    "v0_6_action": "Document audience boundaries and keep existing script files stable for reviewability.",
+    "do_not_do_in_v0_6": [
+      "Do not merge runtime scripts just to reduce file count.",
+      "Do not remove compatibility entry points that existing workflows may call.",
+      "Do not broaden planner-only scripts into submit paths.",
+      "Do not add Terraform import, drift automation, remote state, or blueprint execution to the default path."
+    ],
+    "v0_6_x_candidates": [
+      {
+        "area": "catalog maintenance",
+        "candidate": "Wrap build, diff, audit, and smoke utilities behind one maintenance command while preserving current modules."
+      },
+      {
+        "area": "Terraform",
+        "candidate": "Promote docs-first provider signals into a plan-review report, then scope import/drift separately."
+      },
+      {
+        "area": "MaaS image generation",
+        "candidate": "Keep qwen_text_to_image.py as a compatibility shim until callers have migrated to maas_text_to_image.py."
+      },
+      {
+        "area": "Billing",
+        "candidate": "Keep probe, readonly planner, and result summarizer separate because they have different data-sensitivity boundaries."
+      }
+    ]
+  },
+  "script_groups": [
+    {
+      "id": "default_runtime",
+      "audience": "agent runtime and user-facing task workflows",
+      "boundary": "May plan or execute only within each script's documented safety gate. Planner-only scripts must stay non-executing.",
+      "scripts": [
+        "scripts/hcloud_acceptance_evidence_result.py",
+        "scripts/hcloud_acceptance_probe_plan.py",
+        "scripts/hcloud_account_inventory.py",
+        "scripts/hcloud_billing_readonly.py",
+        "scripts/hcloud_billing_result_summarize.py",
+        "scripts/hcloud_ces_alarm_plan.py",
+        "scripts/hcloud_closure_maturity_audit.py",
+        "scripts/hcloud_context_inspect.py",
+        "scripts/hcloud_environment_doctor.py",
+        "scripts/hcloud_governance_closure_plan.py",
+        "scripts/hcloud_idle_audit.py",
+        "scripts/hcloud_lifecycle_closure_plan.py",
+        "scripts/hcloud_lts_readonly.py",
+        "scripts/hcloud_meta_lookup.py",
+        "scripts/hcloud_obs_readonly.py",
+        "scripts/hcloud_observability_plan.py",
+        "scripts/hcloud_p2_scenario_closure_plan.py",
+        "scripts/hcloud_prewarm_cache.py",
+        "scripts/hcloud_resource_discovery.py",
+        "scripts/hcloud_resource_query.py",
+        "scripts/hcloud_resource_verify.py",
+        "scripts/hcloud_safe_exec.py",
+        "scripts/hcloud_scenario_router.py",
+        "scripts/hcloud_service_readiness.py",
+        "scripts/hcloud_teardown_plan.py",
+        "scripts/hcloud_terraform_context_inspect.py",
+        "scripts/hcloud_terraform_provider_inventory.py",
+        "scripts/hcloud_terraform_router.py",
+        "scripts/maas_text_to_image.py"
+      ]
+    },
+    {
+      "id": "guarded_change",
+      "audience": "agent runtime for explicit change planning and guarded submit workflows",
+      "boundary": "Use only after context discovery and risk review. Submit still requires the exact command, fresh evidence, and explicit user confirmation.",
+      "scripts": [
+        "scripts/hcloud_change_plan.py",
+        "scripts/hcloud_ecs_create_plan.py",
+        "scripts/hcloud_ecs_verify_active.py",
+        "scripts/hcloud_ecs_wait_job.py",
+        "scripts/hcloud_eip_change_flow.py",
+        "scripts/hcloud_guarded_change_flow.py",
+        "scripts/hcloud_obs_change_plan.py",
+        "scripts/hcloud_service_change_plan.py"
+      ]
+    },
+    {
+      "id": "runtime_supplement",
+      "audience": "agent runtime only when the primary hcloud path needs local support evidence",
+      "boundary": "Supplement hcloud; do not become a second broad execution plane.",
+      "scripts": [
+        "scripts/hcloud_billing_cost_probe.py",
+        "scripts/hcloud_resource_detail_probe.py",
+        "scripts/hcloud_sdk_catalog.py",
+        "scripts/hcloud_sdk_readonly.py"
+      ]
+    },
+    {
+      "id": "maintenance_and_regression",
+      "audience": "skill maintainers and CI-style local checks",
+      "boundary": "Use for catalog, coverage, smoke, Terraform catalog, and promotion maintenance. Do not call these as normal user task answers unless the user is maintaining the skill.",
+      "scripts": [
+        "scripts/build_hcloud_catalog.py",
+        "scripts/check_materials_drift.py",
+        "scripts/check_question_coverage.py",
+        "scripts/hcloud_catalog.py",
+        "scripts/hcloud_catalog_audit.py",
+        "scripts/hcloud_catalog_diff.py",
+        "scripts/hcloud_catalog_readonly_smoke.py",
+        "scripts/hcloud_catalog_smoke_candidates.py",
+        "scripts/hcloud_curated_promotion_audit.py",
+        "scripts/hcloud_readonly_smoke.py",
+        "scripts/hcloud_sdk_supplement_audit.py",
+        "scripts/hcloud_terraform_catalog.py"
+      ]
+    },
+    {
+      "id": "internal_library",
+      "audience": "imported by other scripts, not direct user entry points",
+      "boundary": "Keep stable APIs for callers and tests; do not document as normal command-line tools.",
+      "scripts": [
+        "scripts/hcloud_common.py",
+        "scripts/hcloud_core.py",
+        "scripts/hcloud_run_journal.py",
+        "scripts/hcloud_security_policy.py"
+      ]
+    },
+    {
+      "id": "compatibility",
+      "audience": "existing workflows that still call legacy names",
+      "boundary": "Keep as compatibility entry points in v0.6; prefer newer names in documentation.",
+      "scripts": [
+        "scripts/qwen_text_to_image.py"
+      ]
+    }
+  ],
+  "user_profile_notes": {
+    "beginner": [
+      "Start with hcloud_environment_doctor.py and hcloud_context_inspect.py.",
+      "Explain optional tools by task instead of requiring hcloud, SDK, Terraform, and obsutil all at once."
+    ],
+    "small_business": [
+      "Prefer low-cost static-site and Flexus/ECS routing before broad enterprise architecture.",
+      "Expose billing readonly and idle candidate review without delete commands."
+    ],
+    "mid_enterprise": [
+      "Use inventory, governance closure, observability, and Terraform plan-review assets.",
+      "Keep batch mutation and Terraform apply out of the default path until evidence and approvals are explicit."
+    ]
+  }
+}

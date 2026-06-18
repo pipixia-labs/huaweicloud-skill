@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Adds BSS/Billing semantic routing, fixed `cn-north-1`/`cn` hcloud read-only command plans, pagination warnings, and a protected-identifier result summarizer.
+- Adds v0.6 acceptance scenarios for beginner setup, low-cost website hosting, cost governance, CES metric troubleshooting, mid-enterprise governance, Terraform plan-review, and security-group reuse.
+- Adds a script audience manifest so runtime, guarded-change, supplement, maintenance, internal-library, and compatibility scripts have explicit review boundaries before any future consolidation.
+- Moves long runtime safety rules from `SKILL.md` into `references/runtime-safety-boundaries.md` and adds `references/versioning-policy.md` so release docs remain the version truth source.
+- Adds cross-region/EPS inventory planning, scoped idle-audit summaries, and an IAM action hint catalog used by permission-error diagnostics.
+- Adds COC readiness and entry-level web-hosting playbooks so low-cost OBS/Flexus/ECS website choices and remote-execution fallback paths are explicit.
 - Adds a controlled Terraform generation guardrails reference and routes it as a core Terraform document.
 - Expands curated Terraform examples from 55 to 73 with sanitized network, CCE, ELB/NAT reuse, end-to-end ECS/ELB/RDS, OBS/CDN/DNS, and RDS engine-shape stacks.
 - Adds Terraform provider validation guidance for fmt/init/validate/schema/mirror/cache checks without adopting the upstream installer as an execution entry.
@@ -21,7 +27,7 @@ v0.5.1 is a small closure-maturity patch after v0.5. It makes the recommended of
 - `SKILL.md`, scenario routing, and examples now describe the recommended chain: scenario route -> lifecycle closure plan -> acceptance probe plan -> evidence result.
 - `examples/eip-acceptance-closure.md` adds a concrete offline EIP acceptance flow that users can copy into real validation work after supplying their own evidence.
 - SDK supplement docs now include the local SDK `3.1.199` reference snapshot, installed-package runtime rules, auth/region/endpoint guidance, and narrow candidate rules for future read-only supplements.
-- Terraform provider docs now include the local provider `1.93.0` snapshot, refreshed inventories covering 1684 resources and 2239 data sources, and stronger authentication/context guidance.
+- Terraform provider docs now include the local provider `1.93.0` snapshot, refreshed inventories covering 1689 resources and 2251 data sources, and stronger authentication/context guidance.
 - New maintenance script: `hcloud_terraform_provider_inventory.py` rebuilds provider inventories from the local provider reference checkout and detects drift.
 - Terraform context inspection now reports more provider environment aliases and warns when shared hcloud config is encrypted and therefore unsuitable for Terraform shared-config auth without an explicit risk decision.
 

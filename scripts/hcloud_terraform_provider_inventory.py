@@ -40,6 +40,111 @@ def discover_items(provider_root: Path, kind: str) -> list[str]:
     return sorted(dict.fromkeys(items))
 
 
+def provider_doc_path(provider_root: Path, kind: str, name: str) -> Path | None:
+    """Return the provider Markdown doc path for a resource or data source."""
+    docs_dir = provider_root / "docs" / kind
+    stripped_name = strip_provider_prefix(name)
+    candidates = [
+        docs_dir / f"{stripped_name}.md",
+        docs_dir / f"huaweicloud_{stripped_name}.md",
+        docs_dir / f"{name}.md",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def extract_import_section(text: str) -> str:
+    """Return the Markdown Import section body, if present."""
+    match = re.search(r"^##\s+Import\s*$", text, re.IGNORECASE | re.MULTILINE)
+    if not match:
+        return ""
+    rest = text[match.end() :]
+    next_section = re.search(r"^##\s+", rest, re.MULTILINE)
+    return rest[: next_section.start()] if next_section else rest
+
+
+def extract_force_new_attributes(text: str) -> list[str]:
+    """Return documented attributes marked ForceNew in provider Markdown."""
+    attributes: list[str] = []
+    for match in re.finditer(r"^[ \t]*[*-]\s+`([^`]+)`\s+-\s+\([^)]*ForceNew[^)]*\)", text, re.MULTILINE):
+        attributes.append(match.group(1))
+    return sorted(dict.fromkeys(attributes))
+
+
+def extract_sensitive_attribute_hints(text: str) -> list[str]:
+    """Return documented attributes that look sensitive or secret-bearing."""
+    hints: list[str] = []
+    sensitive_name = re.compile(r"(password|passwd|secret|token|private[_-]?key|access[_-]?key)", re.IGNORECASE)
+    for match in re.finditer(r"^[ \t]*[*-]\s+`([^`]+)`\s+-\s+\(([^)]*)\)", text, re.MULTILINE):
+        name = match.group(1)
+        markers = match.group(2)
+        if "Sensitive" in markers or sensitive_name.search(name):
+            hints.append(name)
+    return sorted(dict.fromkeys(hints))
+
+
+def extract_import_hints(import_section: str) -> list[str]:
+    """Return compact import ID hints and terraform import examples."""
+    if not import_section:
+        return []
+    hints: list[str] = []
+    for match in re.finditer(r"using (?:the )?`([^`]+)`", import_section, re.IGNORECASE):
+        hints.append(match.group(1))
+    for line in import_section.splitlines():
+        stripped = line.strip()
+        if "terraform import" in stripped:
+            hints.append(stripped.strip("`"))
+    return hints[:10]
+
+
+def build_doc_signal(provider_root: Path, kind: str, name: str) -> dict[str, Any]:
+    """Build docs-first mutability/import/sensitive signals for one provider item."""
+    doc_path = provider_doc_path(provider_root, kind, name)
+    item_name = strip_provider_prefix(name)
+    if doc_path is None:
+        return {
+            "name": item_name,
+            "kind": kind,
+            "found": False,
+            "doc_path": None,
+            "force_new": {"present": False, "attributes": [], "attribute_count": 0},
+            "import": {"present": False, "hints": []},
+            "sensitive": {"present": False, "attribute_hints": [], "attribute_hint_count": 0},
+        }
+
+    text = doc_path.read_text(encoding="utf-8")
+    force_new_attributes = extract_force_new_attributes(text)
+    import_section = extract_import_section(text)
+    sensitive_hints = extract_sensitive_attribute_hints(text)
+    return {
+        "name": strip_provider_prefix(doc_path.stem),
+        "kind": kind,
+        "found": True,
+        "doc_path": str(doc_path.relative_to(provider_root)),
+        "force_new": {
+            "present": bool(force_new_attributes) or "ForceNew" in text or "Changing this" in text,
+            "attributes": force_new_attributes,
+            "attribute_count": len(force_new_attributes),
+        },
+        "import": {
+            "present": bool(import_section),
+            "hints": extract_import_hints(import_section),
+        },
+        "sensitive": {
+            "present": bool(sensitive_hints),
+            "attribute_hints": sensitive_hints,
+            "attribute_hint_count": len(sensitive_hints),
+        },
+        "planner_notes": [
+            "Use ForceNew signals to warn users before changing attributes that may replace resources.",
+            "Use Import signals only to draft review steps; do not run terraform import automatically.",
+            "Treat sensitive hints as output-handling and variable-file hygiene warnings, not as complete schema truth.",
+        ],
+    }
+
+
 def group_items(items: list[str]) -> list[dict[str, Any]]:
     """Group provider item names by their first token."""
     grouped: dict[str, list[str]] = {}
@@ -158,8 +263,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--provider-root", type=Path, default=DEFAULT_PROVIDER_ROOT, help="Local terraform-provider-huaweicloud checkout.")
     parser.add_argument("--write", action="store_true", help="Write provider inventory markdown files.")
     parser.add_argument("--fail-on-drift", action="store_true", help="Return non-zero when committed inventories differ from provider docs.")
+    parser.add_argument("--signal-kind", choices=["resources", "data-sources"], help="Return docs-first signals for one or more provider items.")
+    parser.add_argument("--signal-name", action="append", default=[], help="Provider item name for --signal-kind, with or without huaweicloud_ prefix.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.signal_name and not args.signal_kind:
+        parser.error("--signal-name requires --signal-kind")
+    return args
 
 
 def main() -> int:
@@ -200,6 +310,11 @@ def main() -> int:
         },
         "drift": comparisons,
     }
+    if args.signal_kind:
+        result["doc_signals"] = [
+            build_doc_signal(provider_root, args.signal_kind, name)
+            for name in (args.signal_name or [])
+        ]
     hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if success else 1
 

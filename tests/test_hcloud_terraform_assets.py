@@ -289,6 +289,45 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertEqual(resources["snapshot"]["version"], "1.99.0")
         self.assertIn("cce_cluster_pod_identity_association", rendered)
 
+    def test_provider_doc_signal_builder_reads_markdown_signals(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            provider_root = Path(tmp_dir)
+            docs_dir = provider_root / "docs" / "resources"
+            docs_dir.mkdir(parents=True)
+            (docs_dir / "rds_instance.md").write_text(
+                "\n".join(
+                    [
+                        "# huaweicloud_rds_instance",
+                        "",
+                        "## Argument Reference",
+                        "",
+                        "* `vpc_id` - (Required, String, ForceNew) Changing this parameter will create a new resource.",
+                        "* `password` - (Optional, String, Sensitive) Specifies the database password.",
+                        "",
+                        "## Import",
+                        "",
+                        "RDS instance can be imported using the `id`, e.g.",
+                        "",
+                        "```shell",
+                        "terraform import huaweicloud_rds_instance.test <id>",
+                        "```",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            signal = hcloud_terraform_provider_inventory.build_doc_signal(provider_root, "resources", "huaweicloud_rds_instance")
+
+        self.assertTrue(signal["found"])
+        self.assertEqual(signal["name"], "rds_instance")
+        self.assertEqual(signal["doc_path"], "docs/resources/rds_instance.md")
+        self.assertTrue(signal["force_new"]["present"])
+        self.assertIn("vpc_id", signal["force_new"]["attributes"])
+        self.assertTrue(signal["import"]["present"])
+        self.assertIn("id", signal["import"]["hints"])
+        self.assertTrue(signal["sensitive"]["present"])
+        self.assertIn("password", signal["sensitive"]["attribute_hints"])
+
     def test_provider_inventories_include_current_reference_snapshot(self) -> None:
         resources = hcloud_terraform_provider_inventory.parse_inventory_items(
             ROOT / "references" / "terraform" / "inventories" / "provider-resource-inventory.md"
@@ -297,8 +336,8 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
             ROOT / "references" / "terraform" / "inventories" / "provider-data-source-inventory.md"
         )
 
-        self.assertEqual(len(resources), 1684)
-        self.assertEqual(len(data_sources), 2239)
+        self.assertEqual(len(resources), 1689)
+        self.assertEqual(len(data_sources), 2251)
         self.assertIn("apig_application_ai_api_key", resources)
         self.assertIn("cce_cluster_pod_identity_association", resources)
         self.assertIn("taurusdb_htap_sessions", data_sources)

@@ -56,6 +56,36 @@ class HcloudScenarioRouterTest(unittest.TestCase):
             ],
         )
 
+    def test_routes_environment_setup_to_doctor(self) -> None:
+        result = hcloud_scenario_router.route("帮我检查 hcloud terraform obsutil 环境和认证配置", limit=1)
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "environment-doctor")
+        self.assertIn("scripts/hcloud_environment_doctor.py", match["planners"])
+        self.assertFalse(match["terraform_candidate"])
+
+    def test_routes_low_cost_static_site_to_entry_level_hosting(self) -> None:
+        result = hcloud_scenario_router.route("小企业想低成本做静态网站，考虑 OBS 或轻量服务器", limit=1)
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "entry-level-web-hosting")
+        self.assertIn("OBS", match["services"])
+        self.assertIn("references/playbooks/entry-level-web-hosting.md", match["primary_playbooks"])
+        self.assertIn("references/playbooks/static-site-generated-assets-readiness.md", match["primary_playbooks"])
+        self.assertIn("scripts/hcloud_environment_doctor.py", match["planners"])
+        self.assertTrue(match["terraform_candidate"])
+
+    def test_routes_official_cn_alias_to_entry_level_hosting(self) -> None:
+        result = hcloud_scenario_router.route("云耀云部署应用", limit=1)
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "entry-level-web-hosting")
+        self.assertIn("FLEXUS-L", match["services"])
+        self.assertTrue(any("alias:云耀云->FLEXUS-L" in reason for reason in match["reasons"]))
+
     def test_unknown_goal_has_no_match(self) -> None:
         result = hcloud_scenario_router.route("烹饪晚饭和整理书架", limit=3)
 
@@ -73,6 +103,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
 
         self.assertTrue((ROOT / "references" / "terraform-workflow.md").exists())
         self.assertTrue((ROOT / "references" / "terraform" / "README.md").exists())
+        self.assertTrue((ROOT / "references" / "service-aliases.json").exists())
         self.assertTrue((ROOT / "scripts" / "hcloud_terraform_router.py").exists())
         for scenario in router.get("scenarios", []):
             for key in ("primary_playbooks", "guides", "planners"):

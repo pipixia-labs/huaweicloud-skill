@@ -31,6 +31,8 @@ python3 scripts/hcloud_ces_alarm_plan.py \
   --pretty
 ```
 
+For ECS memory or disk alarms, read `references/playbooks/ces-metric-readiness.md` first. The CES alarm planner returns `metric_guidance` so the agent can distinguish basic `SYS.ECS` metrics from Agent-backed `AGT.ECS` metrics before proposing thresholds.
+
 4. Discover LTS log groups and streams, then query a bounded time window:
 
 ```bash

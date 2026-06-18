@@ -284,7 +284,7 @@ def billing_args(operation: str, params: dict[str, str]) -> SimpleNamespace:
 
 
 def build_billing_specs(params: dict[str, str]) -> list[dict[str, Any]]:
-    """Return planner-only Billing/Cost request specs for governance review."""
+    """Return planner-only Billing/Cost specs and hcloud command plans for governance review."""
     specs = []
     for operation in ("monthly-sum", "cost-data", "resource-records"):
         spec = hcloud_billing_readonly.build_request_spec(billing_args(operation, params))
@@ -293,7 +293,10 @@ def build_billing_specs(params: dict[str, str]) -> list[dict[str, Any]]:
                 "operation": operation,
                 "success": bool(spec.get("success")),
                 "title": spec.get("title"),
+                "execution_supported": bool(spec.get("execution_supported")),
                 "request_spec": spec.get("request_spec"),
+                "hcloud_command_plan": spec.get("hcloud_command_plan"),
+                "pagination_scope": spec.get("pagination_scope"),
                 "validation": spec.get("validation"),
                 "official_docs": spec.get("official_docs"),
             }
@@ -395,21 +398,27 @@ def evidence_command_plans(
     profile_entries: list[dict[str, Any]],
     params: dict[str, str],
     *,
-    request_spec_only: bool = False,
+    billing_specs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Return read-only evidence command plans for governance profiles."""
-    if request_spec_only:
+    if billing_specs is not None:
+        command_plans = [
+            spec.get("hcloud_command_plan")
+            for spec in billing_specs
+            if isinstance(spec.get("hcloud_command_plan"), dict) and spec.get("hcloud_command_plan", {}).get("supported")
+        ]
         return {
             "summary": {
                 "discovery_plan_count": 0,
                 "resource_query_plan_count": 0,
-                "planned_command_count": 0,
+                "planned_command_count": len(command_plans),
                 "missing_param_query_count": 0,
             },
             "discovery_plans": [],
             "resource_query_plans": [],
             "missing_param_items": [],
-            "skipped_reason": "Billing/BSS uses official API request specs only; this planner does not generate hcloud BSS live query commands.",
+            "billing_hcloud_command_plans": command_plans,
+            "execution_boundary": "planner_only; run billing safe_exec commands only after explicit live billing read approval.",
         }
 
     discovery_plans = []
@@ -611,7 +620,12 @@ def build_service_plan(
     profile_entries = profile_summaries(service_key, profiles)
     promotion = promotion_entries(service_key, audits)
     billing_specs = build_billing_specs(params) if service_key == "BILLING_BSS" else []
-    evidence = evidence_command_plans(args, profile_entries, params, request_spec_only=service_key == "BILLING_BSS")
+    evidence = evidence_command_plans(
+        args,
+        profile_entries,
+        params,
+        billing_specs=billing_specs if service_key == "BILLING_BSS" else None,
+    )
     governance_summary = service_governance_summary(service_key, promotion, evidence, billing_specs)
     risk_profiles = [
         {

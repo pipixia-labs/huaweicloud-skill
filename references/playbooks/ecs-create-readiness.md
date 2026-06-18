@@ -211,13 +211,26 @@ python3 scripts/hcloud_safe_exec.py \
   --pretty
 ```
 
+把上述读回结果保存成 JSON artifact 后，传给 ECS 创建前校验：
+
+```bash
+python3 scripts/hcloud_ecs_create_plan.py \
+  --json-input-file=<path-to-ecs-json> \
+  --security-group-evidence-file=<security-group-readback-json> \
+  --operation=CreateServers \
+  --region=<region> \
+  --pretty
+```
+
+如果 `body.server.security_groups[*].id` 引用了已有安全组但没有提供规则证据，创建计划必须停在本地校验阶段，不生成可运行命令。
+
 如果目标安全组缺少规则，先按普通变更流程尝试补规则；但遇到明确的 SCP/IAM 拒绝时，例如 `SYS.0403`、`AccessDenied`，或错误消息包含 `vpc:securityGroupRules:create`，不要反复重试同一个补规则动作。
 
 此时允许复用已有安全组，前提是同时满足：
 
 - 与目标 ECS 在同一 VPC 或同一企业项目边界内，且可以绑定到目标子网。
 - 入方向已开放任务要求的端口，例如 TCP 22/80/443。
-- 规则来源范围符合任务风险边界；若是 `0.0.0.0/0`，只在任务明确要求公网 SSH/Web 或用户接受公网暴露时使用。
+- 规则来源范围符合任务风险边界；SSH `22` 和常见 Web 入口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 不允许使用 `0.0.0.0/0`，即使用户只说“公网可访问”也要收敛到固定客户端 IP、办公网 CIDR、VPN CIDR、跳板机/堡垒机来源、负载均衡来源或私网 CIDR。
 - 出方向不限制基础软件安装和健康检查，或已有证据说明服务初始化不依赖外部访问。
 
 复用时，把该安全组 ID 写入 `body.server.security_groups`，不要再创建同名安全组或继续提交被拒绝的 `CreateSecurityGroupRule`。最终回复必须说明：

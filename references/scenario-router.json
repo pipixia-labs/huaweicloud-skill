@@ -3,6 +3,43 @@
   "description": "Natural-language scenario router for the hcloud-first Huawei Cloud skill. Inspired by official skill discovery, but routes to local registry, playbooks, SDK supplements, and Terraform candidates.",
   "scenarios": [
     {
+      "id": "environment-doctor",
+      "name": "Environment setup and tool readiness",
+      "category": "environment",
+      "description": "Check local KooCLI, profile, credentials, SDK, Terraform, obsutil, MaaS key, and proxy readiness without installing or calling cloud APIs.",
+      "triggers": [
+        "环境",
+        "安装",
+        "配置",
+        "setup",
+        "install",
+        "doctor",
+        "koocli",
+        "hcloud",
+        "cli",
+        "sdk",
+        "terraform",
+        "obsutil",
+        "maas",
+        "api key",
+        "凭证",
+        "认证"
+      ],
+      "services": [],
+      "primary_playbooks": [
+        "references/auth-and-context.md",
+        "references/terraform-workflow.md"
+      ],
+      "guides": [],
+      "planners": [
+        "scripts/hcloud_environment_doctor.py",
+        "scripts/hcloud_context_inspect.py",
+        "scripts/hcloud_terraform_context_inspect.py"
+      ],
+      "sdk_supplements": [],
+      "terraform_candidate": false
+    },
+    {
       "id": "ecs-compute-readiness",
       "name": "ECS compute readiness",
       "category": "compute",
@@ -28,6 +65,7 @@
       "primary_playbooks": [
         "references/playbooks/ecs-create-readiness.md",
         "references/playbooks/ecs-ssh-access-readiness.md",
+        "references/playbooks/coc-readiness.md",
         "references/playbooks/ims-image-discovery.md",
         "references/playbooks/kps-keypair-discovery.md"
       ],
@@ -46,6 +84,56 @@
         "ECS:ShowServer",
         "IMS:ListImages"
       ],
+      "terraform_candidate": true
+    },
+    {
+      "id": "entry-level-web-hosting",
+      "name": "Entry-level website hosting",
+      "category": "compute",
+      "description": "Route low-cost website goals to OBS static hosting, CDN/DNS, or simple ECS/Flexus-style compute readiness before overbuilding.",
+      "triggers": [
+        "便宜",
+        "低成本",
+        "小白",
+        "小企业",
+        "静态站",
+        "静态网站",
+        "网站",
+        "独立站",
+        "flexus",
+        "flexus l",
+        "轻量服务器",
+        "轻量应用服务器",
+        "obs",
+        "cdn"
+      ],
+      "services": [
+        "OBS",
+        "CDN",
+        "DNS",
+        "ECS",
+        "FLEXUS-L"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/entry-level-web-hosting.md",
+        "references/playbooks/static-site-generated-assets-readiness.md",
+        "references/playbooks/obs-boundary.md",
+        "references/playbooks/ecs-create-readiness.md",
+        "references/playbooks/coc-readiness.md",
+        "references/playbooks/dns-zone-record-readiness.md"
+      ],
+      "guides": [
+        "references/guides/obs.md",
+        "references/guides/ecs.md"
+      ],
+      "planners": [
+        "scripts/hcloud_environment_doctor.py",
+        "scripts/hcloud_obs_readonly.py",
+        "scripts/hcloud_obs_change_plan.py",
+        "scripts/hcloud_ecs_create_plan.py",
+        "scripts/hcloud_guarded_change_flow.py"
+      ],
+      "sdk_supplements": [],
       "terraform_candidate": true
     },
     {

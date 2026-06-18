@@ -459,7 +459,18 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("VPC", result["operation_summary_by_service"])
         self.assertEqual(result["unregistered_operation_count"], 0)
         self.assertEqual(result["execution_path_error_count"], 0)
+        self.assertEqual(result["status_summary"], {"passed": 2, "skipped": 0, "not_covered": 0})
         self.assertIn("ECS:query:scripts/hcloud_resource_discovery.py", result["executable_validation_paths"])
+
+    def test_validation_workbook_reports_missing_workbook_as_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            workbook = Path(tmp_dir) / "missing.xlsx"
+
+            result = check_question_coverage.analyze_validation_workbook(workbook)
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["skipped"])
+        self.assertEqual(result["status_summary"], {"passed": 0, "skipped": 1, "not_covered": 0})
 
     def test_validation_workbook_tracks_resource_query_execution_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -579,9 +590,19 @@ class ArchitectureContractsTest(unittest.TestCase):
                 journal,
                 {
                     "type": "command",
+                    "command": [
+                        "hcloud",
+                        "configure",
+                        "set",
+                        "--secret-key=secret-value",
+                        "--password",
+                        "password-value",
+                        '--arg={"adminPass":"json-password-value"}',
+                    ],
                     "adminPass": "password-value",
                     "accessToken": "token-value",
                     "stdout": "created with token-value",
+                    "stderr": 'using --access-token=token-inline-value and {"private_key":"private-key-value"}',
                 },
             )
             raw_text = journal.read_text(encoding="utf-8")
@@ -589,8 +610,94 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertEqual(entry["adminPass"], "***")
         self.assertEqual(entry["accessToken"], "***")
         self.assertEqual(entry["stdout"], "created with ***")
+        self.assertEqual(entry["command"][3], "--secret-key=***")
+        self.assertEqual(entry["command"][5], "***")
         self.assertNotIn("password-value", raw_text)
         self.assertNotIn("token-value", raw_text)
+        self.assertNotIn("secret-value", raw_text)
+        self.assertNotIn("json-password-value", raw_text)
+        self.assertNotIn("token-inline-value", raw_text)
+        self.assertNotIn("private-key-value", raw_text)
+
+    def test_v06_acceptance_scenarios_cover_upgrade_goals(self) -> None:
+        text = (ROOT / "tests" / "v0_6_acceptance_scenarios.md").read_text(encoding="utf-8")
+
+        required_phrases = [
+            "hcloud_environment_doctor.py",
+            "entry-level-web-hosting",
+            "Flexus L",
+            "OBS",
+            "hcloud_billing_readonly.py",
+            "hcloud_billing_result_summarize.py",
+            "semantic_route",
+            "hcloud_ces_alarm_plan.py",
+            "AGT.ECS",
+            "mem_usedPercent",
+            "hcloud_governance_closure_plan.py",
+            "hcloud_terraform_context_inspect.py",
+            "hcloud_terraform_provider_inventory.py",
+            "ForceNew",
+            "Import",
+            "terraform import",
+            "--security-group-evidence-file",
+            "0.0.0.0/0",
+        ]
+
+        self.assertGreaterEqual(text.count("## Scenario"), 8)
+        for phrase in required_phrases:
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_script_audience_manifest_covers_current_scripts(self) -> None:
+        manifest = json.loads(
+            (ROOT / "references" / "script-audience-manifest.json").read_text(encoding="utf-8")
+        )
+        groups = manifest["script_groups"]
+        listed_scripts: list[str] = []
+
+        for group in groups:
+            with self.subTest(group=group["id"]):
+                self.assertIn("audience", group)
+                self.assertIn("boundary", group)
+                self.assertTrue(group["scripts"])
+                for script in group["scripts"]:
+                    self.assertFalse(Path(script).is_absolute(), script)
+                    self.assertTrue((ROOT / script).exists(), script)
+                    listed_scripts.append(script)
+
+        actual_scripts = sorted(f"scripts/{path.name}" for path in SCRIPTS.glob("*.py"))
+        self.assertEqual(sorted(listed_scripts), sorted(set(listed_scripts)))
+        self.assertEqual(sorted(listed_scripts), actual_scripts)
+
+        by_group = {group["id"]: set(group["scripts"]) for group in groups}
+        self.assertIn("scripts/hcloud_environment_doctor.py", by_group["default_runtime"])
+        self.assertIn("scripts/hcloud_billing_readonly.py", by_group["default_runtime"])
+        self.assertIn("scripts/hcloud_change_plan.py", by_group["guarded_change"])
+        self.assertIn("scripts/hcloud_sdk_readonly.py", by_group["runtime_supplement"])
+        self.assertIn("scripts/check_question_coverage.py", by_group["maintenance_and_regression"])
+        self.assertIn("scripts/hcloud_common.py", by_group["internal_library"])
+        self.assertIn("scripts/qwen_text_to_image.py", by_group["compatibility"])
+
+    def test_skill_entry_stays_slim_and_points_to_truth_sources(self) -> None:
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        safety_text = (ROOT / "references" / "runtime-safety-boundaries.md").read_text(encoding="utf-8")
+        version_text = (ROOT / "references" / "versioning-policy.md").read_text(encoding="utf-8")
+
+        self.assertLessEqual(len(skill_text.splitlines()), 280)
+        self.assertIn("references/runtime-safety-boundaries.md", skill_text)
+        self.assertIn("references/versioning-policy.md", skill_text)
+        self.assertIn("CHANGELOG.md", version_text)
+        self.assertIn("RELEASE_NOTES.md", version_text)
+
+        for phrase in (
+            "异步任务必须跟到终态",
+            "安全组入口端口必须收敛",
+            "机内执行和 SSH fallback",
+            "0.0.0.0/0",
+            "COC",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, safety_text)
 
 
 if __name__ == "__main__":

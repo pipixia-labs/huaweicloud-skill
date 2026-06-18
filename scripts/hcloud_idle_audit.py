@@ -22,6 +22,12 @@ RDS_REVIEW_STATUSES = {"SHUTDOWN", "STOPPED", "FAILED", "FROZEN", "ABNORMAL"}
 NAT_REVIEW_STATUSES = {"INACTIVE", "DOWN", "ERROR", "ABNORMAL"}
 SENSITIVE_INGRESS_PORTS = {22, 80, 443, 3000, 5000, 8000, 8080}
 PUBLIC_CIDRS = {"0.0.0.0/0", "::/0"}
+SCOPE_KEYS = {
+    "region": ("region", "cli_region", "region_id", "region_code"),
+    "project_id": ("project_id", "projectId", "project"),
+    "enterprise_project_id": ("enterprise_project_id", "enterpriseProjectId", "eps_id", "epsId"),
+}
+TAG_KEYS = ("tags", "resource_tags", "sys_tags")
 
 
 def load_json(path: Path) -> Any:
@@ -44,6 +50,46 @@ def first_value(resource: dict[str, Any], keys: tuple[str, ...]) -> str | None:
     return hcloud_resource_verify.first_value(resource, keys)
 
 
+def unknown_if_empty(value: Any) -> str:
+    """Return a normalized string or unknown."""
+    return normalize(value) or "unknown"
+
+
+def resource_scope(resource: dict[str, Any]) -> dict[str, str]:
+    """Return region/project/EPS scope from resource fields or inherited inventory scope."""
+    inherited = resource.get("_hcloud_scope") if isinstance(resource.get("_hcloud_scope"), dict) else {}
+    scope: dict[str, str] = {}
+    for key, field_names in SCOPE_KEYS.items():
+        value = first_value(resource, field_names)
+        if value is None:
+            value = normalize(inherited.get(key))
+        scope[key] = unknown_if_empty(value)
+    return scope
+
+
+def resource_tags(resource: dict[str, Any]) -> dict[str, Any] | str:
+    """Return compact tag evidence or unknown."""
+    for key in TAG_KEYS:
+        value = resource.get(key)
+        if isinstance(value, dict) and value:
+            return value
+        if isinstance(value, list) and value:
+            compact: dict[str, Any] = {}
+            for item in value:
+                if not isinstance(item, dict):
+                    continue
+                tag_key = item.get("key") or item.get("tag_key") or item.get("name")
+                tag_value = item.get("value") or item.get("tag_value")
+                if tag_key:
+                    compact[str(tag_key)] = tag_value
+            return compact or value[:5]
+    inherited = resource.get("_hcloud_scope") if isinstance(resource.get("_hcloud_scope"), dict) else {}
+    inherited_tags = inherited.get("tags")
+    if isinstance(inherited_tags, (dict, list)) and inherited_tags:
+        return inherited_tags
+    return "unknown"
+
+
 def candidate_base(
     service: str,
     resource: dict[str, Any],
@@ -60,6 +106,8 @@ def candidate_base(
         "id": hcloud_resource_verify.resource_id(resource),
         "name": hcloud_resource_verify.resource_name(resource),
         "status": hcloud_resource_verify.resource_status(resource),
+        "scope": resource_scope(resource),
+        "tags": resource_tags(resource),
         "reason": reason,
         "evidence": compact_evidence(resource),
         "destructive_action_allowed": False,
@@ -99,6 +147,10 @@ def compact_evidence(resource: dict[str, Any]) -> dict[str, Any]:
         "members",
         "backup_policy",
         "backup_strategy",
+        "region",
+        "project_id",
+        "enterprise_project_id",
+        "tags",
     )
     return {key: resource.get(key) for key in keys if key in resource}
 
@@ -317,7 +369,7 @@ RULES = {
 }
 
 
-def analyze_payload(service: str, payload: Any) -> list[dict[str, Any]]:
+def analyze_payload(service: str, payload: Any, scope: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Return idle-resource candidates from one service payload."""
     service = service.upper()
     rule = RULES.get(service)
@@ -325,22 +377,29 @@ def analyze_payload(service: str, payload: Any) -> list[dict[str, Any]]:
         return []
     candidates: list[dict[str, Any]] = []
     for resource in hcloud_resource_verify.collect_dicts(payload, service):
+        if scope:
+            resource = dict(resource)
+            resource["_hcloud_scope"] = scope
         candidates.extend(rule(resource))
     return candidates
 
 
-def audit_payloads(payloads: list[tuple[str, Any]]) -> dict[str, Any]:
+def audit_payloads(payloads: list[tuple[Any, ...]]) -> dict[str, Any]:
     """Return a conservative idle-candidate audit for service payloads."""
     candidates: list[dict[str, Any]] = []
     analyzed_services = set()
-    for service, payload in payloads:
-        service_key = service.upper()
+    for item in payloads:
+        service, payload = item[0], item[1]
+        scope = item[2] if len(item) > 2 and isinstance(item[2], dict) else None
+        service_key = str(service).upper()
         analyzed_services.add(service_key)
-        candidates.extend(analyze_payload(service_key, payload))
+        candidates.extend(analyze_payload(service_key, payload, scope))
 
     by_service = Counter(candidate["service"] for candidate in candidates)
     by_type = Counter(candidate["candidate_type"] for candidate in candidates)
     by_confidence = Counter(candidate["confidence"] for candidate in candidates)
+    by_region = Counter(candidate["scope"]["region"] for candidate in candidates)
+    by_enterprise_project = Counter(candidate["scope"]["enterprise_project_id"] for candidate in candidates)
     unsupported = sorted(analyzed_services - set(RULES))
     return {
         "success": True,
@@ -351,6 +410,8 @@ def audit_payloads(payloads: list[tuple[str, Any]]) -> dict[str, Any]:
             "by_service": dict(sorted(by_service.items())),
             "by_type": dict(sorted(by_type.items())),
             "by_confidence": dict(sorted(by_confidence.items())),
+            "by_region": dict(sorted(by_region.items())),
+            "by_enterprise_project": dict(sorted(by_enterprise_project.items())),
         },
         "candidates": candidates,
         "next_steps": [
@@ -373,9 +434,9 @@ def parse_service_path(value: str) -> tuple[str, Path]:
     return service, path
 
 
-def payloads_from_inventory(value: Any) -> list[tuple[str, Any]]:
+def payloads_from_inventory(value: Any) -> list[tuple[str, Any, dict[str, Any]]]:
     """Extract executed check payloads from hcloud_account_inventory output."""
-    payloads: list[tuple[str, Any]] = []
+    payloads: list[tuple[str, Any, dict[str, Any]]] = []
     if not isinstance(value, dict):
         return payloads
     for check in value.get("checks", []):
@@ -385,17 +446,18 @@ def payloads_from_inventory(value: Any) -> list[tuple[str, Any]]:
         plan = check.get("plan")
         if not service or not isinstance(plan, dict):
             continue
+        scope = check.get("scope") if isinstance(check.get("scope"), dict) else {}
         for result in plan.get("results", []):
             if isinstance(result, dict) and isinstance(result.get("result"), dict):
-                payloads.append((service, result["result"]))
+                payloads.append((service, result["result"], scope))
         if "result" in plan:
-            payloads.append((service, plan))
+            payloads.append((service, plan, scope))
     return payloads
 
 
-def load_payloads(args: argparse.Namespace) -> list[tuple[str, Any]]:
+def load_payloads(args: argparse.Namespace) -> list[tuple[Any, ...]]:
     """Load service payloads from CLI arguments."""
-    payloads: list[tuple[str, Any]] = []
+    payloads: list[tuple[Any, ...]] = []
     for item in args.input_json_file:
         service, path = parse_service_path(item)
         payloads.append((service, load_json(path)))

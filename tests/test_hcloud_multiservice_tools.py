@@ -45,6 +45,10 @@ hcloud_idle_audit = load_module("hcloud_idle_audit", SCRIPTS / "hcloud_idle_audi
 hcloud_observability_plan = load_module("hcloud_observability_plan", SCRIPTS / "hcloud_observability_plan.py")
 hcloud_billing_cost_probe = load_module("hcloud_billing_cost_probe", SCRIPTS / "hcloud_billing_cost_probe.py")
 hcloud_billing_readonly = load_module("hcloud_billing_readonly", SCRIPTS / "hcloud_billing_readonly.py")
+hcloud_billing_result_summarize = load_module(
+    "hcloud_billing_result_summarize",
+    SCRIPTS / "hcloud_billing_result_summarize.py",
+)
 hcloud_teardown_plan = load_module("hcloud_teardown_plan", SCRIPTS / "hcloud_teardown_plan.py")
 hcloud_ces_alarm_plan = load_module("hcloud_ces_alarm_plan", SCRIPTS / "hcloud_ces_alarm_plan.py")
 hcloud_lts_readonly = load_module("hcloud_lts_readonly", SCRIPTS / "hcloud_lts_readonly.py")
@@ -125,7 +129,9 @@ class MultiServiceToolsTest(unittest.TestCase):
         values = {
             "service": [],
             "region": "cn-north-4",
+            "region_file": None,
             "project_id": "project-1",
+            "enterprise_project_id": None,
             "profile": None,
             "limit": 10,
             "obs_endpoint": None,
@@ -168,6 +174,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         """Return default billing readonly planner args for unit tests."""
         values = {
             "operation": "monthly-sum",
+            "entry_point": None,
             "endpoint_base": hcloud_billing_readonly.DEFAULT_ENDPOINT_BASE,
             "language": "zh_CN",
             "bill_cycle": "2026-05",
@@ -344,6 +351,34 @@ class MultiServiceToolsTest(unittest.TestCase):
         obs_check = next(check for check in result["checks"] if check["service"] == "OBS")
         self.assertIn("--command-part=ls", obs_check["plan"]["command"])
 
+    def test_account_inventory_supports_multi_region_and_eps_scope(self) -> None:
+        result = hcloud_account_inventory.build_plan(
+            self.inventory_args(
+                service=["EIP"],
+                region=["cn-north-4", "cn-east-3"],
+                enterprise_project_id="eps-1",
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["regions"], ["cn-north-4", "cn-east-3"])
+        self.assertEqual(result["enterprise_project_id"], "eps-1")
+        self.assertEqual(result["summary"]["check_count"], 2)
+        self.assertEqual(result["summary"]["region_count"], 2)
+        self.assertEqual(result["summary"]["regions"], {"cn-east-3": 1, "cn-north-4": 1})
+        for check in result["checks"]:
+            self.assertEqual(check["scope"]["enterprise_project_id"], "eps-1")
+            self.assertEqual(check["enterprise_project_scope"]["requested"], True)
+            self.assertIn(
+                check["enterprise_project_scope"]["status"],
+                {"passed_to_command", "not_supported_by_operation"},
+            )
+            if check["enterprise_project_scope"]["status"] == "passed_to_command":
+                self.assertIn(
+                    "--arg=--enterprise_project_id=eps-1",
+                    check["plan"]["commands"][0]["command"],
+                )
+
     def test_account_inventory_filters_services(self) -> None:
         result = hcloud_account_inventory.build_plan(self.inventory_args(service=["EIP"]))
 
@@ -398,13 +433,20 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertTrue(result["success"], result)
         self.assertTrue(result["planning_only"])
-        self.assertFalse(result["execution_supported"])
+        self.assertTrue(result["execution_supported"])
         request = result["request_spec"]
         self.assertEqual(request["method"], "GET")
         self.assertEqual(request["path"], "/v2/bills/customer-bills/monthly-sum")
         self.assertEqual(request["query"]["bill_cycle"], "2026-05")
         self.assertIn("service_type_code=hws.service.type.ec2", request["url"])
         self.assertIsNone(request["body"])
+        command_plan = result["hcloud_command_plan"]
+        self.assertTrue(command_plan["supported"])
+        self.assertEqual(command_plan["operation"], "ShowCustomerMonthlySum")
+        self.assertIn("--arg=--cli-region=cn-north-1", command_plan["safe_exec_command"])
+        self.assertIn("--arg=--cli-lang=cn", command_plan["safe_exec_command"])
+        self.assertIn("--arg=--bill_cycle=2026-05", command_plan["safe_exec_command"])
+        self.assertFalse(result["pagination_scope"]["complete_result_claim_allowed"])
 
     def test_billing_readonly_builds_generated_cost_data_body(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
@@ -425,6 +467,30 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(request["body"]["time_condition"]["begin_time"], "2026-05-01")
         self.assertEqual(request["body"]["groupby"][1]["key"], "REGION")
         self.assertEqual(request["body"]["filters"][0]["filter_factor"]["value"], ["hws.service.type.ec2"])
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("--arg=--time_condition.begin_time=2026-05-01", command)
+        self.assertIn("--arg=--groupby.1.key=CLOUD_SERVICE_TYPE", command)
+        self.assertIn("--arg=--groupby.2.key=REGION", command)
+        self.assertIn("--arg=--filters.1.filter_factor.value.1=hws.service.type.ec2", command)
+
+    def test_billing_readonly_attaches_semantic_route(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                entry_point="monthly_spend",
+                operation="cost-data",
+                begin_time="2026-05-01",
+                end_time="2026-05-31",
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        route = result["semantic_route"]
+        self.assertEqual(route["entry_point"], "monthly_spend")
+        self.assertIn("CostAnalysis", route["ontology_entities"])
+        self.assertIn("BSS/ListCosts", route["source_operations"])
+        self.assertIn("BSS/ShowCustomerMonthlySum", route["source_operations"])
+        self.assertIn("cost-data", route["supported_planner_operations"])
+        self.assertEqual(result["bss_cli_defaults"], {"cli_region": "cn-north-1", "cli_lang": "cn"})
 
     def test_billing_readonly_accepts_explicit_json_body(self) -> None:
         body = {
@@ -440,12 +506,73 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["request_spec"]["path"], "/v2/bills/customer-bills/res-records/query")
         self.assertEqual(result["request_spec"]["body_source"], "body-json-text")
         self.assertEqual(result["request_spec"]["body"]["limit"], 3)
+        self.assertFalse(result["execution_supported"])
+        self.assertFalse(result["hcloud_command_plan"]["supported"])
+        self.assertIn("Explicit JSON bodies", result["hcloud_command_plan"]["blocked_reasons"][0])
 
     def test_billing_readonly_rejects_missing_cost_time_range(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(self.billing_readonly_args(operation="cost-data"))
 
         self.assertFalse(result["success"])
+        self.assertFalse(result["execution_supported"])
         self.assertIn("Missing required cost-data field", result["validation"]["errors"][0])
+
+    def test_billing_result_summary_redacts_protected_identifiers_by_default(self) -> None:
+        safe_exec_result = {
+            "service": "BSS",
+            "operation": "ShowCustomerMonthlySum",
+            "parsed_json": {
+                "total_count": 2,
+                "consume_amount": "123.45",
+                "currency": "CNY",
+                "bill_sums": [
+                    {
+                        "customer_id": "customer-123",
+                        "account_name": "finance-main",
+                        "resource_id": "server-1",
+                        "consume_amount": "100.00",
+                    }
+                ],
+            },
+        }
+
+        result = hcloud_billing_result_summarize.build_summary(safe_exec_result, offset=0, limit=1)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["source"], "safe_exec")
+        self.assertEqual(result["operation"], "ShowCustomerMonthlySum")
+        self.assertEqual(result["pagination"]["total_count"], 2)
+        self.assertFalse(result["pagination"]["complete_result_claim_allowed"])
+        self.assertNotIn("customer-123", json.dumps(result, ensure_ascii=False))
+        self.assertNotIn("server-1", json.dumps(result, ensure_ascii=False))
+        self.assertNotIn("redacted_records", result)
+
+    def test_billing_result_summary_can_include_redacted_records(self) -> None:
+        payload = {
+            "total_count": 1,
+            "cost_data": [
+                {
+                    "resource_id": "resource-abc",
+                    "order_id": "order-abc",
+                    "amount": "8.88",
+                }
+            ],
+        }
+
+        result = hcloud_billing_result_summarize.build_summary(
+            payload,
+            offset=0,
+            limit=10,
+            include_redacted_records=True,
+        )
+
+        self.assertTrue(result["success"], result)
+        text = json.dumps(result, ensure_ascii=False)
+        self.assertNotIn("resource-abc", text)
+        self.assertNotIn("order-abc", text)
+        self.assertIn("***:", text)
+        self.assertTrue(result["pagination"]["complete_result_claim_allowed"])
+        self.assertEqual(result["summary"]["record_lists"][0]["field"], "cost_data")
 
     def test_ces_alarm_plan_is_planner_only(self) -> None:
         result = hcloud_ces_alarm_plan.build_plan(self.ces_alarm_args())
@@ -457,6 +584,30 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertFalse(result["alarm_rule_planner"]["executable"])
         self.assertIsNone(result["alarm_rule_planner"]["submit_command"])
         self.assertEqual(result["alarm_rule_planner"]["rule_spec"]["metric_name"], "cpu_util")
+        guidance = result["alarm_rule_planner"]["metric_guidance"]
+        self.assertTrue(guidance["found"])
+        self.assertEqual(guidance["recommended_namespace"], "SYS.ECS")
+        self.assertFalse(guidance["agent_required"])
+
+    def test_ces_alarm_plan_warns_for_agent_memory_metric_alias(self) -> None:
+        result = hcloud_ces_alarm_plan.build_plan(
+            self.ces_alarm_args(
+                namespace="SYS.ECS",
+                metric_name="mem_used_percent",
+                alarm_name="memory-high",
+                threshold=85.0,
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        guidance = result["alarm_rule_planner"]["metric_guidance"]
+        self.assertTrue(guidance["found"])
+        self.assertEqual(guidance["recommended_namespace"], "AGT.ECS")
+        self.assertEqual(guidance["recommended_metric_name"], "mem_usedPercent")
+        self.assertTrue(guidance["canonical_name_used"])
+        self.assertTrue(guidance["agent_required"])
+        self.assertTrue(any("not available in SYS.ECS" in warning for warning in guidance["warnings"]))
+        self.assertTrue(any("Agent" in action for action in guidance["next_actions"]))
 
     def test_lts_readonly_builds_discovery_and_skips_log_query_without_params(self) -> None:
         result = hcloud_lts_readonly.build_plan(self.lts_args())
@@ -1659,11 +1810,46 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("EIP", result["summary"]["by_service"])
         self.assertIn("EVS", result["summary"]["by_service"])
 
+    def test_idle_audit_preserves_scope_and_tag_dimensions(self) -> None:
+        result = hcloud_idle_audit.audit_payloads(
+            [
+                (
+                    "EIP",
+                    {
+                        "publicips": [
+                            {
+                                "id": "eip-1",
+                                "status": "DOWN",
+                                "port_id": "",
+                                "region": "cn-north-4",
+                                "project_id": "project-1",
+                                "enterprise_project_id": "eps-1",
+                                "tags": [{"key": "owner", "value": "team-a"}],
+                            }
+                        ]
+                    },
+                )
+            ]
+        )
+
+        candidate = result["candidates"][0]
+        self.assertEqual(candidate["scope"]["region"], "cn-north-4")
+        self.assertEqual(candidate["scope"]["project_id"], "project-1")
+        self.assertEqual(candidate["scope"]["enterprise_project_id"], "eps-1")
+        self.assertEqual(candidate["tags"], {"owner": "team-a"})
+        self.assertEqual(result["summary"]["by_region"], {"cn-north-4": 1})
+        self.assertEqual(result["summary"]["by_enterprise_project"], {"eps-1": 1})
+
     def test_idle_audit_extracts_payloads_from_inventory_result(self) -> None:
         inventory = {
             "checks": [
                 {
                     "service": "EIP",
+                    "scope": {
+                        "region": "cn-north-4",
+                        "project_id": "project-1",
+                        "enterprise_project_id": "eps-1",
+                    },
                     "plan": {
                         "results": [
                             {
@@ -1688,6 +1874,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(len(payloads), 1)
         self.assertEqual(result["candidate_count"], 1)
         self.assertEqual(result["candidates"][0]["service"], "EIP")
+        self.assertEqual(result["candidates"][0]["scope"]["region"], "cn-north-4")
+        self.assertEqual(result["candidates"][0]["scope"]["enterprise_project_id"], "eps-1")
 
     def test_idle_audit_flags_security_group_elb_and_rds_risks(self) -> None:
         result = hcloud_idle_audit.audit_payloads(
@@ -2336,11 +2524,16 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual({spec["operation"] for spec in specs}, {"monthly-sum", "cost-data", "resource-records"})
         self.assertTrue(all(spec["success"] for spec in specs))
         evidence_plans = evidence["evidence_command_plans"]
-        self.assertEqual(evidence_plans["summary"]["planned_command_count"], 0)
-        self.assertIn("request specs only", evidence_plans["skipped_reason"])
+        self.assertEqual(evidence_plans["summary"]["planned_command_count"], 3)
+        self.assertEqual(len(evidence_plans["billing_hcloud_command_plans"]), 3)
+        self.assertIn("explicit live billing read approval", evidence_plans["execution_boundary"])
         risk = next(stage for stage in service["stages"] if stage["id"] == "risk_and_privacy_gate")
-        self.assertEqual(risk["risk_profiles"][0]["risk_profile"]["submit_policy"], "request_spec_only_no_credentials_no_http")
+        self.assertEqual(
+            risk["risk_profiles"][0]["risk_profile"]["submit_policy"],
+            "readonly_hcloud_plan_requires_live_billing_read_approval",
+        )
         self.assertTrue(all("requires_auth" in spec["request_spec"] for spec in specs))
+        self.assertTrue(all("hcloud_command_plan" in spec for spec in specs))
         promotion = next(stage for stage in service["stages"] if stage["id"] == "promotion_readiness")
         self.assertEqual(promotion["profiles"][0]["service"], "BSS")
 

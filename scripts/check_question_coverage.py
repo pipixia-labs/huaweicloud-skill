@@ -372,6 +372,7 @@ def analyze_validation_workbook(xlsx_path: Path, registry_path: Path = REGISTRY_
             "skipped": True,
             "xlsx_path": str(xlsx_path),
             "reason": "Workbook does not exist.",
+            "status_summary": {"passed": 0, "skipped": 1, "not_covered": 0},
         }
 
     registered_services = load_registry_services(registry_path)
@@ -396,6 +397,7 @@ def analyze_validation_workbook(xlsx_path: Path, registry_path: Path = REGISTRY_
             "skipped": False,
             "xlsx_path": str(xlsx_path),
             "schema_errors": [{"error": f"Cannot read workbook: {exc}"}],
+            "status_summary": {"passed": 0, "skipped": 0, "not_covered": 1},
         }
 
     for sheet_name, rows in workbook.items():
@@ -484,10 +486,22 @@ def analyze_validation_workbook(xlsx_path: Path, registry_path: Path = REGISTRY_
                     }
                 )
 
+    passed_count = sum(executable_paths.values())
+    not_covered_count = (
+        len(unregistered_operations)
+        + sum(unregistered_services.values())
+        + len(execution_path_errors)
+    )
+
     return {
         "success": not schema_errors and not execution_path_errors,
         "skipped": False,
         "xlsx_path": str(xlsx_path),
+        "status_summary": {
+            "passed": passed_count,
+            "skipped": 0,
+            "not_covered": not_covered_count,
+        },
         "sheet_count": len(workbook),
         "record_count": len(records),
         "schema_errors": schema_errors,

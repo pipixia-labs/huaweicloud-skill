@@ -14,7 +14,13 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError as exc:
+    Image = None
+    PIL_IMPORT_ERROR = exc
+else:
+    PIL_IMPORT_ERROR = None
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +62,7 @@ class FakeHTTPResponse:
         return self.body
 
 
+@unittest.skipIf(Image is None, f"Pillow is required for image fixture tests: {PIL_IMPORT_ERROR}")
 class QwenTextToImageTest(unittest.TestCase):
     def run_main_silenced(self, args: list[str]) -> int:
         with io.StringIO() as stdout, io.StringIO() as stderr:

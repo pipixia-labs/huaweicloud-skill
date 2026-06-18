@@ -34,6 +34,10 @@ REQUIRED_PATHS: tuple[tuple[str | int, ...], ...] = (
     ("body", "server", "root_volume", "volumetype"),
     ("body", "server", "count"),
 )
+SECURITY_GROUP_EVIDENCE_ERROR = (
+    "Existing ECS security group reference requires rule evidence: provide "
+    "--security-group-evidence-file from VPC ListSecurityGroupRules or ShowSecurityGroup before submit."
+)
 
 
 def format_path(path: tuple[str | int, ...]) -> str:
@@ -109,11 +113,114 @@ def detect_credential_mode(data: Any) -> str:
     return "missing"
 
 
+def referenced_security_group_ids(data: Any) -> list[str]:
+    """Return security group IDs referenced by an ECS create payload."""
+    exists, security_groups = get_path_value(data, ("body", "server", "security_groups"))
+    if not exists or not isinstance(security_groups, list):
+        return []
+    ids: list[str] = []
+    for item in security_groups:
+        if not isinstance(item, dict):
+            continue
+        group_id = item.get("id")
+        if isinstance(group_id, str) and group_id.strip():
+            ids.append(group_id.strip())
+    return ids
+
+
+def security_group_rule_candidates(data: Any) -> list[dict[str, Any]]:
+    """Return rule-like objects from security group readback evidence."""
+    import hcloud_security_policy
+
+    rule_markers = {
+        "direction",
+        "ethertype",
+        "protocol",
+        "remote_group_id",
+        "remote_ip_prefix",
+        "security_group_rule_id",
+        "port_range_min",
+        "port_range_max",
+        "multiport",
+    }
+    rules: list[dict[str, Any]] = []
+    for path, fields in hcloud_security_policy.iter_dict_candidates(data):
+        normalized_fields = {hcloud_security_policy.normalize_key(key): value for key, value in fields.items()}
+        if not set(normalized_fields).intersection(rule_markers):
+            continue
+        if not set(normalized_fields).intersection({"direction", "remote_ip_prefix", "remote_group_id", "protocol", "ethertype"}):
+            continue
+        rules.append(
+            {
+                "path": format_path(path),
+                "id": normalized_fields.get("id") or normalized_fields.get("security_group_rule_id"),
+                "security_group_id": normalized_fields.get("security_group_id"),
+                "direction": normalized_fields.get("direction"),
+                "protocol": normalized_fields.get("protocol"),
+                "remote_ip_prefix": normalized_fields.get("remote_ip_prefix"),
+                "port_range_min": normalized_fields.get("port_range_min"),
+                "port_range_max": normalized_fields.get("port_range_max"),
+            }
+        )
+    return rules
+
+
+def validate_security_group_rule_evidence(
+    data: Any,
+    evidence: Any | None,
+    source: str | None,
+) -> dict[str, Any]:
+    """Validate that referenced existing security groups have readback rule evidence."""
+    security_group_ids = referenced_security_group_ids(data)
+    summary: dict[str, Any] = {
+        "required": bool(security_group_ids),
+        "provided": evidence is not None,
+        "source": source,
+        "security_group_ids": security_group_ids,
+        "rule_count": 0,
+        "rules_sample": [],
+        "errors": [],
+    }
+    if not security_group_ids:
+        return summary
+    if evidence is None:
+        summary["errors"].append(SECURITY_GROUP_EVIDENCE_ERROR)
+        return summary
+
+    evidence_text = json.dumps(evidence, ensure_ascii=False, sort_keys=True)
+    missing_mentions = [group_id for group_id in security_group_ids if group_id not in evidence_text]
+    if missing_mentions:
+        summary["errors"].append(
+            "Security group rule evidence does not mention referenced security group ID(s): "
+            + ", ".join(missing_mentions)
+        )
+
+    rules = security_group_rule_candidates(evidence)
+    summary["rule_count"] = len(rules)
+    summary["rules_sample"] = rules[:10]
+    if not rules:
+        summary["errors"].append(SECURITY_GROUP_EVIDENCE_ERROR)
+    return summary
+
+
+def read_optional_json(path: str | None) -> tuple[Any | None, list[str]]:
+    """Read an optional JSON artifact and return non-fatal validation errors."""
+    if not path:
+        return None, []
+    try:
+        return hcloud_common.load_json(Path(path)), []
+    except FileNotFoundError:
+        return None, [f"Security group evidence file not found: {path}"]
+    except json.JSONDecodeError as exc:
+        return None, [f"Invalid security group evidence JSON file: {exc}"]
+
+
 def validate_payload(
     data: Any,
     allow_placeholders: bool = False,
     max_count: int = DEFAULT_SAFE_MAX_COUNT,
     allow_large_count: bool = False,
+    security_group_evidence: Any | None = None,
 ) -> dict[str, Any]:
     """Validate an ECS create cli-jsonInput payload without calling Huawei Cloud."""
     import hcloud_security_policy
@@ -129,6 +236,15 @@ def validate_payload(
             "unresolved_placeholders": [],
             "credential_mode": "invalid",
             "policy_violations": [],
+            "security_group_rule_evidence": {
+                "required": False,
+                "provided": False,
+                "source": None,
+                "security_group_ids": [],
+                "rule_count": 0,
+                "rules_sample": [],
+                "errors": [],
+            },
         }
 
     for path in REQUIRED_PATHS:
@@ -177,6 +293,22 @@ def validate_payload(
             "No body.server.security_groups[0].id found. Huawei Cloud may bind the default security group, "
             "but network exposure rules should be reviewed before submit."
         )
+    inline_security_group_rules = security_group_rule_candidates(data)
+    effective_security_group_evidence = security_group_evidence
+    evidence_source = "security_group_evidence_file" if security_group_evidence is not None else None
+    if effective_security_group_evidence is None and inline_security_group_rules:
+        effective_security_group_evidence = data
+        evidence_source = "inline_payload"
+        warnings.append(
+            "Security group rule evidence was found inline in the ECS JSON. Prefer --security-group-evidence-file "
+            "so local evidence does not get mixed into the cli-jsonInput body."
+        )
+    security_group_rule_evidence = validate_security_group_rule_evidence(
+        data,
+        effective_security_group_evidence,
+        evidence_source,
+    )
+    errors.extend(security_group_rule_evidence["errors"])
 
     exists, data_volumes = get_path_value(data, ("body", "server", "data_volumes"))
     if exists:
@@ -203,6 +335,8 @@ def validate_payload(
         errors.append("body.server.publicip must be an object when present.")
 
     policy_violations = hcloud_security_policy.check_json_payload(data)
+    if security_group_evidence is not None:
+        policy_violations.extend(hcloud_security_policy.check_json_payload(security_group_evidence))
     for violation in policy_violations:
         errors.append(f"Security group policy violation at {violation['path']}: {violation['message']}")
 
@@ -213,6 +347,7 @@ def validate_payload(
         "unresolved_placeholders": placeholders,
         "credential_mode": credential_mode if isinstance(data, dict) else "invalid",
         "policy_violations": policy_violations,
+        "security_group_rule_evidence": security_group_rule_evidence,
     }
 
 
@@ -299,12 +434,19 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
 
     try:
         payload = hcloud_common.load_json(json_input_file)
+        security_group_evidence, evidence_errors = read_optional_json(
+            getattr(args, "security_group_evidence_file", None)
+        )
         validation = validate_payload(
             payload,
             allow_placeholders=args.allow_placeholders,
             max_count=getattr(args, "max_count", DEFAULT_SAFE_MAX_COUNT),
             allow_large_count=getattr(args, "allow_large_count", False),
+            security_group_evidence=security_group_evidence,
         )
+        if evidence_errors:
+            validation["errors"].extend(evidence_errors)
+            validation["valid"] = False
     except FileNotFoundError:
         validation = {
             "valid": False,
@@ -312,6 +454,15 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
             "warnings": [],
             "unresolved_placeholders": [],
             "policy_violations": [],
+            "security_group_rule_evidence": {
+                "required": False,
+                "provided": False,
+                "source": None,
+                "security_group_ids": [],
+                "rule_count": 0,
+                "rules_sample": [],
+                "errors": [],
+            },
         }
     except json.JSONDecodeError as exc:
         validation = {
@@ -320,6 +471,15 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
             "warnings": [],
             "unresolved_placeholders": [],
             "policy_violations": [],
+            "security_group_rule_evidence": {
+                "required": False,
+                "provided": False,
+                "source": None,
+                "security_group_ids": [],
+                "rule_count": 0,
+                "rules_sample": [],
+                "errors": [],
+            },
         }
 
     all_errors = errors + validation["errors"]
@@ -407,6 +567,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print the JSON result.")
     parser.add_argument("--journal", help="Optional JSONL journal path for validation/command-plan events.")
+    parser.add_argument(
+        "--security-group-evidence-file",
+        help="JSON readback evidence from VPC ListSecurityGroupRules or ShowSecurityGroup for referenced security groups.",
+    )
     args = parser.parse_args()
     if args.max_count < 1:
         parser.error("--max-count must be at least 1.")

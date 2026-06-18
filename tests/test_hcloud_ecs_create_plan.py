@@ -39,6 +39,39 @@ def minimal_payload() -> dict:
     }
 
 
+def security_group_evidence(remote_ip_prefix: str = "203.0.113.10/32", port: int = 22) -> dict:
+    """Return readback evidence for the security group referenced by minimal_payload."""
+    return {
+        "security_group": {
+            "id": "sg-1",
+            "security_group_rules": [
+                {
+                    "id": "rule-1",
+                    "security_group_id": "sg-1",
+                    "direction": "ingress",
+                    "protocol": "tcp",
+                    "remote_ip_prefix": remote_ip_prefix,
+                    "port_range_min": port,
+                    "port_range_max": port,
+                }
+            ],
+        }
+    }
+
+
+def write_security_group_evidence(directory: Path, evidence: dict | None = None) -> str:
+    """Write security group readback evidence and return its path."""
+    path = directory / "security-group-evidence.json"
+    path.write_text(json.dumps(evidence or security_group_evidence()), encoding="utf-8")
+    return str(path)
+
+
+def validate_payload(payload: dict, **kwargs) -> dict:
+    """Validate a payload with default security group evidence for unit tests."""
+    kwargs.setdefault("security_group_evidence", security_group_evidence())
+    return hcloud_ecs_create_plan.validate_payload(payload, **kwargs)
+
+
 class EcsCreatePlanTest(unittest.TestCase):
     """Validate ECS create planner behavior without calling hcloud."""
 
@@ -46,7 +79,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload = minimal_payload()
         payload["path"]["project_id"] = "<project_id>"
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertFalse(validation["valid"])
         self.assertIn(
@@ -55,15 +88,25 @@ class EcsCreatePlanTest(unittest.TestCase):
         )
 
     def test_validate_payload_accepts_complete_minimal_payload(self) -> None:
-        validation = hcloud_ecs_create_plan.validate_payload(minimal_payload())
+        validation = validate_payload(minimal_payload())
 
         self.assertTrue(validation["valid"])
         self.assertEqual(validation["errors"], [])
+        self.assertEqual(validation["security_group_rule_evidence"]["rule_count"], 1)
+
+    def test_validate_payload_rejects_referenced_security_group_without_rule_evidence(self) -> None:
+        validation = hcloud_ecs_create_plan.validate_payload(minimal_payload())
+
+        self.assertFalse(validation["valid"])
+        self.assertIn(hcloud_ecs_create_plan.SECURITY_GROUP_EVIDENCE_ERROR, validation["errors"])
+        self.assertTrue(validation["security_group_rule_evidence"]["required"])
+        self.assertFalse(validation["security_group_rule_evidence"]["provided"])
 
     def test_build_result_generates_dryrun_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "ecs.json"
             path.write_text(json.dumps(minimal_payload()), encoding="utf-8")
+            tmp_path = Path(tmp_dir)
             args = SimpleNamespace(
                 json_input_file=str(path),
                 operation="CreateServers",
@@ -74,6 +117,7 @@ class EcsCreatePlanTest(unittest.TestCase):
                 allow_placeholders=False,
                 max_count=10,
                 allow_large_count=False,
+                security_group_evidence_file=write_security_group_evidence(tmp_path),
             )
 
             result = hcloud_ecs_create_plan.build_result(args)
@@ -93,6 +137,7 @@ class EcsCreatePlanTest(unittest.TestCase):
             path = Path(tmp_dir) / "ecs.json"
             journal = Path(tmp_dir) / "journal.jsonl"
             path.write_text(json.dumps(payload), encoding="utf-8")
+            tmp_path = Path(tmp_dir)
             args = SimpleNamespace(
                 json_input_file=str(path),
                 operation="CreateServers",
@@ -104,6 +149,7 @@ class EcsCreatePlanTest(unittest.TestCase):
                 max_count=10,
                 allow_large_count=False,
                 journal=str(journal),
+                security_group_evidence_file=write_security_group_evidence(tmp_path),
             )
 
             result = hcloud_ecs_create_plan.build_result(args)
@@ -119,6 +165,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "ecs.json"
             path.write_text(json.dumps(minimal_payload()), encoding="utf-8")
+            tmp_path = Path(tmp_dir)
             args = SimpleNamespace(
                 json_input_file=str(path),
                 operation="CreateServers",
@@ -129,6 +176,7 @@ class EcsCreatePlanTest(unittest.TestCase):
                 allow_placeholders=False,
                 max_count=10,
                 allow_large_count=False,
+                security_group_evidence_file=write_security_group_evidence(tmp_path),
             )
 
             result = hcloud_ecs_create_plan.build_result(args)
@@ -142,6 +190,7 @@ class EcsCreatePlanTest(unittest.TestCase):
             payload["path"]["project_id"] = "<project_id>"
             path = Path(tmp_dir) / "ecs.json"
             path.write_text(json.dumps(payload), encoding="utf-8")
+            tmp_path = Path(tmp_dir)
             args = SimpleNamespace(
                 json_input_file=str(path),
                 operation="CreateServers",
@@ -152,6 +201,7 @@ class EcsCreatePlanTest(unittest.TestCase):
                 allow_placeholders=True,
                 max_count=10,
                 allow_large_count=False,
+                security_group_evidence_file=write_security_group_evidence(tmp_path),
             )
 
             result = hcloud_ecs_create_plan.build_result(args)
@@ -164,7 +214,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload = minimal_payload()
         payload["body"]["server"]["name"] = "ecs-<env>"
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertFalse(validation["valid"])
         self.assertIn("Unresolved placeholder at body.server.name: ecs-<env>", validation["errors"])
@@ -173,7 +223,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload = minimal_payload()
         payload["body"]["server"]["count"] = 11
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertFalse(validation["valid"])
         self.assertIn(
@@ -186,7 +236,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload = minimal_payload()
         payload["body"]["server"]["count"] = 11
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload, allow_large_count=True)
+        validation = validate_payload(payload, allow_large_count=True)
 
         self.assertTrue(validation["valid"])
 
@@ -195,7 +245,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload["body"]["server"].pop("key_name")
         payload["body"]["server"]["adminPass"] = "password-value"
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertTrue(validation["valid"])
         self.assertEqual(validation["credential_mode"], "password")
@@ -208,7 +258,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload = minimal_payload()
         payload["body"]["server"].pop("key_name")
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertFalse(validation["valid"])
         self.assertEqual(validation["credential_mode"], "missing")
@@ -221,7 +271,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload = minimal_payload()
         payload["body"]["server"]["adminPass"] = "password-value"
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertFalse(validation["valid"])
         self.assertEqual(validation["credential_mode"], "conflict")
@@ -234,6 +284,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "ecs.json"
             path.write_text(json.dumps(minimal_payload()), encoding="utf-8")
+            tmp_path = Path(tmp_dir)
             args = SimpleNamespace(
                 json_input_file=str(path),
                 operation="CreateServers",
@@ -244,6 +295,7 @@ class EcsCreatePlanTest(unittest.TestCase):
                 allow_placeholders=False,
                 max_count=10,
                 allow_large_count=False,
+                security_group_evidence_file=write_security_group_evidence(tmp_path),
             )
 
             result = hcloud_ecs_create_plan.build_result(args)
@@ -259,7 +311,7 @@ class EcsCreatePlanTest(unittest.TestCase):
         payload = minimal_payload()
         payload["body"]["server"].pop("security_groups")
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertTrue(validation["valid"])
         self.assertIn(
@@ -280,7 +332,7 @@ class EcsCreatePlanTest(unittest.TestCase):
             }
         ]
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertFalse(validation["valid"])
         self.assertEqual(validation["policy_violations"][0]["code"], "unrestricted_sensitive_ingress_port")
@@ -302,10 +354,19 @@ class EcsCreatePlanTest(unittest.TestCase):
             }
         ]
 
-        validation = hcloud_ecs_create_plan.validate_payload(payload)
+        validation = validate_payload(payload)
 
         self.assertTrue(validation["valid"], validation)
         self.assertEqual(validation["policy_violations"], [])
+
+    def test_validate_payload_rejects_unrestricted_rule_in_external_security_group_evidence(self) -> None:
+        validation = hcloud_ecs_create_plan.validate_payload(
+            minimal_payload(),
+            security_group_evidence=security_group_evidence(remote_ip_prefix="0.0.0.0/0", port=80),
+        )
+
+        self.assertFalse(validation["valid"])
+        self.assertEqual(validation["policy_violations"][0]["code"], "unrestricted_sensitive_ingress_port")
 
 
 if __name__ == "__main__":

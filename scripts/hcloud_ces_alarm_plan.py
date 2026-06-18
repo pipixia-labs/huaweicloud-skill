@@ -11,6 +11,97 @@ import hcloud_common
 import hcloud_resource_discovery
 
 
+METRIC_GUIDANCE_PATH = hcloud_common.REFERENCES_DIR / "observability" / "ces-ecs-metric-guidance.json"
+
+
+def load_metric_guidance(path=METRIC_GUIDANCE_PATH) -> dict[str, Any]:
+    """Load compact CES metric guidance."""
+    if not path.exists():
+        return {"schema_version": 1, "namespaces": {}}
+    return hcloud_common.load_json(path)
+
+
+def find_metric_guidance(
+    namespace: str | None,
+    metric_name: str | None,
+    catalog: dict[str, Any] | None = None,
+) -> tuple[str | None, str | None, dict[str, Any] | None, bool]:
+    """Find metric guidance by exact name or alias."""
+    if not namespace or not metric_name:
+        return None, None, None, False
+    catalog = catalog or load_metric_guidance()
+    namespaces = catalog.get("namespaces", {})
+    requested_namespace = namespace.strip()
+    requested_metric = metric_name.strip()
+    requested_namespace_info = namespaces.get(requested_namespace, {})
+    requested_metrics = requested_namespace_info.get("metrics", {})
+    if requested_metric in requested_metrics:
+        return requested_namespace, requested_metric, requested_metrics[requested_metric], False
+
+    for namespace_name, namespace_info in namespaces.items():
+        metrics = namespace_info.get("metrics", {})
+        if requested_metric in metrics:
+            return namespace_name, requested_metric, metrics[requested_metric], False
+        for canonical_name, metric_info in metrics.items():
+            aliases = {str(alias) for alias in metric_info.get("aliases", [])}
+            if requested_metric in aliases:
+                return namespace_name, canonical_name, metric_info, True
+    return None, None, None, False
+
+
+def metric_guidance(args: argparse.Namespace) -> dict[str, Any] | None:
+    """Return metric namespace, Agent, and period guidance for a draft alarm."""
+    if not args.namespace or not args.metric_name:
+        return None
+    catalog = load_metric_guidance()
+    namespaces = catalog.get("namespaces", {})
+    recommended_namespace, recommended_metric, metric_info, alias_match = find_metric_guidance(
+        args.namespace,
+        args.metric_name,
+        catalog,
+    )
+    namespace_info = namespaces.get(recommended_namespace or args.namespace, {})
+    min_period = namespace_info.get("min_period")
+    warnings: list[str] = []
+    next_actions: list[str] = []
+
+    if not metric_info:
+        warnings.append("Metric is not present in the compact ECS CES guidance; run ListMetrics before using it.")
+    if alias_match and recommended_metric:
+        warnings.append(f"Metric name looks like an alias; prefer canonical metric name {recommended_metric}.")
+    if recommended_namespace and recommended_namespace != args.namespace:
+        warnings.append(
+            f"Metric {args.metric_name} is not available in {args.namespace}; use {recommended_namespace} or choose a metric from ListMetrics."
+        )
+    if min_period and args.period < int(min_period):
+        warnings.append(f"Requested period {args.period} is below the minimum period {min_period} for {recommended_namespace}.")
+    if namespace_info.get("agent_required"):
+        next_actions.extend(
+            [
+                "Verify the host monitoring Agent is installed and reporting before creating the alarm.",
+                "If Agent cannot be installed, choose a SYS.ECS metric such as cpu_util or another metric returned by ListMetrics.",
+            ]
+        )
+
+    return {
+        "requested_namespace": args.namespace,
+        "requested_metric_name": args.metric_name,
+        "found": bool(metric_info),
+        "recommended_namespace": recommended_namespace,
+        "recommended_metric_name": recommended_metric,
+        "canonical_name_used": bool(alias_match),
+        "agent_required": bool(namespace_info.get("agent_required")),
+        "min_period": min_period,
+        "default_dimensions": metric_info.get("default_dimensions") if metric_info else namespace_info.get("default_dimensions", []),
+        "fallback": metric_info.get("fallback") if metric_info else None,
+        "caveats": metric_info.get("caveats", []) if metric_info else [],
+        "namespace_notes": namespace_info.get("notes", []),
+        "warnings": warnings,
+        "next_actions": next_actions,
+        "source_assets": catalog.get("source_assets", []),
+    }
+
+
 def discovery_args(args: argparse.Namespace, operation: str) -> SimpleNamespace:
     """Return read-only CES discovery arguments."""
     return SimpleNamespace(
@@ -56,6 +147,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     """Build a CES alarm readiness and planner-only rule plan."""
     metric_plan = build_readonly_plan(args, "ListMetrics")
     alarm_plan = build_readonly_plan(args, "ListAlarmRules")
+    guidance = metric_guidance(args)
     missing = [
         name
         for name in ("alarm_name", "namespace", "metric_name", "threshold")
@@ -75,6 +167,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "rule_spec": rule_spec,
             "executable": False,
             "submit_command": None,
+            "metric_guidance": guidance,
             "risk": {
                 "level": "medium",
                 "reason": "Alarm rule changes can affect notification noise and incident handling; this planner never submits changes.",

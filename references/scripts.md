@@ -8,6 +8,12 @@ Most command-line scripts use `scripts/hcloud_common.py` for repository paths, r
 
 `hcloud_safe_exec.py` still exports the redaction helpers for compatibility, but the implementation lives in `hcloud_common.py`. Use `hcloud_common.redact_*` in new code.
 
+## Script Audience Manifest
+
+Use `references/script-audience-manifest.json` during maintenance or upgrade review to decide whether a script is a normal runtime entry point, a guarded-change tool, a runtime supplement, a maintenance/regression utility, an internal library, or a compatibility shim. v0.6 documents these boundaries without physically merging scripts.
+
+Do not treat file count alone as a reason to merge tools. Merge candidates should wait for a separately scoped v0.6.x change when the target wrapper, tests, compatibility behavior, and safety boundaries are clear.
+
 ## Context And Metadata
 
 ### Context Inspection
@@ -18,6 +24,25 @@ python3 scripts/hcloud_context_inspect.py --pretty
 
 Use this first for real cloud tasks. It reports whether `hcloud` exists, active profile hints, configured region/project/domain values, and local metadata cache status. If `hcloud.found=false`, stop real cloud execution and direct the user to install KooCLI from Huawei Cloud's quickstart documentation.
 
+### Environment Doctor
+
+```bash
+python3 scripts/hcloud_environment_doctor.py --pretty
+```
+
+Use this when the user asks about installation, local setup, credential readiness, Terraform readiness, SDK availability, obsutil setup, or MaaS image generation prerequisites. It is check-only: it does not install packages, modify credentials, write config, run `terraform init/plan/apply`, or call Huawei Cloud APIs.
+
+Mark task-specific requirements so optional tools become blockers only when needed:
+
+```bash
+python3 scripts/hcloud_environment_doctor.py \
+  --need terraform \
+  --need obsutil \
+  --pretty
+```
+
+The output separates required blockers from optional missing tools and includes copyable install/check commands. Use `hcloud_context_inspect.py` for deeper hcloud metadata details and `hcloud_terraform_context_inspect.py` for deeper Terraform cache/provider details.
+
 ### Scenario Router
 
 ```bash
@@ -26,7 +51,7 @@ python3 scripts/hcloud_scenario_router.py \
   --pretty
 ```
 
-Use this before deep execution when the user describes a broad cloud goal. It maps natural language to local playbooks, service guides, planners, SDK supplements, and Terraform candidates. The router is local and planner-only: it does not install official skills, execute hcloud, call SDK APIs, or create Terraform files.
+Use this before deep execution when the user describes a broad cloud goal. It maps natural language to local playbooks, service guides, planners, SDK supplements, and Terraform candidates. The router also expands compact Chinese service aliases from `references/service-aliases.json`, for example `云耀云` -> `FLEXUS-L` and `云监控` -> `CES`. The router is local and planner-only: it does not install official skills, execute hcloud, call SDK APIs, or create Terraform files.
 
 You can pass a service/category hint when the user's wording is short:
 
@@ -102,9 +127,13 @@ Use this during maintenance after changing `examples/terraform/` or `references/
 ```bash
 python3 scripts/hcloud_terraform_provider_inventory.py --write --pretty
 python3 scripts/hcloud_terraform_provider_inventory.py --fail-on-drift --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py \
+  --signal-kind resources \
+  --signal-name rds_instance \
+  --pretty
 ```
 
-Use this during maintenance after updating the local `reference-projects/terraform-provider-huaweicloud` checkout. It rebuilds provider resource/data-source inventories from `docs/resources` and `docs/data-sources`, records the local changelog snapshot, and detects inventory drift. These inventories are coverage indexes only; they do not grant execution permission.
+Use this during maintenance after updating the local `reference-projects/terraform-provider-huaweicloud` checkout. It rebuilds provider resource/data-source inventories from `docs/resources` and `docs/data-sources`, records the local changelog snapshot, and detects inventory drift. `--signal-kind/--signal-name` reads the provider Markdown for one resource or data source and returns docs-first ForceNew, Import, and sensitive-field hints. These inventories and signals are review aids only; they do not grant execution permission and must not run `terraform import` or `terraform apply`.
 
 ### Terraform Workflow Reference
 
@@ -162,6 +191,8 @@ python3 scripts/hcloud_safe_exec.py \
 
 Use this for real `hcloud` calls instead of raw shell execution when possible. It redacts sensitive command/stdout/stderr/JSON fields, parses JSON, classifies common errors, and returns `error_details` for auth, region/project, permission, quota, parameter, not found, and network failures.
 
+For permission failures, `error_details.permission_hint` may include best-effort action hints from `references/iam-actions-catalog.json`. Treat those hints as a review checklist: exact IAM policy syntax, enterprise-project scope, agency trust, service enablement, SCP/custom deny rules, and tenant-side role design still need verification before asking the user to change permissions.
+
 For KooCLI system commands:
 
 ```bash
@@ -212,6 +243,8 @@ python3 scripts/hcloud_account_inventory.py \
 
 Use this for a read-only account inventory plan across core services such as ECS, VPC, EIP, ELB, EVS, NAT, RDS, CCE, CDN, DNS, SCM, and OBS. Default mode only builds commands. Add `--execute` only after read-only collection is approved.
 
+Use repeated `--region` or `--region-file` for cross-region reviews, and `--enterprise-project-id` when the tenant needs EPS-scoped inventory. EPS is appended only when the operation metadata supports `enterprise_project_id`; unsupported operations keep the scope visible instead of pretending it was applied.
+
 ```bash
 python3 scripts/hcloud_account_inventory.py \
   --service EIP \
@@ -223,6 +256,8 @@ python3 scripts/hcloud_account_inventory.py \
 ```
 
 Save executed JSON output when you need follow-up idle-resource analysis.
+
+`hcloud_idle_audit.py` preserves region, project, enterprise-project, and tag dimensions from inventory output so idle candidates can be reviewed by owner/scope before any release, delete, stop, or downsize discussion.
 
 ### Idle Candidate Audit
 
@@ -282,7 +317,7 @@ python3 scripts/hcloud_ces_alarm_plan.py \
   --pretty
 ```
 
-Use this to discover CES metrics and existing alarm rules, then draft an alarm rule spec. The result is planner-only: it does not create or update CES alarms.
+Use this to discover CES metrics and existing alarm rules, then draft an alarm rule spec. The result includes `metric_guidance` from `references/observability/ces-ecs-metric-guidance.json`, including SYS.ECS vs AGT.ECS, minimum period, Agent requirement, canonical metric-name hints, and known caveats. The result is planner-only: it does not create or update CES alarms.
 
 ### LTS Read-Only Logs
 
@@ -314,6 +349,7 @@ In v0.3.1, the generated catalog can discover `BSS` from merged local metadata. 
 
 ```bash
 python3 scripts/hcloud_billing_readonly.py \
+  --entry-point monthly_spend \
   --operation monthly-sum \
   --bill-cycle 2026-05 \
   --service-type-code hws.service.type.ec2 \
@@ -322,6 +358,7 @@ python3 scripts/hcloud_billing_readonly.py \
 
 ```bash
 python3 scripts/hcloud_billing_readonly.py \
+  --entry-point monthly_spend \
   --operation cost-data \
   --begin-time 2026-05-01 \
   --end-time 2026-05-31 \
@@ -329,7 +366,21 @@ python3 scripts/hcloud_billing_readonly.py \
   --pretty
 ```
 
-Use this to build a planner-only request spec for official Huawei Cloud Billing/Cost APIs such as monthly bill summary, cost analysis, and resource records. The script does not sign requests, accept credentials, or send HTTP traffic. Execute the generated spec only through a reviewed signed-request runner, Huawei Cloud SDK, or API Explorer after the user confirms account scope, time range, enterprise project scope, and permission boundary.
+Use this to build a planner-only request spec and a reviewed `hcloud_command_plan.safe_exec_command` for official Huawei Cloud Billing/Cost APIs such as monthly bill summary, cost analysis, and resource records. `--entry-point` attaches the local billing semantic catalog from `references/billing/semantic-catalog.json`, including scope/time/money basis, ontology entities, source operations, and currently supported planner operations. BSS hcloud command plans always fix `--cli-region=cn-north-1` and `--cli-lang=cn`; do not replace those values with the user's normal project region.
+
+The script does not sign requests, accept credentials, send HTTP traffic, or execute hcloud by default. Run the generated safe_exec command only after the user confirms account scope, time range, enterprise project scope, permission boundary, and raw-output handling. Treat `pagination_scope.complete_result_claim_allowed=false` as a hard reminder that one page cannot support full-account conclusions.
+
+### Billing Result Summarizer
+
+```bash
+python3 scripts/hcloud_billing_result_summarize.py \
+  --json-file <saved-safe-exec-result.json> \
+  --offset 0 \
+  --limit 10 \
+  --pretty
+```
+
+Use this after an approved BSS safe_exec read. The summarizer accepts either a full `hcloud_safe_exec.py` result JSON or a direct BSS payload. By default it returns only field/record counts, money-field presence, pagination completeness, and redaction metadata. Add `--include-redacted-records` only when row-level evidence is needed; protected identifiers such as account/customer/resource/order/coupon IDs are replaced with stable hash markers.
 
 ### Explicit Resource Query
 
@@ -423,7 +474,7 @@ python3 scripts/hcloud_governance_closure_plan.py \
 
 Use this when the user asks for a P1 governance closure plan instead of a single governance command. The default service set is TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo. The planner returns five stages: governance scope, read-only evidence, risk/privacy gate, review plan, and promotion readiness. The read-only evidence stage includes generated evidence command plans for supported non-billing services and missing target-parameter gaps for target-scoped queries.
 
-The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and keeps credentials outside the planner; it deliberately does not generate live `hcloud BSS` query commands. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
+The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and reviewed hcloud command plans while keeping credentials outside the planner. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
 
 ### P2 Scenario Closure Plan
 
@@ -602,16 +653,18 @@ Use for OBS bucket, lifecycle, and policy changes. It produces planner-only comm
 ```bash
 python3 scripts/hcloud_ecs_create_plan.py \
   --json-input-file=<path-to-filled-json> \
+  --security-group-evidence-file=<list-security-group-rules-or-show-security-group-json> \
   --operation=CreateServers \
   --region=cn-north-4 \
   --pretty
 ```
 
-Use before ECS creation. It blocks placeholders, missing required fields, unsafe security-group ingress, and missing login credential choices. Default mode generates a dry-run safe-exec command. To generate a non-dry-run submit command, require:
+Use before ECS creation. It blocks placeholders, missing required fields, unsafe security-group ingress, missing security group rule evidence, and missing login credential choices. When `body.server.security_groups[*].id` references an existing security group, pass readback JSON from VPC `ListSecurityGroupRules` or `ShowSecurityGroup` through `--security-group-evidence-file`; otherwise the plan is not ready to run. Default mode generates a dry-run safe-exec command. To generate a non-dry-run submit command, require:
 
 ```bash
 python3 scripts/hcloud_ecs_create_plan.py \
   --json-input-file=<path-to-json> \
+  --security-group-evidence-file=<list-security-group-rules-or-show-security-group-json> \
   --operation=CreateServers \
   --region=cn-north-4 \
   --mode=submit \

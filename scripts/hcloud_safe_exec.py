@@ -129,6 +129,8 @@ ERROR_TYPE_CATEGORY = {
     "APIE_ERROR": "metadata",
     "TIMEOUT": "network",
 }
+REFERENCES_DIR = Path(__file__).resolve().parents[1] / "references"
+IAM_ACTIONS_PATH = REFERENCES_DIR / "iam-actions-catalog.json"
 
 
 def normalize_bool_text(value: Any) -> Any:
@@ -252,11 +254,78 @@ def extract_cloud_error(parsed_json: Any, stdout: str, stderr: str) -> dict[str,
     return {"code": None, "message": None, "source": None}
 
 
+def load_iam_actions_catalog(path: Path = IAM_ACTIONS_PATH) -> dict[str, Any]:
+    """Return the local IAM action hint catalog when available."""
+    try:
+        value = load_json(path)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def iam_action_hint(
+    service: str | None,
+    operation: str | None,
+    *,
+    catalog: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Return best-effort IAM action hints for a service operation."""
+    if not service:
+        return None
+    catalog = catalog if catalog is not None else load_iam_actions_catalog()
+    services = catalog.get("services") if isinstance(catalog.get("services"), dict) else {}
+    service_key = str(service).upper()
+    service_entry = services.get(service_key)
+    if not isinstance(service_entry, dict):
+        return None
+
+    operation_key = str(operation or "").strip()
+    operations = service_entry.get("operations") if isinstance(service_entry.get("operations"), dict) else {}
+    operation_entry = operations.get(operation_key)
+    match = "operation"
+    if not isinstance(operation_entry, dict):
+        operation_entry = None
+        match = "service_default"
+
+    actions = []
+    risk = None
+    notes = None
+    if operation_entry:
+        actions = [str(item) for item in operation_entry.get("required_actions", []) if str(item).strip()]
+        risk = operation_entry.get("risk")
+        notes = operation_entry.get("notes")
+
+    if not actions:
+        actions_key = "default_change_actions" if risk in {"change", "destructive"} else "default_readonly_actions"
+        actions = [str(item) for item in service_entry.get(actions_key, []) if str(item).strip()]
+
+    if not actions:
+        return None
+
+    return {
+        "source": "references/iam-actions-catalog.json",
+        "service": service_key,
+        "operation": operation_key or None,
+        "match": match,
+        "risk": risk or "unknown",
+        "permission_scope": service_entry.get("permission_scope") or "unknown",
+        "required_actions": actions,
+        "notes": notes,
+        "verify_exact_policy": True,
+        "next_steps": [
+            "Check allow and explicit-deny policies for the required action hints.",
+            "Check region/project or enterprise-project scope, agency trust, service enablement, and organization-level SCP/custom deny rules.",
+        ],
+    }
+
+
 def classify_common_error(
     error_type: str | None,
     stdout: str,
     stderr: str,
     parsed_json: Any,
+    service: str | None = None,
+    operation: str | None = None,
 ) -> dict[str, Any] | None:
     """Return a structured diagnosis for common hcloud configuration and API failures."""
     if not error_type and not stdout and not stderr and parsed_json is None:
@@ -291,7 +360,7 @@ def classify_common_error(
     if category == "unknown" and not cloud_error.get("code") and not cloud_error.get("message"):
         return None
 
-    return {
+    details = {
         "category": category,
         "error_type": error_type,
         "cloud_error_code": cloud_error.get("code"),
@@ -300,6 +369,11 @@ def classify_common_error(
         "signals": signals,
         "advice": advice,
     }
+    if category == "permission":
+        permission_hint = iam_action_hint(service, operation)
+        if permission_hint:
+            details["permission_hint"] = permission_hint
+    return details
 
 
 def trim_text(text: str, max_chars: int) -> tuple[str, bool]:
@@ -451,6 +525,8 @@ def main() -> int:
                 redacted_stdout,
                 redacted_stderr,
                 redacted_parsed_json,
+                args.service,
+                args.operation,
             )
 
         result = {
