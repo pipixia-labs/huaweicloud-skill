@@ -164,6 +164,7 @@ def inspect_auth(needs: set[str]) -> dict[str, Any]:
         "HUAWEICLOUD_SECRET_KEY",
         "HUAWEICLOUD_REGION",
         "MAAS_API_KEY",
+        "MODELARTS_MAAS_API_KEY",
     ]
     env = env_presence(keys)
     hw_complete = env["HW_ACCESS_KEY"]["set"] and env["HW_SECRET_KEY"]["set"] and env["HW_REGION_NAME"]["set"]
@@ -187,7 +188,7 @@ def inspect_auth(needs: set[str]) -> dict[str, Any]:
                 "hw_env_complete": hw_complete,
                 "os_env_complete": os_complete,
                 "huaweicloud_env_complete": huaweicloud_complete,
-                "maas_api_key_set": env["MAAS_API_KEY"]["set"],
+                "maas_api_key_set": env["MAAS_API_KEY"]["set"] or env["MODELARTS_MAAS_API_KEY"]["set"],
             },
         },
         next_actions=[] if cloud_ready else [
@@ -291,17 +292,18 @@ def inspect_obsutil(needs: set[str]) -> dict[str, Any]:
 
 
 def inspect_maas(needs: set[str]) -> dict[str, Any]:
-    """Inspect optional MaaS image generation key presence."""
+    """Inspect optional MaaS API key presence."""
     required = "maas" in needs
-    has_key = bool(os.environ.get("MAAS_API_KEY"))
+    env = env_presence(["MAAS_API_KEY", "MODELARTS_MAAS_API_KEY"])
+    has_key = env["MAAS_API_KEY"]["set"] or env["MODELARTS_MAAS_API_KEY"]["set"]
     status = "ok" if has_key else ("blocker" if required else "skipped")
     return check_item(
         "modelarts_maas",
         status,
         required=required,
-        summary="MAAS_API_KEY is set." if has_key else "MaaS image generation is optional and MAAS_API_KEY is not set.",
-        details={"MAAS_API_KEY": {"set": has_key}},
-        next_actions=[] if has_key else ["Set MAAS_API_KEY only when generating site images through Huawei Cloud ModelArts MaaS."],
+        summary="A MaaS API key environment variable is set." if has_key else "MaaS API calls are optional and no MaaS API key is set.",
+        details={"environment": env},
+        next_actions=[] if has_key else ["Set MAAS_API_KEY or MODELARTS_MAAS_API_KEY only when calling Huawei Cloud MaaS APIs."],
     )
 
 

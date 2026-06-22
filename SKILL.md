@@ -1,6 +1,6 @@
 ---
 name: huaweicloud-skill
-description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更。适用于用户明确要走 CLI/KooCLI 路线，或任务需要通过 hcloud 直接发现 service/operation、构造命令、执行查询或变更、排查认证、网络、缓存与输出格式问题的场景；当华为云部署静态站、独立站或 Web 应用需要图片素材时，可通过华为云 ModelArts MaaS 图像生成 API 生成本地站点资产。
+description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更；也支持通过华为云 MaaS API 规划和调用大模型、图像理解、图片生成/编辑与视频生成任务。适用于 CLI/KooCLI 云资源操作、MaaS API 调用、认证排查、命令构造、执行验证和安全变更规划。
 ---
 
 # Huawei CLI Skill
@@ -11,7 +11,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - SDK 是 `hcloud` 的补充，不是第二套大而全执行面。只有当 SDK 能让 `hcloud` 主链路更稳时才使用，例如补充参数类型、region/endpoint、错误结构、凭证来源线索，或执行少量 `references/sdk-supplement-registry.json` allowlist 内的稳定只读查询。
 - 用户机器不要求有 SDK 源码仓库；如果需要 SDK 补充能力，优先使用已安装的 `huaweicloudsdk*` Python package。`reference-projects/huaweicloud-sdk-python-v3` 只作为本仓库维护期参考。
 - Terraform 是 `hcloud` 的补充 IaC 变更面，适合可重复创建、环境复制、长期纳管、import 和 drift review；进入前先用本地 Terraform router/context inspect 选资产和查环境，不要全量浏览示例，也不要跳过 hcloud 发现与后置验证。
-- MaaS 图像生成只作为华为云 Web/独立站部署的辅助资产生成能力，必须使用华为云 ModelArts MaaS API，默认模型为 `qwen-image`，不作为通用生图入口，也不登记为 KooCLI service。
+- MaaS 是 API-first 能力面，必须使用华为云 MaaS API Key 和 `api.modelarts-maas.com`，覆盖大模型、图像理解、图片生成/编辑和视频生成；不登记为 KooCLI service，也不使用非华为模型端点兜底。
 - 目标不是背命令，而是让 agent 能稳定完成一条完整链路：
   - 识别上下文
   - 发现 service 和 operation
@@ -51,7 +51,8 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - 任务需要直接通过 `hcloud` 查询或变更华为云资源。
 - 任务需要查看 `service` / `operation` 列表、构造 `--cli-jsonInput`、使用 `--cli-query`、`--dryrun`、`--cli-waiter` 等 CLI 能力。
 - 任务需要排查 `hcloud` 的认证、区域、项目、缓存、网络、输出格式问题。
-- 任务是在华为云 ECS/OBS/CDN 等 Web 载体上部署站点，并明确要求用华为云 MaaS 图像生成能力生成站点图片资产。
+- 任务明确需要华为云 MaaS 大模型、图像理解、图片生成/编辑、视频生成或 OpenAI 兼容接口。
+- 任务是在华为云 ECS/OBS/CDN 等 Web 载体上部署站点，并明确要求用华为云 MaaS 生成站点图片资产。
 
 
 ## 资料入口
@@ -85,7 +86,9 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 25. `references/playbooks/`
 26. `references/source-map.md`
 27. `examples/README.md`
-28. `references/maas-image-generation.md`（MaaS 图像生成主参考；`references/qwen-image-generation.md` 为兼容旧文件名）
+28. `references/maas-model-calls.md`
+29. `references/maas-model-catalog.json`
+30. `references/maas-image-generation.md`（站点图片资产兼容参考；`references/qwen-image-generation.md` 为兼容旧文件名）
 
 维护和升级评审时，可用 `tests/v0_6_acceptance_scenarios.md` 检查小白用户、小企业和中等企业场景是否仍被覆盖；不要在普通用户任务里加载测试文件。
 
@@ -176,7 +179,11 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | OBS 变更计划 | `hcloud_obs_change_plan.py` | OBS bucket/lifecycle/policy planner-only。 |
 | 离线资源验收 | `hcloud_resource_verify.py` | 从 JSON 结果验证资源字段，不访问云端。 |
 | 问题集/覆盖回归 | `check_question_coverage.py` | 离线 schema、风险和执行路径门禁。 |
-| MaaS 站点图片资产 | `maas_text_to_image.py` | 仅用于华为云站点部署图片资产；`qwen_text_to_image.py` 为兼容旧入口。 |
+| MaaS 模型列表 | `maas_models.py` | 本地 catalog 查询；`--online --execute` 才调用 `GET /v2/models`。 |
+| MaaS 对话/图像理解 | `maas_chat.py` | 支持 V2 Chat、OpenAI 兼容 Chat 和 V1 图像理解；默认 dry-run 先审 payload。 |
+| MaaS 图片生成/编辑 | `maas_image_generation.py` | 通用文生图和图像编辑；站点资产旧入口仍可用。 |
+| MaaS 视频生成 | `maas_video_generation.py` | 创建、查询、等待异步视频任务；不能把 `task_id` 当完成结果。 |
+| MaaS 站点图片资产兼容 | `maas_text_to_image.py` | 旧站点图片资产入口；`qwen_text_to_image.py` 为兼容旧入口。 |
 
 变更类脚本的共同边界：默认只生成计划；真实 submit 必须有用户对本次操作的明确确认。metadata-backed mutation 的 dry-run 默认为 `unknown`，安全合规、身份、密钥和治理类服务会进入 `hard_guard`，通用 guarded flow 不得自动执行 submit。
 
@@ -194,7 +201,8 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - ECS 创建类真实提交后，必须先用 `hcloud_ecs_wait_job.py` 或等价 `ShowJob` 查询 job 终态，再用 `hcloud_ecs_verify_active.py` 或等价查询确认目标实例 `ACTIVE`。
 - ECS `ACTIVE` 后必须按 `references/playbooks/ecs-ssh-access-readiness.md` 做 SSH 验收；如果目标任务还包含 Web/Docker/WordPress 等应用，再进入对应服务 readiness。
 - `--cli-waiter` 有重复调用风险，默认只建议用于查询或状态轮询。
-- 华为云站点部署中如需生成图片资产，先读取 `references/maas-image-generation.md`，通过华为云 ModelArts MaaS 生成本地资产并完成图片质量检查后再部署。
+- MaaS 任务先读 `references/maas-model-calls.md` 和 `references/playbooks/maas-api-readiness.md`；只从 `MAAS_API_KEY` 或 `MODELARTS_MAAS_API_KEY` 读取密钥，先 dry-run，视频必须查到终态。
+- 华为云站点部署中如需生成图片资产，先读取 `references/maas-image-generation.md`，通过华为云 MaaS 生成本地资产并完成图片质量检查后再部署。
 - 用户明确要 Terraform/IaC 时，先运行 `hcloud_terraform_context_inspect.py` 和 `hcloud_terraform_router.py`；只读取 router 命中的少量 example/reference。只读排障、状态核验和一次性 hcloud 变更不要强行转 Terraform。
 - 如果 live help 因网络或元数据问题失败，改走本地 meta cache 和 `references/`，不要瞎猜参数。
 
@@ -227,7 +235,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - VPC / IMS / KPS / ELB / EVS / NAT / DNS / SCM 等服务的第一层资源级只读查询登记
 - ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 的低覆盖查询登记，用于离线数据集回归和前置发现
 - 多服务只读 smoke、planner-only 变更计划和 JSON 结果验收脚本
-- MaaS 图像生成辅助脚本，用于华为云站点部署时通过华为云 ModelArts MaaS 生成本地 Web 图片资产；主入口为 `maas_text_to_image.py`，旧 `qwen_text_to_image.py` 保留兼容
+- MaaS API 辅助脚本，覆盖模型列表、大模型/图像理解、图片生成/编辑和异步视频生成；`maas_text_to_image.py` 与 `qwen_text_to_image.py` 保留站点图片资产兼容
 - OBS `hcloud obs`/obsutil 只读适配器和 planner-only bucket/lifecycle/policy 变更计划
 - `hcloud_resource_detail_probe.py` 可对 EVS/NAT 等服务做 list-then-detail 抽样，有资源时执行 detail，无资源时结构化 skipped
 

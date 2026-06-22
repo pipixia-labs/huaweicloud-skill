@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-06-22
+
+- Added Huawei Cloud MaaS API-first support for model catalog lookup, V2/OpenAI-compatible chat, image understanding, image generation/editing, and asynchronous video generation.
+- Added MaaS model call references, a local MaaS model catalog, scenario routing, readiness playbook, and offline helper tests while keeping MaaS outside the KooCLI service registry.
+- Updated environment doctor checks to report MaaS API Key readiness through `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY` without exposing secret values.
+
 ## 0.6.0 - 2026-06-18
 
 - Added BSS/Billing semantic routing, fixed `cn-north-1`/`cn` hcloud read-only command plans, pagination warnings, and a protected-identifier result summarizer.

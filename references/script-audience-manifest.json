@@ -19,8 +19,8 @@
         "candidate": "Promote docs-first provider signals into a plan-review report, then scope import/drift separately."
       },
       {
-        "area": "MaaS image generation",
-        "candidate": "Keep qwen_text_to_image.py as a compatibility shim until callers have migrated to maas_text_to_image.py."
+        "area": "MaaS API helpers",
+        "candidate": "Keep qwen_text_to_image.py as a compatibility shim while new model, chat, image, and video helpers use MaaS-named entry points."
       },
       {
         "area": "Billing",
@@ -62,7 +62,11 @@
         "scripts/hcloud_terraform_context_inspect.py",
         "scripts/hcloud_terraform_provider_inventory.py",
         "scripts/hcloud_terraform_router.py",
-        "scripts/maas_text_to_image.py"
+        "scripts/maas_chat.py",
+        "scripts/maas_image_generation.py",
+        "scripts/maas_models.py",
+        "scripts/maas_text_to_image.py",
+        "scripts/maas_video_generation.py"
       ]
     },
     {
@@ -118,7 +122,8 @@
         "scripts/hcloud_common.py",
         "scripts/hcloud_core.py",
         "scripts/hcloud_run_journal.py",
-        "scripts/hcloud_security_policy.py"
+        "scripts/hcloud_security_policy.py",
+        "scripts/maas_common.py"
       ]
     },
     {

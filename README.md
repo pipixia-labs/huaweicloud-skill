@@ -22,6 +22,7 @@
 - 你希望变更前有 dry-run、风险识别、确认门禁和变更后验证。
 - 你希望把认证、区域、项目、参数、输出格式等 CLI 问题转成 Agent 能理解的结构化错误。
 - 你明确需要 Terraform/IaC 来做可重复创建、环境复制、import、drift review 或长期纳管，但仍希望先用 `hcloud` 发现现网、再 plan、最后用 `hcloud` 验证。
+- 你明确需要华为云 MaaS 模型 API，包括大模型文本生成、OpenAI 兼容接口、图像理解、图片生成/编辑和视频生成。
 
 ## 它怎么工作
 
@@ -60,6 +61,14 @@ hcloud configure list
 SDK 补充能力不要求用户机器保存 SDK 源码。如果某个 curated 只读能力需要 SDK，请通过 pip 或其他包管理方式安装对应 package，例如 ECS 场景安装 `huaweicloudsdkecs`。没有安装 SDK package 时，Agent 应自动降级回 hcloud 主流程。
 
 Terraform 能力需要本机安装 Terraform CLI，并能访问华为云 Terraform provider。示例和 reference 已在 skill 内部，但真实 plan/apply 仍需要可用的 Terraform、provider 下载或本地 plugin cache、华为云认证环境变量，以及用户对 exact plan 的确认。Agent 不应把 `terraform apply -auto-approve` 作为默认建议。
+
+如果要使用 MaaS 模型 API，请单独准备华为云 MaaS API Key，并只通过环境变量传入：
+
+```bash
+export MAAS_API_KEY=<your-maas-api-key>
+```
+
+也兼容 `MODELARTS_MAAS_API_KEY`。MaaS 当前作为 API-first 能力面处理，不登记为 KooCLI service，也不通过 `hcloud` service registry 路由。
 
 ### 2. 安装 Skill
 
@@ -120,6 +129,29 @@ Terraform 能力需要本机安装 Terraform CLI，并能访问华为云 Terrafo
 使用 huaweicloud-skill，先检查 hcloud 和 Terraform 本地环境，然后为一套 ECS +
 EIP + 安全组的测试环境选择合适的 Terraform 示例和 reference。先输出 plan 前
 需要确认的变量、依赖和风险，不要直接 apply。
+```
+
+#### 调用华为云 MaaS 大模型
+
+```text
+使用 huaweicloud-skill 调用华为云 MaaS 大模型。先列出可选文本模型和将要发送的
+dry-run payload；确认后使用 MAAS_API_KEY 调用 V2 Chat 接口，不要记录密钥。
+```
+
+#### 生成或理解图片
+
+```text
+使用 huaweicloud-skill 走华为云 MaaS：先用 qwen2.5-vl-72b 做图片理解，
+再用 qwen-image 生成一张站点配图。先 dry-run，输出本地文件和 manifest；
+不要把 API Key 写进文件。
+```
+
+#### 创建视频生成任务
+
+```text
+使用 huaweicloud-skill 通过华为云 MaaS 创建一个文生视频任务。先 dry-run 展示
+payload；确认后提交任务，并轮询 task_id 直到 succeeded 或 failed，不要把 task_id
+当成最终视频结果。
 ```
 
 #### 规划典型服务的闭环任务

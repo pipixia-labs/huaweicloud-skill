@@ -16,12 +16,16 @@ flowchart TD
     References --> Registry["references/service-registry.json"]
     References --> Curation["references/service-curation-profiles.json"]
     References --> SDKRegistry["references/sdk-supplement-registry.json"]
+    References --> MaasCatalog["references/maas-model-catalog.json"]
+    References --> MaasGuide["references/maas-model-calls.md"]
     References --> TFRefs["references/terraform/*"]
     TFExamples["examples/terraform/*"] --> TFCatalog["references/terraform/catalog/*.json"]
     TFProvider["reference-projects/terraform-provider-huaweicloud/docs"] --> TFInventory["references/terraform/inventories/provider-*-inventory.md"]
     Registry --> Scripts["scripts/*.py"]
     Curation --> Scripts
     SDKRegistry --> Scripts
+    MaasCatalog --> Scripts
+    MaasGuide --> Scripts
     TFCatalog --> Scripts
     TFInventory --> Scripts
     Registry --> Coverage["check_question_coverage.py"]
@@ -58,11 +62,15 @@ flowchart TD
 | `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar。 |
 | `terraform-workflow.md` | Terraform/IaC 与 hcloud 协同的运行时流程。 |
 | `terraform/` | Terraform provider、认证、发现、互操作、troubleshooting 和 catalog 说明。 |
+| `maas-model-calls.md` | MaaS 模型 API 调用工作流，覆盖文本、图像理解、图片生成/编辑和视频异步任务。 |
+| `maas-model-catalog.json` | 本地 MaaS 模型能力目录，用于离线路由和 dry-run 前的模型选择。 |
 | `playbooks/` | 面向具体任务的执行手册。 |
 
 generated catalog 由 `scripts/build_hcloud_catalog.py` 从本地 KooCLI `metaRepo` 生成。v0.3.1 起生成器按 operation 粒度英文优先合并：英文 metadata 已有的 operation 保持英文摘要和 detail，中文 metadata 中新增的服务、operation 或 detail 作为 fallback 补齐。当前覆盖数字以 `python3 scripts/hcloud_catalog_audit.py --pretty` 为准；本次 catalog source 为 198 个本地 metadata 服务、15,666 个 operation，metadata-backed registry 外服务为 180 个。
 
 开发时，优先更新 `service-registry.json` 和相关 tests，再更新人类文档。
+
+MaaS 不属于 KooCLI generated catalog，也不进入 `service-registry.json`。它使用独立的 `maas-model-catalog.json`、`maas-model-calls.md` 和 `maas_*.py` helper 管理 API endpoint、模型能力和异步任务边界。
 
 ## `materials/`
 

@@ -10,13 +10,14 @@
 4. 通过统一包装器执行命令。
 5. 对返回结果做结构化错误诊断、资源状态验证和后续检查。
 
-当前架构重点是九个平面：
+当前架构重点是十个平面：
 
 - **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点和 Terraform 候选。
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
 - **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 使用已安装的 `huaweicloudsdk*` package 或维护期源码 fallback，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。
 - **IaC 资产面**：`hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`references/terraform/catalog/` 和 `examples/terraform/` 负责 Terraform 环境检查、资产路由和示例渐进加载；`references/terraform-workflow.md` 定义 plan/validate/apply/verify 流程和 hcloud 后置验证边界。
+- **MaaS API 面**：`references/maas-model-calls.md`、`references/maas-model-catalog.json` 和 `scripts/maas_*.py` 负责华为云 MaaS 模型 API 的 dry-run、payload 构造、调用和异步任务查询；不进入 KooCLI service registry。
 - **验证面**：job waiter、resource query、resource verifier、service readiness 分层确认结果。
 - **闭环面**：`hcloud_lifecycle_closure_plan.py` 把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 的 P0 典型任务组织成六阶段 planner-only 闭环。
 - **治理/场景面**：账号盘点、闲置审计、teardown review、可观测、Billing/Cost request spec、P1 governance closure、P2 scenario closure 和 curation profiles 支持生命周期治理和后续场景演进。
@@ -63,6 +64,10 @@ flowchart TD
     TerraformCatalog --> TerraformRefs["references/terraform/*.md"]
     TerraformRouter --> TerraformRef["references/terraform-workflow.md"]
     TerraformInspect["hcloud_terraform_context_inspect.py"] --> TerraformRef
+    ScenarioMap --> MaasRef["references/maas-model-calls.md"]
+    MaasRef --> MaasScripts["maas_models.py / maas_chat.py / maas_image_generation.py / maas_video_generation.py"]
+    MaasCatalog["references/maas-model-catalog.json"] --> MaasScripts
+    MaasScripts --> MaasAPI["Huawei Cloud MaaS API\napi.modelarts-maas.com"]
     Skill --> Workflow["references/workflow.md"]
     Skill --> Registry["references/service-registry.json"]
     Workflow --> Context["hcloud_context_inspect.py"]

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## v0.6.1 / 0.6.1 - 2026-06-22
+
+v0.6.1 adds a Huawei Cloud MaaS API plane for large-model tasks while preserving the existing hcloud-first cloud-resource safety model. MaaS is handled as an API-first capability, not as a KooCLI service registry entry.
+
+### Changes Since v0.6
+
+- Adds a Huawei Cloud MaaS API plane for large-model work: local model catalog lookup, V2/OpenAI-compatible chat, image understanding, image generation/editing, and async video generation helpers.
+- Adds MaaS routing/reference assets so agents can select models, review dry-run payloads, and handle video `task_id` polling without treating MaaS as a KooCLI service.
+- Extends environment readiness checks for MaaS API Keys through `MAAS_API_KEY` and `MODELARTS_MAAS_API_KEY`.
+- Adds published-link references for MaaS online docs and control-console guidance for creating API Keys through `管理与统计 > API Key 管理`.
+
+### Validation
+
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover tests`: 265 tests passed.
+- `python3 -m compileall -q scripts tests`: passed.
+- `git diff --check`: passed.
+
 ## v0.6 / 0.6.0 - 2026-06-18
 
 v0.6 turns the v0.5.1 closure-maturity baseline into a broader practical cloud-assistant release for beginner, small-business, and mid-enterprise users. It expands cost, environment setup, monitoring, Terraform review, low-cost hosting, permission troubleshooting, and inventory governance while keeping the hcloud-first safety model.

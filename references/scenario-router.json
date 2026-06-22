@@ -3,6 +3,51 @@
   "description": "Natural-language scenario router for the hcloud-first Huawei Cloud skill. Inspired by official skill discovery, but routes to local registry, playbooks, SDK supplements, and Terraform candidates.",
   "scenarios": [
     {
+      "id": "maas-model-api-calls",
+      "name": "MaaS model API calls",
+      "category": "ai",
+      "description": "Plan and call Huawei Cloud MaaS APIs for large language models, image understanding, image generation, image editing, and video generation.",
+      "triggers": [
+        "maas",
+        "模型即服务",
+        "大模型",
+        "llm",
+        "文本生成",
+        "对话",
+        "openai兼容",
+        "openai compatible",
+        "图像理解",
+        "图片生成",
+        "图像生成",
+        "图片编辑",
+        "生图",
+        "视频生成",
+        "文生视频",
+        "图生视频",
+        "参考生视频",
+        "首尾帧",
+        "api key"
+      ],
+      "services": [
+        "MAAS"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/maas-api-readiness.md"
+      ],
+      "guides": [
+        "references/maas-model-calls.md"
+      ],
+      "planners": [
+        "scripts/maas_models.py",
+        "scripts/maas_chat.py",
+        "scripts/maas_image_generation.py",
+        "scripts/maas_video_generation.py",
+        "scripts/hcloud_environment_doctor.py"
+      ],
+      "sdk_supplements": [],
+      "terraform_candidate": false
+    },
+    {
       "id": "environment-doctor",
       "name": "Environment setup and tool readiness",
       "category": "environment",

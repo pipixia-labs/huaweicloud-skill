@@ -721,9 +721,71 @@ python3 scripts/check_question_coverage.py --pretty
 
 Use for offline regression over generated questions and optional E2E workbook data. It validates schema, CRUD type, read/update/delete risk gates, registry coverage, validation-step execution paths, and question coverage thresholds.
 
+## MaaS Model APIs
+
+Use these helpers when the task explicitly needs Huawei Cloud MaaS large-model APIs. MaaS is an API-first route: it uses `https://api.modelarts-maas.com` and a MaaS API Key from `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY`; it is not a KooCLI service registry entry.
+
+### Model Catalog
+
+```bash
+python3 scripts/maas_models.py --capability text --pretty
+python3 scripts/maas_models.py --capability image_generation --pretty
+python3 scripts/maas_models.py --online --pretty
+```
+
+The first two commands read the local curated catalog. The online form only plans `GET /v2/models`; add `--execute` only after API Key readiness and user confirmation.
+
+### Text Generation And Image Understanding
+
+```bash
+python3 scripts/maas_chat.py \
+  --prompt "写一段华为云上云方案摘要" \
+  --model deepseek-v3.2 \
+  --dry-run \
+  --pretty
+```
+
+```bash
+python3 scripts/maas_chat.py \
+  --image ./diagram.png \
+  --prompt "总结这张架构图中的云资源" \
+  --model qwen2.5-vl-72b \
+  --dry-run \
+  --pretty
+```
+
+Use `--endpoint openai-compatible` for `/openai/v1/chat/completions`. Keep `--dry-run` as the first step so the agent can review messages, model, token limits, and image references before sending data.
+
+### Image Generation And Editing
+
+```bash
+python3 scripts/maas_image_generation.py \
+  --prompt "A clean enterprise cloud dashboard illustration" \
+  --file dashboard.webp \
+  --out-dir ./generated-assets \
+  --model qwen-image \
+  --dry-run \
+  --pretty
+```
+
+For editing, pass one or more `--image` values and choose an edit-capable model such as `qwen_image_edit` or `qwen-image-edit-2509`. Local image inputs are converted to data URIs in the request payload; dry-run output summarizes those data URIs instead of printing base64.
+
+### Video Generation
+
+```bash
+python3 scripts/maas_video_generation.py \
+  --prompt "A short product video showing a cloud server dashboard" \
+  --model Wan2.2-T2V-A14B \
+  --duration 5 \
+  --dry-run \
+  --pretty
+```
+
+Video generation is asynchronous. A create call returns a `task_id`; use `--action query --task-id <id>` or `--action wait --task-id <id>` to reach `succeeded` or `failed` before reporting the result. For provider-specific shapes that are not normalized yet, pass the official body through `--body-json-file` after dry-run review.
+
 ## MaaS Image Assets
 
-Only use this for Huawei Cloud web/static-site deployment tasks that need local image assets through Huawei Cloud ModelArts MaaS. Do not use it as a generic image-generation entry point.
+Only use this legacy-compatible path for Huawei Cloud web/static-site deployment tasks that need local image assets through Huawei Cloud ModelArts MaaS. General MaaS image generation and editing should use `scripts/maas_image_generation.py`.
 
 ```bash
 MAAS_API_KEY=<key> python3 scripts/maas_text_to_image.py \

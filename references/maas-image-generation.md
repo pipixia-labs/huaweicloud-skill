@@ -1,10 +1,10 @@
 # Image Generation via Huawei Cloud MaaS
 
-Use this reference only when a Huawei Cloud web deployment needs generated bitmap assets, such as static independent sites, product pages, venue pages, or app marketing pages. This is an auxiliary asset workflow, not a KooCLI service.
+Use this reference when a Huawei Cloud web deployment needs generated bitmap assets, such as static independent sites, product pages, venue pages, or app marketing pages. For general MaaS text, image understanding, image generation/editing, and video generation tasks, use `references/maas-model-calls.md`.
 
 The required provider is Huawei Cloud ModelArts MaaS. Do not use non-Huawei endpoints for this skill.
 
-The primary helper is `scripts/maas_text_to_image.py`. `scripts/qwen_text_to_image.py` and `references/qwen-image-generation.md` remain compatibility aliases for older workflows. The default MaaS model parameter remains `qwen-image`.
+The compatibility helper is `scripts/maas_text_to_image.py`. `scripts/qwen_text_to_image.py` and `references/qwen-image-generation.md` remain compatibility aliases for older workflows. The general image helper is `scripts/maas_image_generation.py`. The default MaaS text-to-image model parameter remains `qwen-image`.
 
 ## Required API
 
