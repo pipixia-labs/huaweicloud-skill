@@ -74,7 +74,7 @@ export MAAS_API_KEY=<your-maas-api-key>
 
 安装后，在支持本地 Skill 的 Agent 中启用 `huaweicloud-skill`。例如 OpenClaw：
 
-- [ClawHub: huaweicloud](https://clawhub.ai/zfish-lu/huaweicloud)
+- [ClawHub: huaweicloud-skill](https://clawhub.ai/harryzhu123/huaweicloud-skill)
 - [OpenClaw 技能市场：huaweicloud-skill](https://github.com/OpenClawAgent/OpenClaw/blob/main/docs/skill-marketplace.md#available-skills)
 
 ### 3. 让 Agent 使用它
@@ -300,7 +300,7 @@ flowchart LR
 
 ```bash
 openclaw skills search huaweicloud
-openclaw skills install zfish-lu/huaweicloud
+openclaw skills install harryzhu123/huaweicloud-skill
 openclaw skills list --eligible
 ```
 
