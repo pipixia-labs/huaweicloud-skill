@@ -1674,6 +1674,48 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(skipped["skipped"])
         self.assertEqual(skipped["missing_targets"], ["bucket"])
 
+    def test_service_readiness_rds_backups_requires_instance_target(self) -> None:
+        missing_args = SimpleNamespace(
+            service=["RDS"],
+            target=[],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            limit=20,
+            execute=False,
+            timeout=1,
+            strict=True,
+            require_all=False,
+        )
+
+        missing = hcloud_service_readiness.build_readiness(missing_args)
+
+        self.assertTrue(missing["success"], missing)
+        skipped = next(item for item in missing["services"][0]["checks"] if item["operation"] == "ListBackups")
+        self.assertTrue(skipped["skipped"])
+        self.assertEqual(skipped["missing_targets"], ["instance_id"])
+
+        target_args = SimpleNamespace(
+            service=["RDS"],
+            target=["instance_id=db-1", "config_id=config-1"],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            limit=20,
+            execute=False,
+            timeout=1,
+            strict=True,
+            require_all=True,
+        )
+
+        targeted = hcloud_service_readiness.build_readiness(target_args)
+
+        self.assertTrue(targeted["success"], targeted)
+        backup_check = next(item for item in targeted["services"][0]["checks"] if item["operation"] == "ListBackups")
+        self.assertFalse(backup_check["skipped"])
+        self.assertEqual(backup_check["runner"], "scripts/hcloud_resource_query.py")
+        self.assertIn("--arg=--instance_id=db-1", backup_check["plan"]["command"])
+
     def test_service_readiness_skips_target_dependent_checks(self) -> None:
         args = SimpleNamespace(
             service=["ELB"],

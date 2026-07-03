@@ -65,7 +65,7 @@ READINESS_PROFILES = {
     ],
     "RDS": [
         {"operation": "ListInstances"},
-        {"operation": "ListBackups"},
+        {"operation": "ListBackups", "required_targets": ["instance_id"]},
         {"operation": "ListConfigurations"},
         {"operation": "ShowBackupPolicy", "required_targets": ["instance_id"]},
         {"operation": "ShowConfiguration", "required_targets": ["config_id"]},
