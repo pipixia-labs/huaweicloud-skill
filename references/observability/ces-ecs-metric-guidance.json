@@ -15,7 +15,8 @@
       ],
       "notes": [
         "Base monitoring is collected from the virtualization layer and normally uses period=300 or greater.",
-        "Some SYS.ECS metrics such as mem_util, disk_util_inband, and network_*_inband depend on image tools and may return no data."
+        "Some SYS.ECS metrics such as mem_util, disk_util_inband, and network_*_inband depend on image tools and may return no data.",
+        "Creating alarms with an OS metric under SYS.ECS can surface as http 400 / ces.0014 instead of a clear Agent or namespace error."
       ],
       "metrics": {
         "cpu_util": {
@@ -113,7 +114,12 @@
           ],
           "caveats": [
             "Do not create this metric under SYS.ECS; create/query it under AGT.ECS after Agent installation."
-          ]
+          ],
+          "known_error": {
+            "code": "ces.0014",
+            "message": "Some content in message body is not correct",
+            "meaning": "Often indicates the metric/namespace/body does not match actual reported metrics; verify ListMetrics and Agent reporting before retrying."
+          }
         },
         "disk_usedPercent": {
           "unit": "%",

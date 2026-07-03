@@ -95,6 +95,7 @@ def metric_guidance(args: argparse.Namespace) -> dict[str, Any] | None:
         "default_dimensions": metric_info.get("default_dimensions") if metric_info else namespace_info.get("default_dimensions", []),
         "fallback": metric_info.get("fallback") if metric_info else None,
         "caveats": metric_info.get("caveats", []) if metric_info else [],
+        "known_error": metric_info.get("known_error") if metric_info else None,
         "namespace_notes": namespace_info.get("notes", []),
         "warnings": warnings,
         "next_actions": next_actions,

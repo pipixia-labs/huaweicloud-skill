@@ -47,6 +47,13 @@
 - 如果没有运行 live probe、没有执行 `hcloud --execute`、没有读取 saved safe_exec result、没有跑 Terraform state 操作，就必须把状态写成“未执行/待采证/需要用户确认”，不能写成“已完成”。
 - 最终总结要把 `planned`、`prepared`、`executed`、`verified`、`blocked` 分开。缺证据时，说明缺什么输入或权限，而不是用推测补齐。
 
+## 5.2 凭据输入必须本地化
+
+- 如果用户在对话里直接粘贴 AK/SK、security token、MaaS API Key、数据库密码、SSH 私钥或临时访问令牌，停止处理该密钥值；不要复述、不要保存到文件、不要写入命令历史、不要放进日志。
+- 引导用户把凭据放到本地环境变量、受限权限文件、系统密钥库、现有 hcloud profile 或项目已有的受控凭证路径中。
+- 输出只描述凭据来源和 presence，例如“检测到 `HUAWEI_ACCESS_KEY` 已设置”，不要输出原值、前后缀、签名头或派生 token。
+- 读取 saved safe_exec result 或 live API 结果时，也要先脱敏再摘要；只有用户明确要求并确认范围时，才展示已脱敏的行级记录。
+
 ## 6. 可达服务必须闭环验证
 
 - Web、Docker Remote API、数据库、负载均衡后端等任务不能只停在资源 `ACTIVE`；还要验证进程、端口和应用协议。

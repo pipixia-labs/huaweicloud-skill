@@ -17,6 +17,7 @@
 - MaaS 用量统计走 ModelArts MaaS ShowStatistics API，鉴权是 AK/SK 签名，不是 MaaS API Key bearer token。
 - 默认只生成 request spec，不签名、不触网、不读取 AK/SK 值；显式 `--execute` 时只执行 MaaS ShowStatistics 只读查询，并且不输出 AK/SK、签名头或 project_id 原值。
 - 真实查询前必须确认凭证、project_id、区域、权限和时间范围。
+- 如果用户在对话里直接粘贴 AK/SK、security token 或 MaaS API Key，停止处理该密钥值，不要复述、不要保存、不要写入命令；引导用户改用本地环境变量或受控凭证文件。
 
 ## 标准流程
 
@@ -72,6 +73,18 @@ python3 scripts/maas_usage_request_plan.py \
 
 `start_time` 和 `end_time` 使用 UTC 毫秒时间戳；不要改成字符串日期。
 
+ShowStatistics 常见字段约定：
+
+| 字段 | 约定 |
+| --- | --- |
+| endpoint | `https://modelarts.<region>.myhuaweicloud.com` |
+| path | `/v1/{project_id}/maas/monitoring/show-statistics` |
+| auth | AK/SK SDK-HMAC-SHA256 签名；不是 `MAAS_API_KEY` |
+| `service_type` | `1` 我的服务；`2` 预置服务；`4` 自定义 Endpoint |
+| `infer_type` | 在线推理和批量推理要分开解释 |
+| `start_time` / `end_time` | UTC 毫秒时间戳；单次窗口不要超过约 30 天 |
+| `api_keys` | 空字符串 `""` 可表示在线体验来源；不要把它当成真实 API Key 输出 |
+
 ### 3. 安全检查
 
 真实查询前必须确认：
@@ -85,7 +98,7 @@ python3 scripts/maas_usage_request_plan.py \
 
 ### 4. 结果解释
 
-响应里的 token 字段通常以“千 token”为单位，汇报时要乘以 1000：
+响应里的 token 字段以“千 token”为单位，汇报时要乘以 1000；不要把返回值直接当成 token 个数：
 
 - `total_token`
 - `total_prompt_token`
@@ -113,6 +126,7 @@ error_rate = total_error_count / total_request_count
 ## 不要做的事
 
 - 不要把 MaaS API Key 当作 ShowStatistics 鉴权凭证。
+- 不要把 `api_keys=[""]` 解释成“没有 API Key 泄露”或真实密钥值；它是统计过滤语义。
 - 不要把 token 统计等同于账单金额；如需金额，转到账单/成本治理流程。
 - 不要在没有用户确认的情况下做真实用量查询。
 - 不要输出完整 API Key、AK/SK、签名头或包含密钥的请求。

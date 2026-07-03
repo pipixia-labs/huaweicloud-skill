@@ -20,6 +20,15 @@ BSS_CLI_REGION = "cn-north-1"
 BSS_CLI_LANG = "cn"
 
 OPERATIONS: dict[str, dict[str, Any]] = {
+    "account-balances": {
+        "title": "ShowCustomerAccountBalances",
+        "method": "GET",
+        "path": "/v2/accounts/customer-accounts/balances",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:account:get",
+        "query_fields": {},
+        "freshness": "Point-in-time account balance and debt snapshot; it does not explain resource-level charge causes.",
+    },
     "monthly-sum": {
         "title": "ShowCustomerMonthlySum",
         "method": "GET",
@@ -29,6 +38,22 @@ OPERATIONS: dict[str, dict[str, Any]] = {
         "required_query": ["bill_cycle"],
         "freshness": "Summary bill data contains consumption up to 24:00 of the previous day and supports recent 3 years.",
     },
+    "billing-statements": {
+        "title": "ListCustomerBillsFeeRecords",
+        "method": "GET",
+        "path": "/v2/bills/customer-bills/fee-records",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:bill:list",
+        "required_query": ["bill_cycle"],
+        "query_fields": {
+            "bill_cycle": "bill_cycle",
+            "method": "method",
+            "sub_customer_id": "sub_customer_id",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Billing statement rows are transaction evidence for one billing cycle; do not substitute them with monthly summary totals.",
+    },
     "cost-data": {
         "title": "ListCosts",
         "method": "POST",
@@ -37,6 +62,26 @@ OPERATIONS: dict[str, dict[str, Any]] = {
         "permission": "costCenter:costAnalysis:listCosts",
         "required_body": ["time_condition", "groupby", "cost_type", "amount_type"],
         "freshness": "Original costs have about one-hour delay; amortized costs refresh every 24 hours and may lag 24-48 hours.",
+    },
+    "monthly-breakdown": {
+        "title": "ListCustomerBillsMonthlyBreakDown",
+        "method": "GET",
+        "path": "/v2/bills/customer-bills/monthly-break-down",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:bill:list",
+        "required_query": ["shared_month"],
+        "query_fields": {
+            "shared_month": "shared_month",
+            "service_type_code": "service_type_code",
+            "resource_type_code": "resource_type",
+            "resource_id": "resource_id",
+            "enterprise_project_id": "enterprise_project_id",
+            "method": "method",
+            "sub_customer_id": "sub_customer_id",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Monthly amortization evidence is available only for a bounded recent history; do not mix it with cash transaction totals.",
     },
     "resource-records": {
         "title": "ListCustomerselfResourceRecordDetails",
@@ -56,13 +101,324 @@ OPERATIONS: dict[str, dict[str, Any]] = {
         "required_query": ["cycle"],
         "freshness": "Resource fee records are billing-period data; date filters must stay within the same cycle.",
     },
+    "account-change-records": {
+        "title": "ListCustomerAccountChangeRecords",
+        "method": "GET",
+        "path": "/v2/accounts/customer-accounts/account-change-records",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:account:list",
+        "required_query": ["balance_type"],
+        "query_fields": {
+            "balance_type": "balance_type",
+            "bill_cycle": "bill_cycle",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Read-only account transaction ledger; the word Change in the operation name does not imply mutation.",
+    },
+    "stored-value-cards": {
+        "title": "ListStoredValueCards",
+        "method": "GET",
+        "path": "/v2/promotions/benefits/stored-value-cards",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:storedValueCard:list",
+        "required_query": ["status"],
+        "query_fields": {
+            "status": "status",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Stored-value card status evidence; it is not a single transaction or resource-charge explanation.",
+    },
+    "free-resource-infos": {
+        "title": "ListFreeResourceInfos",
+        "method": "GET",
+        "path": "/v3/payments/free-resources/query",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:freeResource:list",
+        "query_fields": {
+            "service_type_code_list.1": "service_type_code",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Resource package inventory and entitlement evidence; link to usage records before explaining deductions.",
+    },
+    "free-resource-usages": {
+        "title": "ListFreeResourceUsages",
+        "method": "GET",
+        "path": "/v3/payments/free-resources/usages/query",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:freeResource:list",
+        "required_query": ["free_resource_ids.1"],
+        "query_fields": {
+            "free_resource_ids.1": "free_resource_id",
+        },
+        "freshness": "Remaining quota evidence for a specific resource package.",
+    },
+    "free-resource-usage-records": {
+        "title": "ListFreeResourcesUsageRecords",
+        "method": "GET",
+        "path": "/v3/payments/free-resources/usage-records/query",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:freeResource:list",
+        "required_query": ["free_resource_ids.1"],
+        "query_fields": {
+            "free_resource_ids.1": "free_resource_id",
+            "begin_time": "begin_time",
+            "end_time": "end_time",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Deduction record windows should stay bounded; do not treat a partial window as lifetime usage.",
+    },
+    "coupon-change-records": {
+        "title": "ListCustomerCouponChangeRecords",
+        "method": "GET",
+        "path": "/v2/promotions/benefits/coupon-change-records",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:coupon:list",
+        "required_query": ["balance_type"],
+        "query_fields": {
+            "balance_type": "balance_type",
+            "bill_cycle": "bill_cycle",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Read-only coupon ledger; it explains coupon movement, not order-level discount eligibility by itself.",
+    },
+    "quota-coupons": {
+        "title": "ListQuotaCoupons",
+        "method": "GET",
+        "path": "/v2/promotions/benefits/quota-coupons",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:coupon:list",
+        "query_fields": {
+            "quota_ids.1": "quota_id",
+            "quota_status_list.1": "status",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Partner coupon quota evidence; do not execute coupon issuance or recovery from this planner.",
+    },
+    "order-list": {
+        "title": "ListCustomerOrders",
+        "method": "GET",
+        "path": "/v2/orders/customer-orders",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:order:list",
+        "query_fields": {
+            "order_id": "order_id",
+            "customer_id": "customer_id",
+            "service_type_code": "service_type_code",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Order evidence can explain purchase or refund context; it does not replace bill or cost facts.",
+    },
+    "order-details": {
+        "title": "ShowCustomerOrderDetails",
+        "method": "GET",
+        "path": "/v2/orders/customer-orders/details",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:order:get",
+        "required_query": ["order_id"],
+        "query_fields": {
+            "order_id": "order_id",
+            "customer_id": "customer_id",
+        },
+        "freshness": "Order detail evidence; protected order and customer identifiers must stay redacted in summaries.",
+    },
+    "refund-order-details": {
+        "title": "ShowRefundOrderDetails",
+        "method": "GET",
+        "path": "/v2/orders/customer-orders/refund-orders",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:order:get",
+        "required_query": ["order_id"],
+        "query_fields": {
+            "order_id": "order_id",
+            "customer_id": "customer_id",
+        },
+        "freshness": "Refund order evidence is read-only; do not execute unsubscribe or refund actions.",
+    },
+    "order-coupons": {
+        "title": "ListOrderCouponsByOrderId",
+        "method": "GET",
+        "path": "/v2/orders/customer-orders/order-coupons",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:coupon:list",
+        "required_query": ["order_id"],
+        "query_fields": {"order_id": "order_id"},
+        "freshness": "Available coupon evidence near an order; do not guide payment from this planner.",
+    },
+    "order-discounts": {
+        "title": "ListOrderDiscounts",
+        "method": "GET",
+        "path": "/v2/orders/customer-orders/order-discounts",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:discount:list",
+        "required_query": ["order_id"],
+        "query_fields": {"order_id": "order_id"},
+        "freshness": "Available discount evidence near an order; pricing strategy remains outside historical billing facts.",
+    },
+    "enterprise-organizations": {
+        "title": "ListEnterpriseOrganizations",
+        "method": "GET",
+        "path": "/v2/enterprises/organizations",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:enterprise:list",
+        "query_fields": {"offset": "offset", "limit": "limit"},
+        "freshness": "Enterprise organization scope evidence; permission failure is not proof that no billing scope exists.",
+    },
+    "enterprise-sub-customers": {
+        "title": "ListEnterpriseSubCustomers",
+        "method": "GET",
+        "path": "/v2/enterprises/sub-customers",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:enterprise:list",
+        "query_fields": {"offset": "offset", "limit": "limit"},
+        "freshness": "Enterprise sub-customer scope evidence; identifiers are protected by default.",
+    },
+    "subcustomer-monthly-bills": {
+        "title": "ListSubcustomerMonthlyBills",
+        "method": "GET",
+        "path": "/v2/bills/subcustomer-bills/monthly-bills",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:subCustomerBill:list",
+        "required_query": ["cycle"],
+        "query_fields": {
+            "cycle": "bill_cycle",
+            "charge_mode": "charge_mode",
+            "customer_id": "customer_id",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Sub-customer billing summary; confirm enterprise/partner authorization before querying.",
+    },
+    "subcustomer-bill-detail": {
+        "title": "ListSubCustomerBillDetail",
+        "method": "GET",
+        "path": "/v2/bills/subcustomer-bills/detail",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:subCustomerBill:list",
+        "required_query": ["bill_cycle", "customer_id"],
+        "query_fields": {
+            "bill_cycle": "bill_cycle",
+            "customer_id": "customer_id",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Sub-customer detail rows require confirmed authorization and narrow output handling.",
+    },
+    "partner-balances": {
+        "title": "ListPartnerBalances",
+        "method": "GET",
+        "path": "/v2/accounts/partner-accounts/balances",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:partnerAccount:list",
+        "query_fields": {"offset": "offset", "limit": "limit"},
+        "freshness": "Partner balance evidence; do not expand to customer data without explicit scope.",
+    },
+    "partner-account-change-records": {
+        "title": "ListPartnerAccountChangeRecords",
+        "method": "GET",
+        "path": "/v2/accounts/partner-accounts/account-change-records",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:partnerAccount:list",
+        "required_query": ["balance_type"],
+        "query_fields": {
+            "balance_type": "balance_type",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Partner transaction ledger; read-only and sensitive.",
+    },
+    "reference-service-types": {
+        "title": "ListServiceTypes",
+        "method": "GET",
+        "path": "/v2/products/service-types",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:dictionary:list",
+        "query_fields": {"offset": "offset", "limit": "limit"},
+        "freshness": "Service type dictionary for translating billing service codes.",
+    },
+    "reference-resource-types": {
+        "title": "ListResourceTypes",
+        "method": "GET",
+        "path": "/v2/products/resource-types",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:dictionary:list",
+        "query_fields": {
+            "service_type_code": "service_type_code",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Resource type dictionary for translating billing resource codes.",
+    },
+    "reference-usage-types": {
+        "title": "ListUsageTypes",
+        "method": "GET",
+        "path": "/v2/products/usage-types",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:dictionary:list",
+        "query_fields": {
+            "service_type_code": "service_type_code",
+            "resource_type_code": "resource_type",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Usage type dictionary for interpreting usage records.",
+    },
+    "reference-measure-units": {
+        "title": "ListMeasureUnits",
+        "method": "GET",
+        "path": "/v2/products/measure-units",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:dictionary:list",
+        "query_fields": {"offset": "offset", "limit": "limit"},
+        "freshness": "Measurement unit dictionary for billing and usage displays.",
+    },
+    "reference-service-resources": {
+        "title": "ListServiceResources",
+        "method": "GET",
+        "path": "/v2/products/service-resources",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:dictionary:list",
+        "required_query": ["service_type_code"],
+        "query_fields": {
+            "service_type_code": "service_type_code",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "Service-to-resource mapping dictionary for resolving billing dimensions.",
+    },
 }
 
 OPERATION_ALIASES = {
+    "balance": "account-balances",
+    "balances": "account-balances",
+    "account-balance": "account-balances",
+    "monthly-summary": "monthly-sum",
+    "statement": "billing-statements",
+    "statements": "billing-statements",
+    "fee-records": "billing-statements",
+    "amortized-cost": "monthly-breakdown",
+    "amortization": "monthly-breakdown",
     "resource-details": "resource-records",
     "resource-detail": "resource-records",
     "resource-consumption": "resource-fee-records",
     "resource-fees": "resource-fee-records",
+    "free-resources": "free-resource-infos",
+    "free-resource-usage": "free-resource-usages",
+    "coupon-records": "coupon-change-records",
+    "orders": "order-list",
+    "order": "order-details",
+    "refund": "refund-order-details",
+    "service-types": "reference-service-types",
+    "resource-types": "reference-resource-types",
+    "usage-types": "reference-usage-types",
+    "measure-units": "reference-measure-units",
+    "service-resources": "reference-service-resources",
 }
 SOURCE_OPERATION_TO_PLANNER = {
     f"BSS/{metadata['title']}": operation for operation, metadata in OPERATIONS.items()
@@ -154,6 +510,8 @@ def parse_filters(values: list[str]) -> list[dict[str, Any]]:
         if "=" not in item:
             raise ValueError(f"Expected KEY=value1,value2 filter, got {item!r}.")
         key, raw_values = item.split("=", 1)
+        if key == "ENTERPRISE_PROJECT":
+            raise ValueError("Use ENTERPRISE_PROJECT_ID for ListCosts enterprise-project filtering, not ENTERPRISE_PROJECT.")
         entries = [entry.strip() for entry in raw_values.split(",") if entry.strip()]
         if not key or not entries:
             raise ValueError(f"Expected non-empty key and value list in filter {item!r}.")
@@ -172,6 +530,28 @@ def parse_filters(values: list[str]) -> list[dict[str, Any]]:
 def optional_fields(**values: Any) -> dict[str, Any]:
     """Return fields whose values are not empty."""
     return {key: value for key, value in values.items() if value not in (None, "", [])}
+
+
+def validate_required_fields(operation: str, fields: list[str], values: dict[str, Any]) -> list[str]:
+    """Return validation errors for missing required query or body fields."""
+    return [
+        f"Missing required {operation} field: {field}."
+        for field in fields
+        if values.get(field) in (None, "", [])
+    ]
+
+
+def build_generic_query(args: argparse.Namespace, metadata: dict[str, Any], operation: str) -> tuple[dict[str, Any], list[str]]:
+    """Build query parameters for reviewed read-only BSS List*/Show* operations."""
+    query_fields = metadata.get("query_fields", {})
+    query = optional_fields(
+        **{
+            param_name: getattr(args, attr_name)
+            for param_name, attr_name in query_fields.items()
+            if hasattr(args, attr_name)
+        }
+    )
+    return query, []
 
 
 def load_body_override(args: argparse.Namespace) -> tuple[dict[str, Any] | None, str | None, list[str]]:
@@ -209,10 +589,13 @@ def validate_cycle(field: str, value: str | None) -> list[str]:
 def build_monthly_sum_query(args: argparse.Namespace) -> tuple[dict[str, Any], list[str]]:
     """Build ShowCustomerMonthlySum query parameters."""
     errors = validate_cycle("bill_cycle", args.bill_cycle)
+    if args.enterprise_project_id:
+        errors.append(
+            "ShowCustomerMonthlySum cannot filter by enterprise_project_id; use operation=cost-data with filter ENTERPRISE_PROJECT_ID=<id>."
+        )
     query = optional_fields(
         bill_cycle=args.bill_cycle,
         service_type_code=args.service_type_code,
-        enterprise_project_id=args.enterprise_project_id,
         method=args.method,
         sub_customer_id=args.sub_customer_id,
         offset=args.offset,
@@ -244,7 +627,10 @@ def build_cost_data_body(args: argparse.Namespace) -> tuple[dict[str, Any] | Non
         },
     }
     if args.filter:
-        body["filters"] = parse_filters(args.filter)
+        try:
+            body["filters"] = parse_filters(args.filter)
+        except ValueError as exc:
+            return None, "generated", [str(exc)]
     return body, "generated", []
 
 
@@ -418,7 +804,7 @@ def pagination_scope(query: dict[str, Any], body: dict[str, Any] | None) -> dict
 def billing_period_fields(query: dict[str, Any], body: dict[str, Any] | None) -> list[str]:
     """Return fields that define the billing period or time window."""
     fields: list[str] = []
-    for key in ("bill_cycle", "cycle", "bill_date_begin", "bill_date_end"):
+    for key in ("bill_cycle", "cycle", "shared_month", "begin_time", "end_time", "bill_date_begin", "bill_date_end"):
         if query.get(key) not in (None, "", []):
             fields.append(key)
     if isinstance(body, dict):
@@ -446,6 +832,14 @@ def scope_fields(query: dict[str, Any], body: dict[str, Any] | None) -> list[str
         "region_code",
         "res_instance_id",
         "resource_id",
+        "order_id",
+        "customer_id",
+        "balance_type",
+        "status",
+        "free_resource_ids.1",
+        "quota_ids.1",
+        "quota_status_list.1",
+        "service_type_code_list.1",
         "charge_mode",
         "bill_type",
     }
@@ -527,7 +921,15 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
             body, body_source, errors = build_resource_records_body(args)
         elif operation == "resource-fee-records":
             query, errors = build_resource_fee_query(args)
+        else:
+            query, errors = build_generic_query(args, metadata, operation)
         query.update(raw_query)
+        if query and metadata.get("required_query"):
+            errors.extend(
+                error
+                for error in validate_required_fields(operation, metadata.get("required_query", []), query)
+                if error not in errors
+            )
     except ValueError as exc:
         errors = [str(exc)]
 
@@ -599,6 +1001,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--endpoint-base", default=DEFAULT_ENDPOINT_BASE, help="Billing endpoint base URL.")
     parser.add_argument("--language", default="zh_CN", help="X-Language header value.")
     parser.add_argument("--bill-cycle", help="Billing cycle in YYYY-MM format.")
+    parser.add_argument("--shared-month", help="Shared month for monthly amortization in YYYY-MM format.")
     parser.add_argument("--begin-time", help="Cost begin_time or fee bill_date_begin.")
     parser.add_argument("--end-time", help="Cost end_time or fee bill_date_end.")
     parser.add_argument("--time-measure-id", type=int, default=1, choices=[1, 2], help="Cost time unit: 1 day, 2 month.")
@@ -615,6 +1018,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bill-type", type=int, help="Bill type filter.")
     parser.add_argument("--method", help="Query scope, for example oneself, sub_customer, or all.")
     parser.add_argument("--sub-customer-id", help="Sub-customer account ID for enterprise master-account queries.")
+    parser.add_argument("--customer-id", help="Customer or sub-customer ID for explicitly scoped BSS queries.")
+    parser.add_argument("--order-id", help="Order ID for read-only order evidence queries.")
+    parser.add_argument("--balance-type", help="Balance type for account, partner, or coupon transaction records.")
+    parser.add_argument("--status", help="Status filter for stored-value cards or coupon quotas.")
+    parser.add_argument("--free-resource-id", help="Free resource package ID for usage and deduction queries.")
+    parser.add_argument("--quota-id", help="Coupon quota ID for quota coupon queries.")
     parser.add_argument("--include-zero-record", help="Whether to include zero records for resource detail queries.")
     parser.add_argument("--statistic-type", type=int, help="Resource fee record statistic type.")
     parser.add_argument("--offset", type=int, default=0, help="Pagination offset.")

@@ -23,6 +23,7 @@
 - 先用 `ListMetrics` 确认目标 ECS 当前真实上报了哪些指标。
 - 如果需要 OS 内存，通常使用 `AGT.ECS:mem_usedPercent`，并确认 Agent 已安装。
 - 如果只能使用基础监控，则先确认 `SYS.ECS:mem_util` 是否存在并有数据。
+- 如果直接用 `SYS.ECS:mem_used_percent` 创建告警返回 `400` / `ces.0014` / `Some content in message body is not correct`，优先按“指标不属于该 namespace 或 Agent 未上报”排查，不要只把它当成 JSON 参数拼错。
 
 ## 标准流程
 
@@ -68,10 +69,18 @@ python3 scripts/hcloud_ces_alarm_plan.py \
 | --- | --- | --- |
 | CPU 有数据，内存无数据 | `SYS.ECS:mem_util` 依赖镜像工具；OS 内存需要 Agent | 查 `AGT.ECS:mem_usedPercent` 是否存在，必要时安装 Agent。 |
 | `mem_used_percent` 不存在 | 旧资料或非规范命名 | 改用 `AGT.ECS:mem_usedPercent`，并先查 `ListMetrics`。 |
+| 创建内存告警返回 `ces.0014` | 目标 metric/namespace 不匹配，或 OS Agent 指标未上报 | 先查 `ListMetrics`，确认 `AGT.ECS` 和 `mem_usedPercent`；安装 Agent 后等待采集。 |
 | 刚创建 ECS 没指标 | 采集延迟 | 等待 5-10 分钟后重查，或先做业务协议验收。 |
 | 指标维度错误 | dimension name/value 不匹配 | ECS 通常用 `instance_id`，不要混用 name、IP 或 server name。 |
 | period 不支持 | namespace 最小周期不同 | `SYS.ECS` 常用 300 秒；`AGT.ECS` 常用 60 秒。 |
 | 403/权限失败 | 缺 CES 或 ECS 只读权限 | 进入 `iam-permission-diagnostics.md`。 |
+
+## 告警模板建议
+
+- Web 类 ECS：优先覆盖 `cpu_util`、公网/私网网络速率、系统盘使用率、HTTP/ELB 健康检查；内存告警需先确认 Agent。
+- Database/中间件类 ECS：优先覆盖 CPU、OS 内存、磁盘使用率、磁盘 IO、进程或端口探测；避免只用云侧 `ACTIVE` 判断业务健康。
+- 推荐先生成 planner-only 草案，再让用户确认阈值、period、通知渠道和噪声接受度。
+- 常见起点：CPU warning 80%、critical 95%；内存 warning 可从 80%-85% 起步，但必须结合业务峰值和历史曲线，不要把模板阈值当成普适标准。
 
 ## 验收
 

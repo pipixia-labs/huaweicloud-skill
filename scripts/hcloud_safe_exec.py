@@ -26,7 +26,7 @@ from hcloud_common import (
     redact_text,
 )
 
-ERROR_TYPES = ("USE_ERROR", "NETWORK_ERROR", "OPENAPI_ERROR", "APIE_ERROR")
+ERROR_TYPES = ("USE_ERROR", "NETWORK_ERROR", "CLI_ERROR", "OPENAPI_ERROR", "APIE_ERROR")
 CLOUD_ERROR_CODE_KEYS = ("error_code", "errorCode", "code", "errCode")
 CLOUD_ERROR_MESSAGE_KEYS = ("error_msg", "errorMsg", "message", "msg", "error_description", "reason")
 
@@ -125,6 +125,7 @@ COMMON_ERROR_CATEGORIES = (
 ERROR_TYPE_CATEGORY = {
     "USE_ERROR": "parameter",
     "NETWORK_ERROR": "network",
+    "CLI_ERROR": "cli_runtime",
     "OPENAPI_ERROR": "cloud_api",
     "APIE_ERROR": "metadata",
     "TIMEOUT": "network",
@@ -172,6 +173,8 @@ def advice_for_error(error_type: str | None) -> str | None:
         return "Re-check the active profile, region, service, operation, and parameter names."
     if error_type == "NETWORK_ERROR":
         return "Check connectivity and consider increasing cli-connect-timeout, cli-read-timeout, and cli-retry-count."
+    if error_type == "CLI_ERROR":
+        return "KooCLI failed while processing the command. Check local KooCLI logs under ~/.hcloud/logs/ and verify the installed hcloud version."
     if error_type == "OPENAPI_ERROR":
         return "The cloud API rejected the request. Re-check the actual business parameters and service-side constraints."
     if error_type == "APIE_ERROR":

@@ -114,6 +114,17 @@ class SafeExecRedactionTest(unittest.TestCase):
         self.assertEqual(details["cloud_error_code"], "InvalidAccessKeyId")
         self.assertIn("AK/SK", details["advice"])
 
+    def test_cli_error_is_classified_as_local_cli_runtime(self) -> None:
+        stderr = "[CLI_ERROR] KooCLI failed while processing command"
+
+        error_type = hcloud_safe_exec.classify_error("", stderr)
+        details = hcloud_safe_exec.classify_common_error(error_type, "", stderr, None)
+
+        self.assertEqual(error_type, "CLI_ERROR")
+        self.assertIsNotNone(details)
+        self.assertEqual(details["category"], "cli_runtime")
+        self.assertIn(".hcloud/logs", details["advice"])
+
     def test_permission_error_includes_iam_action_hint(self) -> None:
         parsed = {"error_code": "ECS.403", "error_msg": "AccessDenied: not authorized"}
 

@@ -179,6 +179,7 @@ class MultiServiceToolsTest(unittest.TestCase):
             "endpoint_base": hcloud_billing_readonly.DEFAULT_ENDPOINT_BASE,
             "language": "zh_CN",
             "bill_cycle": "2026-05",
+            "shared_month": None,
             "begin_time": None,
             "end_time": None,
             "time_measure_id": 1,
@@ -195,6 +196,12 @@ class MultiServiceToolsTest(unittest.TestCase):
             "bill_type": None,
             "method": None,
             "sub_customer_id": None,
+            "customer_id": None,
+            "order_id": None,
+            "balance_type": None,
+            "status": None,
+            "free_resource_id": None,
+            "quota_id": None,
             "include_zero_record": None,
             "statistic_type": None,
             "offset": 0,
@@ -584,6 +591,73 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertFalse(result["execution_supported"])
         self.assertIn("Missing required cost-data field", result["validation"]["errors"][0])
 
+    def test_billing_readonly_builds_account_balance_plan(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(operation="account-balances", entry_point="balance_and_debt")
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["execution_supported"])
+        self.assertEqual(result["title"], "ShowCustomerAccountBalances")
+        self.assertEqual(result["semantic_route"]["entry_point"], "balance_and_debt")
+        self.assertIn("account-balances", result["semantic_route"]["supported_planner_operations"])
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("--operation", command)
+        self.assertIn("ShowCustomerAccountBalances", command)
+        self.assertIn("--arg=--cli-region=cn-north-1", command)
+        self.assertIn("--arg=--cli-lang=cn", command)
+
+    def test_billing_readonly_builds_reconciliation_statement_plan(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(operation="billing-statements", entry_point="reconciliation")
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["title"], "ListCustomerBillsFeeRecords")
+        self.assertEqual(result["request_spec"]["query"]["bill_cycle"], "2026-05")
+        self.assertIn("billing-statements", result["semantic_route"]["supported_planner_operations"])
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("ListCustomerBillsFeeRecords", command)
+        self.assertIn("--arg=--bill_cycle=2026-05", command)
+
+    def test_billing_readonly_supports_free_resource_usage_dot_notation(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="free-resource-usages",
+                entry_point="entitlement_and_deduction",
+                free_resource_id="free-1",
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["title"], "ListFreeResourceUsages")
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("--arg=--free_resource_ids.1=free-1", command)
+        discipline = result["billing_semantic_discipline"]
+        self.assertIn("free_resource_ids.1", discipline["scope_fields"])
+
+    def test_billing_readonly_rejects_monthly_sum_enterprise_project_filter(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(operation="monthly-sum", enterprise_project_id="ep-1")
+        )
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["execution_supported"])
+        self.assertIn("ShowCustomerMonthlySum cannot filter by enterprise_project_id", result["validation"]["errors"][0])
+
+    def test_billing_readonly_rejects_wrong_enterprise_project_filter_key(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="cost-data",
+                begin_time="2026-05-01",
+                end_time="2026-05-31",
+                filter=["ENTERPRISE_PROJECT=ep-1"],
+            )
+        )
+
+        self.assertFalse(result["success"])
+        self.assertIn("ENTERPRISE_PROJECT_ID", result["validation"]["errors"][0])
+
     def test_billing_result_summary_redacts_protected_identifiers_by_default(self) -> None:
         safe_exec_result = {
             "service": "BSS",
@@ -673,6 +747,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(guidance["recommended_metric_name"], "mem_usedPercent")
         self.assertTrue(guidance["canonical_name_used"])
         self.assertTrue(guidance["agent_required"])
+        self.assertEqual(guidance["known_error"]["code"], "ces.0014")
         self.assertTrue(any("not available in SYS.ECS" in warning for warning in guidance["warnings"]))
         self.assertTrue(any("Agent" in action for action in guidance["next_actions"]))
 

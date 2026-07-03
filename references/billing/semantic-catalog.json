@@ -35,7 +35,7 @@
       },
       "triggers": ["华为云余额", "华为云欠费"],
       "ontology_entities": ["AccountBalance", "AccountChangeRecord", "StoredValueCard"],
-      "supported_planner_operations": []
+      "supported_planner_operations": ["account-balances", "account-change-records", "stored-value-cards"]
     },
     "monthly_spend": {
       "required_context": {
@@ -45,7 +45,7 @@
       },
       "triggers": ["华为云本月花费", "华为云月度汇总"],
       "ontology_entities": ["MonthlyBillSummary", "CostAnalysis", "AmortizedCost"],
-      "supported_planner_operations": ["monthly-sum", "cost-data"]
+      "supported_planner_operations": ["monthly-sum", "cost-data", "monthly-breakdown"]
     },
     "charge_attribution": {
       "required_context": {
@@ -55,7 +55,7 @@
       },
       "triggers": ["华为云扣费原因", "华为云哪个资源在扣费"],
       "ontology_entities": ["ResourceBillRecord", "ResourceBillDetail", "OrderEvidence"],
-      "supported_planner_operations": ["resource-fee-records", "resource-records"]
+      "supported_planner_operations": ["resource-fee-records", "resource-records", "order-list", "order-details"]
     },
     "reconciliation": {
       "required_context": {
@@ -65,7 +65,13 @@
       },
       "triggers": ["华为云账单对账", "华为云汇总和明细不一致"],
       "ontology_entities": ["BillingStatement", "MonthlyBillSummary", "ResourceBillDetail", "OrderEvidence"],
-      "supported_planner_operations": ["monthly-sum", "resource-records"]
+      "supported_planner_operations": [
+        "billing-statements",
+        "resource-records",
+        "order-list",
+        "order-details",
+        "monthly-sum"
+      ]
     },
     "entitlement_and_deduction": {
       "required_context": {
@@ -75,7 +81,16 @@
       },
       "triggers": ["华为云资源包", "华为云优惠券"],
       "ontology_entities": ["FreeResourcePackage", "CouponChangeRecord", "CouponQuota", "StoredValueCard"],
-      "supported_planner_operations": []
+      "supported_planner_operations": [
+        "free-resource-infos",
+        "free-resource-usages",
+        "free-resource-usage-records",
+        "coupon-change-records",
+        "quota-coupons",
+        "stored-value-cards",
+        "order-coupons",
+        "order-discounts"
+      ]
     },
     "account_scope": {
       "required_context": {
@@ -91,7 +106,14 @@
         "PartnerAccountContext",
         "PartnerBilling"
       ],
-      "supported_planner_operations": []
+      "supported_planner_operations": [
+        "enterprise-organizations",
+        "enterprise-sub-customers",
+        "subcustomer-monthly-bills",
+        "subcustomer-bill-detail",
+        "partner-balances",
+        "partner-account-change-records"
+      ]
     },
     "reference_dimensions": {
       "required_context": {
@@ -101,7 +123,13 @@
       },
       "triggers": ["华为云服务编码", "华为云计量单位"],
       "ontology_entities": ["ReferenceDimensions"],
-      "supported_planner_operations": []
+      "supported_planner_operations": [
+        "reference-service-types",
+        "reference-resource-types",
+        "reference-usage-types",
+        "reference-measure-units",
+        "reference-service-resources"
+      ]
     }
   },
   "entities": {

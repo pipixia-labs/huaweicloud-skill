@@ -16,6 +16,7 @@
 |----------|----------|----------|
 | `USE_ERROR` | 参数、region、service、operation、profile 使用有问题 | 回到 help、当前配置和参数构造 |
 | `NETWORK_ERROR` | 网络连接、超时、重试耗尽 | 检查连通性、timeout、retry |
+| `CLI_ERROR` | KooCLI 本地运行时或命令处理异常 | 查本机 KooCLI 版本和 `~/.hcloud/logs/` |
 | `OPENAPI_ERROR` | 真实云服务 API 返回错误 | 看服务端语义和请求参数 |
 | `APIE_ERROR` | API Explorer 元数据获取失败 | 检查 DNS、网络、meta cache、online/offline mode |
 
@@ -98,6 +99,26 @@
 3. 必要时增加：
    - `--cli-retry-count`
 
+### 5.1 `CLI_ERROR`
+
+现象：
+
+- 输出中出现 `[CLI_ERROR]`
+- 命令还没到云服务 API，KooCLI 自身已经处理失败
+
+典型原因：
+
+- 本地 KooCLI 版本过旧或安装损坏
+- 本地配置、插件、缓存或运行时状态异常
+- 命令行解析、系统参数或本地文件访问在 KooCLI 内部失败
+
+动作：
+
+1. 先运行 `hcloud version` 记录版本。
+2. 查看 `~/.hcloud/logs/` 下最近日志；旧安装也可能写到 `~/.hcloud/log/hcloud.log`。
+3. 如果错误和元数据缓存相关，再考虑 `hcloud meta clear` 或 `hcloud meta download`。
+4. 不要把 `CLI_ERROR` 直接归因到云服务业务参数；只有看到 `OPENAPI_ERROR` 或服务端错误码后，才进入服务端排查。
+
 ### 6. 参数不正确或重复
 
 现象：
@@ -139,6 +160,7 @@
 
 常见位置：
 
+- `~/.hcloud/logs/`
 - `~/.hcloud/log/hcloud.log`
 
 用途：
