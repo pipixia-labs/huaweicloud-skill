@@ -21,6 +21,25 @@ python3 scripts/hcloud_live_regression_plan.py \
   --pretty
 ```
 
+## 服务级 live validation
+
+在跑真实账号回归前，先用服务级 profile 列出高频服务的资源 ID、读回命令、probe 和晋级缺口：
+
+```bash
+python3 scripts/hcloud_live_validation_plan.py \
+  --service ECS \
+  --service VPC \
+  --service EIP \
+  --region cn-north-4 \
+  --profile <profile-name> \
+  --param server_id=<server-id> \
+  --param publicip_id=<publicip-id> \
+  --param probe_url=https://example.com/health \
+  --pretty
+```
+
+这个命令只规划证据，不执行 `hcloud` 和网络 probe。真实采证仍然要通过 `hcloud_service_readiness.py --execute`、`hcloud_acceptance_closure.py` 或人工记录完成。
+
 ## 需要用户协助
 
 - 准备非生产账号或隔离项目。
@@ -38,15 +57,16 @@ python3 scripts/hcloud_live_regression_plan.py \
 ## 推荐回归顺序
 
 1. Environment and credential readiness
-2. OBS static website and DNS/CDN handoff
-3. Production Web/API closure
-4. ECS/CES monitoring troubleshooting
-5. EIP idle and cost governance
-6. SWR to CCI/CCE container deployment readiness
-7. FunctionGraph trigger/log readiness
-8. CCE cloud-native assessment
-9. MaaS usage governance
-10. Terraform import/drift/remote state closure
+2. ECS/VPC/EIP/OBS/ELB/RDS live validation profile
+3. OBS static website and DNS/CDN handoff
+4. Production Web/API closure
+5. ECS/CES monitoring troubleshooting
+6. EIP idle and cost governance
+7. SWR to CCI/CCE container deployment readiness
+8. FunctionGraph trigger/log readiness
+9. CCE cloud-native assessment
+10. MaaS usage governance
+11. Terraform import/drift/remote state closure
 
 ## 完成标准
 

@@ -42,6 +42,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 5. P0 高频服务闭环：
    - 先运行 `hcloud_closure_plan.py --tier lifecycle` 生成 lifecycle plan 和 `acceptance_evidence_plan`。
    - 再用 `hcloud_acceptance_closure.py plan/run/evaluate/chain` 做采证计划、受支持探测和 evidence 结果判定。
+   - 做真实账号回归或服务晋级时，用 `hcloud_live_validation_plan.py` 列出 ECS/VPC/EIP/OBS/ELB/RDS 的目标输入、读回、probe 和晋级缺口。
 6. 完成声明要诚实：
    - `job_id`、`accepted`、云侧 `ACTIVE`、Terraform plan 成功、MaaS `task_id` 都不等于业务可用。
    - 需要协议、健康、机内、日志、指标或用户路径证据时，必须说明已采集、缺失或被阻塞。
@@ -68,7 +69,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | 环境、认证、profile、region/project | `hcloud_environment_doctor.py`、`hcloud_context_inspect.py` |
 | 自然语言场景路由 | `hcloud_scenario_router.py` |
 | 真实 hcloud 查询或受控系统命令 | `hcloud_safe_exec.py` |
-| 多服务发现、目标查询、readiness | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py` |
+| 多服务发现、目标查询、readiness/live validation | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py` |
 | 创建/变更计划和 guarded flow | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
 | P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |
 | 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py` |
@@ -86,7 +87,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - 脚本索引和受众边界：`references/scripts.md`、`references/script-audience-manifest.json`
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`
-- 覆盖和晋级：`references/service-coverage.md`、`references/service-curation-profiles.json`、`hcloud_closure_maturity_audit.py`
+- 覆盖和晋级：`references/service-coverage.md`、`references/service-curation-profiles.json`、`references/live-validation-profiles.json`、`hcloud_closure_maturity_audit.py`
 - 版本事实：`references/versioning-policy.md`、`CHANGELOG.md`、`RELEASE_NOTES.md`
 - 溯源和材料：`references/source-map.md`、`references/materials-sources.json`
 

@@ -54,6 +54,7 @@
         "scripts/hcloud_environment_doctor.py",
         "scripts/hcloud_idle_audit.py",
         "scripts/hcloud_lts_readonly.py",
+        "scripts/hcloud_live_validation_plan.py",
         "scripts/hcloud_meta_lookup.py",
         "scripts/hcloud_obs_readonly.py",
         "scripts/hcloud_observability_plan.py",

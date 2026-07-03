@@ -17,6 +17,13 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "tools": ["scripts/hcloud_environment_doctor.py --need hcloud --need live --pretty"],
         "acceptance": ["hcloud found", "profile or env credentials ready", "region/project context understood"],
     },
+    "core-service-validation": {
+        "title": "ECS/VPC/EIP/OBS/ELB/RDS live validation profile",
+        "risk": "read_only_then_protocol_probe",
+        "required_inputs": ["region", "resource IDs for target services", "approved probe URLs/ports when user-path evidence is required"],
+        "tools": ["scripts/hcloud_live_validation_plan.py --service ECS --service VPC --service EIP --service OBS --service ELB --service RDS --pretty"],
+        "acceptance": ["missing service inputs are explicit", "hcloud readback plans are generated", "promotion gate gaps are recorded"],
+    },
     "obs-static-site": {
         "title": "OBS static website and DNS/CDN handoff",
         "risk": "may_create_billable_resources",

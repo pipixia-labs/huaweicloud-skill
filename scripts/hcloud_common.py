@@ -128,9 +128,10 @@ def is_redactable_secret_value(value: Any) -> bool:
 def looks_like_secret_arg(arg: str) -> bool:
     """Return True when an argument or JSON key suggests sensitive data."""
     lowered = arg.lower()
+    compact = lowered.replace("_", "").replace("-", "")
     if lowered.split("=", 1)[0] in OBSUTIL_SECRET_ARG_NAMES:
         return True
-    return any(hint in lowered for hint in SECRET_HINTS)
+    return any(hint in lowered or hint.replace("_", "").replace("-", "") in compact for hint in SECRET_HINTS)
 
 
 def looks_like_command_key(key: str | None) -> bool:

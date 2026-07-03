@@ -420,6 +420,23 @@ python3 scripts/hcloud_service_readiness.py \
 
 Use to run or plan per-service read-only readiness checks. Target-specific checks are skipped when required IDs are missing. `--execute` is required for live queries.
 
+### Live Validation Plan
+
+```bash
+python3 scripts/hcloud_live_validation_plan.py \
+  --service ECS \
+  --service VPC \
+  --service EIP \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --param server_id=<server-id> \
+  --param publicip_id=<publicip-id> \
+  --param probe_url=https://example.com/health \
+  --pretty
+```
+
+Use this before true-account regression or curated-service promotion work. It reads `references/live-validation-profiles.json` for the high-frequency services ECS, VPC, EIP, OBS, ELB, and RDS, then composes existing `hcloud_service_readiness.py` readback plans with service-specific acceptance evidence, probe candidates, and promotion gates. The script is planner-only: it does not execute hcloud, run network probes, mutate cloud resources, import Terraform state, or read secrets. Real collection still goes through `hcloud_service_readiness.py --execute` and `hcloud_acceptance_closure.py` after review.
+
 ### Closure Plan
 
 ```bash

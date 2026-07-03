@@ -6,6 +6,7 @@
 - Updates scenario follow-ups, script manifest, SKILL guidance, and script references so new user-facing flows choose one acceptance entry instead of three separate tools.
 - Slims `SKILL.md` into a compact runtime entry focused on positioning, safety boundaries, default workflow, and 10 preferred entry categories. Detailed script usage remains in `references/scripts.md`.
 - Adds `hcloud_closure_plan.py` as the preferred unified closure-planning entry for P0 lifecycle, P1 governance, and P2 scenario closure. Tier-specific closure planners remain compatibility modules.
+- Adds `hcloud_live_validation_plan.py` and `references/live-validation-profiles.json` to plan ECS/VPC/EIP/OBS/ELB/RDS true-account evidence, readback, probes, and promotion gaps without executing cloud calls.
 
 ## v0.6.2 / 0.6.2 - 2026-07-03
 
