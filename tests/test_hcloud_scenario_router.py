@@ -51,9 +51,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
             followup_tools,
             [
                 "scripts/hcloud_lifecycle_closure_plan.py",
-                "scripts/hcloud_acceptance_probe_plan.py",
-                "scripts/hcloud_acceptance_probe_run.py",
-                "scripts/hcloud_acceptance_evidence_result.py",
+                "scripts/hcloud_acceptance_closure.py",
             ],
         )
 
@@ -97,7 +95,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("references/playbooks/rds-instance-readiness.md", match["primary_playbooks"])
         self.assertIn("references/playbooks/waf-policy-readiness.md", match["primary_playbooks"])
         self.assertIn("scripts/hcloud_account_inventory.py", match["planners"])
-        self.assertIn("scripts/hcloud_acceptance_probe_plan.py", match["planners"])
+        self.assertIn("scripts/hcloud_acceptance_closure.py", match["planners"])
         self.assertIn("ELB:ShowLoadBalancer", match["sdk_supplements"])
         self.assertTrue(match["terraform_candidate"])
 

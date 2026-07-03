@@ -440,26 +440,37 @@ Use this when the user asks for a task-level closure plan rather than a single l
 
 The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unsafe VPC ingress such as `0.0.0.0/0` on SSH/Web ports is hard-blocked before any submit path exists. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only. The `post_change_verification` stage includes an `acceptance_evidence_plan` with service-specific evidence items and missing-input status; it plans acceptance evidence but does not run live probes.
 
-### Acceptance Probe Plan
+### Acceptance Closure
 
 ```bash
-python3 scripts/hcloud_acceptance_probe_plan.py \
+python3 scripts/hcloud_acceptance_closure.py plan \
   --plan-file=<lifecycle-plan.json> \
   --pretty
 ```
 
-Use this after lifecycle closure planning to turn `acceptance_evidence_plan` items into non-executing probe templates. It may suggest commands such as bounded `curl`, DNS lookup, HTTPS chain, guest disk checks, or metric/log query templates, but it never runs them. Treat generated templates as reviewable next steps, not proof that evidence has been collected.
-
-### Acceptance Evidence Result
+```bash
+python3 scripts/hcloud_acceptance_closure.py run \
+  --probe-plan-file=<probe-plan.json> \
+  --value probe_url=https://example.com \
+  --execute \
+  --pretty
+```
 
 ```bash
-python3 scripts/hcloud_acceptance_evidence_result.py \
+python3 scripts/hcloud_acceptance_closure.py evaluate \
   --plan-file=<lifecycle-plan.json> \
   --evidence-file=<local-evidence-status.json> \
   --pretty
 ```
 
-Use this after evidence has been collected and summarized locally. The evidence file maps evidence item IDs, such as `publicip_readback` or `guest_device_filesystem`, to `passed`, `warning`, `missing`, or `blocked`. The evaluator is local only: it does not parse raw secrets, execute probes, call hcloud, or infer success from missing evidence.
+```bash
+python3 scripts/hcloud_acceptance_closure.py chain \
+  --plan-file=<lifecycle-plan.json> \
+  --value probe_url=https://example.com \
+  --pretty
+```
+
+Use this after lifecycle closure planning. The `plan` subcommand turns `acceptance_evidence_plan` items into probe templates, `run` prepares or runs only supported HTTP/TCP/DNS/TLS probes, `evaluate` reads local evidence status JSON, and `chain` composes the three stages. Without `--execute`, `run` and `chain` only report prepared probes and missing evidence. The compatibility entry points `hcloud_acceptance_probe_plan.py`, `hcloud_acceptance_probe_run.py`, and `hcloud_acceptance_evidence_result.py` remain available for focused workflows and tests, but new user-facing flows should prefer this unified command.
 
 ### Governance Closure Plan
 

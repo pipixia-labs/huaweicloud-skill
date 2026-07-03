@@ -24,8 +24,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "tools": [
             "scripts/hcloud_scenario_router.py 'OBS 静态网站自定义域名 CNAME 403 排查' --pretty",
             "scripts/hcloud_obs_readonly.py",
-            "scripts/hcloud_acceptance_probe_plan.py",
-            "scripts/hcloud_acceptance_probe_run.py",
+            "scripts/hcloud_acceptance_closure.py plan/run/evaluate",
         ],
         "acceptance": ["OBS website endpoint returns expected HTTP status", "DNS/CNAME evidence if domain is used", "cleanup plan recorded"],
     },
@@ -36,7 +35,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "tools": [
             "scripts/hcloud_scenario_router.py '生产 Web 应用上线 ECS RDS ELB HTTPS WAF 闭环' --pretty",
             "scripts/hcloud_lifecycle_closure_plan.py",
-            "scripts/hcloud_acceptance_probe_run.py",
+            "scripts/hcloud_acceptance_closure.py chain",
         ],
         "acceptance": ["domain or ELB URL probe passes", "backend health evidence present", "RDS connection evidence if in scope"],
     },

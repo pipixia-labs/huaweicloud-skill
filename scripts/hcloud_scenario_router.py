@@ -29,19 +29,9 @@ P0_ACCEPTANCE_FOLLOWUPS = [
         "purpose": "Build the six-stage P0 closure plan and acceptance_evidence_plan.",
     },
     {
-        "step": "probe_plan",
-        "tool": "scripts/hcloud_acceptance_probe_plan.py",
-        "purpose": "Turn acceptance evidence items into non-executing probe templates.",
-    },
-    {
-        "step": "live_probe_run",
-        "tool": "scripts/hcloud_acceptance_probe_run.py",
-        "purpose": "Run supported HTTP/TCP/DNS/TLS probes after explicit user approval and placeholder binding.",
-    },
-    {
-        "step": "local_evidence_result",
-        "tool": "scripts/hcloud_acceptance_evidence_result.py",
-        "purpose": "Evaluate collected local evidence statuses as passed/warning/missing/blocked.",
+        "step": "acceptance_closure",
+        "tool": "scripts/hcloud_acceptance_closure.py",
+        "purpose": "Use plan/run/evaluate subcommands to collect and judge acceptance evidence.",
     },
 ]
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Script audience and consolidation manifest for huaweicloud-skill v0.6. It documents who should use each script without physically merging scripts in this release.",
+  "description": "Script audience and consolidation manifest for huaweicloud-skill. It documents who should use each script and identifies consolidation entry points without broadening safety gates.",
   "consolidation_policy": {
     "v0_6_action": "Document audience boundaries and keep existing script files stable for reviewability.",
     "do_not_do_in_v0_6": [
@@ -10,6 +10,10 @@
       "Do not add ungated Terraform import, drift automation, remote state, or blueprint execution to the default path."
     ],
     "v0_6_x_candidates": [
+      {
+        "area": "acceptance closure",
+        "candidate": "Prefer hcloud_acceptance_closure.py as the user-facing plan/run/evaluate wrapper while preserving probe plan, probe run, and evidence result modules for compatibility and focused tests."
+      },
       {
         "area": "catalog maintenance",
         "candidate": "Wrap build, diff, audit, and smoke utilities behind one maintenance command while preserving current modules."
@@ -34,6 +38,7 @@
       "audience": "agent runtime and user-facing task workflows",
       "boundary": "May plan or execute only within each script's documented safety gate. Planner-only scripts must stay non-executing.",
       "scripts": [
+        "scripts/hcloud_acceptance_closure.py",
         "scripts/hcloud_acceptance_evidence_result.py",
         "scripts/hcloud_acceptance_probe_plan.py",
         "scripts/hcloud_acceptance_probe_run.py",
