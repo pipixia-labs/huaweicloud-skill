@@ -683,11 +683,22 @@ class ArchitectureContractsTest(unittest.TestCase):
         safety_text = (ROOT / "references" / "runtime-safety-boundaries.md").read_text(encoding="utf-8")
         version_text = (ROOT / "references" / "versioning-policy.md").read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(skill_text.splitlines()), 280)
+        self.assertLessEqual(len(skill_text.splitlines()), 140)
         self.assertIn("references/runtime-safety-boundaries.md", skill_text)
+        self.assertIn("references/scripts.md", skill_text)
         self.assertIn("references/versioning-policy.md", skill_text)
+        self.assertIn("hcloud_acceptance_closure.py", skill_text)
         self.assertIn("CHANGELOG.md", version_text)
         self.assertIn("RELEASE_NOTES.md", version_text)
+        self.assertNotIn("## 当前版本覆盖", skill_text)
+        self.assertNotIn("tests/v0_6_acceptance_scenarios.md", skill_text)
+
+        entry_section = skill_text.split("## 首选入口", 1)[1].split("## 资料入口", 1)[0]
+        entry_rows = [
+            line for line in entry_section.splitlines()
+            if line.startswith("| ") and " | " in line and not line.startswith("| ---")
+        ]
+        self.assertLessEqual(len(entry_rows), 11)
 
         for phrase in (
             "异步任务必须跟到终态",
