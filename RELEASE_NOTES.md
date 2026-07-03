@@ -2,13 +2,63 @@
 
 ## Unreleased
 
-- Adds `hcloud_acceptance_closure.py` as the preferred unified acceptance closure entry point with `plan`, `run`, `evaluate`, and `chain` subcommands. Existing probe-plan, probe-run, and evidence-result scripts remain available for compatibility and focused tests.
-- Updates scenario follow-ups, script manifest, SKILL guidance, and script references so new user-facing flows choose one acceptance entry instead of three separate tools.
-- Slims `SKILL.md` into a compact runtime entry focused on positioning, safety boundaries, default workflow, and 10 preferred entry categories. Detailed script usage remains in `references/scripts.md`.
-- Adds `hcloud_closure_plan.py` as the preferred unified closure-planning entry for P0 lifecycle, P1 governance, and P2 scenario closure. Tier-specific closure planners remain compatibility modules.
-- Adds `hcloud_live_validation_plan.py` and `references/live-validation-profiles.json` to plan ECS/VPC/EIP/OBS/ELB/RDS true-account evidence, readback, probes, and promotion gaps without executing cloud calls.
-- Adds explicit result-narration honesty boundaries and Billing semantic discipline for `fact × grain × money_basis × scope/billing_period`.
-- Adds `HUAWEI_*` credential alias detection for environment/Terraform/MaaS readiness and extends `maas_usage_request_plan.py` with a gated `--execute` mode for read-only MaaS ShowStatistics queries.
+- 暂无。
+
+## v0.7 / 0.7.0 - 2026-07-03
+
+v0.7 是一次收敛和纵深版本。它继续坚持“一个统一的大 Skill”路线：`hcloud` 仍然是云资源发现、执行和回读主链路，SDK、MaaS API 和 Terraform 只作为边界清晰的辅助能力面。这个版本的重点不是铺更多入口，而是把工具面收敛、把高频服务验证计划做深、把账单/用量/监控/治理中的硬知识固化成可测试的项目契约。
+
+### 主要变化
+
+- **统一入口收敛**
+  - 新增 `hcloud_acceptance_closure.py`，作为 acceptance closure 的首选统一入口，提供 `plan`、`run`、`evaluate`、`chain` 子命令。
+  - 新增 `hcloud_closure_plan.py`，统一 P0 lifecycle、P1 governance、P2 scenario closure planning。
+  - 旧的 probe-plan、probe-run、evidence-result 和分层 closure planner 保留为兼容路径，但新流程默认选择统一入口。
+
+- **SKILL.md 减负**
+  - `SKILL.md` 精简为运行入口：统一大 Skill 定位、安全红线、默认工作流和 10 个以内首选入口。
+  - 详细脚本说明下沉到 `references/scripts.md`，减少双份维护和入口选择负担。
+
+- **真实账号验证规划**
+  - 新增 `hcloud_live_validation_plan.py` 和 `references/live-validation-profiles.json`。
+  - 面向 ECS、VPC/EIP、OBS、ELB、RDS 生成发现、计划、回读、probe、evidence 和晋级缺口，不自动执行云调用。
+
+- **MaaS 用量治理**
+  - `maas_usage_request_plan.py` 增加受控 `--execute`，支持只读 ShowStatistics 查询。
+  - 明确 MaaS 用量统计走 AK/SK 签名，不是 `MAAS_API_KEY`；token 返回单位按“千 token”解释。
+  - 环境体检、Terraform context 和 MaaS 用量规划支持 `HUAWEI_*` 凭据别名。
+
+- **Billing/BSS 纵深增强**
+  - `hcloud_billing_readonly.py` 扩展余额、账单流水、摊销、账户流水、资源包、券、订单、企业/伙伴账务和参考字典只读 planner。
+  - 固化 `fact × grain × money_basis × scope/billing_period` 账单语义纪律。
+  - 增加企业项目过滤、BSS 固定 CLI 默认值、KooCLI 点号参数和分页边界等防错规则。
+
+- **硬知识吸收**
+  - CES/ECS：补充 Agent 指标、`mem_used_percent` namespace、`ces.0014` 误诊风险和告警模板建议。
+  - OBS：补充 `SYS.OBS` 指标、traffic vs bandwidth、请求数拆分汇总和容量统计边界。
+  - COC：补充 `ServiceAgencyForCOC`、409 幂等、ControlMaster 和 60 秒清理模式。
+  - Flexus L：补充 HCSS 控制面观察，并明确标记为 evidence gap，执行前必须复核。
+  - CCE/UCS/SWR/DWS：补充云原生评估、fleet/policy 治理、镜像治理和数据库诊断方法论。
+
+- **安全和诚实边界**
+  - `hcloud_safe_exec.py` 增加 `CLI_ERROR` 识别和 KooCLI 日志排查建议。
+  - `runtime-safety-boundaries.md` 增加凭据本地化和结果叙事真实性要求。
+  - Terraform guardrails 明确区分 generated、validated、planned、applied、verified，不把 plan 或模板写成已上线。
+
+### 验证
+
+- `python3 -m unittest discover -s tests`：308 个测试通过。
+- `python3 -m py_compile` 覆盖本轮关键脚本：通过。
+- `python3 -m json.tool` 覆盖 Billing semantic catalog 和 CES metric guidance：通过。
+- `git diff --check`：通过。
+
+### 兼容性与安全说明
+
+- v0.7 没有新增默认 Terraform apply、destroy、import 或 state 迁移自动化。
+- v0.7 没有把 SDK 扩展为通用 mutation 执行面。
+- live validation 仍然是 plan/evidence 规划，不代表所有服务都已在真实账号完成验证。
+- Billing/BSS 仍然是只读 planning + 用户确认后的 safe_exec 路径；默认不读取真实账单。
+- COC 和 Flexus L 仍保持高风险边界，未变成默认执行面。
 
 ## v0.6.2 / 0.6.2 - 2026-07-03
 
