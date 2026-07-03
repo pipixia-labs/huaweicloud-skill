@@ -524,6 +524,18 @@ python3 scripts/hcloud_acceptance_closure.py run \
   --pretty
 ```
 
+Private tenant paths require an explicit target confirmation:
+
+```bash
+python3 scripts/hcloud_acceptance_closure.py run \
+  --probe-plan-file=<probe-plan.json> \
+  --value host=10.0.1.25 \
+  --value port=8080 \
+  --execute \
+  --allow-private-targets \
+  --pretty
+```
+
 ```bash
 python3 scripts/hcloud_acceptance_closure.py evaluate \
   --plan-file=<lifecycle-plan.json> \
@@ -538,7 +550,7 @@ python3 scripts/hcloud_acceptance_closure.py chain \
   --pretty
 ```
 
-Use this after lifecycle closure planning. The `plan` subcommand turns `acceptance_evidence_plan` items into probe templates, `run` prepares or runs only supported HTTP/TCP/DNS/TLS probes, `evaluate` reads local evidence status JSON, and `chain` composes the three stages. Without `--execute`, `run` and `chain` only report prepared probes and missing evidence. The compatibility entry points `hcloud_acceptance_probe_plan.py`, `hcloud_acceptance_probe_run.py`, and `hcloud_acceptance_evidence_result.py` remain available for focused workflows and tests, but new user-facing flows should prefer this unified command.
+Use this after lifecycle closure planning. The `plan` subcommand turns `acceptance_evidence_plan` items into probe templates, `run` prepares or runs only supported HTTP/TCP/DNS/TLS probes, `evaluate` reads local evidence status JSON, and `chain` composes the three stages. Without `--execute`, `run` and `chain` only report prepared probes and missing evidence. Metadata and link-local targets such as `169.254.169.254` are blocked even when a placeholder value renders them. Private, loopback, or `.local` targets require `--allow-private-targets` after the user confirms the target belongs to the tenant acceptance path. The compatibility entry points `hcloud_acceptance_probe_plan.py`, `hcloud_acceptance_probe_run.py`, and `hcloud_acceptance_evidence_result.py` remain available for focused workflows and tests, but new user-facing flows should prefer this unified command.
 
 ### Governance Closure Plan Compatibility
 

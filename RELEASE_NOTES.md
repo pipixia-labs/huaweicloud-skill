@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- 暂无。
+- Acceptance probe 执行增加目标安全策略：元数据/link-local 目标 hard-block，内网、loopback 和 `.local` 目标需要 `--allow-private-targets` 显式确认，HTTP probe 不跟随重定向。
+- `references/versioning-policy.md` 增加兼容入口退役节奏，用 v0.8/v0.9/v1.0 分阶段把 facade 过渡到真正收敛。
 
 ## v0.7 / 0.7.0 - 2026-07-03
 

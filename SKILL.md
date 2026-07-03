@@ -59,6 +59,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | Terraform 状态 | import/state/remote state 是高影响操作；必须显式确认，不能自动 apply/destroy。 |
 | MaaS 视频和异步任务 | `task_id` 只是受理凭据，必须查询终态。 |
 | 账单/成本 | 不从资源清单推断费用；账单结果要脱敏、区分 fact/grain/money basis/scope。 |
+| 自动 live probe | 只执行 plan 派生的 HTTP/TCP/DNS/TLS；元数据/link-local 目标拒绝，内网/localhost 需显式确认。 |
 | 结果叙事 | 只描述真实发生的命令、输出和验证；不要编造失败-恢复过程或把计划态写成已执行。 |
 
 ## 首选入口
@@ -100,5 +101,5 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - P0 高频服务有 lifecycle planner 和 acceptance closure；P1/P2 主要是 governance/scenario planner，不能说成完整执行闭环。
 - OBS、MaaS、Billing、Terraform 都有专门边界：各自只在明确场景进入，不替代 hcloud 主链路。
 - 长尾安全、数据库、治理、身份和 key 类服务多为 metadata-backed evidence gap；先做发现、计划和证据缺口，不默认执行 mutation。
-- 自动 live probe 只支持内置 HTTP/TCP/DNS/TLS；其他 evidence 需要人工或专用工具采集后再 evaluate。
+- 自动 live probe 只支持内置 HTTP/TCP/DNS/TLS；内网、localhost 或 `.local` 目标必须带 `--allow-private-targets` 且来自已审阅的 evidence plan，其他 evidence 需要人工或专用工具采集后再 evaluate。
 - 真实账号回归、Terraform state-changing import、计费资源创建/释放仍需要用户提供隔离环境、资源 ID、profile/region 和明确确认。

@@ -121,10 +121,80 @@ class CompletionGapToolsTest(unittest.TestCase):
         with mock.patch.object(hcloud_acceptance_probe_run, "http_probe", return_value=fake) as http_probe:
             result = hcloud_acceptance_probe_run.build_execution(self.probe_plan(), values, execute=True, timeout=1)
 
-        http_probe.assert_called_once_with("http://example.test", method="GET", timeout=1)
+        http_probe.assert_called_once_with(
+            "http://example.test",
+            method="GET",
+            timeout=1,
+            allow_private_targets=False,
+        )
         evidence = result["evidence"]["public_protocol_probe"]
         self.assertEqual(evidence["status"], "passed")
         self.assertEqual(result["services"][0]["status_counts"]["passed"], 1)
+
+    def test_probe_runner_blocks_metadata_target_without_network(self) -> None:
+        values = hcloud_acceptance_probe_run.parse_values(["probe_url=http://169.254.169.254/latest/meta-data"])
+
+        with mock.patch.object(hcloud_acceptance_probe_run.urllib.request, "build_opener") as build_opener:
+            result = hcloud_acceptance_probe_run.build_execution(self.probe_plan(), values, execute=True, timeout=1)
+
+        build_opener.assert_not_called()
+        evidence = result["evidence"]["public_protocol_probe"]
+        self.assertEqual(evidence["status"], "blocked")
+        template_result = result["services"][0]["probe_results"][0]["detail"]["template_results"][0]
+        self.assertEqual(template_result["detail"]["target_scope"], "metadata")
+
+    def test_probe_runner_requires_confirmation_for_private_targets(self) -> None:
+        values = hcloud_acceptance_probe_run.parse_values(["probe_url=http://10.0.0.5/health"])
+
+        result = hcloud_acceptance_probe_run.build_execution(self.probe_plan(), values, execute=True, timeout=1)
+
+        evidence = result["evidence"]["public_protocol_probe"]
+        self.assertEqual(evidence["status"], "blocked")
+        template_result = result["services"][0]["probe_results"][0]["detail"]["template_results"][0]
+        self.assertIn("--allow-private-targets", template_result["summary"])
+
+    def test_probe_runner_blocks_ipv4_mapped_metadata_target(self) -> None:
+        values = hcloud_acceptance_probe_run.parse_values(["probe_url=http://[::ffff:169.254.169.254]/"])
+
+        result = hcloud_acceptance_probe_run.build_execution(self.probe_plan(), values, execute=True, timeout=1)
+
+        template_result = result["services"][0]["probe_results"][0]["detail"]["template_results"][0]
+        self.assertEqual(template_result["status"], "blocked")
+        self.assertEqual(template_result["detail"]["target_scope"], "metadata")
+
+    def test_probe_runner_reports_invalid_url_port_as_blocked_evidence(self) -> None:
+        values = hcloud_acceptance_probe_run.parse_values(["probe_url=http://example.test:bad/"])
+
+        result = hcloud_acceptance_probe_run.build_execution(self.probe_plan(), values, execute=True, timeout=1)
+
+        template_result = result["services"][0]["probe_results"][0]["detail"]["template_results"][0]
+        self.assertEqual(template_result["status"], "blocked")
+        self.assertEqual(template_result["detail"]["target_scope"], "invalid_port")
+
+    def test_probe_runner_can_pass_explicit_private_target_confirmation(self) -> None:
+        values = hcloud_acceptance_probe_run.parse_values(["probe_url=http://10.0.0.5/health"])
+        fake = hcloud_acceptance_probe_run.status_result(
+            hcloud_acceptance_probe_run.PASSED,
+            "HTTP probe returned 200.",
+            source="http",
+        )
+
+        with mock.patch.object(hcloud_acceptance_probe_run, "http_probe", return_value=fake) as http_probe:
+            result = hcloud_acceptance_probe_run.build_execution(
+                self.probe_plan(),
+                values,
+                execute=True,
+                timeout=1,
+                allow_private_targets=True,
+            )
+
+        http_probe.assert_called_once_with(
+            "http://10.0.0.5/health",
+            method="GET",
+            timeout=1,
+            allow_private_targets=True,
+        )
+        self.assertEqual(result["evidence"]["public_protocol_probe"]["status"], "passed")
 
     def test_acceptance_closure_chain_prepares_and_evaluates_missing_without_execution(self) -> None:
         values = hcloud_acceptance_closure.probe_run.parse_values(["probe_url=http://example.test"])
@@ -148,9 +218,39 @@ class CompletionGapToolsTest(unittest.TestCase):
         with mock.patch.object(hcloud_acceptance_closure.probe_run, "http_probe", return_value=fake) as http_probe:
             result = hcloud_acceptance_closure.build_chain(self.lifecycle_plan(), values, execute=True, timeout=1)
 
-        http_probe.assert_called_once_with("http://example.test", method="GET", timeout=1)
+        http_probe.assert_called_once_with(
+            "http://example.test",
+            method="GET",
+            timeout=1,
+            allow_private_targets=False,
+        )
         self.assertEqual(result["overall_status"], "passed")
         self.assertEqual(result["evidence_result"]["services"][0]["summary"]["passed"], 1)
+
+    def test_acceptance_closure_chain_passes_private_target_confirmation(self) -> None:
+        values = hcloud_acceptance_closure.probe_run.parse_values(["probe_url=http://10.0.0.5/health"])
+        fake = hcloud_acceptance_closure.probe_run.status_result(
+            hcloud_acceptance_closure.probe_run.PASSED,
+            "HTTP probe returned 200.",
+            source="http",
+        )
+
+        with mock.patch.object(hcloud_acceptance_closure.probe_run, "http_probe", return_value=fake) as http_probe:
+            result = hcloud_acceptance_closure.build_chain(
+                self.lifecycle_plan(),
+                values,
+                execute=True,
+                timeout=1,
+                allow_private_targets=True,
+            )
+
+        http_probe.assert_called_once_with(
+            "http://10.0.0.5/health",
+            method="GET",
+            timeout=1,
+            allow_private_targets=True,
+        )
+        self.assertEqual(result["overall_status"], "passed")
 
     def test_live_regression_plan_lists_user_required_inputs(self) -> None:
         args = SimpleNamespace(scenario=["terraform-operations", "cce-assessment"], region="cn-north-4", profile="dev")

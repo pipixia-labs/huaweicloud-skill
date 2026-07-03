@@ -63,6 +63,14 @@
 - ELB、NAT、VPC 路由等网络编排任务必须先确定 canonical VPC/subnet。后端 ECS 分属不同 VPC、member subnet 与 ECS 网卡不匹配、或 ELB 与后端网络不可达时，不要反复重建 listener/member。
 - 如果没有远程命令能力，可用 EIP + 协议探测验证；如果协议探测不通，不要宣布应用部署成功。
 
+## 6.1 自动 probe 目标必须受限
+
+- `hcloud_acceptance_closure.py run/chain --execute` 和 `hcloud_acceptance_probe_run.py --execute` 只能执行由已审阅 acceptance evidence plan 派生的 HTTP/TCP/DNS/TLS 模板，不能把它们当任意 URL/端口扫描器。
+- 云元数据和 link-local 目标必须 hard-block，例如 `169.254.169.254`、`169.254.0.0/16`、IPv6 link-local；不要因为用户把它们填进 `<probe_url>`、`<target_host>` 或 DNS 记录就发包。
+- `localhost`、loopback、RFC1918 内网、reserved 地址和 `.local` 名称默认不自动 probe；只有用户明确确认目标来自租户自己的验收路径时，才允许使用 `--allow-private-targets`。
+- HTTP/HTTPS probe 不跟随重定向；遇到 3xx 只记录返回码，避免从公网入口被重定向到本机、内网或元数据地址。
+- 最终结果要区分“probe 被安全策略阻断”和“业务不可达”。被目标策略挡住时，状态应为 `blocked`，而不是把它写成应用健康检查失败。
+
 ## 7. 安全组入口端口必须收敛
 
 - 安全组入方向规则中，SSH 端口 `22` 和常见 Web 入口端口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 不允许使用 `0.0.0.0/0` 作为来源。

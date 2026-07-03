@@ -677,6 +677,11 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("scripts/check_question_coverage.py", by_group["maintenance_and_regression"])
         self.assertIn("scripts/hcloud_common.py", by_group["internal_library"])
         self.assertIn("scripts/qwen_text_to_image.py", by_group["compatibility"])
+        self.assertIn("compatibility_retirement_policy", manifest["consolidation_policy"])
+        self.assertEqual(
+            manifest["consolidation_policy"]["compatibility_retirement_policy"]["source"],
+            "references/versioning-policy.md",
+        )
 
     def test_skill_entry_stays_slim_and_points_to_truth_sources(self) -> None:
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -709,9 +714,15 @@ class ArchitectureContractsTest(unittest.TestCase):
             "不要为了让过程显得完整",
             "0.0.0.0/0",
             "COC",
+            "169.254.169.254",
+            "--allow-private-targets",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, safety_text)
+
+        for phrase in ("兼容入口退役节奏", "v0.8", "v0.9", "v1.0"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, version_text)
 
 
 if __name__ == "__main__":

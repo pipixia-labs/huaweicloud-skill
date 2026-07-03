@@ -38,7 +38,7 @@ python3 scripts/hcloud_live_validation_plan.py \
   --pretty
 ```
 
-这个命令只规划证据，不执行 `hcloud` 和网络 probe。真实采证仍然要通过 `hcloud_service_readiness.py --execute`、`hcloud_acceptance_closure.py` 或人工记录完成。
+这个命令只规划证据，不执行 `hcloud` 和网络 probe。真实采证仍然要通过 `hcloud_service_readiness.py --execute`、`hcloud_acceptance_closure.py` 或人工记录完成。执行 probe 时，公网入口可以直接按 evidence plan 跑；内网、loopback 或 `.local` 目标必须先确认属于租户验收路径，再加 `--allow-private-targets`。
 
 ## 需要用户协助
 

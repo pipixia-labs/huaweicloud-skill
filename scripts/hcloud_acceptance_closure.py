@@ -13,10 +13,23 @@ import hcloud_acceptance_probe_run as probe_run
 import hcloud_common
 
 
-def build_chain(lifecycle_plan: dict[str, Any], values: dict[str, str], *, execute: bool, timeout: int) -> dict[str, Any]:
+def build_chain(
+    lifecycle_plan: dict[str, Any],
+    values: dict[str, str],
+    *,
+    execute: bool,
+    timeout: int,
+    allow_private_targets: bool = False,
+) -> dict[str, Any]:
     """Build probe templates, run supported probes, and evaluate evidence in one flow."""
     planned_probes = probe_plan.build_probe_plan(lifecycle_plan)
-    probe_execution = probe_run.build_execution(planned_probes, values, execute=execute, timeout=timeout)
+    probe_execution = probe_run.build_execution(
+        planned_probes,
+        values,
+        execute=execute,
+        timeout=timeout,
+        allow_private_targets=allow_private_targets,
+    )
     evaluation = evidence_result.evaluate_plan(lifecycle_plan, probe_execution)
     return {
         "success": True,
@@ -42,6 +55,11 @@ def add_values(parser: argparse.ArgumentParser) -> None:
     """Add common probe execution options."""
     parser.add_argument("--value", action="append", default=[], help="Placeholder value as KEY=VALUE. Repeatable.")
     parser.add_argument("--execute", action="store_true", help="Run supported live probes.")
+    parser.add_argument(
+        "--allow-private-targets",
+        action="store_true",
+        help="Allow private, loopback, or local probe targets after explicit user confirmation.",
+    )
     parser.add_argument("--timeout", type=int, default=10, help="Network timeout for each supported probe.")
 
 
@@ -89,6 +107,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             values,
             execute=args.execute,
             timeout=args.timeout,
+            allow_private_targets=args.allow_private_targets,
         )
     if args.command == "evaluate":
         return evidence_result.evaluate_plan(
@@ -102,6 +121,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             values,
             execute=args.execute,
             timeout=args.timeout,
+            allow_private_targets=args.allow_private_targets,
         )
     raise ValueError(f"Unsupported command: {args.command}")
 

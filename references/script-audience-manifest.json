@@ -34,7 +34,13 @@
         "area": "Billing",
         "candidate": "Keep probe, readonly planner, and result summarizer separate because they have different data-sensitivity boundaries."
       }
-    ]
+    ],
+    "compatibility_retirement_policy": {
+      "v0_8": "Mark compatibility entry points deprecated and keep new docs/routes/examples on unified entry points.",
+      "v0_9": "Move primary tests to unified entry points; keep only lightweight smoke coverage for compatibility names.",
+      "v1_0": "Remove or internalize compatibility entry points that have no dedicated user-facing need across two minor releases.",
+      "source": "references/versioning-policy.md"
+    }
   },
   "script_groups": [
     {
@@ -139,7 +145,7 @@
     {
       "id": "compatibility",
       "audience": "existing workflows that still call legacy names",
-      "boundary": "Keep as compatibility entry points; prefer unified names in new documentation.",
+      "boundary": "Keep as compatibility entry points during the v0.8/v0.9 retirement window; prefer unified names in new documentation and remove or internalize stale names for v1.0.",
       "scripts": [
         "scripts/hcloud_acceptance_evidence_result.py",
         "scripts/hcloud_acceptance_probe_plan.py",
