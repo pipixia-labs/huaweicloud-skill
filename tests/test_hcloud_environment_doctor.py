@@ -78,6 +78,28 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertNotIn("ak-value-secret", payload)
         self.assertNotIn("sk-value-secret", payload)
 
+    def test_auth_inspection_accepts_huawei_env_aliases(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {
+                "HUAWEI_ACCESS_KEY": "ak-value-secret",
+                "HUAWEI_SECRET_KEY": "sk-value-secret",
+                "HUAWEI_REGION": "cn-north-4",
+                "HUAWEI_PROJECT_ID": "project-value",
+                "HUAWEI_DOMAIN_ID": "domain-value",
+            },
+            clear=True,
+        ):
+            result = hcloud_environment_doctor.inspect_auth({"live"})
+
+        payload = json.dumps(result, ensure_ascii=False)
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result["details"]["auth_modes"]["huawei_env_complete"])
+        self.assertTrue(result["details"]["environment"]["HUAWEI_PROJECT_ID"]["set"])
+        self.assertNotIn("ak-value-secret", payload)
+        self.assertNotIn("sk-value-secret", payload)
+        self.assertNotIn("project-value", payload)
+
     def test_live_need_makes_missing_credentials_a_blocker(self) -> None:
         with mock.patch.dict(os.environ, {}, clear=True):
             result = hcloud_environment_doctor.inspect_auth({"live"})

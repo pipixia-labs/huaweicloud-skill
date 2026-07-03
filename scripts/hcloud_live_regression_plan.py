@@ -85,8 +85,8 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "title": "MaaS usage governance",
         "risk": "signed_read_only",
         "required_inputs": ["AK/SK configured locally", "project_id", "date range", "service type"],
-        "tools": ["scripts/maas_usage_request_plan.py --pretty"],
-        "acceptance": ["ShowStatistics request spec reviewed", "token unit conversion understood", "no credentials printed"],
+        "tools": ["scripts/maas_usage_request_plan.py --pretty", "scripts/maas_usage_request_plan.py --execute --pretty"],
+        "acceptance": ["ShowStatistics request spec reviewed", "optional read-only execution returns a redacted summary", "token unit conversion understood", "no credentials printed"],
     },
     "terraform-operations": {
         "title": "Terraform import/drift/remote state closure",

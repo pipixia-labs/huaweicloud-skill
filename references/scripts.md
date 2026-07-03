@@ -819,6 +819,14 @@ python3 scripts/maas_chat.py \
 
 Use `--endpoint openai-compatible` for `/openai/v1/chat/completions`. Keep `--dry-run` as the first step so the agent can review messages, model, token limits, and image references before sending data.
 
+### Usage Statistics
+
+```bash
+python3 scripts/maas_usage_request_plan.py --pretty
+```
+
+The default mode builds a dry-run MaaS ShowStatistics request plan for token, request, and error statistics. Use `--execute` only for a confirmed read-only statistics query; it signs the request from local AK/SK environment variables such as `HW_*`, `HUAWEICLOUD_*`, `HUAWEI_*`, or `OS_*`, sends millisecond `start_time`/`end_time` fields, and reports only redacted credential/source metadata plus response summaries.
+
 ### Image Generation And Editing
 
 ```bash

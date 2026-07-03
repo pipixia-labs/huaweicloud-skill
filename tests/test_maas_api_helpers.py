@@ -270,10 +270,73 @@ class MaasAPIHelpersTest(unittest.TestCase):
         self.assertEqual(plan["date_range"]["from"], "2026-06-01")
         self.assertEqual(plan["date_range"]["to"], "2026-06-08")
         self.assertEqual(plan["request_body"]["service_type"], 4)
+        self.assertEqual(plan["request_body"]["start_time"], 1780272000000)
+        self.assertEqual(plan["request_body"]["end_time"], 1780876800000)
+        self.assertEqual(plan["response_notes"]["time_unit"], "start_time and end_time are UTC millisecond timestamps.")
         self.assertEqual(plan["response_notes"]["token_unit"], "Returned token values are in thousands; multiply by 1000 before reporting actual token counts.")
         self.assertTrue(plan["auth"]["credential_presence"]["HW_ACCESS_KEY"]["set"])
         self.assertNotIn("ak-secret", payload)
         self.assertNotIn("sk-secret", payload)
+
+    def test_maas_usage_request_plan_reports_huawei_credential_aliases(self) -> None:
+        args = maas_usage_request_plan.parse_args(["--preset", "last-7-days"])
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "HUAWEI_ACCESS_KEY": "ak-secret",
+                "HUAWEI_SECRET_KEY": "sk-secret",
+                "HUAWEI_PROJECT_ID": "project-secret",
+                "HUAWEI_REGION": "cn-southwest-2",
+            },
+            clear=True,
+        ):
+            plan = maas_usage_request_plan.build_plan(args, today=maas_usage_request_plan.date(2026, 7, 3))
+
+        payload = json.dumps(plan, ensure_ascii=False)
+        self.assertTrue(plan["auth"]["credential_presence"]["HUAWEI_ACCESS_KEY"]["set"])
+        self.assertTrue(plan["auth"]["credential_presence"]["HUAWEI_PROJECT_ID"]["set"])
+        self.assertNotIn("ak-secret", payload)
+        self.assertNotIn("sk-secret", payload)
+        self.assertNotIn("project-secret", payload)
+
+    def test_maas_usage_request_plan_execute_redacts_signed_request(self) -> None:
+        args = maas_usage_request_plan.parse_args(["--preset", "last-7-days", "--execute", "--timeout", "3"])
+
+        class FakeResponse:
+            status = 200
+            headers = {"Content-Type": "application/json", "X-Request-Id": "req-1"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self) -> bytes:
+                return b'{"statistics":[{"total_token":1,"total_request_count":2,"total_error_count":0}]}'
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "HUAWEI_ACCESS_KEY": "ak-secret",
+                "HUAWEI_SECRET_KEY": "sk-secret",
+                "HUAWEI_PROJECT_ID": "project-secret",
+                "HUAWEI_REGION": "cn-southwest-2",
+            },
+            clear=True,
+        ), mock.patch.object(maas_usage_request_plan, "urlopen", return_value=FakeResponse()) as urlopen_mock:
+            plan = maas_usage_request_plan.build_plan(args, today=maas_usage_request_plan.date(2026, 7, 3))
+
+        payload = json.dumps(plan, ensure_ascii=False)
+        self.assertTrue(plan["execution"]["execution_success"])
+        self.assertEqual(plan["execution"]["status_code"], 200)
+        self.assertTrue(plan["execution"]["response_summary"]["usage_field_presence"]["total_token"])
+        self.assertNotIn("Authorization", plan["execution"]["signed_header_names"])
+        self.assertNotIn("ak-secret", payload)
+        self.assertNotIn("sk-secret", payload)
+        self.assertNotIn("project-secret", payload)
+        self.assertTrue(urlopen_mock.called)
 
     def test_maas_usage_request_plan_warns_for_long_or_old_ranges(self) -> None:
         args = maas_usage_request_plan.parse_args(["--from", "2026-05-01", "--to", "2026-06-15"])

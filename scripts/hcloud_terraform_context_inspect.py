@@ -75,6 +75,11 @@ TERRAFORM_ENV_KEYS = (
     "HUAWEICLOUD_REGION",
     "HUAWEICLOUD_PROJECT_ID",
     "HUAWEICLOUD_SECURITY_TOKEN",
+    "HUAWEI_ACCESS_KEY",
+    "HUAWEI_SECRET_KEY",
+    "HUAWEI_REGION",
+    "HUAWEI_PROJECT_ID",
+    "HUAWEI_DOMAIN_ID",
     "TF_PLUGIN_CACHE_DIR",
     "HTTP_PROXY",
     "HTTPS_PROXY",
@@ -259,12 +264,13 @@ def readiness(
     has_hw_auth = env["HW_ACCESS_KEY"]["set"] and env["HW_SECRET_KEY"]["set"] and env["HW_REGION_NAME"]["set"]
     has_os_auth = env["OS_ACCESS_KEY"]["set"] and env["OS_SECRET_KEY"]["set"] and env["OS_REGION_NAME"]["set"]
     has_huaweicloud_auth = env["HUAWEICLOUD_ACCESS_KEY"]["set"] and env["HUAWEICLOUD_SECRET_KEY"]["set"] and env["HUAWEICLOUD_REGION"]["set"]
+    has_huawei_auth = env["HUAWEI_ACCESS_KEY"]["set"] and env["HUAWEI_SECRET_KEY"]["set"] and env["HUAWEI_REGION"]["set"]
     has_token_auth = (env["HW_AUTH_TOKEN"]["set"] or env["OS_AUTH_TOKEN"]["set"]) and (
         env["HW_REGION_NAME"]["set"] or env["OS_REGION_NAME"]["set"]
     )
     has_shared_config_auth = bool(shared_config["usable_for_provider_shared_config"])
     has_assume_role_hint = env["HW_ASSUME_ROLE_AGENCY_NAME"]["set"] or env["HW_ASSUME_ROLE_IDP_ID"]["set"]
-    has_auth = has_hw_auth or has_os_auth or has_huaweicloud_auth or has_token_auth or has_shared_config_auth
+    has_auth = has_hw_auth or has_os_auth or has_huaweicloud_auth or has_huawei_auth or has_token_auth or has_shared_config_auth
     blockers = []
     warnings = []
     if not has_terraform:
@@ -273,6 +279,8 @@ def readiness(
         warnings.append("terraform_runtime_artifacts_present")
     if not has_hw_auth and has_huaweicloud_auth:
         warnings.append("huaweicloud_env_set_but_hw_env_unset")
+    if not has_hw_auth and has_huawei_auth:
+        warnings.append("huawei_env_set_but_hw_env_unset")
     if has_os_auth and not has_hw_auth:
         warnings.append("os_env_aliases_set")
     if shared_config.get("warning"):
@@ -293,6 +301,7 @@ def readiness(
             "hw_env_complete": has_hw_auth,
             "os_env_complete": has_os_auth,
             "huaweicloud_env_complete": has_huaweicloud_auth,
+            "huawei_env_complete": has_huawei_auth,
             "token_env_complete": has_token_auth,
             "shared_config_usable": has_shared_config_auth,
             "assume_role_hint_set": has_assume_role_hint,

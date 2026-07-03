@@ -261,6 +261,26 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertTrue(result["auth"]["cloud_credentials_complete"])
         self.assertTrue(result["can_plan"])
 
+    def test_readiness_accepts_huawei_provider_env_aliases(self) -> None:
+        env = {key: {"set": False, "empty": False} for key in hcloud_terraform_context_inspect.TERRAFORM_ENV_KEYS}
+        env["HUAWEI_ACCESS_KEY"]["set"] = True
+        env["HUAWEI_SECRET_KEY"]["set"] = True
+        env["HUAWEI_REGION"]["set"] = True
+        env["HUAWEI_PROJECT_ID"]["set"] = True
+        env["HUAWEI_DOMAIN_ID"]["set"] = True
+
+        result = hcloud_terraform_context_inspect.readiness(
+            {"found": True},
+            env,
+            forbidden=[],
+            shared_config={"usable_for_provider_shared_config": False, "warning": None},
+        )
+
+        self.assertTrue(result["auth"]["huawei_env_complete"])
+        self.assertTrue(result["auth"]["cloud_credentials_complete"])
+        self.assertTrue(result["can_plan"])
+        self.assertIn("huawei_env_set_but_hw_env_unset", result["warnings"])
+
     def test_forbidden_artifacts_are_excluded_from_migrated_assets(self) -> None:
         scanned_roots = [ROOT / "references" / "terraform", ROOT / "examples" / "terraform"]
         findings: list[str] = []

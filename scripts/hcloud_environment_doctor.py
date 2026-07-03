@@ -163,6 +163,11 @@ def inspect_auth(needs: set[str]) -> dict[str, Any]:
         "HUAWEICLOUD_ACCESS_KEY",
         "HUAWEICLOUD_SECRET_KEY",
         "HUAWEICLOUD_REGION",
+        "HUAWEI_ACCESS_KEY",
+        "HUAWEI_SECRET_KEY",
+        "HUAWEI_PROJECT_ID",
+        "HUAWEI_REGION",
+        "HUAWEI_DOMAIN_ID",
         "MAAS_API_KEY",
         "MODELARTS_MAAS_API_KEY",
     ]
@@ -174,7 +179,12 @@ def inspect_auth(needs: set[str]) -> dict[str, Any]:
         and env["HUAWEICLOUD_SECRET_KEY"]["set"]
         and env["HUAWEICLOUD_REGION"]["set"]
     )
-    cloud_ready = hw_complete or os_complete or huaweicloud_complete
+    huawei_complete = (
+        env["HUAWEI_ACCESS_KEY"]["set"]
+        and env["HUAWEI_SECRET_KEY"]["set"]
+        and env["HUAWEI_REGION"]["set"]
+    )
+    cloud_ready = hw_complete or os_complete or huaweicloud_complete or huawei_complete
     live_required = "live" in needs
     status = "ok" if cloud_ready else ("blocker" if live_required else "warning")
     return check_item(
@@ -188,11 +198,13 @@ def inspect_auth(needs: set[str]) -> dict[str, Any]:
                 "hw_env_complete": hw_complete,
                 "os_env_complete": os_complete,
                 "huaweicloud_env_complete": huaweicloud_complete,
+                "huawei_env_complete": huawei_complete,
                 "maas_api_key_set": env["MAAS_API_KEY"]["set"] or env["MODELARTS_MAAS_API_KEY"]["set"],
             },
         },
         next_actions=[] if cloud_ready else [
             "Use an existing hcloud profile, or set HW_ACCESS_KEY/HW_SECRET_KEY/HW_REGION_NAME for one-off commands.",
+            "Existing HUAWEI_ACCESS_KEY/HUAWEI_SECRET_KEY/HUAWEI_REGION variables can be mapped to HW_* for Terraform subprocesses.",
             "Never paste AK/SK into chat or logs; configure them locally through hcloud or environment variables.",
         ],
         install_commands=HCLOUD_CONFIG_COMMANDS if not cloud_ready else [],

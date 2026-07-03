@@ -51,7 +51,7 @@
       "id": "maas-usage-governance",
       "name": "MaaS usage governance",
       "category": "ai",
-      "description": "Plan MaaS token usage, request count, error count, error rate, ShowStatistics, credential, permission, and cost-governance checks without making a live statistics call.",
+      "description": "Plan MaaS token usage, request count, error count, error rate, ShowStatistics, credential, permission, and cost-governance checks; live statistics calls require explicit --execute.",
       "triggers": [
         "maas 用量",
         "maas usage",

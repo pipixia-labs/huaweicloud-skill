@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added `HUAWEI_*` credential alias detection for environment doctor, Terraform context inspection, and MaaS usage planning.
+- Added gated `--execute` support to `maas_usage_request_plan.py` for read-only MaaS ShowStatistics calls with AK/SK signing, redacted credential reporting, and millisecond timestamp request bodies.
+
 ## 0.6.2 - 2026-07-03
 
 - Added scenario-level playbooks for OBS static website hosting, Flexus-style low-cost hosting, ECS monitoring troubleshooting, EIP cost optimization, IAM permission diagnostics, CCI workload readiness, SWR image readiness, FunctionGraph readiness, production Web/API readiness, MaaS usage governance, and CCE cloud-native assessment.
