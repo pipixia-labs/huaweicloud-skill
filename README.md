@@ -1,6 +1,6 @@
 <h1 align="center">huaweicloud-skill</h1>
 
-<p align="center"><b>华为云交给 Agent：查、改、验、管，一个 Skill 就够。</b></p>
+<p align="center"><b>上好云、用好云、管好云，一个大 Skill 一以贯之。</b></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
