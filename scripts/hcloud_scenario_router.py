@@ -34,6 +34,11 @@ P0_ACCEPTANCE_FOLLOWUPS = [
         "purpose": "Turn acceptance evidence items into non-executing probe templates.",
     },
     {
+        "step": "live_probe_run",
+        "tool": "scripts/hcloud_acceptance_probe_run.py",
+        "purpose": "Run supported HTTP/TCP/DNS/TLS probes after explicit user approval and placeholder binding.",
+    },
+    {
         "step": "local_evidence_result",
         "tool": "scripts/hcloud_acceptance_evidence_result.py",
         "purpose": "Evaluate collected local evidence statuses as passed/warning/missing/blocked.",
@@ -66,6 +71,8 @@ def load_service_aliases(path: Path = SERVICE_ALIAS_PATH) -> dict[str, str]:
 
 def recommended_followups(scenario: dict[str, Any]) -> list[dict[str, str]]:
     """Return standard local follow-up steps for a matched scenario."""
+    if bool(scenario.get("skip_standard_followups", False)):
+        return []
     services = {str(service).upper() for service in scenario.get("services", [])}
     if services & P0_CLOSURE_SERVICES:
         return [dict(item) for item in P0_ACCEPTANCE_FOLLOWUPS]

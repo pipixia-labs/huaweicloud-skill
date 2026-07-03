@@ -1,6 +1,6 @@
 # Terraform Provider Validation
 
-这份文档用于把上游 installer 中有价值的 provider mirror/cache 思路吸收到 `huaweicloud-skill`，但不把 installer 作为默认执行能力。
+这份文档用于把 provider mirror/cache 思路统一到 `huaweicloud-skill`，但不把 installer 作为默认执行能力。
 
 ## 原则
 

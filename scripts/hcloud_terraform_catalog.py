@@ -314,6 +314,7 @@ def reference_category(path: Path) -> str:
         "provider-auth.md",
         "provider-validation.md",
         "generation-guardrails.md",
+        "operations.md",
         "discovery-workflow.md",
         "interop-with-hcloud.md",
         "service-variant-guide.md",

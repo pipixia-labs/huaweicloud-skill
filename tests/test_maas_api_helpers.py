@@ -22,6 +22,7 @@ import maas_chat  # noqa: E402
 import maas_common  # noqa: E402
 import maas_image_generation  # noqa: E402
 import maas_models  # noqa: E402
+import maas_usage_request_plan  # noqa: E402
 import maas_video_generation  # noqa: E402
 
 
@@ -82,6 +83,7 @@ class MaasAPIHelpersTest(unittest.TestCase):
             ROOT / "references" / "maas-model-calls.md",
             ROOT / "references" / "maas-model-catalog.json",
             ROOT / "references" / "playbooks" / "maas-api-readiness.md",
+            ROOT / "references" / "playbooks" / "maas-usage-governance.md",
         ]
         forbidden = (
             "/" + "Users/",
@@ -245,6 +247,53 @@ class MaasAPIHelpersTest(unittest.TestCase):
         self.assertEqual(match["id"], "maas-model-api-calls")
         self.assertIn("references/maas-model-calls.md", match["guides"])
         self.assertIn("scripts/maas_video_generation.py", match["planners"])
+
+    def test_maas_usage_request_plan_builds_dry_run_without_secrets(self) -> None:
+        args = maas_usage_request_plan.parse_args(
+            [
+                "--from",
+                "2026-06-01",
+                "--to",
+                "2026-06-08",
+                "--service-type",
+                "custom-endpoint",
+            ]
+        )
+
+        with mock.patch.dict(os.environ, {"HW_ACCESS_KEY": "ak-secret", "HW_SECRET_KEY": "sk-secret"}, clear=True):
+            plan = maas_usage_request_plan.build_plan(args)
+
+        payload = json.dumps(plan, ensure_ascii=False)
+        self.assertTrue(plan["dry_run"])
+        self.assertEqual(plan["method"], "POST")
+        self.assertIn("/v1/{project_id}/maas/monitoring/show-statistics", plan["endpoint"])
+        self.assertEqual(plan["date_range"]["from"], "2026-06-01")
+        self.assertEqual(plan["date_range"]["to"], "2026-06-08")
+        self.assertEqual(plan["request_body"]["service_type"], 4)
+        self.assertEqual(plan["response_notes"]["token_unit"], "Returned token values are in thousands; multiply by 1000 before reporting actual token counts.")
+        self.assertTrue(plan["auth"]["credential_presence"]["HW_ACCESS_KEY"]["set"])
+        self.assertNotIn("ak-secret", payload)
+        self.assertNotIn("sk-secret", payload)
+
+    def test_maas_usage_request_plan_warns_for_long_or_old_ranges(self) -> None:
+        args = maas_usage_request_plan.parse_args(["--from", "2026-05-01", "--to", "2026-06-15"])
+
+        plan = maas_usage_request_plan.build_plan(args, today=maas_usage_request_plan.date(2026, 7, 3))
+
+        warnings = " ".join(plan["warnings"])
+        self.assertIn("longer than 30 days", warnings)
+        self.assertIn("older data may be unavailable", warnings)
+
+    def test_scenario_router_routes_maas_usage_tasks(self) -> None:
+        result = hcloud_scenario_router.route("查 MaaS 最近 7 天 token 用量 请求次数 和错误率", limit=1)
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "maas-usage-governance")
+        self.assertIn("references/playbooks/maas-usage-governance.md", match["primary_playbooks"])
+        self.assertIn("scripts/maas_usage_request_plan.py", match["planners"])
+        self.assertIn("references/playbooks/billing-cost-governance.md", match["primary_playbooks"])
+        self.assertFalse(match["terraform_candidate"])
 
 
 if __name__ == "__main__":

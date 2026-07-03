@@ -96,6 +96,6 @@ Terraform 资产入口放在 `references/terraform/README.md`。当前已吸收�
 继续增强 Terraform 时，优先补独立脚本或 reference，而不是改造 SDK runner：
 
 - plan helper：读取 hcloud 发现结果，生成变量草案和检查清单。
-- import plan：指导现有资源导入和 state 风险。
+- import plan：指导现有资源导入和 state 风险；当前先按 `references/terraform/operations.md` 做手工可审查流程。
 - provider schema cache：缓存 provider schema，辅助字段校验。
 - hcloud verifier：从 Terraform output 生成 hcloud 后置验证计划。

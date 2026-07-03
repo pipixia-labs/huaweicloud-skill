@@ -7,7 +7,7 @@
       "Do not merge runtime scripts just to reduce file count.",
       "Do not remove compatibility entry points that existing workflows may call.",
       "Do not broaden planner-only scripts into submit paths.",
-      "Do not add Terraform import, drift automation, remote state, or blueprint execution to the default path."
+      "Do not add ungated Terraform import, drift automation, remote state, or blueprint execution to the default path."
     ],
     "v0_6_x_candidates": [
       {
@@ -16,7 +16,7 @@
       },
       {
         "area": "Terraform",
-        "candidate": "Promote docs-first provider signals into a plan-review report, then scope import/drift separately."
+        "candidate": "Keep import/drift/remote-state behind explicit state-change gates and hcloud readback."
       },
       {
         "area": "MaaS API helpers",
@@ -36,9 +36,11 @@
       "scripts": [
         "scripts/hcloud_acceptance_evidence_result.py",
         "scripts/hcloud_acceptance_probe_plan.py",
+        "scripts/hcloud_acceptance_probe_run.py",
         "scripts/hcloud_account_inventory.py",
         "scripts/hcloud_billing_readonly.py",
         "scripts/hcloud_billing_result_summarize.py",
+        "scripts/hcloud_cce_assessment_plan.py",
         "scripts/hcloud_ces_alarm_plan.py",
         "scripts/hcloud_closure_maturity_audit.py",
         "scripts/hcloud_context_inspect.py",
@@ -66,6 +68,7 @@
         "scripts/maas_image_generation.py",
         "scripts/maas_models.py",
         "scripts/maas_text_to_image.py",
+        "scripts/maas_usage_request_plan.py",
         "scripts/maas_video_generation.py"
       ]
     },
@@ -81,7 +84,8 @@
         "scripts/hcloud_eip_change_flow.py",
         "scripts/hcloud_guarded_change_flow.py",
         "scripts/hcloud_obs_change_plan.py",
-        "scripts/hcloud_service_change_plan.py"
+        "scripts/hcloud_service_change_plan.py",
+        "scripts/hcloud_terraform_operations_plan.py"
       ]
     },
     {
@@ -109,6 +113,7 @@
         "scripts/hcloud_catalog_readonly_smoke.py",
         "scripts/hcloud_catalog_smoke_candidates.py",
         "scripts/hcloud_curated_promotion_audit.py",
+        "scripts/hcloud_live_regression_plan.py",
         "scripts/hcloud_readonly_smoke.py",
         "scripts/hcloud_sdk_supplement_audit.py",
         "scripts/hcloud_terraform_catalog.py"

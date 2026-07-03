@@ -49,6 +49,7 @@ hcloud_billing_result_summarize = load_module(
     "hcloud_billing_result_summarize",
     SCRIPTS / "hcloud_billing_result_summarize.py",
 )
+hcloud_cce_assessment_plan = load_module("hcloud_cce_assessment_plan", SCRIPTS / "hcloud_cce_assessment_plan.py")
 hcloud_teardown_plan = load_module("hcloud_teardown_plan", SCRIPTS / "hcloud_teardown_plan.py")
 hcloud_ces_alarm_plan = load_module("hcloud_ces_alarm_plan", SCRIPTS / "hcloud_ces_alarm_plan.py")
 hcloud_lts_readonly = load_module("hcloud_lts_readonly", SCRIPTS / "hcloud_lts_readonly.py")
@@ -294,6 +295,25 @@ class MultiServiceToolsTest(unittest.TestCase):
         values.update(overrides)
         return SimpleNamespace(**values)
 
+    def cce_assessment_args(self, **overrides):
+        """Return default CCE assessment planner args for unit tests."""
+        values = {
+            "cluster_id": None,
+            "cluster_name": None,
+            "namespace": None,
+            "workload": None,
+            "dimension": None,
+            "include_kubernetes": False,
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "limit": 10,
+            "catalog_max_operations": 3,
+            "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
     def current_eip_submit_token(self, args: SimpleNamespace) -> str:
         """Return the submit token for a test EIP flow argument set."""
         service_plan = hcloud_eip_change_flow.hcloud_service_change_plan.build_service_plan(
@@ -335,6 +355,41 @@ class MultiServiceToolsTest(unittest.TestCase):
             command = item["plan"]["commands"][0]["command"]
             self.assertIn("--expect-json", command)
             self.assertIn("--arg=--cli-output=json", command)
+
+    def test_cce_assessment_plan_defaults_to_non_executing_evidence(self) -> None:
+        result = hcloud_cce_assessment_plan.build_plan(self.cce_assessment_args())
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(result["service"], "CCE")
+        self.assertIn("CreateKubernetesClusterCert", result["hard_gated_actions"])
+        self.assertIn("references/playbooks/cce-cloud-native-assessment.md", result["recommended_playbooks"])
+        self.assertIn("kubectl", result["execution_boundary"])
+        checks = {item["id"]: item for item in result["checks"]}
+        self.assertEqual(checks["control_plane:ListClusters"]["status"], "planned")
+        self.assertEqual(checks["control_plane:ShowCluster"]["status"], "needs_input")
+        self.assertIn("cluster_id", checks["control_plane:ShowCluster"]["plan"]["missing_params"])
+
+    def test_cce_assessment_plan_uses_cluster_id_and_kubernetes_templates(self) -> None:
+        result = hcloud_cce_assessment_plan.build_plan(
+            self.cce_assessment_args(
+                cluster_id="cluster-1",
+                namespace="prod",
+                workload="app=api",
+                dimension=["workloads", "addons"],
+                include_kubernetes=True,
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual([item["id"] for item in result["dimensions"]], ["addons", "workloads"])
+        checks = {item["id"]: item for item in result["checks"]}
+        self.assertEqual(checks["addons:ListAddonInstances"]["status"], "planned")
+        pods = checks["workloads:pods"]
+        self.assertEqual(pods["status"], "planned")
+        self.assertEqual(pods["source"], "kubectl")
+        self.assertIn("prod", pods["command"])
+        self.assertIn("app=api", pods["command"])
 
     def test_account_inventory_builds_core_readonly_plan(self) -> None:
         result = hcloud_account_inventory.build_plan(self.inventory_args())

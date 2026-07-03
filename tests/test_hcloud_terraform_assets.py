@@ -98,6 +98,7 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
             "provider-auth",
             "provider-validation",
             "generation-guardrails",
+            "operations",
             "discovery-workflow",
             "interop-with-hcloud",
             "service-variant-guide",
@@ -133,6 +134,7 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertIn("references/terraform/provider-auth.md", reference_paths)
         self.assertIn("references/terraform/provider-validation.md", reference_paths)
         self.assertIn("references/terraform/generation-guardrails.md", reference_paths)
+        self.assertIn("references/terraform/operations.md", reference_paths)
 
     def test_router_can_find_absorbed_vpc_examples(self) -> None:
         security_group = hcloud_terraform_router.route("用 Terraform 创建安全组并限制入口来源", limit=3)
@@ -174,6 +176,17 @@ class HcloudTerraformAssetsTest(unittest.TestCase):
         self.assertFalse(result["success"], json.dumps(result, ensure_ascii=False))
         self.assertEqual(result["recommended_runtime"], "hcloud")
         self.assertEqual(result["matches"], [])
+
+    def test_router_returns_operations_reference_for_import_and_drift(self) -> None:
+        result = hcloud_terraform_router.route("Terraform import 现网 ECS 并做 drift review remote state", limit=3)
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        self.assertEqual(result["recommended_runtime"], "terraform")
+        self.assertEqual(result["service_hints"], ["ECS"])
+        self.assertTrue(result["hcloud_first_required"])
+        reference_paths = {item["path"] for item in result["references"]}
+        self.assertIn("references/terraform/operations.md", reference_paths)
+        self.assertIn("references/terraform/interop-with-hcloud.md", reference_paths)
 
     def test_context_inspect_reports_catalogs_and_redacted_env_shape(self) -> None:
         with mock.patch.dict(os.environ, {"HW_ACCESS_KEY": "ak", "HW_SECRET_KEY": "sk", "HW_REGION_NAME": "cn-north-4"}, clear=False):

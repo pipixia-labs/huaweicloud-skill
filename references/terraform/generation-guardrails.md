@@ -1,6 +1,6 @@
 # Terraform Generation Guardrails
 
-本文件把上游 Terraform generator 中可复用的生成规则吸收到 `huaweicloud-skill`，但统一到当前项目的 hcloud-first 边界：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须回到 hcloud 做状态和业务验收。
+本文件把可复用的 Terraform 生成规则统一到当前项目的 hcloud-first 边界：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须回到 hcloud 做状态和业务验收。
 
 ## 生成前必须确认的事实
 
@@ -26,11 +26,38 @@
 1. 用 `hcloud_context_inspect.py` 和服务发现脚本确认账号、region、project 和现网资源。
 2. 用 `hcloud_terraform_context_inspect.py` 检查 Terraform CLI、provider cache、环境变量、mirror 配置和禁止提交产物。
 3. 用 `hcloud_terraform_router.py` 只选择少量相关 example/reference。
-4. 生成或改造 Terraform 草案。
-5. 运行 `terraform fmt`、`terraform init`、`terraform validate`、`terraform plan`。
-6. 摘要 plan 里的新增、修改、删除、替换、停机和计费风险。
-7. 用户明确确认 exact plan 后才能 apply。
-8. apply 后回到 hcloud 做资源 readback、健康检查、协议探测和业务验收。
+4. 对目标 region 做资源可用性和依赖校验，不能把其它 region 的规格、镜像或 AZ 直接套用。
+5. 生成或改造 Terraform 草案。
+6. 运行 `terraform fmt`、`terraform init`、`terraform validate`、`terraform plan`。
+7. 摘要 plan 里的新增、修改、删除、替换、停机和计费风险。
+8. 用户明确确认 exact plan 后才能 apply。
+9. apply 后回到 hcloud 做资源 readback、健康检查、协议探测和业务验收。
+
+## 生成前可用性校验
+
+Terraform 代码生成前，必须先确认目标 region 中的关键候选值是否可用。没有确认的值只能保留为变量、待确认项或 data source 过滤条件，不能写成“已验证默认值”。
+
+| 场景 | 必查事实 | 推荐来源 |
+| --- | --- | --- |
+| ECS | AZ、flavor、image、subnet、安全组、EIP 需求 | hcloud 发现、`hcloud_resource_discovery.py`、SDK allowlist 补充 |
+| OBS 静态站 | bucket name、region、website endpoint、自定义域名和 DNS 归属 | `hcloud_obs_readonly.py`、`obs-static-website-hosting.md` |
+| RDS | 引擎版本、实例模式、flavor、AZ 组合、备份和连接边界 | hcloud 发现、RDS playbook、provider data source |
+| CCE | cluster flavor、subnet DNS、节点 flavor、key pair、addon 变体 | hcloud 发现、CCE playbook、provider data source |
+| ELB/NAT/CDN/DNS | subnet、EIP、listener/record/origin 参数、region 限制 | hcloud 发现、对应 playbook |
+
+如果查询失败，不能直接用模型经验继续生成可执行配置。正确处理方式是：
+
+- 把失败原因归类为认证、权限、region/project、网络、参数或服务不可用。
+- 给出缺口和下一步检查命令。
+- 只输出草案或变量模板，不宣称 plan 可通过。
+
+## 费用提示
+
+在 `terraform plan` 通过后、任何 apply 建议之前，必须用用户能理解的方式列出可能产生持续费用的资源：
+
+- ECS/Flexus、EVS、EIP/带宽、ELB、RDS、CCE node、OBS/CDN/DNS/SCM。
+- 如果没有准确价格，只能说“请以价格计算器/订单页为准”，不能编造金额。
+- 删除、替换、停机、包周期购买、退订和公网带宽都要单独提示。
 
 ## 文件结构规则
 
@@ -72,6 +99,15 @@
 
 Data source 查询必须使用精确过滤条件。不要用模糊名称猜资源，也不要在结果为空时静默 fallback 到硬编码值。
 
+## Import / Drift / State 规则
+
+- 现网资源纳管先读 `references/terraform/operations.md`，再决定 import、data source 还是重建。
+- `terraform import`、`terraform state mv`、`terraform state rm`、`terraform init -migrate-state` 都会影响 state，不自动执行。
+- drift review 先跑 `terraform plan -refresh-only` 和 `terraform plan -detailed-exitcode`，再分类差异来源。
+- remote state 迁移前必须确认 backend、锁、加密、访问控制、workspace 和 state 备份。
+- state 可能包含敏感字段，任何 `terraform state show` 输出都要脱敏。
+- import 或 drift 处理后仍要回到 hcloud 做资源 readback 和业务验收。
+
 ## 安全组规则
 
 - 端口必须是 `1-65535`，不能使用 `0`。
@@ -100,7 +136,7 @@ Data source 查询必须使用精确过滤条件。不要用模糊名称猜资�
 
 ## 不吸收的上游行为
 
-- 不把上游 generator 作为 `huaweicloud-skill` 的默认入口。
+- 不把外部 generator 作为 `huaweicloud-skill` 的默认入口。
 - 不自动安装 Terraform 或 provider。
 - 不自动 apply。
 - 不自动 destroy。

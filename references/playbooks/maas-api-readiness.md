@@ -11,7 +11,7 @@ This playbook covers MaaS model calls for:
 - image generation and image editing,
 - video generation.
 
-It does not cover deploying custom ModelArts services, fine-tuning jobs, MaaS control-plane custom endpoint management, or billing/statistics APIs.
+It does not cover deploying custom ModelArts services, fine-tuning jobs, MaaS control-plane custom endpoint management, or billing/statistics APIs. For token usage, request count, error count, and ShowStatistics planning, use `references/playbooks/maas-usage-governance.md`.
 
 ## Readiness Checklist
 

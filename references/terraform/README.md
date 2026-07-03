@@ -20,6 +20,7 @@
 | `catalog/terraform-reference-catalog.json` | Terraform reference 的核心/高级/清单索引。 |
 | `provider-auth.md` | Provider 和环境变量协同规则。 |
 | `generation-guardrails.md` | Terraform 生成、验证、敏感信息和 apply 边界门禁。 |
+| `operations.md` | import、drift review、remote state、state 命令和 hcloud readback 边界。 |
 | `provider-validation.md` | Provider mirror/cache、schema/fmt/validate、版本漂移和 installer 借鉴边界。 |
 | `discovery-workflow.md` | hcloud 发现现网后再生成 IaC 的流程。 |
 | `interop-with-hcloud.md` | Terraform 与 hcloud 的协作边界。 |
@@ -41,7 +42,7 @@ python3 scripts/hcloud_terraform_provider_inventory.py --fail-on-drift --pretty
 python3 scripts/hcloud_terraform_provider_inventory.py --signal-kind resources --signal-name rds_instance --pretty
 ```
 
-这些 inventory 只回答“provider 覆盖了什么”。`--signal-kind/--signal-name` 只读 provider Markdown，抽取单个 resource/data source 的 `ForceNew`、`Import` 段和敏感字段线索；生成或修改 `.tf` 前可用它提醒用户“这个字段变更可能重建资源”或“这个资源支持 import 但不能自动导入”。它们不是默认路由清单，更不是执行许可清单。新增 resource/data source 进入示例或 agent 默认路线前，还要看是否符合 `hcloud` 发现、Terraform plan review、风险分级和后置验证要求。
+这些 inventory 只回答“provider 覆盖了什么”。`--signal-kind/--signal-name` 只读 provider Markdown，抽取单个 resource/data source 的 `ForceNew`、`Import` 段和敏感字段线索；生成或修改 `.tf` 前可用它提醒用户“这个字段变更可能重建资源”或“这个资源支持 import 但不能自动导入”。import、drift review 和 remote state 进入 `operations.md`。它们不是默认路由清单，更不是执行许可清单。新增 resource/data source 进入示例或 agent 默认路线前，还要看是否符合 `hcloud` 发现、Terraform plan review、风险分级和后置验证要求。
 
 ## 资产卫生
 

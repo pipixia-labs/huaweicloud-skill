@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "description": "Terraform reference catalog. Load core references first; use inventories only on explicit provider coverage questions.",
-  "reference_count": 19,
-  "default_route_count": 10,
+  "reference_count": 20,
+  "default_route_count": 11,
   "references": [
     {
       "id": "README",
@@ -37,7 +37,7 @@
       "path": "references/terraform/generation-guardrails.md",
       "category": "core",
       "default_route": true,
-      "summary": "本文件把上游 Terraform generator 中可复用的生成规则吸收到 `huaweicloud-skill`，但统一到当前项目的 hcloud-first 边界：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须回到 hcloud 做状态和业务验收。"
+      "summary": "本文件把可复用的 Terraform 生成规则统一到当前项目的 hcloud-first 边界：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须回到 hcloud 做状态和业务验收。"
     },
     {
       "id": "interop-with-hcloud",
@@ -82,6 +82,13 @@
       "summary": "本文件回答一个更偏实战的问题：当用户不是只要一段 `.tf`，而是想要“一个可维护的华为云 Terraform 项目”时，应该怎么组织。"
     },
     {
+      "id": "operations",
+      "path": "references/terraform/operations.md",
+      "category": "core",
+      "default_route": true,
+      "summary": "Terraform 在本 skill 中是辅助 IaC 面，适合长期纳管、环境复制、plan review 和 drift 管理。现网真相、资源发现、权限诊断和后置验收仍以 `hcloud` 为主体。"
+    },
+    {
       "id": "provider-auth",
       "path": "references/terraform/provider-auth.md",
       "category": "core",
@@ -93,7 +100,7 @@
       "path": "references/terraform/provider-validation.md",
       "category": "core",
       "default_route": true,
-      "summary": "这份文档用于把上游 installer 中有价值的 provider mirror/cache 思路吸收到 `huaweicloud-skill`，但不把 installer 作为默认执行能力。"
+      "summary": "这份文档用于把 provider mirror/cache 思路统一到 `huaweicloud-skill`，但不把 installer 作为默认执行能力。"
     },
     {
       "id": "resource-mapping",
