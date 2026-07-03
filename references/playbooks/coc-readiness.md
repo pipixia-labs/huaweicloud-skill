@@ -46,6 +46,20 @@ python3 scripts/hcloud_resource_discovery.py \
 - 不要连续重试同一个 COC 调用超过一次。
 - 记录 region、project、ECS ID、错误码、缺失权限提示和是否存在 agency/SCP/custom deny 可能。
 
+## COC 委托与临时凭证模式
+
+如果要把 COC 用作已有 ECS 的机内执行通道，先把授权链和临时凭证设计清楚，不要直接把“能创建脚本”当成“可以安全登录机器”。
+
+已知高价值事实：
+
+- COC 跨服务委托常见名称是 `ServiceAgencyForCOC`，信任主体是 `op_svc_coc`。
+- 典型授权链需要同时核对 IAM 只读、RMS 只读、DCS 用户访问和 COC 服务委托策略；具体角色以当前账号/IAM 返回为准，不在本 skill 中硬编码执行。
+- 创建委托或绑定角色时，HTTP `409` 通常表示“已存在/已绑定”的幂等信号；不要把它直接当失败，也不要重复创建。
+- 如果通过 COC 临时注入 SSH 公钥，推荐模式是：生成短期 key pair -> COC 脚本写入 `authorized_keys` -> 先建立 SSH ControlMaster 持久连接 -> 定时清理远端 key、本地私钥和 COC 临时脚本。
+- 清理公钥只阻止新的 SSH 认证，已建立的 ControlMaster 会话仍可继续用于当前排障窗口；这能同时降低密钥落地时间和保持任务连续性。
+
+本项目当前只吸收该安全模式和验收标准，不默认自动创建委托、绑定角色或注入密钥。任何委托、角色绑定、脚本执行、临时 SSH 规则都必须走显式确认和后置清理验证。
+
 ## Fallback 顺序
 
 1. 复用已验证 SSH key。
@@ -77,6 +91,7 @@ python3 scripts/hcloud_resource_discovery.py \
 - 网络：本机 `ss -lntp` 和外部协议探测，例如 HTTP 状态码、TLS 证书、ELB member health。
 - 日志：只截取有限窗口和关键错误，不回显密钥、token、密码、完整业务数据。
 - 清理：临时 SSH 安全组规则、一次性密码、临时脚本和调试文件处理结果。
+- 如使用 COC 临时 key：记录委托已存在/已创建、409 幂等处理、脚本提交终态、SSH ControlMaster 建立结果、远端 key 删除、本地私钥删除和临时脚本删除结果。
 
 ## 不能宣称完成的情况
 
@@ -85,4 +100,3 @@ python3 scripts/hcloud_resource_discovery.py \
 - ELB member 仍然 `OFFLINE` 或 `CONNECT_FAILED`。
 - Web 只在机器内 curl 成功，公网 DNS/CDN/ELB 路径未验证。
 - 只创建了云资源，没有完成机内服务启动或健康检查。
-

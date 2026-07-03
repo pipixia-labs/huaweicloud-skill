@@ -103,6 +103,26 @@ kubeconfig、token、证书和 Secret 都必须脱敏，不写入报告正文或
 - 3-4：自动化
 - 4-5：治理成熟
 
+每个维度评分必须带证据状态：
+
+- `evidence_found`：有 hcloud/kubectl/监控/日志证据支撑。
+- `evidence_gap`：缺权限、缺参数、未接 kubeconfig 或未开启监控。
+- `not_applicable`：该集群或场景不适用。
+
+不要因为某个维度没拿到证据就默认给低分；先标为 `evidence_gap`，并输出最小补证据动作。
+
+## 治理检查清单
+
+| 维度 | 检查点 |
+| --- | --- |
+| 生产 readiness | 多 AZ、节点池隔离、副本数、PDB、滚动发布、回滚方式 |
+| 观测 | CES、LTS、Prometheus/metrics-server、告警通知、入口探测 |
+| 安全 | API server 暴露、RBAC 最小权限、Secret 管理、镜像来源、私有仓拉取 |
+| 网络 | Service/Ingress/ELB 绑定、健康检查、DNS、TLS、WAF/CDN 边界 |
+| 存储 | Everest、PVC/PV、备份、快照、扩容策略和删除回收策略 |
+| 成本 | 节点利用率、闲置 LB/EIP、日志保留、镜像保留、标签归属 |
+| 升级 | 版本支持、插件兼容、节点 OS、维护窗口、灰度和回滚 |
+
 ## 高风险边界
 
 这些动作不能由评估流程自动执行：

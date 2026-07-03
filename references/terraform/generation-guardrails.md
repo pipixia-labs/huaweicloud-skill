@@ -21,6 +21,18 @@
 
 如果事实没有确认，只能标成 pending 或 recommendation，不能写成已验证结论。
 
+## 汇报叙事必须真实
+
+Terraform 生成和验证过程里，最终汇报只能描述真实发生过的动作和真实输出：
+
+- 没有运行 `terraform init`、`validate`、`plan`、`apply`、`import`、`state` 或 hcloud readback，就不要写成已运行。
+- 如果第一次 `plan` 就通过，不要虚构“先失败再修复”的过程。
+- 如果只生成了文件或命令草案，状态是 `prepared`，不是 `verified`。
+- 如果只做了 `terraform plan`，状态是 IaC 层可计划，不等于云资源已存在或业务可用。
+- 如果 apply 后没有 hcloud readback、健康检查或协议探测，不要说“上线完成”。
+
+推荐输出按状态分组：`planned`、`generated`、`validated`、`planned_by_terraform`、`applied`、`verified_by_hcloud`、`blocked`。缺少哪一层，就明确写缺口。
+
 ## hcloud-first 流程
 
 1. 用 `hcloud_context_inspect.py` 和服务发现脚本确认账号、region、project 和现网资源。

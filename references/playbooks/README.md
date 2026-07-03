@@ -42,6 +42,8 @@
   - CCI namespace、Network、Deployment/Pod、Service、公网入口和日志监控 readiness。
 - `swr-image-readiness.md`
   - SWR namespace、repository、tag、登录凭证、推送/拉取权限和镜像清理边界。
+- `dws-diagnostic-method.md`
+  - DWS/数据库排障的指标、假设、证据、根因分类和报告方法。
 - `functiongraph-readiness.md`
   - FunctionGraph 函数、runtime、handler、触发器、LTS 日志和调用副作用边界。
 - `maas-usage-governance.md`
@@ -125,6 +127,7 @@
 - 目标是 CCE 集群和节点状态：先看 `cce-cluster-readiness.md`
 - 目标是 CCE 环境评估、Kubernetes 集群体检、云原生成熟度或生产 readiness：先看 `cce-cloud-native-assessment.md`
 - 目标是 SWR 镜像仓库、镜像 tag、镜像推送/拉取或 ImagePullBackOff：先看 `swr-image-readiness.md`
+- 目标是 DWS、数据库慢查询、CPU/IO/内存压力或 SQL 诊断：先看 `dws-diagnostic-method.md`
 - 目标是 CCI/云容器实例部署容器：先看 `cci-workload-readiness.md`，同时看 `swr-image-readiness.md`
 - 目标是 FunctionGraph/函数计算/无服务器触发器：先看 `functiongraph-readiness.md`
 - 目标是 MaaS token 用量、词元统计、请求数、错误率或使用治理：先看 `maas-usage-governance.md`

@@ -79,6 +79,19 @@ SWR 登录 token、临时凭证、长期凭证、repository 创建和权限调�
 - 如果用户明确要推送镜像，先输出所需信息清单：region、namespace、repository、tag、镜像大小、镜像来源、是否覆盖已有 tag。
 - 如果需要生成变更计划，走 `hcloud_service_change_plan.py` 或 Terraform route；真实执行仍需二次确认。
 
+## 镜像治理清单
+
+SWR 治理类请求优先走只读盘点，再生成 review plan：
+
+- Namespace：owner、环境、成本中心、是否长期无人维护。
+- Repository：公开/私有状态、共享域名、授权对象、最近推送时间。
+- Tag：版本命名、不可变策略、digest、架构、是否被 CCE/CCI/FunctionGraph 使用。
+- Retention：保留多少 release、是否保留最近 N 个 tag、是否跳过 `prod` / `stable` / digest 引用。
+- Permission：namespace/repo 级授权、临时 token、跨账号共享和回收计划。
+- Risk：删除镜像前必须确认运行中 workload、回滚需求、制品来源和备份。
+
+禁止把“镜像很多”直接变成批量删除命令。正确顺序是列出候选、标注证据、确认 owner 和运行依赖，再进入 guarded cleanup。
+
 ## 和运行目标联动
 
 | 运行目标 | 重点 |

@@ -58,6 +58,18 @@ hcloud <service> --help
    - 读取账单需要用户确认。
    - 退订不是普通删除，必须明确资源、订单、数据和退款影响。
 
+## HCSS 控制面观察
+
+当前材料显示 Flexus L 生命周期可能不完全落在普通 `hcloud <SERVICE> <Operation>` 形态中，部分创建/续费/退订路径会串联 HCSS、BSS 和 IAM：
+
+- HCSS 负责轻量实例生命周期。
+- BSS 负责订单、续费、退订和退款相关证据。
+- IAM 负责 project/account scope、权限和临时凭证。
+
+已观察到的 HCSS endpoint 形态是 `https://hcss.cn-north-4.myhuaweicloud.com/v1/light-instances`，region 参数更像实例售卖区域选择，而不是普通区域 endpoint 切换。这个结论在本项目中先标记为 `evidence_gap`：可以用于排障和方案解释，但在真正产品化执行前必须用当前账号、当前 region、当前文档或 live dry-run 复核，不把它写成长期稳定契约。
+
+如果用户问“为什么 hcloud service 找不到 Flexus L”，可以解释为：它可能走轻量实例专用 HCSS 控制面，而不是普通 OpenAPI metadata service。不要因此改用裸 API 直接购买；仍然先输出 planner-only 方案、费用边界和需要用户确认的字段。
+
 ## 创建类边界
 
 Flexus L 创建必须满足：
