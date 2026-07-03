@@ -1,235 +1,171 @@
 # huaweicloud-skill
 
-**一个统一的大 Skill，处理华为云租户上云、用云、管云的完整问题。**
+**让 Agent 安全地上好云、用好云、管好云 —— 一个统一的华为云 Agent Skill。**
 
-`huaweicloud-skill` 不是把产品能力拆成多个分散入口，而是把查询、诊断、变更规划、Terraform/IaC、MaaS、成本治理和验收证据收敛到同一个 Skill、同一套安全边界和同一条执行/验证链路里。
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![执行面](https://img.shields.io/badge/execution-hcloud%20CLI--first-brightgreen.svg)
+![离线测试](https://img.shields.io/badge/offline%20tests-300%2B-brightgreen.svg)
+![覆盖](https://img.shields.io/badge/catalog-198%20services%20%2F%2015%2C666%20ops-blue.svg)
 
-`huaweicloud-skill` 是一个面向华为云 KooCLI / `hcloud` 的 Agent Skill，让通用 Agent 能够用更安全、可审计、可复现的方式发现华为云 API、查询资源、诊断配置问题，并在需要时规划受保护的变更流程。
+通用 Agent 直接操作云资源有三类典型事故：
 
-用户不需要记住复杂的 `hcloud` 命令，也不需要直接调用仓库里的脚本。只要用自然语言说明目标，Agent 就可以在 Skill 内部选择工具、构造命令、检查风险并整理结果。
+- **猜错** —— 凭记忆猜 region、service、operation、参数和资源 ID，查询结果误导决策；
+- **乱改** —— 没评估费用、网络暴露面和权限边界，就直接提交创建、绑定、删除；
+- **误判完成** —— API 返回成功、job 提交成功就宣布"部署完成"，业务实际不可用。
 
-统一入口的价值很明确：用户表达业务目标，Agent 在 Skill 内部完成路由、风险判断、工具选择和证据闭环，不把入口选择的复杂度转嫁给用户。
+`huaweicloud-skill` 把 Agent 从"凭记忆拼命令"升级为**"按证据、风险门禁和后置验证推进任务"**：以华为云 KooCLI（`hcloud`）为主执行链路，查询默认只读，变更默认先计划、先 dry-run、等确认，完成默认要证据。你只需要用自然语言说目标——路由、命令构造、风险判断和验收，都在这一个 Skill 内完成。
 
-## 从这里开始
+## 30 秒看效果
 
-| 目标 | 先看 | 你会得到 |
-|---|---|---|
-| 理解为什么采用一个大 Skill | [为什么是一个大 Skill](#为什么是一个大-skill) 和 [核心能力](#核心能力) | 知道单一入口、`hcloud` 主链路、SDK/Terraform/MaaS 辅助边界 |
-| 第一次安装或启用 | [快速开始](#快速开始) | 完成 KooCLI 准备、Skill 安装和 Agent 触发方式确认 |
-| 直接让 Agent 做事 | [常用提示词](#常用提示词) | 复制自然语言提示词，让 Agent 走查询、规划、验收或治理流程 |
-| 准备真实云资源操作 | [准备信息](#准备信息) | 提前准备 region、project、profile、资源 ID、风险确认和回滚信息 |
-| 理解或扩展 Skill | [开发者文档](#开发者文档) | 进入架构、脚本契约、数据覆盖和本地验证资料 |
+把这句话发给启用了本 Skill 的 Agent：
 
-## 为什么是一个大 Skill
+```text
+使用 huaweicloud-skill，检查当前 hcloud 配置，然后盘点 cn-north-4 的
+ECS、VPC、EIP 和安全组，输出资源摘要和发现的风险点。只读，不做任何变更。
+```
 
-`huaweicloud-skill` 的目标不是简单把云 API 暴露给 Agent，而是帮助租户把云资源生命周期走完整、走可靠：
+Agent 会自动完成：检查 KooCLI/profile/region/project → 按本地 registry 和 catalog 发现服务与操作 → 构造 JSON 输出的只读查询 → 汇总资源、标注风险（如安全组对 `0.0.0.0/0` 开放的端口）→ 给出带命令和证据的报告。全程不需要你记任何 `hcloud` 语法。
 
-- **上好云**：在创建或变更前先确认账号、region、project、VPC、子网、安全组、镜像、规格、密钥和依赖拓扑，优先走 plan、dry-run、风险识别和显式确认，避免一开始就把资源建错、暴露错或配错。
-- **用好云**：资源创建或调整后继续做 job、资源状态、SSH/应用、ELB 后端、EVS 文件系统、CES 指标、LTS 日志等验收，避免“API 返回成功”被误判成“业务已经可用”。
-- **管好云**：通过账号盘点、闲置候选审计、回收前检查、标签治理、备份姿态、审计 trace、资源合规、账单/成本 request spec 和 run journal，把长期运营中的成本、安全、可观测和可追溯问题纳入治理。
+## 为什么不一样
 
-执行面也按这个原则收敛：`hcloud` 是主体执行和回读依赖；SDK 只做少量只读补充；Terraform 用于 IaC 生成、plan、import/drift/remote state 的受控辅助；MaaS 作为 API-first 能力独立处理。用户体验优先于技术拆分，Agent 应优先在统一 Skill 内完成路由、风险判断和证据闭环。
+| 维度 | 裸 Agent | 使用 huaweicloud-skill |
+| --- | --- | --- |
+| API 发现 | 靠模型记忆猜 service/operation | 本地 catalog（198 服务 / 15,666 operation）+ registry + `--help` 实证 |
+| 变更控制 | 可能直接提交创建/删除/绑定 | 计划 → dry-run → 风险门禁 → 显式确认 → 执行 → 回读 |
+| 完成判断 | API 成功即宣布完成 | job 终态 → 资源状态 → SSH/协议/机内 → 业务证据，层层验收 |
+| 错误处理 | 自然语言猜原因 | 结构化分桶：认证 / 权限 / region-project / 参数 / 配额 / 网络 |
+| 凭据安全 | AK/SK 可能进对话和日志 | 脱敏封装，密钥只走环境变量/profile，禁止回显 |
+| 高危端口 | 可能放行 `0.0.0.0/0` | SSH/常见 Web 端口入方向硬门禁 |
 
-更详细的场景对比和 ECS/典型服务拆解见 [docs/cloud-lifecycle-scenarios.md](docs/cloud-lifecycle-scenarios.md)。
+一次典型任务的执行链路：
 
-## 适合什么场景
+```mermaid
+flowchart LR
+  A[自然语言目标] --> B[场景路由]
+  B --> C[上下文检查<br/>profile / region / project]
+  C --> D[服务与参数发现<br/>registry + catalog + help]
+  D --> E[计划 / dry-run<br/>风险门禁]
+  E --> F{用户确认}
+  F -->|确认| G[受控执行]
+  F -->|未确认| E
+  G --> H[回读验证<br/>job 终态 / 状态 / 协议 / 业务证据]
+```
 
-- 你希望 Agent 直接基于 `hcloud` 操作华为云，而不是靠记忆猜 API。
-- 你需要先盘点账号、区域、项目和资源，再决定下一步动作。
-- 你需要识别闲置、备份、标签、审计、日志、监控等治理前置问题。
-- 你希望变更前有 dry-run、风险识别、确认门禁和变更后验证。
-- 你希望把认证、区域、项目、参数、输出格式等 CLI 问题转成 Agent 能理解的结构化错误。
-- 你明确需要 Terraform/IaC 来做可重复创建、环境复制、import、drift review 或长期纳管，但仍希望先用 `hcloud` 发现现网、再 plan、最后用 `hcloud` 验证。
-- 你明确需要华为云 MaaS 模型 API，包括大模型文本生成、OpenAI 兼容接口、图像理解、图片生成/编辑和视频生成。
+## 核心能力
 
-## 工作方式
-
-典型任务一般按这个顺序执行：
-
-1. Agent 先检查本机 KooCLI、profile、region、project 和认证状态。
-2. Agent 使用 scenario router 把自然语言目标映射到本地 playbook、服务指南、planner、SDK 补充点和 Terraform 候选。
-3. Agent 先用 curated service registry 和 playbook 判断是否有深度支持路径。
-4. 如果服务不在 registry 中，再使用 `huaweicloud-skill` 自带的 generated hcloud catalog 做 metadata-backed 发现、显式只读查询或 planner-only 变更计划。
-5. 当 `hcloud` metadata 不足时，Agent 可以用已安装的 `huaweicloudsdk*` package 补充 SDK 参数类型、region/endpoint 和错误结构证据；SDK 不是默认执行面。
-6. 当用户明确需要 Terraform/IaC 时，Agent 先用 Terraform context inspect 和 router 选择少量本地示例/reference，再进入 fmt/init/validate/plan。
-7. 查询类任务直接走只读路径；变更类任务先做计划、dry-run 和风险识别。
-8. 只有用户明确确认后，Agent 才会执行真实变更，并继续做结果验证。
+- **CLI-first 执行面**：基于本机 `hcloud` 的真实 service、operation 和 help 工作；内置 catalog 覆盖 198 个服务、15,666 个 operation，按服务懒加载，不炸上下文。
+- **场景路由**：自然语言目标直接映射到本地 playbook、服务指南和 planner，覆盖建站、监控排障、成本优化、权限诊断、容器部署等高频场景。
+- **变更门禁**：dry-run、风险识别、显式确认、执行记录、变更后验证一条链；安全、身份、密钥、治理类操作进入硬门禁。
+- **验收闭环**：内置 HTTP/TCP/DNS/TLS 验收探测和证据判定，把"资源 ACTIVE"和"业务可用"严格区分开。
+- **成本与治理**：账号盘点、闲置资源审计、回收前评审、账单语义纪律（事实 × 粒度 × 金额口径 × 账期，防止算错钱）。
+- **Terraform 受控 IaC**：73 个本地示例 + provider 参考，fmt/init/validate/plan 全流程；import、drift、remote state 均有确认门禁，不自动 apply。
+- **MaaS 模型能力**：华为云 MaaS 大模型对话、图像理解、图片生成/编辑、视频生成与用量治理，API Key 只走环境变量。
+- **诚实分层**：curated / metadata-backed / evidence-gap 三层能力标注，配 300+ 离线测试和晋级审计——未实测的能力不会被包装成已验证。
 
 ## 快速开始
 
 ### 1. 准备 KooCLI
-
-先确认本机可以运行 `hcloud`：
 
 ```bash
 hcloud version
 hcloud configure list
 ```
 
-如果还没有安装或配置 KooCLI，请参考华为云官方文档：
-
-- [KooCLI 快速安装](https://support.huaweicloud.com/qs-hcli/hcli_02_003.html)
-- [KooCLI 国际站文档](https://support.huaweicloud.com/intl/zh-cn/cli/index.html)
-- [华为云支持中心](https://support.huaweicloud.com/intl/zh-cn/)
-
-如果 `hcloud_context_inspect.py` 返回 `hcloud.found=false`，Agent 应先提示用户完成 KooCLI 安装和 PATH 配置；在 `hcloud` 可执行前，不应继续执行真实云查询或变更。
-
-如果要使用 OBS 能力，还需要让 `hcloud obs ...` 或 `obsutil` 使用同一套可用的 AK/SK。OBS 的认证错误会被保留在结构化输出里，便于 Agent 继续诊断。
-
-SDK 补充能力不要求用户机器保存 SDK 源码。如果某个 curated 只读能力需要 SDK，请通过 pip 或其他包管理方式安装对应 package，例如 ECS 场景安装 `huaweicloudsdkecs`。没有安装 SDK package 时，Agent 应自动降级回 hcloud 主流程。
-
-Terraform 能力需要本机安装 Terraform CLI，并能访问华为云 Terraform provider。示例和 reference 已在 skill 内部，但真实 plan/apply 仍需要可用的 Terraform、provider 下载或本地 plugin cache、华为云认证环境变量，以及用户对 exact plan 的确认。Agent 不应把 `terraform apply -auto-approve` 作为默认建议。
-
-如果要使用 MaaS 模型 API，请单独准备华为云 MaaS API Key，并只通过环境变量传入：
-
-```bash
-export MAAS_API_KEY=<your-maas-api-key>
-```
-
-也兼容 `MODELARTS_MAAS_API_KEY`。MaaS 当前作为 API-first 能力面处理，不登记为 KooCLI service，也不通过 `hcloud` service registry 路由。
+还没安装？参考 [KooCLI 快速安装](https://support.huaweicloud.com/qs-hcli/hcli_02_003.html)（更多见 [KooCLI 文档](https://support.huaweicloud.com/intl/zh-cn/cli/index.html)、[华为云支持中心](https://support.huaweicloud.com/intl/zh-cn/)）。`hcloud` 不可执行时，Skill 只输出本地方案草稿，不会宣称已查询或修改云资源。
 
 ### 2. 安装 Skill
 
-安装后，在支持本地 Skill 的 Agent 中启用 `huaweicloud-skill`。例如 OpenClaw：
+```bash
+# OpenClaw
+openclaw skills install harryzhu123/huaweicloud-skill
+```
 
-- [ClawHub: huaweicloud-skill](https://clawhub.ai/harryzhu123/huaweicloud-skill)
-- [OpenClaw 技能市场：huaweicloud-skill](https://github.com/OpenClawAgent/OpenClaw/blob/main/docs/skill-marketplace.md#available-skills)
+也可以从市场页安装：[ClawHub](https://clawhub.ai/harryzhu123/huaweicloud-skill) ·
+[OpenClaw 技能市场](https://github.com/OpenClawAgent/OpenClaw/blob/main/docs/skill-marketplace.md#available-skills)。
+Codex CLI / Claude Code 用户可把本仓库放入本地 skills 目录，或在项目说明中引用 `SKILL.md`。
 
-### 3. 让 Agent 使用它
-
-可以直接用自然语言说明目标，Agent 会按 Skill 的规则先检查上下文、发现服务和操作、构造命令，再决定是否执行：
+### 3. 用自然语言下达目标
 
 ```text
 使用 huaweicloud-skill，通过 hcloud 检查当前 profile、region、project，
 然后列出当前区域的 ECS、VPC、EIP 概览。只读查询，不做任何变更。
 ```
 
+<details>
+<summary><b>可选能力的额外准备（OBS / SDK / Terraform / MaaS）</b></summary>
+
+- **OBS**：让 `hcloud obs ...` 或 `obsutil` 使用同一套可用 AK/SK；认证错误会保留在结构化输出里供继续诊断。
+- **SDK 补充**：无需 SDK 源码。个别 curated 只读能力需要时，`pip install huaweicloudsdkecs` 等安装对应 package 即可；未安装时自动降级回 `hcloud` 主流程。
+- **Terraform**：需要本机 Terraform CLI 和可访问的华为云 provider（或本地 plugin cache）。真实 apply 必须基于用户确认过的 exact plan；`terraform apply -auto-approve` 不会被作为默认建议。
+- **MaaS**：准备华为云 MaaS API Key，只通过环境变量传入：
+
+  ```bash
+  export MAAS_API_KEY=<your-maas-api-key>   # 兼容 MODELARTS_MAAS_API_KEY
+  ```
+
+  MaaS 是 API-first 能力面，不走 KooCLI service 路由；用量统计属治理查询，按本地 AK/SK 签名单独规划。
+
+</details>
+
 ## 常用提示词
 
-下面是可以直接发给 Agent 的自然语言提示词，不是需要用户手动执行的终端命令。
+直接复制发给 Agent（这些是给 Agent 的自然语言目标，不是终端命令）：
 
-#### 安全盘点当前账号资源
+**安全盘点账号资源**
 
 ```text
 使用 huaweicloud-skill，先检查当前 hcloud 配置，再盘点 cn-north-4
 的 ECS、VPC、Subnet、EIP 和安全组资源，输出资源摘要和发现的风险点。
 ```
 
-#### 把 hcloud 报错转成可诊断结果
+**把报错变成诊断**
 
 ```text
 使用 huaweicloud-skill 执行一次 ECS 列表查询。如果失败，请解释是认证、
 区域、project_id、权限、参数还是输出格式问题，并给出下一步修复建议。
 ```
 
-#### 创建 ECS 前先检查参数
+**创建 ECS 前先体检**
 
 ```text
-我准备创建一台 ECS，配置包括镜像、规格、VPC、子网、安全组、密钥对、
-系统盘和实例数量。请使用 huaweicloud-skill 先检查这些参数是否完整、
-安全、幂等；如果还缺信息，请列出来。不要直接创建云服务器。
-
-如果我后面粘贴创建参数 JSON，也请先做同样的检查，只输出缺失字段、
-风险点和推荐修复方式。
+我准备创建一台 ECS（镜像、规格、VPC、子网、安全组、密钥对、系统盘、数量）。
+请用 huaweicloud-skill 先检查参数是否完整、安全、幂等，列出缺失项和风险；
+不要直接创建。
 ```
 
-#### 规划一次受保护的网络变更
+**受保护的网络变更**
 
 ```text
 使用 huaweicloud-skill 规划新增一条安全组规则。SSH 和常见 Web 端口不要使用
-0.0.0.0/0，请先做 dry-run 和风险识别，列出需要我确认的来源 CIDR；
+0.0.0.0/0，先做 dry-run 和风险识别，列出需要我确认的来源 CIDR；
 在我明确确认前不要提交变更。
 ```
 
-#### 用 Terraform 生成可重复 IaC
+**闲置资源审计（只出候选，不出删除命令）**
 
 ```text
-使用 huaweicloud-skill，先检查 hcloud 和 Terraform 本地环境，然后为一套 ECS +
-EIP + 安全组的测试环境选择合适的 Terraform 示例和 reference。先输出 plan 前
-需要确认的变量、依赖和风险，不要直接 apply。
+使用 huaweicloud-skill 先盘点当前账号，再识别可能闲置的 EIP、EVS、ECS、
+ELB、RDS 候选。只输出候选、证据、风险和回收前检查顺序，不要生成删除命令。
 ```
 
-#### 调用华为云 MaaS 大模型
+**调用华为云 MaaS 大模型**
 
 ```text
-使用 huaweicloud-skill 调用华为云 MaaS 大模型。先列出可选文本模型和将要发送的
+使用 huaweicloud-skill 调用华为云 MaaS 大模型。先列出可选文本模型和
 dry-run payload；确认后使用 MAAS_API_KEY 调用 V2 Chat 接口，不要记录密钥。
 ```
 
-#### 生成或理解图片
+<details>
+<summary><b>更多提示词：变更验证、可观测、账单、Terraform、图片/视频生成、闭环规划、拓扑图……</b></summary>
 
-```text
-使用 huaweicloud-skill 走华为云 MaaS：先用 qwen2.5-vl-72b 做图片理解，
-再用 qwen-image 生成一张站点配图。先 dry-run，输出本地文件和 manifest；
-不要把 API Key 写进文件。
-```
-
-#### 创建视频生成任务
-
-```text
-使用 huaweicloud-skill 通过华为云 MaaS 创建一个文生视频任务。先 dry-run 展示
-payload；确认后提交任务，并轮询 task_id 直到 succeeded 或 failed，不要把 task_id
-当成最终视频结果。
-```
-
-#### 规划典型服务的闭环任务
-
-```text
-使用 huaweicloud-skill 为 P0 核心服务生成一次上云/用云/管云闭环计划，
-包括 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。
-请按上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计输出；
-只做 planner，不执行真实云变更。
-```
-
-#### 规划管云治理闭环
-
-```text
-使用 huaweicloud-skill 为 P1 治理服务生成一次管云闭环计划，
-覆盖 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo。
-请输出治理范围、只读证据、风险和隐私门禁、review plan、晋级缺口；
-不要写标签、改审计、改备份策略、改安全策略，也不要请求或暴露真实账单数据。
-```
-
-#### 规划 P2 场景闭环
-
-```text
-使用 huaweicloud-skill 为 P2 场景服务生成一次闭环计划，
-覆盖 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族。
-请输出场景范围、只读 evidence command plan、风险边界和下一步晋级缺口；
-安全服务和数据库族只标注 evidence gap，不要生成写操作或宣称已经完整闭环。
-```
-
-#### 先做场景路由
-
-```text
-使用 huaweicloud-skill 先判断“我要上云部署一个 Web 服务，包含 ECS、VPC、
-ELB、监控和后续成本治理”应该读哪些 playbook、指南和 planner。只做路由，
-不要执行真实云查询或变更。
-```
-
-#### 快速确认 OBS 配置
-
-```text
-使用 huaweicloud-skill 检查 OBS 是否配置正确。如果 list bucket 失败，
-请说明是 AK/SK、endpoint、权限还是账号侧问题。
-```
-
-#### 变更后验证资源状态
+**变更后验证资源状态**
 
 ```text
 使用 huaweicloud-skill 检查刚才的 EIP 绑定是否真正生效。请查询目标 ECS
 和 EIP 的当前状态，说明公网 IP、绑定关系和仍需处理的问题。
 ```
 
-#### 审计闲置资源和回收前检查
-
-```text
-使用 huaweicloud-skill 先做当前账号资源盘点，然后基于已保存的 JSON 查询结果
-识别可能闲置的 EIP、EVS、ECS、ELB、RDS、NAT 和安全组候选。只输出候选、
-证据、风险和回收前检查顺序，不要生成删除、释放或退订命令。
-```
-
-#### 检查可观测性和日志证据
+**检查可观测性和日志证据**
 
 ```text
 使用 huaweicloud-skill 检查这台 ECS 是否具备可观测证据。先查资源状态，
@@ -237,14 +173,79 @@ ELB、监控和后续成本治理”应该读哪些 playbook、指南和 planner
 LTS log group、stream 和有限时间窗口的只读查询计划。
 ```
 
-#### 规划账单或成本查询
+**快速确认 OBS 配置**
+
+```text
+使用 huaweicloud-skill 检查 OBS 是否配置正确。如果 list bucket 失败，
+请说明是 AK/SK、endpoint、权限还是账号侧问题。
+```
+
+**规划账单或成本查询**
 
 ```text
 使用 huaweicloud-skill 为 2026-05 的月度账单汇总生成华为云 Billing/Cost
-API request spec。只做请求规划，不签名、不发送请求、不从资源清单推断费用。
+查询计划。区分事实类型、粒度和金额口径，结果脱敏；不从资源清单推断费用。
 ```
 
-#### 用拓扑图沟通方案或结果
+**用 Terraform 生成可重复 IaC**
+
+```text
+使用 huaweicloud-skill，先检查 hcloud 和 Terraform 本地环境，然后为一套 ECS +
+EIP + 安全组的测试环境选择合适的 Terraform 示例和 reference。先输出 plan 前
+需要确认的变量、依赖和风险，不要直接 apply。
+```
+
+**生成或理解图片（MaaS）**
+
+```text
+使用 huaweicloud-skill 走华为云 MaaS：先用 qwen2.5-vl-72b 做图片理解，
+再用 qwen-image 生成一张站点配图。先 dry-run，输出本地文件和 manifest；
+不要把 API Key 写进文件。
+```
+
+**创建视频生成任务（MaaS）**
+
+```text
+使用 huaweicloud-skill 通过华为云 MaaS 创建一个文生视频任务。先 dry-run 展示
+payload；确认后提交任务，并轮询 task_id 直到 succeeded 或 failed，不要把
+task_id 当成最终视频结果。
+```
+
+**核心服务闭环计划（planner-only）**
+
+```text
+使用 huaweicloud-skill 为核心服务生成一次上云/用云/管云闭环计划，
+包括 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS。
+按上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计输出；
+只做规划，不执行真实云变更。
+```
+
+**治理闭环计划（planner-only）**
+
+```text
+使用 huaweicloud-skill 为治理服务生成一次管云闭环计划，覆盖 TMS、CTS、CBR、
+RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo。输出治理范围、只读证据、
+风险和隐私门禁、review plan 和晋级缺口；不要修改任何治理配置，也不要
+请求或暴露真实账单数据。
+```
+
+**场景闭环计划（planner-only）**
+
+```text
+使用 huaweicloud-skill 为场景服务生成一次闭环计划，覆盖 CCE、NAT、DCS、
+RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族。输出场景范围、只读 evidence
+command plan、风险边界和晋级缺口；不要生成写操作，也不要宣称已完整闭环。
+```
+
+**先做场景路由**
+
+```text
+使用 huaweicloud-skill 先判断"我要上云部署一个 Web 服务，包含 ECS、VPC、
+ELB、监控和后续成本治理"应该读哪些 playbook、指南和 planner。只做路由，
+不要执行真实云查询或变更。
+```
+
+**用拓扑图沟通方案或结果**
 
 ```text
 使用 huaweicloud-skill 先画一个 Mermaid 资源拓扑图，帮我确认公网访问、
@@ -269,98 +270,45 @@ flowchart LR
   ECS --> CES
 ```
 
-## 核心能力
+</details>
 
-- **CLI-first**：优先基于本机 `hcloud` 的真实 service、operation 和 help 信息工作，减少凭空猜测。
-- **场景路由**：`hcloud_scenario_router.py` 把自然语言目标映射到本地 playbook、服务指南、planner、SDK supplement 和 Terraform 候选，沉淀产品/场景入口经验，但不执行云操作。
-- **结构化上下文**：自动整理 profile、region、project、认证模式、CLI 路径、版本和常见配置问题。
-- **多服务发现**：通过 registry、playbook 和 discovery 工具深度覆盖 ECS、VPC、EIP、EVS、IMS、KPS、RDS、ELB、OBS、CDN、IAM 等常用服务。
-- **metadata-backed 广覆盖**：内置 hcloud metadata catalog；v0.3.1 起按 operation 粒度合并英文 metadata，并用中文 metadata 补齐缺失服务、operation 和 detail。当前 audit 覆盖 198 个本地 metadata 服务、15,666 个 hcloud operation；本机 `hcloud --help` 在去掉 HCS/ManageOne 相关服务后可见 199 个服务。运行时默认通过 `references/hcloud-service-catalog.index.json` 按服务懒加载 `references/hcloud-service-catalog/` 分片；full catalog 不再作为提交资产，只在需要完整 diff 时由维护者临时生成。准确覆盖规模以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 输出和 `references/hcloud-service-catalog.fingerprint.json` 的 `source` 字段为准。registry 外服务默认只开放安全发现、显式参数只读查询和 planner-only 变更计划。
-- **SDK 补充层**：SDK 只用于补强 hcloud 主链路，不以大而全为目标。运行时优先探测已安装的 `huaweicloudsdk*` package；`reference-projects/huaweicloud-sdk-python-v3` 只作为维护期参考。当前 SDK runner 只开放 `references/sdk-supplement-registry.json` 中登记的稳定只读操作，并保留 hcloud fallback plan。
-- **Terraform 受控 IaC 面**：整理 73 个 Terraform 示例和核心 provider/reference/inventory 文档，通过 `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py` 和 `references/terraform/catalog/` 渐进选择资产。Terraform 不扩大 SDK allowlist，也不跳过 hcloud 现网发现、plan 确认和后置验证。
-- **可信度分层**：metadata-backed 服务默认标为 catalog-derived；只读 smoke、dry-run 支持性和后续 confidence 信息单独记录，不把未实测能力包装成 curated coverage。
-- **curated 维护门禁**：`references/service-curation-profiles.json` 记录 curated 服务和晋级候选的 readiness、resource query、playbook 和 risk profile；`hcloud_curated_promotion_audit.py` 用于阻止证据不足的服务提前进入 registry。
-- **生命周期治理**：账号盘点、闲置资源审计、teardown review、CES/LTS 可观测、Billing/Cost request spec 和 CTS/TMS/CBR/RMS/Config/LTS candidate profiles 帮助用户从“能上云”继续走到“用好云、管好云”。
-- **典型服务闭环**：`v0.3.2` 增加 P0 核心服务的六阶段 lifecycle closure planner，覆盖 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS，把依赖发现、参数检查、风险门禁、后置验证和治理审计放到同一个结构化计划里。
-- **治理闭环计划**：P1 增加 `hcloud_governance_closure_plan.py`，把 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 组织成只读/planner-only 治理计划，输出 evidence command plan、隐私边界、review plan、治理汇总和 curated 晋级缺口；Billing/BSS 只生成 request spec，不生成 live query 命令。
-- **P2 场景闭环计划**：`v0.3.3` 增加 `hcloud_p2_scenario_closure_plan.py`，把 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族组织成场景级只读/planner-only 计划，输出 evidence command plan、metadata evidence gap、风险边界和下一步晋级建议。
-- **安全执行封装**：统一处理超时、敏感信息脱敏、JSON 解析、错误分类和输出裁剪。
-- **变更门禁**：变更类流程默认包含 dry-run、风险识别、显式确认、执行记录和变更后验证；metadata-backed 服务会根据 catalog category 抬高风险，安全合规、身份、密钥和治理类 mutation 会进入硬门禁。
-- **入口暴露限制**：SSH `22` 和常见 Web 端口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 的入方向规则会阻止 `0.0.0.0/0`。
-- **拓扑图沟通**：必要时用 Mermaid 资源拓扑图展示需求、方案、结果或排障链路，并区分计划态和已验证事实。
-- **开发者友好**：架构、扩展方式、服务覆盖策略和脚本契约都沉淀在 `docs/` 中，便于继续贡献。
+## 安全承诺
 
-## 准备信息
+这些边界写在 Skill 的运行规则里，不依赖模型自觉：
 
-为了让 Agent 可靠完成云资源查询或变更，建议提前准备这些信息。缺失的信息 Agent 会继续追问：
+| 风险点 | 默认处理 |
+| --- | --- |
+| 凭据（AK/SK、API Key、私钥） | 不在对话、日志、生成文件中回显或保存；只走本地环境变量 / profile |
+| 安全组入口 | SSH/常见 Web 端口不得自动开放到 `0.0.0.0/0`；复用已有安全组也要读回规则证据 |
+| 异步任务 | 跟到 job 终态，再做资源状态、协议或业务验收；`job_id`、`ACTIVE`、`task_id` 都不等于完成 |
+| 高危变更 | 删除、回收、账单、审计、备份、安全策略默认只读或 planner-only；候选清单不等于执行授权 |
+| Terraform 状态 | import / state / remote state 是高影响操作，必须显式确认；不自动 apply/destroy |
+| 结果汇报 | 只描述真实发生的命令、输出和验证；计划态和已执行严格分开，不编造执行过程 |
 
-- `hcloud` 已安装，并且在当前终端可执行。
-- 至少配置一个可用 profile，包含 AK/SK 或其他认证方式。
-- 明确默认 region，例如 `cn-north-4`、`cn-east-3`。
-- 对项目级服务准备 project id；可以通过 IAM、控制台或 `hcloud` 查询。
-- 对账号级或全局服务确认是否需要特殊 endpoint 或 global project。
-- OBS 查询需要额外确认 OBS 认证和 endpoint 是否可用。
-- 变更类请求需要提供目标资源 id、期望状态和可接受的回滚方式。
+## 能力边界（诚实版）
 
-你可以用自然语言给出这些信息，也可以在对话里粘贴配置片段、资源 ID、错误日志或创建参数 JSON。
+- ECS 的指导最完整：创建前校验、dry-run、job 终态、ACTIVE 回读、SSH 和应用验收全链路。
+- 核心高频服务（VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS）有生命周期闭环计划和验收判定；治理和场景类服务目前以只读规划为主，**不宣称完整执行闭环**。
+- 长尾安全、数据库、身份类服务多为 metadata-backed 发现 + 证据缺口标注；默认不执行 mutation。
+- 内置验收探测支持 HTTP/TCP/DNS/TLS；其他证据需要人工或专用工具采集后再判定。
+- 覆盖规模以 `python3 scripts/hcloud_catalog_audit.py --pretty` 的输出为准。
 
-如果配置有问题，`huaweicloud-skill` 会尽量把失败原因结构化，例如：
+## 需要你提供什么
 
-- 认证失败：AK/SK 不存在、签名失败、token 过期。
-- 权限不足：IAM policy、项目权限、OBS bucket policy。
-- 区域或 project 错误：region 不存在、project id 与 region 不匹配。
-- 参数错误：缺少必填字段、字段名不符合当前 operation。
-- 输出问题：命令成功但不是合法 JSON，或 stdout 被额外文本污染。
-
-## Agent 集成
-
-### OpenClaw
-
-```bash
-openclaw skills search huaweicloud
-openclaw skills install harryzhu123/huaweicloud-skill
-openclaw skills list --eligible
-```
-
-在 OpenClaw 中提出这类请求即可触发：
-
-```text
-用 huaweicloud-skill 帮我查一下 cn-north-4 当前有哪些 ECS 和 VPC。
-```
-
-```text
-先规划一次给某台 ECS 绑定 EIP 的操作，只输出命令、风险点和验证方式，不要直接执行。
-```
-
-### Codex CLI / Codex App
-
-把本仓库作为本地 Skill 安装或链接后，可以直接在对话里要求 Codex 使用 `huaweicloud-skill`：
-
-```text
-使用 huaweicloud-skill 检查当前华为云账号上下文，然后只读盘点 ECS、VPC 和 EIP。
-```
-
-```text
-使用 huaweicloud-skill 规划一次 RDS 配置变更。先输出风险、影响面和需要我确认的参数，不要直接执行。
-```
-
-### Claude Code
-
-可以把本仓库放入 Claude Code 的 skills 目录，或在项目说明中引用 `SKILL.md`。推荐提示：
-
-```text
-请使用 huaweicloud-skill。所有华为云查询都走 hcloud / KooCLI 路线，
-变更前必须先 dry-run，并等待我确认。
-```
+- 可执行的 `hcloud` 和至少一个可用 profile（AK/SK 或其他认证方式）。
+- 默认 region（如 `cn-north-4`）；项目级服务备好 project id。
+- 变更类请求：目标资源 ID、期望状态、可接受的回滚方式。
+- 缺什么 Agent 会追问；配置有问题时会给出结构化的失败原因（认证 / 权限 / region-project / 参数 / 输出格式）。
 
 ## 开发者文档
 
-README 面向普通用户快速上手。架构设计、内部脚本、服务覆盖策略和本地验证方法放在开发者文档中：
+架构、脚本契约、服务覆盖策略和本地验证方法：
 
-- [`docs/technical-overview.md`](docs/technical-overview.md)
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/implementation-details.md`](docs/implementation-details.md)
-- [`docs/data-and-coverage.md`](docs/data-and-coverage.md)
+- [`docs/technical-overview.md`](docs/technical-overview.md) — 技术总览
+- [`docs/architecture.md`](docs/architecture.md) — 架构设计
+- [`docs/implementation-details.md`](docs/implementation-details.md) — 实现细节
+- [`docs/data-and-coverage.md`](docs/data-and-coverage.md) — 数据与覆盖
+- [`docs/cloud-lifecycle-scenarios.md`](docs/cloud-lifecycle-scenarios.md) — 上云/用云/管云场景拆解
 
 ## License
 
