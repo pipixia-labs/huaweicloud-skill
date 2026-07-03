@@ -24,9 +24,9 @@ TERRAFORM_ROUTE = {
 P0_CLOSURE_SERVICES = {"VPC", "EIP", "EVS", "ELB", "RDS", "OBS", "DNS", "SCM", "CDN", "CES", "LTS"}
 P0_ACCEPTANCE_FOLLOWUPS = [
     {
-        "step": "task_lifecycle_plan",
-        "tool": "scripts/hcloud_lifecycle_closure_plan.py",
-        "purpose": "Build the six-stage P0 closure plan and acceptance_evidence_plan.",
+        "step": "closure_plan",
+        "tool": "scripts/hcloud_closure_plan.py",
+        "purpose": "Build the selected lifecycle/governance/scenario closure plan; use --tier lifecycle for P0.",
     },
     {
         "step": "acceptance_closure",

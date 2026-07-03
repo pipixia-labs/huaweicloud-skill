@@ -687,6 +687,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("references/runtime-safety-boundaries.md", skill_text)
         self.assertIn("references/scripts.md", skill_text)
         self.assertIn("references/versioning-policy.md", skill_text)
+        self.assertIn("hcloud_closure_plan.py", skill_text)
         self.assertIn("hcloud_acceptance_closure.py", skill_text)
         self.assertIn("CHANGELOG.md", version_text)
         self.assertIn("RELEASE_NOTES.md", version_text)

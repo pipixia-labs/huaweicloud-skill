@@ -420,7 +420,42 @@ python3 scripts/hcloud_service_readiness.py \
 
 Use to run or plan per-service read-only readiness checks. Target-specific checks are skipped when required IDs are missing. `--execute` is required for live queries.
 
-### Lifecycle Closure Plan
+### Closure Plan
+
+```bash
+python3 scripts/hcloud_closure_plan.py \
+  --tier lifecycle \
+  --service VPC \
+  --param security_group_id=<sg-id> \
+  --param direction=ingress \
+  --param protocol=tcp \
+  --param remote_ip_prefix=<approved-cidr> \
+  --param port_range_min=443 \
+  --param port_range_max=443 \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --pretty
+```
+
+```bash
+python3 scripts/hcloud_closure_plan.py \
+  --tier governance \
+  --service Billing \
+  --param bill_cycle=<yyyy-mm> \
+  --pretty
+```
+
+```bash
+python3 scripts/hcloud_closure_plan.py \
+  --tier scenario \
+  --group CCE \
+  --param cluster_id=<cluster-id> \
+  --pretty
+```
+
+Use this as the default closure-planning entry. It wraps P0 lifecycle, P1 governance, and P2 scenario closure planners without changing their safety gates. The tier-specific scripts remain compatibility modules for existing workflows and focused tests.
+
+### Lifecycle Closure Plan Compatibility
 
 ```bash
 python3 scripts/hcloud_lifecycle_closure_plan.py \
@@ -472,7 +507,7 @@ python3 scripts/hcloud_acceptance_closure.py chain \
 
 Use this after lifecycle closure planning. The `plan` subcommand turns `acceptance_evidence_plan` items into probe templates, `run` prepares or runs only supported HTTP/TCP/DNS/TLS probes, `evaluate` reads local evidence status JSON, and `chain` composes the three stages. Without `--execute`, `run` and `chain` only report prepared probes and missing evidence. The compatibility entry points `hcloud_acceptance_probe_plan.py`, `hcloud_acceptance_probe_run.py`, and `hcloud_acceptance_evidence_result.py` remain available for focused workflows and tests, but new user-facing flows should prefer this unified command.
 
-### Governance Closure Plan
+### Governance Closure Plan Compatibility
 
 ```bash
 python3 scripts/hcloud_governance_closure_plan.py \
@@ -487,7 +522,7 @@ Use this when the user asks for a P1 governance closure plan instead of a single
 
 The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and reviewed hcloud command plans while keeping credentials outside the planner. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
 
-### P2 Scenario Closure Plan
+### P2 Scenario Closure Plan Compatibility
 
 ```bash
 python3 scripts/hcloud_p2_scenario_closure_plan.py \

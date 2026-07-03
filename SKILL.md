@@ -40,7 +40,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 先查现状证据，再生成 change plan / dry-run / guarded submit。
    - 真实 submit 必须有本次操作的明确用户确认；安全、身份、密钥、治理类 mutation 默认 hard guard。
 5. P0 高频服务闭环：
-   - 先运行 `hcloud_lifecycle_closure_plan.py` 生成 lifecycle plan 和 `acceptance_evidence_plan`。
+   - 先运行 `hcloud_closure_plan.py --tier lifecycle` 生成 lifecycle plan 和 `acceptance_evidence_plan`。
    - 再用 `hcloud_acceptance_closure.py plan/run/evaluate/chain` 做采证计划、受支持探测和 evidence 结果判定。
 6. 完成声明要诚实：
    - `job_id`、`accepted`、云侧 `ACTIVE`、Terraform plan 成功、MaaS `task_id` 都不等于业务可用。
@@ -70,8 +70,8 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | 真实 hcloud 查询或受控系统命令 | `hcloud_safe_exec.py` |
 | 多服务发现、目标查询、readiness | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py` |
 | 创建/变更计划和 guarded flow | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
-| P0 生命周期和验收闭环 | `hcloud_lifecycle_closure_plan.py`、`hcloud_acceptance_closure.py` |
-| 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py`、`hcloud_governance_closure_plan.py` |
+| P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |
+| 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py` |
 | Terraform/IaC | `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`hcloud_terraform_operations_plan.py` |
 | MaaS 模型调用、图片/视频、用量治理 | `maas_models.py`、`maas_chat.py`、`maas_image_generation.py`、`maas_video_generation.py`、`maas_usage_request_plan.py` |
 | 脚本边界、维护分层、完整命令模板 | `references/scripts.md`、`references/script-audience-manifest.json` |

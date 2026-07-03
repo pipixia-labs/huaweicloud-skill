@@ -8,7 +8,7 @@
 2. 账号盘点先走 `hcloud_account_inventory.py`；真实查询必须显式 `--execute`。
 3. 闲置候选用 `hcloud_idle_audit.py` 分析保存的只读 JSON；候选不等于删除授权。
 4. 回收前检查用 `hcloud_teardown_plan.py` 输出依赖顺序、证据缺口和人工确认点。
-5. P1 治理服务用 `hcloud_governance_closure_plan.py` 汇总范围、证据、隐私门禁、review plan 和晋级缺口。
+5. P1 治理服务用 `hcloud_closure_plan.py --tier governance` 汇总范围、证据、隐私门禁、review plan 和晋级缺口。
 6. 账单/成本只用 `hcloud_billing_cost_probe.py` 和 `hcloud_billing_readonly.py` 生成 request spec，不签名、不发送请求。
 
 ## SDK 补充

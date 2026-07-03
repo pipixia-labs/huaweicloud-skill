@@ -15,6 +15,10 @@
         "candidate": "Prefer hcloud_acceptance_closure.py as the user-facing plan/run/evaluate wrapper while preserving probe plan, probe run, and evidence result modules for compatibility and focused tests."
       },
       {
+        "area": "closure planning",
+        "candidate": "Prefer hcloud_closure_plan.py as the user-facing lifecycle/governance/scenario wrapper while preserving tier-specific planners for compatibility and focused tests."
+      },
+      {
         "area": "catalog maintenance",
         "candidate": "Wrap build, diff, audit, and smoke utilities behind one maintenance command while preserving current modules."
       },
@@ -39,25 +43,20 @@
       "boundary": "May plan or execute only within each script's documented safety gate. Planner-only scripts must stay non-executing.",
       "scripts": [
         "scripts/hcloud_acceptance_closure.py",
-        "scripts/hcloud_acceptance_evidence_result.py",
-        "scripts/hcloud_acceptance_probe_plan.py",
-        "scripts/hcloud_acceptance_probe_run.py",
         "scripts/hcloud_account_inventory.py",
         "scripts/hcloud_billing_readonly.py",
         "scripts/hcloud_billing_result_summarize.py",
         "scripts/hcloud_cce_assessment_plan.py",
         "scripts/hcloud_ces_alarm_plan.py",
+        "scripts/hcloud_closure_plan.py",
         "scripts/hcloud_closure_maturity_audit.py",
         "scripts/hcloud_context_inspect.py",
         "scripts/hcloud_environment_doctor.py",
-        "scripts/hcloud_governance_closure_plan.py",
         "scripts/hcloud_idle_audit.py",
-        "scripts/hcloud_lifecycle_closure_plan.py",
         "scripts/hcloud_lts_readonly.py",
         "scripts/hcloud_meta_lookup.py",
         "scripts/hcloud_obs_readonly.py",
         "scripts/hcloud_observability_plan.py",
-        "scripts/hcloud_p2_scenario_closure_plan.py",
         "scripts/hcloud_prewarm_cache.py",
         "scripts/hcloud_resource_discovery.py",
         "scripts/hcloud_resource_query.py",
@@ -139,8 +138,14 @@
     {
       "id": "compatibility",
       "audience": "existing workflows that still call legacy names",
-      "boundary": "Keep as compatibility entry points in v0.6; prefer newer names in documentation.",
+      "boundary": "Keep as compatibility entry points; prefer unified names in new documentation.",
       "scripts": [
+        "scripts/hcloud_acceptance_evidence_result.py",
+        "scripts/hcloud_acceptance_probe_plan.py",
+        "scripts/hcloud_acceptance_probe_run.py",
+        "scripts/hcloud_governance_closure_plan.py",
+        "scripts/hcloud_lifecycle_closure_plan.py",
+        "scripts/hcloud_p2_scenario_closure_plan.py",
         "scripts/qwen_text_to_image.py"
       ]
     }

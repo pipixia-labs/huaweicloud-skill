@@ -34,7 +34,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "required_inputs": ["ECS or workload target", "ELB/DNS/HTTPS scope", "RDS scope if used", "allowed source CIDR"],
         "tools": [
             "scripts/hcloud_scenario_router.py '生产 Web 应用上线 ECS RDS ELB HTTPS WAF 闭环' --pretty",
-            "scripts/hcloud_lifecycle_closure_plan.py",
+            "scripts/hcloud_closure_plan.py --tier lifecycle",
             "scripts/hcloud_acceptance_closure.py chain",
         ],
         "acceptance": ["domain or ELB URL probe passes", "backend health evidence present", "RDS connection evidence if in scope"],

@@ -6,7 +6,7 @@ CCE 任务要同时看集群、节点、网络、负载均衡、监控和 Kubern
 
 1. 读取 `references/playbooks/cce-cluster-readiness.md`、`vpc-network-readiness.md` 和 `observability-readiness.md`。
 2. 如果目标是 CCE 环境评估或云原生成熟度，先用 `hcloud_cce_assessment_plan.py` 生成维度化证据计划。
-3. 用 `hcloud_p2_scenario_closure_plan.py --group CCE` 获取场景级只读证据计划。
+3. 用 `hcloud_closure_plan.py --tier scenario --group CCE` 获取场景级只读证据计划。
 4. 用 `hcloud_resource_discovery.py --service CCE` 查询集群和基础资源线索。
 5. 已知 cluster ID 后，用 `hcloud_resource_query.py` 查询目标集群详情。
 6. 如涉及公网入口，继续按 ELB/VPC 指南验证 listener、member、security group 和协议探测。

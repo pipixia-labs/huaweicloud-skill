@@ -50,7 +50,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertEqual(
             followup_tools,
             [
-                "scripts/hcloud_lifecycle_closure_plan.py",
+                "scripts/hcloud_closure_plan.py",
                 "scripts/hcloud_acceptance_closure.py",
             ],
         )
@@ -111,7 +111,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("references/playbooks/obs-boundary.md", match["primary_playbooks"])
         self.assertIn("scripts/hcloud_obs_readonly.py", match["planners"])
         followup_tools = [item["tool"] for item in match["recommended_followups"]]
-        self.assertIn("scripts/hcloud_lifecycle_closure_plan.py", followup_tools)
+        self.assertIn("scripts/hcloud_closure_plan.py", followup_tools)
 
     def test_routes_ecs_metric_gap_to_monitoring_troubleshooting(self) -> None:
         result = hcloud_scenario_router.route("ECS 内存指标 mem_used_percent 查不到指标 怎么处理", limit=1)
@@ -173,7 +173,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("references/playbooks/cce-cloud-native-assessment.md", match["primary_playbooks"])
         self.assertIn("references/playbooks/cce-cluster-readiness.md", match["primary_playbooks"])
         self.assertIn("scripts/hcloud_cce_assessment_plan.py", match["planners"])
-        self.assertIn("scripts/hcloud_p2_scenario_closure_plan.py", match["planners"])
+        self.assertIn("scripts/hcloud_closure_plan.py", match["planners"])
         self.assertTrue(match["terraform_candidate"])
 
     def test_routes_functiongraph_goal_to_serverless_playbook(self) -> None:
