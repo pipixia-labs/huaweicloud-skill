@@ -6,7 +6,7 @@
 
 ## v0.7 / 0.7.0 - 2026-07-03
 
-v0.7 是一次收敛和纵深版本。它继续坚持“一个统一的大 Skill”路线：`hcloud` 仍然是云资源发现、执行和回读主链路，SDK、MaaS API 和 Terraform 只作为边界清晰的辅助能力面。这个版本的重点不是铺更多入口，而是把工具面收敛、把高频服务验证计划做深、把账单/用量/监控/治理中的硬知识固化成可测试的项目契约。
+v0.7 是一次收敛和纵深版本。它继续坚持“一个统一的大 Skill”路线：`hcloud` 仍然是云资源发现、执行和回读主链路，SDK、MaaS API 和 Terraform 只作为边界清晰的辅助能力面。这个版本的重点不是铺更多入口，而是把工具面收敛、把高频服务验证计划做深，并把账单、用量、监控和治理能力做成可测试的项目契约。
 
 ### 主要变化
 
@@ -33,7 +33,7 @@ v0.7 是一次收敛和纵深版本。它继续坚持“一个统一的大 Skill
   - 固化 `fact × grain × money_basis × scope/billing_period` 账单语义纪律。
   - 增加企业项目过滤、BSS 固定 CLI 默认值、KooCLI 点号参数和分页边界等防错规则。
 
-- **硬知识吸收**
+- **账单、用量、监控和治理能力**
   - CES/ECS：补充 Agent 指标、`mem_used_percent` namespace、`ces.0014` 误诊风险和告警模板建议。
   - OBS：补充 `SYS.OBS` 指标、traffic vs bandwidth、请求数拆分汇总和容量统计边界。
   - COC：补充 `ServiceAgencyForCOC`、409 幂等、ControlMaster 和 60 秒清理模式。

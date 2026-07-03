@@ -11,7 +11,7 @@
 - 新增 live validation 规划能力，面向 ECS、VPC/EIP、OBS、ELB、RDS 生成真实账号证据、回读、probe 和晋级缺口计划。
 - 扩展 MaaS 用量治理：支持 `HUAWEI_*` 环境变量别名，并为 ShowStatistics 增加受控 `--execute` 只读查询路径。
 - 大幅强化 Billing/BSS 能力：扩展余额、账单流水、摊销、资源包、券、订单、企业/伙伴和参考字典只读 planner，并固化 `fact × grain × money_basis × scope/billing_period` 账单语义纪律。
-- 吸收高价值云操作知识到本项目 playbook：MaaS 用量统计、CES/ECS Agent 与 `ces.0014`、OBS `SYS.OBS` 指标、COC 临时凭证模式、Flexus L 控制面观察、CCE/UCS/SWR 治理和 DWS/数据库诊断方法。
+- 完善云操作 playbook：MaaS 用量统计、CES/ECS Agent 与 `ces.0014`、OBS `SYS.OBS` 指标、COC 临时凭证模式、Flexus L 控制面观察、CCE/UCS/SWR 治理和 DWS/数据库诊断方法。
 - 补充 `CLI_ERROR` 识别、KooCLI 日志排查、凭据本地化处理和结果叙事真实性边界，减少误判、过度宣称和密钥泄露风险。
 - 更新 Terraform guardrails，明确生成、plan、apply、hcloud readback 和业务验收之间的状态边界。
 
