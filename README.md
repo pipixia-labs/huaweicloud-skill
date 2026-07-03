@@ -1,11 +1,13 @@
-# huaweicloud-skill
+<h1 align="center">huaweicloud-skill</h1>
 
-**让 Agent 安全地上好云、用好云、管好云 —— 一个统一的华为云 Agent Skill。**
+<p align="center"><b>让 Agent 安全地上好云、用好云、管好云 —— 一个统一的华为云 Agent Skill。</b></p>
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
-![执行面](https://img.shields.io/badge/execution-hcloud%20CLI--first-brightgreen.svg)
-![离线测试](https://img.shields.io/badge/offline%20tests-300%2B-brightgreen.svg)
-![覆盖](https://img.shields.io/badge/catalog-198%20services%20%2F%2015%2C666%20ops-blue.svg)
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/execution-hcloud%20CLI--first-brightgreen.svg" alt="执行面" />
+  <img src="https://img.shields.io/badge/offline%20tests-300%2B-brightgreen.svg" alt="离线测试" />
+  <img src="https://img.shields.io/badge/catalog-198%20services%20%2F%2015%2C666%20ops-blue.svg" alt="覆盖" />
+</p>
 
 通用 Agent 直接操作云资源有三类典型事故：
 
