@@ -415,6 +415,96 @@ def pagination_scope(query: dict[str, Any], body: dict[str, Any] | None) -> dict
     }
 
 
+def billing_period_fields(query: dict[str, Any], body: dict[str, Any] | None) -> list[str]:
+    """Return fields that define the billing period or time window."""
+    fields: list[str] = []
+    for key in ("bill_cycle", "cycle", "bill_date_begin", "bill_date_end"):
+        if query.get(key) not in (None, "", []):
+            fields.append(key)
+    if isinstance(body, dict):
+        for key in ("cycle", "bill_date_begin", "bill_date_end"):
+            if body.get(key) not in (None, "", []):
+                fields.append(key)
+        time_condition = body.get("time_condition")
+        if isinstance(time_condition, dict):
+            for key in ("begin_time", "end_time", "time_measure_id"):
+                if time_condition.get(key) not in (None, "", []):
+                    fields.append(f"time_condition.{key}")
+    return sorted(set(fields))
+
+
+def scope_fields(query: dict[str, Any], body: dict[str, Any] | None) -> list[str]:
+    """Return fields that narrow the account, service, region, or resource scope."""
+    known_scope_keys = {
+        "method",
+        "sub_customer_id",
+        "enterprise_project_id",
+        "service_type_code",
+        "cloud_service_type",
+        "resource_type",
+        "region",
+        "region_code",
+        "res_instance_id",
+        "resource_id",
+        "charge_mode",
+        "bill_type",
+    }
+    fields = [key for key, value in query.items() if key in known_scope_keys and value not in (None, "", [])]
+    if isinstance(body, dict):
+        fields.extend(key for key, value in body.items() if key in known_scope_keys and value not in (None, "", []))
+        for group in body.get("groupby", []) if isinstance(body.get("groupby"), list) else []:
+            if isinstance(group, dict) and group.get("key"):
+                fields.append(f"groupby:{group['key']}")
+        for item in body.get("filters", []) if isinstance(body.get("filters"), list) else []:
+            factor = item.get("filter_factor") if isinstance(item, dict) else None
+            if isinstance(factor, dict) and factor.get("key"):
+                fields.append(f"filter:{factor['key']}")
+    return sorted(set(fields))
+
+
+def semantic_grains(semantic_route: dict[str, Any] | None) -> list[str]:
+    """Return grain descriptions from the selected semantic route."""
+    if not semantic_route or not semantic_route.get("found"):
+        return []
+    grains = [
+        str(details.get("grain"))
+        for details in semantic_route.get("entity_details", {}).values()
+        if details.get("grain")
+    ]
+    return sorted(set(grains))
+
+
+def billing_semantic_discipline(
+    metadata: dict[str, Any],
+    semantic_route: dict[str, Any] | None,
+    query: dict[str, Any],
+    body: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return the billing answer discipline tuple required before summaries."""
+    route_context = semantic_route.get("required_context", {}) if semantic_route and semantic_route.get("found") else {}
+    return {
+        "required_tuple": ["fact", "grain", "money_basis", "scope", "billing_period"],
+        "selected_fact": metadata["title"],
+        "semantic_entry_point": semantic_route.get("entry_point") if semantic_route else None,
+        "grain_candidates": semantic_grains(semantic_route),
+        "money_basis": route_context.get("money_basis", []),
+        "scope_fields": scope_fields(query, body),
+        "billing_period_fields": billing_period_fields(query, body),
+        "non_additive_rule": (
+            "Do not add or compare billing outputs unless fact, grain, money_basis, scope, "
+            "and billing_period are compatible."
+        ),
+        "separate_fact_examples": [
+            "monthly_summary",
+            "resource_fee_record",
+            "resource_detail",
+            "cost_analysis",
+            "order_or_refund",
+            "coupon_or_stored_value",
+        ],
+    }
+
+
 def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
     """Build a planner-only billing/cost API request specification."""
     operation = operation_name(args.operation or "monthly-sum")
@@ -478,6 +568,7 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         "operation": operation,
         "title": metadata["title"],
         "semantic_route": semantic_route,
+        "billing_semantic_discipline": billing_semantic_discipline(metadata, semantic_route, query, body),
         "bss_cli_defaults": defaults,
         "request_spec": request_spec,
         "hcloud_command_plan": command_plan,

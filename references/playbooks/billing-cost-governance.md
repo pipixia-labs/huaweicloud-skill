@@ -18,6 +18,18 @@ Use this playbook when the user asks for billing, cost analysis, chargeback, res
 5. Execute only `hcloud_command_plan.safe_exec_command` after the user approves live billing access, account scope, time range, and output handling. BSS hcloud command templates must use `--cli-region=cn-north-1` and `--cli-lang=cn`.
 6. Summarize saved safe_exec output with `hcloud_billing_result_summarize.py` before showing data to the user. Use `--include-redacted-records` only when raw row-level evidence is needed and the scope is confirmed.
 
+## Semantic Discipline
+
+Every billing answer must identify the tuple `fact × grain × money_basis × scope/billing_period` before calculating totals, comparisons, or rankings.
+
+- `fact`: the source fact, such as monthly summary, cost analysis, resource fee record, resource detail, order, refund, balance, or coupon.
+- `grain`: the row level, such as billing cycle × service, resource detail row, daily cost bucket, order row, or point-in-time balance.
+- `money_basis`: billed, paid, outstanding, amortized, or not applicable. Do not mix these bases in one total.
+- `scope`: account, enterprise project, sub-customer, cloud service, resource type, region, resource ID, or other filters.
+- `billing_period`: bill cycle, date range, point-in-time, or not applicable.
+
+Do not add monthly summary, resource detail, amortized cost, orders, refunds, and coupon deductions as if they were the same fact. If two outputs use different `fact`, `grain`, `money_basis`, `scope`, or `billing_period`, present them as separate evidence and explain the relationship instead of forcing one number.
+
 ## Guardrails
 
 - The bundled planner does not sign requests, accept credentials, send HTTP traffic, or execute hcloud by default.

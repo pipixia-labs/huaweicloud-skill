@@ -704,7 +704,9 @@ class ArchitectureContractsTest(unittest.TestCase):
         for phrase in (
             "异步任务必须跟到终态",
             "安全组入口端口必须收敛",
+            "结果叙事必须真实",
             "机内执行和 SSH fallback",
+            "不要为了让过程显得完整",
             "0.0.0.0/0",
             "COC",
         ):

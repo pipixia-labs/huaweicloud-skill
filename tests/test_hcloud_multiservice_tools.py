@@ -502,6 +502,11 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--cli-lang=cn", command_plan["safe_exec_command"])
         self.assertIn("--arg=--bill_cycle=2026-05", command_plan["safe_exec_command"])
         self.assertFalse(result["pagination_scope"]["complete_result_claim_allowed"])
+        discipline = result["billing_semantic_discipline"]
+        self.assertEqual(discipline["required_tuple"], ["fact", "grain", "money_basis", "scope", "billing_period"])
+        self.assertEqual(discipline["selected_fact"], "ShowCustomerMonthlySum")
+        self.assertIn("bill_cycle", discipline["billing_period_fields"])
+        self.assertIn("service_type_code", discipline["scope_fields"])
 
     def test_billing_readonly_builds_generated_cost_data_body(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
@@ -546,6 +551,13 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("BSS/ShowCustomerMonthlySum", route["source_operations"])
         self.assertIn("cost-data", route["supported_planner_operations"])
         self.assertEqual(result["bss_cli_defaults"], {"cli_region": "cn-north-1", "cli_lang": "cn"})
+        discipline = result["billing_semantic_discipline"]
+        self.assertEqual(discipline["semantic_entry_point"], "monthly_spend")
+        self.assertIn("billed", discipline["money_basis"])
+        self.assertIn("amortized", discipline["money_basis"])
+        self.assertTrue(discipline["grain_candidates"])
+        self.assertIn("time_condition.begin_time", discipline["billing_period_fields"])
+        self.assertIn("groupby:CLOUD_SERVICE_TYPE", discipline["scope_fields"])
 
     def test_billing_readonly_accepts_explicit_json_body(self) -> None:
         body = {

@@ -59,6 +59,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | Terraform 状态 | import/state/remote state 是高影响操作；必须显式确认，不能自动 apply/destroy。 |
 | MaaS 视频和异步任务 | `task_id` 只是受理凭据，必须查询终态。 |
 | 账单/成本 | 不从资源清单推断费用；账单结果要脱敏、区分 fact/grain/money basis/scope。 |
+| 结果叙事 | 只描述真实发生的命令、输出和验证；不要编造失败-恢复过程或把计划态写成已执行。 |
 
 ## 首选入口
 
