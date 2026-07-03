@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.2 - 2026-07-03
+
+- Added scenario-level playbooks for OBS static website hosting, Flexus-style low-cost hosting, ECS monitoring troubleshooting, EIP cost optimization, IAM permission diagnostics, CCI workload readiness, SWR image readiness, FunctionGraph readiness, production Web/API readiness, MaaS usage governance, and CCE cloud-native assessment.
+- Added safe local planners for MaaS usage statistics and CCE assessment so agents can collect required inputs and evidence without printing credentials or changing cloud resources.
+- Added a built-in acceptance probe runner for HTTP, TCP, DNS, and TLS probe templates, plus a live regression runbook and planner for true-account validation.
+- Added Terraform operations guidance and a gated Terraform import/drift/remote-state planner that keeps hcloud discovery/readback as the live-state source and requires explicit confirmation before state-changing import execution.
+- Updated scenario routing, script audience boundaries, Terraform references, and tests so the new scenario assets remain local to the single-skill architecture.
+
 ## 0.6.1 - 2026-06-22
 
 - Added Huawei Cloud MaaS API-first support for model catalog lookup, V2/OpenAI-compatible chat, image understanding, image generation/editing, and asynchronous video generation.
