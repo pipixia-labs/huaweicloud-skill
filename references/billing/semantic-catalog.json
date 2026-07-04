@@ -53,9 +53,16 @@
         "time": ["bill_cycle", "date_range"],
         "money_basis": ["billed"]
       },
-      "triggers": ["华为云扣费原因", "华为云哪个资源在扣费"],
-      "ontology_entities": ["ResourceBillRecord", "ResourceBillDetail", "OrderEvidence"],
-      "supported_planner_operations": ["resource-fee-records", "resource-records", "order-list", "order-details"]
+      "triggers": ["华为云扣费原因", "华为云哪个资源在扣费", "华为云95计费用量"],
+      "ontology_entities": ["ResourceBillRecord", "ResourceBillDetail", "ResourceUsage", "OrderEvidence"],
+      "supported_planner_operations": [
+        "resource-fee-records",
+        "resource-records",
+        "usage-summary",
+        "usage-detail",
+        "order-list",
+        "order-details"
+      ]
     },
     "reconciliation": {
       "required_context": {

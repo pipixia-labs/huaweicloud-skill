@@ -102,6 +102,41 @@ OPERATIONS: dict[str, dict[str, Any]] = {
         "required_query": ["cycle"],
         "freshness": "Resource fee records are billing-period data; date filters must stay within the same cycle.",
     },
+    "usage-summary": {
+        "title": "ListResourceUsageSummary",
+        "method": "GET",
+        "path": "/v2/bills/customer-bills/resources/usage/summary",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:bill:list",
+        "required_query": ["bill_cycle", "service_type_code", "resource_type_code", "usage_type"],
+        "query_fields": {
+            "bill_cycle": "bill_cycle",
+            "service_type_code": "service_type_code",
+            "resource_type_code": "resource_type",
+            "usage_type": "usage_type",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "95th-percentile usage summary for CDN, OBS, IEC, and VPC bandwidth-style products; use usage detail before attributing a spike to one resource.",
+    },
+    "usage-detail": {
+        "title": "ListResourceUsage",
+        "method": "GET",
+        "path": "/v2/bills/customer-bills/resources/usage/details",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:bill:list",
+        "required_query": ["bill_cycle", "service_type_code", "resource_type_code", "usage_type", "resource_id"],
+        "query_fields": {
+            "bill_cycle": "bill_cycle",
+            "service_type_code": "service_type_code",
+            "resource_type_code": "resource_type",
+            "usage_type": "usage_type",
+            "resource_id": "resource_id",
+            "offset": "offset",
+            "limit": "limit",
+        },
+        "freshness": "95th-percentile usage detail for one resource; resource_id stays protected in summaries and one page remains partial evidence.",
+    },
     "account-change-records": {
         "title": "ListCustomerAccountChangeRecords",
         "method": "GET",
@@ -409,6 +444,9 @@ OPERATION_ALIASES = {
     "resource-detail": "resource-records",
     "resource-consumption": "resource-fee-records",
     "resource-fees": "resource-fee-records",
+    "resource-usage-summary": "usage-summary",
+    "resource-usage": "usage-detail",
+    "usage": "usage-detail",
     "free-resources": "free-resource-infos",
     "free-resource-usage": "free-resource-usages",
     "coupon-records": "coupon-change-records",
@@ -845,10 +883,12 @@ def scope_fields(query: dict[str, Any], body: dict[str, Any] | None) -> list[str
         "service_type_code",
         "cloud_service_type",
         "resource_type",
+        "resource_type_code",
         "region",
         "region_code",
         "res_instance_id",
         "resource_id",
+        "usage_type",
         "order_id",
         "customer_id",
         "balance_type",
@@ -1028,6 +1068,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--amount-type", default="PAYMENT_AMOUNT", choices=["PAYMENT_AMOUNT", "NET_AMOUNT"])
     parser.add_argument("--service-type-code", help="Cloud service type code.")
     parser.add_argument("--resource-type", help="Resource type code.")
+    parser.add_argument("--usage-type", help="Usage type code, for example 95Peak or bandwidth95peak.")
     parser.add_argument("--region-code", help="Billing region code filter, for example ap-southeast-1.")
     parser.add_argument("--resource-id", help="Resource instance ID filter.")
     parser.add_argument("--enterprise-project-id", help="Enterprise project ID filter.")

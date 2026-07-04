@@ -5,6 +5,7 @@
 - 新增 `hcloud_billing_live_read.py`，把 Billing/BSS request planner、safe_exec 和脱敏 summarizer 串成显式确认的只读 live-read wrapper；默认只计划，执行时要求 `READ_BILLING_DATA` 确认并限制分页。
 - 修正 Billing/BSS hcloud 命令计划的语言参数：KooCLI 7.2.2 的 BSS operation 使用 `--X-Language=zh_CN`，不是 `--cli-lang=cn`。
 - 新增 `hcloud_billing_operation_gap.py`，对比官方 billing-scout / business-support-query 与本地 BSS planner 的 operation 覆盖，输出 P1/P2 缺口和 pricing helper 参考。
+- 扩展 Billing/BSS 只读 planner，新增 `usage-summary` / `usage-detail`，覆盖 `ListResourceUsageSummary` 和 `ListResourceUsage` 的 95 计费用量汇总与明细查询计划。
 
 ## 0.7.0 - 2026-07-03
 

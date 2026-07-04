@@ -194,6 +194,7 @@ class MultiServiceToolsTest(unittest.TestCase):
             "amount_type": "PAYMENT_AMOUNT",
             "service_type_code": None,
             "resource_type": None,
+            "usage_type": None,
             "region_code": None,
             "resource_id": None,
             "enterprise_project_id": None,
@@ -627,6 +628,47 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--X-Language=zh_CN", command)
         self.assertNotIn("--arg=--cli-lang=cn", command)
 
+    def test_billing_readonly_builds_usage_summary_plan(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="usage-summary",
+                entry_point="charge_attribution",
+                service_type_code="hws.service.type.vpc",
+                resource_type="hws.resource.type.bandwidth",
+                usage_type="95Peak",
+                limit=5,
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["execution_supported"])
+        self.assertEqual(result["title"], "ListResourceUsageSummary")
+        request = result["request_spec"]
+        self.assertEqual(request["path"], "/v2/bills/customer-bills/resources/usage/summary")
+        self.assertEqual(request["query"]["resource_type_code"], "hws.resource.type.bandwidth")
+        self.assertEqual(request["query"]["usage_type"], "95Peak")
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("--arg=--usage_type=95Peak", command)
+        self.assertIn("--arg=--resource_type_code=hws.resource.type.bandwidth", command)
+        discipline = result["billing_semantic_discipline"]
+        self.assertIn("usage_type", discipline["scope_fields"])
+        self.assertIn("bill_cycle", discipline["billing_period_fields"])
+        self.assertIn("usage-summary", result["semantic_route"]["supported_planner_operations"])
+
+    def test_billing_readonly_usage_detail_requires_resource_id(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="usage-detail",
+                service_type_code="hws.service.type.vpc",
+                resource_type="hws.resource.type.bandwidth",
+                usage_type="95Peak",
+            )
+        )
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["execution_supported"])
+        self.assertIn("resource_id", result["validation"]["errors"][-1])
+
     def test_billing_readonly_builds_reconciliation_statement_plan(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
             self.billing_readonly_args(operation="billing-statements", entry_point="reconciliation")
@@ -754,9 +796,11 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["execution_boundary"], "local_reference_diff_only_no_hcloud_no_credentials")
         self.assertFalse(result["coverage"]["complete"])
         self.assertIn("ListCosts", result["coverage"]["supported_operations"])
+        self.assertIn("ListResourceUsageSummary", result["coverage"]["supported_operations"])
+        self.assertIn("ListResourceUsage", result["coverage"]["supported_operations"])
         missing = {item["operation"]: item for item in result["coverage"]["missing_operations"]}
-        self.assertIn("ListResourceUsageSummary", missing)
-        self.assertEqual(missing["ListResourceUsageSummary"]["priority"], "P1")
+        self.assertNotIn("ListResourceUsageSummary", missing)
+        self.assertNotIn("ListResourceUsage", missing)
         self.assertIn("ListOnDemandResourceRatings", missing)
         self.assertEqual(missing["ListOnDemandResourceRatings"]["category"], "pricing_api_gap")
         helpers = {item["script"] for item in result["official"]["pricing_helpers"]}

@@ -37,6 +37,7 @@ def billing_args(args: argparse.Namespace) -> SimpleNamespace:
         amount_type=args.amount_type,
         service_type_code=args.service_type_code,
         resource_type=args.resource_type,
+        usage_type=args.usage_type,
         region_code=args.region_code,
         resource_id=args.resource_id,
         enterprise_project_id=args.enterprise_project_id,
@@ -272,6 +273,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--amount-type", default="PAYMENT_AMOUNT", choices=["PAYMENT_AMOUNT", "NET_AMOUNT"])
     parser.add_argument("--service-type-code")
     parser.add_argument("--resource-type")
+    parser.add_argument("--usage-type")
     parser.add_argument("--region-code")
     parser.add_argument("--resource-id")
     parser.add_argument("--enterprise-project-id")
