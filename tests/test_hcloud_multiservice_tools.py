@@ -45,6 +45,7 @@ hcloud_idle_audit = load_module("hcloud_idle_audit", SCRIPTS / "hcloud_idle_audi
 hcloud_observability_plan = load_module("hcloud_observability_plan", SCRIPTS / "hcloud_observability_plan.py")
 hcloud_billing_cost_probe = load_module("hcloud_billing_cost_probe", SCRIPTS / "hcloud_billing_cost_probe.py")
 hcloud_billing_readonly = load_module("hcloud_billing_readonly", SCRIPTS / "hcloud_billing_readonly.py")
+hcloud_billing_live_read = load_module("hcloud_billing_live_read", SCRIPTS / "hcloud_billing_live_read.py")
 hcloud_billing_result_summarize = load_module(
     "hcloud_billing_result_summarize",
     SCRIPTS / "hcloud_billing_result_summarize.py",
@@ -209,6 +210,19 @@ class MultiServiceToolsTest(unittest.TestCase):
             "query": [],
             "body_json_file": None,
             "body_json_text": None,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def billing_live_read_args(self, **overrides):
+        """Return default billing live-read args for unit tests."""
+        values = {
+            **self.billing_readonly_args().__dict__,
+            "execute": False,
+            "confirm_live_billing_read": None,
+            "include_redacted_records": False,
+            "timeout": 1,
+            "max_output_chars": 2000,
         }
         values.update(overrides)
         return SimpleNamespace(**values)
@@ -714,6 +728,102 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("***:", text)
         self.assertTrue(result["pagination"]["complete_result_claim_allowed"])
         self.assertEqual(result["summary"]["record_lists"][0]["field"], "cost_data")
+
+    def test_billing_live_read_plan_does_not_execute_by_default(self) -> None:
+        result = hcloud_billing_live_read.build_live_read(
+            self.billing_live_read_args(service_type_code="hws.service.type.ec2")
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["mode"], "plan")
+        self.assertTrue(result["planning_only"])
+        self.assertFalse(result["execution"]["executed"])
+        self.assertTrue(result["live_read_plan"]["supported"])
+        command = result["live_read_plan"]["safe_exec_command"]
+        self.assertIn("ShowCustomerMonthlySum", command)
+        self.assertIn("--arg=--cli-region=cn-north-1", command)
+        self.assertIn("--arg=--cli-lang=cn", command)
+
+    def test_billing_live_read_requires_confirmation_token(self) -> None:
+        result = hcloud_billing_live_read.build_live_read(
+            self.billing_live_read_args(execute=True, confirm_live_billing_read=None)
+        )
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["execution"]["executed"])
+        self.assertIn("READ_BILLING_DATA", result["live_read_plan"]["guard_errors"][-1])
+
+    def test_billing_live_read_rejects_large_page_limit(self) -> None:
+        result = hcloud_billing_live_read.build_live_read(self.billing_live_read_args(limit=51))
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["live_read_plan"]["supported"])
+        self.assertIn("limit must be <= 50", result["live_read_plan"]["guard_errors"][-1])
+
+    def test_billing_live_read_blocks_non_executable_planner_output(self) -> None:
+        body = {
+            "cycle": "2026-05",
+            "cloud_service_type": "hws.service.type.ec2",
+            "limit": 3,
+        }
+        result = hcloud_billing_live_read.build_live_read(
+            self.billing_live_read_args(
+                operation="resource-records",
+                body_json_text=json.dumps(body),
+                execute=True,
+                confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+            )
+        )
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["execution"]["executed"])
+        self.assertFalse(result["live_read_plan"]["supported"])
+        self.assertIn("not executable", result["live_read_plan"]["guard_errors"][0])
+
+    def test_billing_live_read_executes_safe_exec_and_returns_redacted_summary(self) -> None:
+        safe_exec_result = {
+            "success": True,
+            "return_code": 0,
+            "duration_seconds": 0.1,
+            "service": "BSS",
+            "operation": "ShowCustomerMonthlySum",
+            "command": ["hcloud", "BSS", "ShowCustomerMonthlySum"],
+            "parsed_json": {
+                "total_count": 1,
+                "bill_sums": [
+                    {
+                        "customer_id": "customer-123",
+                        "resource_id": "server-123",
+                        "consume_amount": "9.99",
+                    }
+                ],
+            },
+        }
+        completed = subprocess.CompletedProcess(
+            args=["python3", "hcloud_safe_exec.py"],
+            returncode=0,
+            stdout=json.dumps(safe_exec_result),
+            stderr="",
+        )
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", return_value=completed) as run:
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                    include_redacted_records=True,
+                )
+            )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["execution"]["executed"])
+        run.assert_called_once()
+        summary = result["execution"]["result"]["summary"]
+        text = json.dumps(summary, ensure_ascii=False)
+        self.assertNotIn("customer-123", text)
+        self.assertNotIn("server-123", text)
+        self.assertIn("***:", text)
+        self.assertNotIn("parsed_json", json.dumps(result["execution"]["result"]["safe_exec_status"], ensure_ascii=False))
 
     def test_ces_alarm_plan_is_planner_only(self) -> None:
         result = hcloud_ces_alarm_plan.build_plan(self.ces_alarm_args())

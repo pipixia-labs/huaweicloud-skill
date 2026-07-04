@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- 暂无。
+- 新增 `hcloud_billing_live_read.py`，把 Billing/BSS request planner、safe_exec 和脱敏 summarizer 串成显式确认的只读 live-read wrapper；默认只计划，执行时要求 `READ_BILLING_DATA` 确认并限制分页。
 
 ## 0.7.0 - 2026-07-03
 

@@ -50,6 +50,7 @@
       "scripts": [
         "scripts/hcloud_acceptance_closure.py",
         "scripts/hcloud_account_inventory.py",
+        "scripts/hcloud_billing_live_read.py",
         "scripts/hcloud_billing_readonly.py",
         "scripts/hcloud_billing_result_summarize.py",
         "scripts/hcloud_cce_assessment_plan.py",

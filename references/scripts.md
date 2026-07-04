@@ -386,6 +386,32 @@ Use this to build a planner-only request spec and a reviewed `hcloud_command_pla
 
 The script does not sign requests, accept credentials, send HTTP traffic, or execute hcloud by default. Run the generated safe_exec command only after the user confirms account scope, time range, enterprise project scope, permission boundary, and raw-output handling. Treat `pagination_scope.complete_result_claim_allowed=false` as a hard reminder that one page cannot support full-account conclusions. For enterprise-project ranking, use `operation=cost-data` with `--filter ENTERPRISE_PROJECT_ID=<id>`; `ShowCustomerMonthlySum` does not support enterprise-project filtering.
 
+### Billing Live Read Wrapper
+
+```bash
+python3 scripts/hcloud_billing_live_read.py \
+  --entry-point monthly_spend \
+  --operation monthly-sum \
+  --bill-cycle 2026-05 \
+  --limit 10 \
+  --pretty
+```
+
+Use this to turn a reviewed Billing/BSS request plan into a guarded live read workflow. By default it only returns the plan and the reviewed `hcloud_safe_exec.py` command. To execute, the user must explicitly confirm the sensitive read:
+
+```bash
+python3 scripts/hcloud_billing_live_read.py \
+  --entry-point monthly_spend \
+  --operation monthly-sum \
+  --bill-cycle 2026-05 \
+  --limit 10 \
+  --execute \
+  --confirm-live-billing-read READ_BILLING_DATA \
+  --pretty
+```
+
+The wrapper only allows reviewed BSS `List*` and `Show*` operations from `hcloud_billing_readonly.py`, keeps `--cli-region=cn-north-1` and `--cli-lang=cn`, rejects pages larger than 50 rows, and returns a redacted billing summary instead of the raw safe_exec result. Use `--include-redacted-records` only when row-level evidence is necessary; raw identifiers still remain hashed.
+
 ### Billing Result Summarizer
 
 ```bash
