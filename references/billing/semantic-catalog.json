@@ -6,7 +6,7 @@
   "execution_boundary": "planner_only; no credentials, signing, HTTP sending, order/payment/subscription mutations, or raw spend dumps",
   "bss_cli_defaults": {
     "cli_region": "cn-north-1",
-    "cli_lang": "cn"
+    "x_language": "zh_CN"
   },
   "money_basis": {
     "billed": ["consume_amount", "official_amount", "discount_amount"],

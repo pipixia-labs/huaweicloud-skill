@@ -17,7 +17,8 @@ DEFAULT_ENDPOINT_BASE = "https://bss-intl.myhuaweicloud.com"
 BILL_CYCLE_RE = re.compile(r"^\d{4}-\d{2}$")
 SEMANTIC_CATALOG_PATH = hcloud_common.REFERENCES_DIR / "billing" / "semantic-catalog.json"
 BSS_CLI_REGION = "cn-north-1"
-BSS_CLI_LANG = "cn"
+BSS_X_LANGUAGE = "zh_CN"
+SUPPORTED_X_LANGUAGES = {"zh_CN", "en_US"}
 
 OPERATIONS: dict[str, dict[str, Any]] = {
     "account-balances": {
@@ -692,9 +693,13 @@ def build_url(endpoint_base: str, path: str, query: dict[str, Any]) -> str:
 def cli_defaults(catalog: dict[str, Any]) -> dict[str, str]:
     """Return fixed BSS KooCLI defaults."""
     defaults = catalog.get("bss_cli_defaults", {})
+    legacy_language = str(defaults.get("cli_lang") or "")
+    x_language = str(defaults.get("x_language") or "")
+    if not x_language and legacy_language:
+        x_language = {"cn": "zh_CN", "en": "en_US"}.get(legacy_language, legacy_language)
     return {
         "cli_region": str(defaults.get("cli_region") or BSS_CLI_REGION),
-        "cli_lang": str(defaults.get("cli_lang") or BSS_CLI_LANG),
+        "x_language": x_language or BSS_X_LANGUAGE,
     }
 
 
@@ -727,7 +732,13 @@ def flatten_cli_args(prefix: str, value: Any) -> list[str]:
     return [f"--{prefix}={scalar_cli_value(value)}"]
 
 
-def hcloud_safe_exec_command(operation: str, args: list[str], defaults: dict[str, str]) -> list[str]:
+def hcloud_safe_exec_command(
+    operation: str,
+    args: list[str],
+    defaults: dict[str, str],
+    *,
+    x_language: str | None,
+) -> list[str]:
     """Return a safe_exec wrapped read-only BSS command."""
     command = hcloud_common.safe_exec_command_prefix() + [
         "--service",
@@ -738,7 +749,7 @@ def hcloud_safe_exec_command(operation: str, args: list[str], defaults: dict[str
         "--expect-json",
     ]
     command.append(f"--arg=--cli-region={defaults['cli_region']}")
-    command.append(f"--arg=--cli-lang={defaults['cli_lang']}")
+    command.append(f"--arg=--X-Language={x_language or defaults['x_language']}")
     command.extend(f"--arg={item}" for item in args)
     return command
 
@@ -765,7 +776,13 @@ def build_hcloud_command_plan(
         for key, value in body.items():
             cli_args.extend(flatten_cli_args(key, value))
 
-    safe_exec_command = hcloud_safe_exec_command(metadata["title"], cli_args, defaults) if not blocked_reasons else None
+    headers = request_spec.get("headers", {})
+    x_language = headers.get("X-Language") if isinstance(headers, dict) else None
+    safe_exec_command = (
+        hcloud_safe_exec_command(metadata["title"], cli_args, defaults, x_language=x_language)
+        if not blocked_reasons
+        else None
+    )
     return {
         "supported": not blocked_reasons,
         "blocked_reasons": blocked_reasons,
@@ -955,7 +972,7 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         "This script does not sign or send HTTP requests.",
         "Billing and cost data can contain account, resource, and spend-sensitive information; keep output scope narrow.",
         "Do not infer spend from resource inventory when billing APIs are unavailable.",
-        "BSS hcloud templates must use --cli-region=cn-north-1 and --cli-lang=cn regardless of normal project region.",
+        "BSS hcloud templates must use --cli-region=cn-north-1 and pass language as --X-Language, not --cli-lang.",
         "Do not claim full-account totals from one page unless pagination has been completed and checked.",
     ]
     if semantic_route and semantic_route.get("found") and operation not in semantic_route.get("supported_planner_operations", []):

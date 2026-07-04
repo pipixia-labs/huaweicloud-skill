@@ -520,7 +520,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(command_plan["supported"])
         self.assertEqual(command_plan["operation"], "ShowCustomerMonthlySum")
         self.assertIn("--arg=--cli-region=cn-north-1", command_plan["safe_exec_command"])
-        self.assertIn("--arg=--cli-lang=cn", command_plan["safe_exec_command"])
+        self.assertIn("--arg=--X-Language=zh_CN", command_plan["safe_exec_command"])
+        self.assertNotIn("--arg=--cli-lang=cn", command_plan["safe_exec_command"])
         self.assertIn("--arg=--bill_cycle=2026-05", command_plan["safe_exec_command"])
         self.assertFalse(result["pagination_scope"]["complete_result_claim_allowed"])
         discipline = result["billing_semantic_discipline"]
@@ -571,7 +572,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("BSS/ListCosts", route["source_operations"])
         self.assertIn("BSS/ShowCustomerMonthlySum", route["source_operations"])
         self.assertIn("cost-data", route["supported_planner_operations"])
-        self.assertEqual(result["bss_cli_defaults"], {"cli_region": "cn-north-1", "cli_lang": "cn"})
+        self.assertEqual(result["bss_cli_defaults"], {"cli_region": "cn-north-1", "x_language": "zh_CN"})
         discipline = result["billing_semantic_discipline"]
         self.assertEqual(discipline["semantic_entry_point"], "monthly_spend")
         self.assertIn("billed", discipline["money_basis"])
@@ -619,7 +620,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--operation", command)
         self.assertIn("ShowCustomerAccountBalances", command)
         self.assertIn("--arg=--cli-region=cn-north-1", command)
-        self.assertIn("--arg=--cli-lang=cn", command)
+        self.assertIn("--arg=--X-Language=zh_CN", command)
+        self.assertNotIn("--arg=--cli-lang=cn", command)
 
     def test_billing_readonly_builds_reconciliation_statement_plan(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
@@ -742,7 +744,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         command = result["live_read_plan"]["safe_exec_command"]
         self.assertIn("ShowCustomerMonthlySum", command)
         self.assertIn("--arg=--cli-region=cn-north-1", command)
-        self.assertIn("--arg=--cli-lang=cn", command)
+        self.assertIn("--arg=--X-Language=zh_CN", command)
+        self.assertNotIn("--arg=--cli-lang=cn", command)
 
     def test_billing_live_read_requires_confirmation_token(self) -> None:
         result = hcloud_billing_live_read.build_live_read(
