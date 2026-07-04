@@ -412,6 +412,14 @@ python3 scripts/hcloud_billing_live_read.py \
 
 The wrapper only allows reviewed BSS `List*` and `Show*` operations from `hcloud_billing_readonly.py`, keeps `--cli-region=cn-north-1`, passes language through `--X-Language`, rejects pages larger than 50 rows, and returns a redacted billing summary instead of the raw safe_exec result. Use `--include-redacted-records` only when row-level evidence is necessary; raw identifiers still remain hashed.
 
+### Billing Operation Gap Audit
+
+```bash
+python3 scripts/hcloud_billing_operation_gap.py --pretty
+```
+
+Use this during skill maintenance to compare local `hcloud_billing_readonly.py` coverage with official `huaweicloud-skills-by-huawei` billing-scout and business-support-query references. The audit is local-only: it reads markdown and script filenames, reports supported operations, P1/P2 missing operations, pricing API gaps, and enhanced pricing helper references, but does not run `hcloud`, read credentials, or query billing data.
+
 ### Billing Result Summarizer
 
 ```bash

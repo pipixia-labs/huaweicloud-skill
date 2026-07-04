@@ -119,6 +119,7 @@
         "scripts/build_hcloud_catalog.py",
         "scripts/check_materials_drift.py",
         "scripts/check_question_coverage.py",
+        "scripts/hcloud_billing_operation_gap.py",
         "scripts/hcloud_catalog.py",
         "scripts/hcloud_catalog_audit.py",
         "scripts/hcloud_catalog_diff.py",

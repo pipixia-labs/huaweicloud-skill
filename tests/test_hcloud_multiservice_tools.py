@@ -45,6 +45,10 @@ hcloud_idle_audit = load_module("hcloud_idle_audit", SCRIPTS / "hcloud_idle_audi
 hcloud_observability_plan = load_module("hcloud_observability_plan", SCRIPTS / "hcloud_observability_plan.py")
 hcloud_billing_cost_probe = load_module("hcloud_billing_cost_probe", SCRIPTS / "hcloud_billing_cost_probe.py")
 hcloud_billing_readonly = load_module("hcloud_billing_readonly", SCRIPTS / "hcloud_billing_readonly.py")
+hcloud_billing_operation_gap = load_module(
+    "hcloud_billing_operation_gap",
+    SCRIPTS / "hcloud_billing_operation_gap.py",
+)
 hcloud_billing_live_read = load_module("hcloud_billing_live_read", SCRIPTS / "hcloud_billing_live_read.py")
 hcloud_billing_result_summarize = load_module(
     "hcloud_billing_result_summarize",
@@ -730,6 +734,34 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("***:", text)
         self.assertTrue(result["pagination"]["complete_result_claim_allowed"])
         self.assertEqual(result["summary"]["record_lists"][0]["field"], "cost_data")
+
+    def test_billing_operation_gap_converts_bss_script_names(self) -> None:
+        self.assertEqual(
+            hcloud_billing_operation_gap.snake_to_operation_name("list_customerself_resource_record_details.py"),
+            "ListCustomerselfResourceRecordDetails",
+        )
+        self.assertEqual(
+            hcloud_billing_operation_gap.snake_to_operation_name("show_customer_monthly_sum.py"),
+            "ShowCustomerMonthlySum",
+        )
+        self.assertIsNone(hcloud_billing_operation_gap.snake_to_operation_name("inquiry_elb.py"))
+
+    def test_billing_operation_gap_reports_official_reference_gaps(self) -> None:
+        result = hcloud_billing_operation_gap.build_gap_report()
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(result["execution_boundary"], "local_reference_diff_only_no_hcloud_no_credentials")
+        self.assertFalse(result["coverage"]["complete"])
+        self.assertIn("ListCosts", result["coverage"]["supported_operations"])
+        missing = {item["operation"]: item for item in result["coverage"]["missing_operations"]}
+        self.assertIn("ListResourceUsageSummary", missing)
+        self.assertEqual(missing["ListResourceUsageSummary"]["priority"], "P1")
+        self.assertIn("ListOnDemandResourceRatings", missing)
+        self.assertEqual(missing["ListOnDemandResourceRatings"]["category"], "pricing_api_gap")
+        helpers = {item["script"] for item in result["official"]["pricing_helpers"]}
+        self.assertIn("inquiry_elb.py", helpers)
+        self.assertNotIn("/Users/", json.dumps(result, ensure_ascii=False))
 
     def test_billing_live_read_plan_does_not_execute_by_default(self) -> None:
         result = hcloud_billing_live_read.build_live_read(
