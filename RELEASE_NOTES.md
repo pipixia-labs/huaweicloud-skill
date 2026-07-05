@@ -2,8 +2,36 @@
 
 ## Unreleased
 
-- Acceptance probe 执行增加目标安全策略：元数据/link-local 目标 hard-block，内网、loopback 和 `.local` 目标需要 `--allow-private-targets` 显式确认，HTTP probe 不跟随重定向。
-- `references/versioning-policy.md` 增加兼容入口退役节奏，用 v0.8/v0.9/v1.0 分阶段把 facade 过渡到真正收敛。
+暂无。
+
+## v0.7.1 / 0.7.1 - 2026-07-05
+
+v0.7.1 是 v0.7 之后的小版本，重点把成本/账单只读查询链路、CES 指标 datapoint 诊断和 acceptance probe 安全边界补实，同时把兼容入口退役节奏写成清晰的版本治理规则。
+
+### 主要变化
+
+- **成本与账单只读链路**
+  - 新增 `hcloud_billing_live_read.py`，把 Billing/BSS request planner、safe_exec 和脱敏 summarizer 串成显式确认的只读 live-read wrapper；默认只计划，执行时要求 `READ_BILLING_DATA` 确认并限制分页。
+  - 修正 Billing/BSS hcloud 命令计划的语言参数：KooCLI 7.2.2 的 BSS operation 使用 `--X-Language=zh_CN`，不是 `--cli-lang=cn`。
+  - 新增 `hcloud_billing_operation_gap.py`，对比官方 billing-scout / business-support-query 与本地 BSS planner 的 operation 覆盖，输出 P1/P2 缺口和 pricing helper 参考。
+  - 扩展 Billing/BSS 只读 planner，新增 `usage-summary` / `usage-detail`，覆盖 `ListResourceUsageSummary` 和 `ListResourceUsage` 的 95 计费用量汇总与明细查询计划。
+  - 扩展 Billing/BSS 只读 planner，新增 `on-demand-pricing` / `period-pricing`，覆盖官方 BSS 按需与包周期询价 API 的保守 request spec 和 reviewed safe_exec 命令计划。
+
+- **CES datapoint 诊断**
+  - 新增 `hcloud_ces_datapoint_plan.py`，生成并可执行受限的 CES `BatchListMetricData` 只读 datapoint 查询计划。
+  - 对空数据、Agent、namespace、period、dimension 等常见排障原因做本地判读，避免把无数据直接误判为监控服务异常。
+
+- **安全与版本治理**
+  - Acceptance probe 执行增加目标安全策略：元数据/link-local 目标 hard-block，内网、loopback 和 `.local` 目标需要 `--allow-private-targets` 显式确认，HTTP probe 不跟随重定向。
+  - `references/versioning-policy.md` 增加兼容入口退役节奏，用 v0.8/v0.9/v1.0 分阶段把 facade 过渡到真正收敛。
+
+- **项目定位表达**
+  - 优化 README，突出一个大 Skill、hcloud CLI-first、风险门禁、证据闭环和本地测试契约，降低新用户理解成本。
+
+### 验证
+
+- `.venv/bin/python -m unittest discover -s tests`：328 个测试通过，8 个 skipped。
+- `git diff --check`：通过。
 
 ## v0.7 / 0.7.0 - 2026-07-03
 
