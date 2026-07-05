@@ -394,11 +394,38 @@ python3 scripts/hcloud_billing_readonly.py \
   --pretty
 ```
 
-Use this to build a planner-only request spec and a reviewed `hcloud_command_plan.safe_exec_command` for official Huawei Cloud Billing/Cost APIs such as balance/debt, monthly bill summary, cost analysis, billing statements, resource records, resource packages, coupon ledgers, order evidence, enterprise/sub-customer scope, partner ledgers, and reference dimensions. `--entry-point` attaches the local billing semantic catalog from `references/billing/semantic-catalog.json`, including scope/time/money basis, ontology entities, source operations, and currently supported planner operations. BSS hcloud command plans always fix `--cli-region=cn-north-1` and pass language as `--X-Language=zh_CN` or `--X-Language=en_US`; do not replace the BSS region with the user's normal project region.
+```bash
+python3 scripts/hcloud_billing_readonly.py \
+  --entry-point pricing_inquiry \
+  --operation on-demand-pricing \
+  --project-id <project_id> \
+  --pricing-preset ecs \
+  --resource-spec s6.small.1 \
+  --pricing-region cn-north-4 \
+  --pretty
+```
+
+```bash
+python3 scripts/hcloud_billing_readonly.py \
+  --entry-point pricing_inquiry \
+  --operation period-pricing \
+  --project-id <project_id> \
+  --pricing-preset evs \
+  --resource-spec GPSSD \
+  --resource-size 100 \
+  --size-measure-id 17 \
+  --period-type month \
+  --period-num 1 \
+  --pretty
+```
+
+Use this to build a planner-only request spec and a reviewed `hcloud_command_plan.safe_exec_command` for official Huawei Cloud Billing/Cost APIs such as balance/debt, monthly bill summary, cost analysis, billing statements, resource records, usage summaries/details, pricing inquiry, resource packages, coupon ledgers, order evidence, enterprise/sub-customer scope, partner ledgers, and reference dimensions. `--entry-point` attaches the local billing semantic catalog from `references/billing/semantic-catalog.json`, including scope/time/money basis, ontology entities, source operations, and currently supported planner operations. BSS hcloud command plans always fix `--cli-region=cn-north-1` and pass language as `--X-Language=zh_CN` or `--X-Language=en_US`; do not replace the BSS region with the user's normal project region.
 
 The script does not sign requests, accept credentials, send HTTP traffic, or execute hcloud by default. Run the generated safe_exec command only after the user confirms account scope, time range, enterprise project scope, permission boundary, and raw-output handling. Treat `pagination_scope.complete_result_claim_allowed=false` as a hard reminder that one page cannot support full-account conclusions. For enterprise-project ranking, use `operation=cost-data` with `--filter ENTERPRISE_PROJECT_ID=<id>`; `ShowCustomerMonthlySum` does not support enterprise-project filtering.
 
 For 95th-percentile usage checks, use `usage-summary` first with `bill_cycle`, `service_type_code`, `resource_type`, and `usage_type`; then use `usage-detail` with the selected `resource_id`. These operations cover CDN/OBS/IEC/VPC-style usage dimensions and should not be mixed with cash bill totals without stating the fact/grain difference.
+
+For pricing inquiry, use `pricing_inquiry` with `on-demand-pricing` or `period-pricing`. These operations produce point-in-time quote request specs for reviewed presets such as `ecs`, `evs`, `eip-bw`, `eip-flow`, `eip-ip`, `obs`, `sfs`, `nat`, `elb`, and `bms`; they are not historical billing evidence, purchase orders, renewal quotes, or proof of actual discounted spend.
 
 ### Billing Live Read Wrapper
 

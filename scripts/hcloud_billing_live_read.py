@@ -35,10 +35,23 @@ def billing_args(args: argparse.Namespace) -> SimpleNamespace:
         filter=args.filter,
         cost_type=args.cost_type,
         amount_type=args.amount_type,
+        project_id=args.project_id,
         service_type_code=args.service_type_code,
         resource_type=args.resource_type,
+        resource_spec=args.resource_spec,
         usage_type=args.usage_type,
         region_code=args.region_code,
+        pricing_region=args.pricing_region,
+        available_zone=args.available_zone,
+        pricing_preset=args.pricing_preset,
+        resource_size=args.resource_size,
+        size_measure_id=args.size_measure_id,
+        usage_value=args.usage_value,
+        subscription_num=args.subscription_num,
+        inquiry_precision=args.inquiry_precision,
+        period_type=args.period_type,
+        period_num=args.period_num,
+        fee_installment_mode=args.fee_installment_mode,
         resource_id=args.resource_id,
         enterprise_project_id=args.enterprise_project_id,
         charge_mode=args.charge_mode,
@@ -271,10 +284,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--filter", action="append", default=[])
     parser.add_argument("--cost-type", default="ORIGINAL_COST", choices=["ORIGINAL_COST", "AMORTIZED_COST"])
     parser.add_argument("--amount-type", default="PAYMENT_AMOUNT", choices=["PAYMENT_AMOUNT", "NET_AMOUNT"])
+    parser.add_argument("--project-id")
     parser.add_argument("--service-type-code")
     parser.add_argument("--resource-type")
+    parser.add_argument("--resource-spec", action="append")
     parser.add_argument("--usage-type")
     parser.add_argument("--region-code")
+    parser.add_argument("--pricing-region")
+    parser.add_argument("--available-zone")
+    parser.add_argument("--pricing-preset")
+    parser.add_argument("--resource-size", type=int, action="append")
+    parser.add_argument("--size-measure-id", type=int, action="append")
+    parser.add_argument("--usage-value", type=float, action="append")
+    parser.add_argument("--subscription-num", type=int, action="append")
+    parser.add_argument("--inquiry-precision", type=int, default=1, choices=[0, 1])
+    parser.add_argument("--period-type", action="append")
+    parser.add_argument("--period-num", type=int, action="append")
+    parser.add_argument("--fee-installment-mode", choices=["HALF_PAY", "ZERO_PAY", "NA"])
     parser.add_argument("--resource-id")
     parser.add_argument("--enterprise-project-id")
     parser.add_argument("--charge-mode")

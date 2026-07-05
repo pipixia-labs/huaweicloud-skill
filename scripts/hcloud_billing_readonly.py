@@ -19,6 +19,165 @@ SEMANTIC_CATALOG_PATH = hcloud_common.REFERENCES_DIR / "billing" / "semantic-cat
 BSS_CLI_REGION = "cn-north-1"
 BSS_X_LANGUAGE = "zh_CN"
 SUPPORTED_X_LANGUAGES = {"zh_CN", "en_US"}
+PRICING_REGION_DEFAULT = "cn-north-4"
+PERIOD_TYPE_ALIASES = {
+    "0": 0,
+    "day": 0,
+    "days": 0,
+    "天": 0,
+    "2": 2,
+    "month": 2,
+    "months": 2,
+    "月": 2,
+    "3": 3,
+    "year": 3,
+    "years": 3,
+    "年": 3,
+    "4": 4,
+    "hour": 4,
+    "hours": 4,
+    "小时": 4,
+}
+ON_DEMAND_PRICING_PRESETS: dict[str, dict[str, Any]] = {
+    "ecs": {
+        "cloud_service_type": "hws.service.type.ec2",
+        "resource_type": "hws.resource.type.vm",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "spec_suffix": ".linux",
+        "help": "ECS on-demand VM pricing; append .win explicitly for Windows specs.",
+    },
+    "evs": {
+        "cloud_service_type": "hws.service.type.ebs",
+        "resource_type": "hws.resource.type.volume",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "need_resource_size": True,
+        "default_size": 10,
+        "default_size_measure_id": 17,
+        "help": "EVS volume pricing; size defaults to 10 GB.",
+    },
+    "eip-bw": {
+        "cloud_service_type": "hws.service.type.vpc",
+        "resource_type": "hws.resource.type.bandwidth",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "need_resource_size": True,
+        "default_size": 1,
+        "default_size_measure_id": 15,
+        "help": "EIP bandwidth pricing; size defaults to 1 Mbps.",
+    },
+    "eip-flow": {
+        "cloud_service_type": "hws.service.type.vpc",
+        "resource_type": "hws.resource.type.bandwidth",
+        "usage_measure_id": 10,
+        "usage_factor": "upflow",
+        "help": "EIP traffic pricing; usage unit is GB.",
+    },
+    "eip-ip": {
+        "cloud_service_type": "hws.service.type.vpc",
+        "resource_type": "hws.resource.type.ip",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "help": "Public EIP address pricing.",
+    },
+    "vpc": {
+        "cloud_service_type": "hws.service.type.vpc",
+        "resource_type": "hws.resource.type.vpcep",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "help": "VPC endpoint pricing.",
+    },
+    "elb": {
+        "cloud_service_type": "hws.service.type.elb",
+        "resource_type": "hws.resource.type.elbv2",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "help": "ELB pricing code from the official reference script; confirm current ELB SKU support.",
+    },
+    "nat": {
+        "cloud_service_type": "hws.service.type.natgateway",
+        "resource_type": "hws.resource.type.natgateway",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "help": "Public NAT gateway pricing.",
+    },
+    "obs": {
+        "cloud_service_type": "hws.service.type.obs",
+        "resource_type": "hws.resource.type.obs",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "help": "OBS storage pricing.",
+    },
+    "sfs": {
+        "cloud_service_type": "hws.service.type.sfsturbo",
+        "resource_type": "hws.resource.type.sfsturbo",
+        "usage_measure_id": 4,
+        "usage_factor": "Duration",
+        "need_resource_size": True,
+        "default_size": 500,
+        "default_size_measure_id": 17,
+        "help": "SFS Turbo pricing; size defaults to 500 GB.",
+    },
+}
+PERIOD_PRICING_PRESETS: dict[str, dict[str, Any]] = {
+    "ecs": {
+        "cloud_service_type": "hws.service.type.ec2",
+        "resource_type": "hws.resource.type.vm",
+        "spec_suffix": ".linux",
+        "help": "ECS yearly/monthly VM pricing; append .win explicitly for Windows specs.",
+    },
+    "evs": {
+        "cloud_service_type": "hws.service.type.ebs",
+        "resource_type": "hws.resource.type.volume",
+        "need_resource_size": True,
+        "default_size": 10,
+        "default_size_measure_id": 17,
+        "help": "EVS yearly/monthly volume pricing; size defaults to 10 GB.",
+    },
+    "eip-bw": {
+        "cloud_service_type": "hws.service.type.vpc",
+        "resource_type": "hws.resource.type.bandwidth",
+        "need_resource_size": True,
+        "default_size": 1,
+        "default_size_measure_id": 15,
+        "help": "EIP yearly/monthly bandwidth pricing; size defaults to 1 Mbps.",
+    },
+    "eip-ip": {
+        "cloud_service_type": "hws.service.type.vpc",
+        "resource_type": "hws.resource.type.ip",
+        "help": "Public EIP address yearly/monthly pricing.",
+    },
+    "elb": {
+        "cloud_service_type": "hws.service.type.elb",
+        "resource_type": "hws.resource.type.elbv3",
+        "help": "Dedicated ELB yearly/monthly pricing; confirm current SKU support.",
+    },
+    "nat": {
+        "cloud_service_type": "hws.service.type.natgateway",
+        "resource_type": "hws.resource.type.natgateway",
+        "help": "NAT gateway yearly/monthly pricing.",
+    },
+    "obs": {
+        "cloud_service_type": "hws.service.type.obs",
+        "resource_type": "hws.resource.type.obs",
+        "help": "OBS yearly/monthly pricing.",
+    },
+    "sfs": {
+        "cloud_service_type": "hws.service.type.sfsturbo",
+        "resource_type": "hws.resource.type.sfsturbo",
+        "need_resource_size": True,
+        "default_size": 500,
+        "default_size_measure_id": 17,
+        "help": "SFS Turbo yearly/monthly pricing; size defaults to 500 GB.",
+    },
+    "bms": {
+        "cloud_service_type": "hws.service.type.baremetal",
+        "resource_type": "hws.resource.type.pm",
+        "spec_suffix": ".linux",
+        "help": "BMS yearly/monthly pricing.",
+    },
+}
 
 OPERATIONS: dict[str, dict[str, Any]] = {
     "account-balances": {
@@ -136,6 +295,24 @@ OPERATIONS: dict[str, dict[str, Any]] = {
             "limit": "limit",
         },
         "freshness": "95th-percentile usage detail for one resource; resource_id stays protected in summaries and one page remains partial evidence.",
+    },
+    "on-demand-pricing": {
+        "title": "ListOnDemandResourceRatings",
+        "method": "POST",
+        "path": "/v2/bills/ratings/on-demand-resources",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:pricing:inquire",
+        "required_body": ["project_id", "product_infos"],
+        "freshness": "On-demand inquiry is a point-in-time quote for the provided SKU dimensions; it is not a historical bill or a purchase order.",
+    },
+    "period-pricing": {
+        "title": "ListRateOnPeriodDetail",
+        "method": "POST",
+        "path": "/v2/bills/ratings/period-resources/subscribe-rate",
+        "doc_url": "https://support.huaweicloud.com/api-bss/",
+        "permission": "bss:pricing:inquire",
+        "required_body": ["project_id", "product_infos"],
+        "freshness": "Yearly/monthly inquiry is a point-in-time subscribe quote for the provided SKU dimensions; renewal and existing-order discounts require separate evidence.",
     },
     "account-change-records": {
         "title": "ListCustomerAccountChangeRecords",
@@ -447,6 +624,12 @@ OPERATION_ALIASES = {
     "resource-usage-summary": "usage-summary",
     "resource-usage": "usage-detail",
     "usage": "usage-detail",
+    "on-demand-price": "on-demand-pricing",
+    "ondemand-pricing": "on-demand-pricing",
+    "pricing-on-demand": "on-demand-pricing",
+    "period-price": "period-pricing",
+    "yearly-monthly-pricing": "period-pricing",
+    "pricing-period": "period-pricing",
     "free-resources": "free-resource-infos",
     "free-resource-usage": "free-resource-usages",
     "coupon-records": "coupon-change-records",
@@ -720,6 +903,193 @@ def build_resource_fee_query(args: argparse.Namespace) -> tuple[dict[str, Any], 
     return query, errors
 
 
+def value_list(value: Any) -> list[Any]:
+    """Return a CLI or namespace scalar as a list."""
+    if value in (None, "", []):
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def expand_counted_values(values: list[Any], count: int, field_name: str, errors: list[str]) -> list[Any]:
+    """Expand one value to match product count or report a count mismatch."""
+    if not values:
+        return [None] * count
+    if len(values) == 1:
+        return values * count
+    if len(values) != count:
+        errors.append(f"--{field_name} count must be 1 or match --resource-spec count ({count}).")
+        return values[:count] + [None] * max(count - len(values), 0)
+    return values
+
+
+def pricing_spec_with_suffix(spec: str, suffix: str | None) -> str:
+    """Return a pricing resource spec with a safe default OS suffix when needed."""
+    if not suffix:
+        return spec
+    if suffix == ".linux" and spec.endswith((".linux", ".win")):
+        return spec
+    if spec.endswith(suffix):
+        return spec
+    return f"{spec}{suffix}"
+
+
+def normalize_period_type(value: Any) -> int | None:
+    """Return the BSS period_type integer for a CLI value."""
+    key = str(value).strip().lower()
+    return PERIOD_TYPE_ALIASES.get(key)
+
+
+def pricing_body_override(args: argparse.Namespace) -> tuple[dict[str, Any] | None, str | None, list[str]]:
+    """Return an explicit pricing JSON body override when supplied."""
+    return load_body_override(args)
+
+
+def pricing_common_product_values(
+    args: argparse.Namespace,
+    presets: dict[str, dict[str, Any]],
+    operation: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]:
+    """Build common pricing product fields from a reviewed preset."""
+    errors: list[str] = []
+    project_id = getattr(args, "project_id", None)
+    preset_name = getattr(args, "pricing_preset", None)
+    if not project_id:
+        errors.append(f"Missing required {operation} field: project_id.")
+    if not preset_name:
+        errors.append(f"Missing required {operation} field: pricing_preset.")
+        return {}, [], errors
+    preset = presets.get(preset_name)
+    if preset is None:
+        errors.append(
+            f"Unsupported {operation} pricing preset: {preset_name}. Supported presets: {', '.join(sorted(presets))}."
+        )
+        return {}, [], errors
+
+    raw_specs = [str(item) for item in value_list(getattr(args, "resource_spec", None)) if str(item)]
+    if not raw_specs:
+        errors.append(f"Missing required {operation} field: resource_spec.")
+        return {"project_id": project_id, "preset": preset}, [], errors
+
+    specs = [pricing_spec_with_suffix(spec, preset.get("spec_suffix")) for spec in raw_specs]
+    count = len(specs)
+    resource_sizes = value_list(getattr(args, "resource_size", None))
+    size_measure_ids = value_list(getattr(args, "size_measure_id", None))
+    if not resource_sizes and preset.get("need_resource_size"):
+        resource_sizes = [preset["default_size"]]
+    if not size_measure_ids and preset.get("need_resource_size"):
+        size_measure_ids = [preset["default_size_measure_id"]]
+    if resource_sizes and not size_measure_ids:
+        errors.append(f"{operation} requires --size-measure-id when --resource-size is provided.")
+    if size_measure_ids and not resource_sizes:
+        errors.append(f"{operation} requires --resource-size when --size-measure-id is provided.")
+
+    expanded_sizes = expand_counted_values(resource_sizes, count, "resource-size", errors)
+    expanded_size_measure_ids = expand_counted_values(size_measure_ids, count, "size-measure-id", errors)
+    subscription_nums = expand_counted_values(
+        value_list(getattr(args, "subscription_num", None)) or [1],
+        count,
+        "subscription-num",
+        errors,
+    )
+    region = getattr(args, "pricing_region", None) or getattr(args, "region_code", None) or PRICING_REGION_DEFAULT
+    available_zone = getattr(args, "available_zone", None)
+
+    products = []
+    for index, spec in enumerate(specs, start=1):
+        product = optional_fields(
+            id=str(index),
+            cloud_service_type=preset["cloud_service_type"],
+            resource_type=preset["resource_type"],
+            resource_spec=spec,
+            region=region,
+            available_zone=available_zone,
+            resource_size=expanded_sizes[index - 1],
+            size_measure_id=expanded_size_measure_ids[index - 1],
+            subscription_num=subscription_nums[index - 1],
+        )
+        products.append(product)
+    context = {
+        "project_id": project_id,
+        "preset": preset,
+        "preset_name": preset_name,
+        "product_count": count,
+    }
+    return context, products, errors
+
+
+def build_on_demand_pricing_body(args: argparse.Namespace) -> tuple[dict[str, Any] | None, str, list[str]]:
+    """Build or load a ListOnDemandResourceRatings request body."""
+    body, source, errors = pricing_body_override(args)
+    if body is not None or errors:
+        return body, source or "generated", errors
+
+    context, products, errors = pricing_common_product_values(args, ON_DEMAND_PRICING_PRESETS, "on-demand-pricing")
+    if products:
+        usage_values = expand_counted_values(
+            value_list(getattr(args, "usage_value", None)) or [1],
+            len(products),
+            "usage-value",
+            errors,
+        )
+        preset = context["preset"]
+        for index, product in enumerate(products):
+            product["usage_factor"] = preset.get("usage_factor", "Duration")
+            product["usage_value"] = usage_values[index]
+            product["usage_measure_id"] = preset["usage_measure_id"]
+
+    return (
+        {
+            "project_id": context.get("project_id"),
+            "inquiry_precision": getattr(args, "inquiry_precision", None) if getattr(args, "inquiry_precision", None) is not None else 1,
+            "product_infos": products,
+        },
+        "generated",
+        errors,
+    )
+
+
+def build_period_pricing_body(args: argparse.Namespace) -> tuple[dict[str, Any] | None, str, list[str]]:
+    """Build or load a ListRateOnPeriodDetail request body."""
+    body, source, errors = pricing_body_override(args)
+    if body is not None or errors:
+        return body, source or "generated", errors
+
+    context, products, errors = pricing_common_product_values(args, PERIOD_PRICING_PRESETS, "period-pricing")
+    if products:
+        period_types = value_list(getattr(args, "period_type", None)) or ["month"]
+        normalized_period_types: list[int] = []
+        for item in period_types:
+            normalized = normalize_period_type(item)
+            if normalized is None:
+                errors.append("Invalid --period-type; supported values are day/month/year/hour, 天/月/年/小时, or 0/2/3/4.")
+            else:
+                normalized_period_types.append(normalized)
+        expanded_period_types = expand_counted_values(normalized_period_types, len(products), "period-type", errors)
+        period_nums = expand_counted_values(
+            value_list(getattr(args, "period_num", None)) or [1],
+            len(products),
+            "period-num",
+            errors,
+        )
+        fee_installment_mode = getattr(args, "fee_installment_mode", None)
+        for index, product in enumerate(products):
+            product["period_type"] = expanded_period_types[index]
+            product["period_num"] = period_nums[index]
+            if fee_installment_mode:
+                product["fee_installment_mode"] = fee_installment_mode
+
+    return (
+        {
+            "project_id": context.get("project_id"),
+            "product_infos": products,
+        },
+        "generated",
+        errors,
+    )
+
+
 def build_url(endpoint_base: str, path: str, query: dict[str, Any]) -> str:
     """Return a request URL with encoded query parameters when present."""
     base = endpoint_base.rstrip("/")
@@ -899,10 +1269,29 @@ def scope_fields(query: dict[str, Any], body: dict[str, Any] | None) -> list[str
         "service_type_code_list.1",
         "charge_mode",
         "bill_type",
+        "project_id",
+        "resource_spec",
+        "available_zone",
+        "usage_factor",
+        "period_type",
     }
     fields = [key for key, value in query.items() if key in known_scope_keys and value not in (None, "", [])]
     if isinstance(body, dict):
         fields.extend(key for key, value in body.items() if key in known_scope_keys and value not in (None, "", []))
+        for product in body.get("product_infos", []) if isinstance(body.get("product_infos"), list) else []:
+            if not isinstance(product, dict):
+                continue
+            for key in (
+                "cloud_service_type",
+                "resource_type",
+                "resource_spec",
+                "region",
+                "available_zone",
+                "usage_factor",
+                "period_type",
+            ):
+                if product.get(key) not in (None, "", []):
+                    fields.append(f"product_infos:{key}")
         for group in body.get("groupby", []) if isinstance(body.get("groupby"), list) else []:
             if isinstance(group, dict) and group.get("key"):
                 fields.append(f"groupby:{group['key']}")
@@ -978,6 +1367,10 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
             body, body_source, errors = build_resource_records_body(args)
         elif operation == "resource-fee-records":
             query, errors = build_resource_fee_query(args)
+        elif operation == "on-demand-pricing":
+            body, body_source, errors = build_on_demand_pricing_body(args)
+        elif operation == "period-pricing":
+            body, body_source, errors = build_period_pricing_body(args)
         else:
             query, errors = build_generic_query(args, metadata, operation)
         query.update(raw_query)
@@ -1066,10 +1459,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--filter", action="append", default=[], help="Cost filter as KEY=value1,value2. Can be repeated.")
     parser.add_argument("--cost-type", default="ORIGINAL_COST", choices=["ORIGINAL_COST", "AMORTIZED_COST"])
     parser.add_argument("--amount-type", default="PAYMENT_AMOUNT", choices=["PAYMENT_AMOUNT", "NET_AMOUNT"])
+    parser.add_argument("--project-id", help="Project ID for BSS pricing inquiries.")
     parser.add_argument("--service-type-code", help="Cloud service type code.")
     parser.add_argument("--resource-type", help="Resource type code.")
+    parser.add_argument("--resource-spec", action="append", help="Pricing resource spec. Can be repeated.")
     parser.add_argument("--usage-type", help="Usage type code, for example 95Peak or bandwidth95peak.")
     parser.add_argument("--region-code", help="Billing region code filter, for example ap-southeast-1.")
+    parser.add_argument("--pricing-region", help=f"Pricing SKU region, default {PRICING_REGION_DEFAULT}.")
+    parser.add_argument("--available-zone", help="Pricing available zone filter.")
+    parser.add_argument("--pricing-preset", help="Pricing preset such as ecs, evs, eip-bw, eip-flow, eip-ip, obs, sfs, nat, elb, or bms.")
+    parser.add_argument("--resource-size", type=int, action="append", help="Pricing resource size. Can be repeated.")
+    parser.add_argument("--size-measure-id", type=int, action="append", help="Pricing size measure ID, for example 15 Mbps or 17 GB. Can be repeated.")
+    parser.add_argument("--usage-value", type=float, action="append", help="On-demand pricing usage value. Defaults to 1.")
+    parser.add_argument("--subscription-num", type=int, action="append", help="Pricing subscription quantity. Defaults to 1.")
+    parser.add_argument("--inquiry-precision", type=int, default=1, choices=[0, 1], help="On-demand pricing precision mode.")
+    parser.add_argument("--period-type", action="append", help="Period pricing type: day/month/year/hour, 天/月/年/小时, or 0/2/3/4.")
+    parser.add_argument("--period-num", type=int, action="append", help="Period pricing duration count. Defaults to 1.")
+    parser.add_argument("--fee-installment-mode", choices=["HALF_PAY", "ZERO_PAY", "NA"], help="CloudPond-style fee installment mode when supported.")
     parser.add_argument("--resource-id", help="Resource instance ID filter.")
     parser.add_argument("--enterprise-project-id", help="Enterprise project ID filter.")
     parser.add_argument("--charge-mode", help="Charging mode filter.")

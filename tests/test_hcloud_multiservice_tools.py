@@ -192,10 +192,23 @@ class MultiServiceToolsTest(unittest.TestCase):
             "filter": [],
             "cost_type": "ORIGINAL_COST",
             "amount_type": "PAYMENT_AMOUNT",
+            "project_id": None,
             "service_type_code": None,
             "resource_type": None,
+            "resource_spec": None,
             "usage_type": None,
             "region_code": None,
+            "pricing_region": None,
+            "available_zone": None,
+            "pricing_preset": None,
+            "resource_size": None,
+            "size_measure_id": None,
+            "usage_value": None,
+            "subscription_num": None,
+            "inquiry_precision": 1,
+            "period_type": None,
+            "period_num": None,
+            "fee_installment_mode": None,
             "resource_id": None,
             "enterprise_project_id": None,
             "charge_mode": None,
@@ -669,6 +682,70 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertFalse(result["execution_supported"])
         self.assertIn("resource_id", result["validation"]["errors"][-1])
 
+    def test_billing_readonly_builds_on_demand_pricing_plan(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="on-demand-pricing",
+                entry_point="pricing_inquiry",
+                project_id="project-1",
+                pricing_preset="ecs",
+                resource_spec=["s6.small.1"],
+                pricing_region="cn-north-4",
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["execution_supported"])
+        self.assertEqual(result["title"], "ListOnDemandResourceRatings")
+        request = result["request_spec"]
+        self.assertEqual(request["path"], "/v2/bills/ratings/on-demand-resources")
+        self.assertEqual(request["body_source"], "generated")
+        product = request["body"]["product_infos"][0]
+        self.assertEqual(request["body"]["project_id"], "project-1")
+        self.assertEqual(product["cloud_service_type"], "hws.service.type.ec2")
+        self.assertEqual(product["resource_type"], "hws.resource.type.vm")
+        self.assertEqual(product["resource_spec"], "s6.small.1.linux")
+        self.assertEqual(product["usage_measure_id"], 4)
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("--arg=--product_infos.1.resource_spec=s6.small.1.linux", command)
+        self.assertIn("--arg=--product_infos.1.usage_factor=Duration", command)
+        self.assertIn("on-demand-pricing", result["semantic_route"]["supported_planner_operations"])
+        discipline = result["billing_semantic_discipline"]
+        self.assertIn("quoted", discipline["money_basis"])
+        self.assertIn("product_infos:resource_spec", discipline["scope_fields"])
+
+    def test_billing_readonly_builds_period_pricing_plan(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="period-pricing",
+                entry_point="pricing_inquiry",
+                project_id="project-1",
+                pricing_preset="evs",
+                resource_spec=["GPSSD"],
+                resource_size=[100],
+                size_measure_id=[17],
+                period_type=["year"],
+                period_num=[1],
+                subscription_num=[2],
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["execution_supported"])
+        self.assertEqual(result["title"], "ListRateOnPeriodDetail")
+        request = result["request_spec"]
+        self.assertEqual(request["path"], "/v2/bills/ratings/period-resources/subscribe-rate")
+        product = request["body"]["product_infos"][0]
+        self.assertEqual(product["cloud_service_type"], "hws.service.type.ebs")
+        self.assertEqual(product["resource_size"], 100)
+        self.assertEqual(product["size_measure_id"], 17)
+        self.assertEqual(product["period_type"], 3)
+        self.assertEqual(product["subscription_num"], 2)
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("--arg=--product_infos.1.period_type=3", command)
+        self.assertIn("--arg=--product_infos.1.period_num=1", command)
+        self.assertIn("period-pricing", result["semantic_route"]["supported_planner_operations"])
+
     def test_billing_readonly_builds_reconciliation_statement_plan(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
             self.billing_readonly_args(operation="billing-statements", entry_point="reconciliation")
@@ -798,11 +875,15 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("ListCosts", result["coverage"]["supported_operations"])
         self.assertIn("ListResourceUsageSummary", result["coverage"]["supported_operations"])
         self.assertIn("ListResourceUsage", result["coverage"]["supported_operations"])
+        self.assertIn("ListOnDemandResourceRatings", result["coverage"]["supported_operations"])
+        self.assertIn("ListRateOnPeriodDetail", result["coverage"]["supported_operations"])
         missing = {item["operation"]: item for item in result["coverage"]["missing_operations"]}
         self.assertNotIn("ListResourceUsageSummary", missing)
         self.assertNotIn("ListResourceUsage", missing)
-        self.assertIn("ListOnDemandResourceRatings", missing)
-        self.assertEqual(missing["ListOnDemandResourceRatings"]["category"], "pricing_api_gap")
+        self.assertNotIn("ListOnDemandResourceRatings", missing)
+        self.assertNotIn("ListRateOnPeriodDetail", missing)
+        self.assertIn("ListRenewRateOnPeriod", missing)
+        self.assertEqual(missing["ListRenewRateOnPeriod"]["category"], "business_support_query_gap")
         helpers = {item["script"] for item in result["official"]["pricing_helpers"]}
         self.assertIn("inquiry_elb.py", helpers)
         self.assertNotIn("/Users/", json.dumps(result, ensure_ascii=False))

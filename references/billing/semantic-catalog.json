@@ -12,7 +12,8 @@
     "billed": ["consume_amount", "official_amount", "discount_amount"],
     "paid": ["cash_amount", "credit_amount", "coupon_amount", "stored_value_card_amount"],
     "outstanding": ["debt_amount"],
-    "amortized": ["amortized_cost"]
+    "amortized": ["amortized_cost"],
+    "quoted": ["amount", "official_website_amount", "discount_amount"]
   },
   "protected_identifiers": [
     "account_id",
@@ -63,6 +64,16 @@
         "order-list",
         "order-details"
       ]
+    },
+    "pricing_inquiry": {
+      "required_context": {
+        "scope": ["project_id", "sku_region", "resource_spec"],
+        "time": ["point_in_time"],
+        "money_basis": ["quoted"]
+      },
+      "triggers": ["华为云询价", "华为云按需价格", "华为云包年包月价格", "华为云资源价格"],
+      "ontology_entities": ["PricingInquiry", "ReferenceDimensions"],
+      "supported_planner_operations": ["on-demand-pricing", "period-pricing", "reference-service-types", "reference-resource-types", "reference-usage-types", "reference-measure-units"]
     },
     "reconciliation": {
       "required_context": {
@@ -199,6 +210,12 @@
       "source_operations": ["BSS/ListResourceUsageSummary", "BSS/ListResourceUsage"],
       "grain": "用量汇总或明细行",
       "summary": "CDN/OBS/IEC/VPC 流量带宽与 95 计费"
+    },
+    "PricingInquiry": {
+      "domain": "cost_and_usage",
+      "source_operations": ["BSS/ListOnDemandResourceRatings", "BSS/ListRateOnPeriodDetail"],
+      "grain": "项目×区域×资源规格×计费模式报价",
+      "summary": "按需或包周期资源询价；不是历史账单或实际成交订单"
     },
     "FreeResourcePackage": {
       "domain": "discount_entitlement",
