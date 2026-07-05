@@ -7,6 +7,7 @@
 - 新增 `hcloud_billing_operation_gap.py`，对比官方 billing-scout / business-support-query 与本地 BSS planner 的 operation 覆盖，输出 P1/P2 缺口和 pricing helper 参考。
 - 扩展 Billing/BSS 只读 planner，新增 `usage-summary` / `usage-detail`，覆盖 `ListResourceUsageSummary` 和 `ListResourceUsage` 的 95 计费用量汇总与明细查询计划。
 - 扩展 Billing/BSS 只读 planner，新增 `on-demand-pricing` / `period-pricing`，覆盖官方 BSS 按需与包周期询价 API 的保守 request spec 和 reviewed safe_exec 命令计划。
+- 新增 `hcloud_ces_datapoint_plan.py`，生成并可执行受限的 CES `BatchListMetricData` 只读 datapoint 查询计划，并对空数据、Agent、namespace、period、dimension 等常见排障原因做本地判读。
 
 ## 0.7.0 - 2026-07-03
 

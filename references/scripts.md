@@ -303,6 +303,24 @@ Use this before declaring a resource healthy or idle based on partial evidence. 
 
 `--execute` runs only approved read-only state and metric discovery commands. Alarm creation or notification-policy changes are not in this planner.
 
+### CES Datapoint Planner
+
+```bash
+python3 scripts/hcloud_ces_datapoint_plan.py \
+  --region=cn-north-4 \
+  --project-id=<project-id> \
+  --namespace SYS.ECS \
+  --metric-name cpu_util \
+  --dimension instance_id=<server-id> \
+  --period 300 \
+  --lookback-minutes 30 \
+  --pretty
+```
+
+Use this after `ListMetrics` to build or run a bounded `BatchListMetricData` read-only query for one CES metric. The planner validates required namespace, metric name, dimensions, project/region, period, and the official batch window rule `metric_count * ((to - from) / 1000) / period <= 3000`.
+
+Add `--execute` only when the user approves a real read-only metric query. The output summarizes safe_exec status and datapoint counts; it does not return raw datapoints. Use `--result-json-file <safe_exec-result.json>` to interpret a saved result and distinguish `datapoints_present`, `empty_datapoints`, `empty_metric_result`, and likely Agent/namespace/period/dimension causes.
+
 ### CES Alarm Planner
 
 ```bash

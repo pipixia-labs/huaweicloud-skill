@@ -49,15 +49,29 @@ python3 scripts/hcloud_resource_discovery.py \
   --pretty
 ```
 
-3. 生成告警草案或指标建议：
+3. 查询一个已确认指标的 datapoints：
+
+```bash
+python3 scripts/hcloud_ces_datapoint_plan.py \
+  --region=<region> \
+  --project-id=<project-id> \
+  --namespace SYS.ECS \
+  --metric-name cpu_util \
+  --dimension instance_id=<instance_id> \
+  --period 300 \
+  --lookback-minutes 30 \
+  --pretty
+```
+
+如果返回 `empty_datapoints`，先按 planner 的 `likely_causes` 检查 Agent、namespace、dimension、period、采集延迟和 region/project，不要直接判断 ECS 正常或异常。
+
+4. 生成告警草案或指标建议：
 
 ```bash
 python3 scripts/hcloud_ces_alarm_plan.py \
-  --service ECS \
   --metric-name mem_used_percent \
   --namespace SYS.ECS \
-  --dimension-name instance_id \
-  --dimension-value <instance_id> \
+  --dimension instance_id=<instance_id> \
   --pretty
 ```
 

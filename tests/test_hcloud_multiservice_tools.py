@@ -57,6 +57,7 @@ hcloud_billing_result_summarize = load_module(
 hcloud_cce_assessment_plan = load_module("hcloud_cce_assessment_plan", SCRIPTS / "hcloud_cce_assessment_plan.py")
 hcloud_teardown_plan = load_module("hcloud_teardown_plan", SCRIPTS / "hcloud_teardown_plan.py")
 hcloud_ces_alarm_plan = load_module("hcloud_ces_alarm_plan", SCRIPTS / "hcloud_ces_alarm_plan.py")
+hcloud_ces_datapoint_plan = load_module("hcloud_ces_datapoint_plan", SCRIPTS / "hcloud_ces_datapoint_plan.py")
 hcloud_lts_readonly = load_module("hcloud_lts_readonly", SCRIPTS / "hcloud_lts_readonly.py")
 hcloud_lifecycle_closure_plan = load_module("hcloud_lifecycle_closure_plan", SCRIPTS / "hcloud_lifecycle_closure_plan.py")
 hcloud_governance_closure_plan = load_module(
@@ -264,6 +265,28 @@ class MultiServiceToolsTest(unittest.TestCase):
             "notification_enabled": False,
             "execute": False,
             "timeout": 1,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def ces_datapoint_args(self, **overrides):
+        """Return default CES datapoint planner args for unit tests."""
+        values = {
+            "region": "cn-north-4",
+            "project_id": "project-1",
+            "profile": None,
+            "namespace": "SYS.ECS",
+            "metric_name": "cpu_util",
+            "dimension": ["instance_id=server-1"],
+            "filter": "average",
+            "period": 300,
+            "from_ms": 1700000000000,
+            "to_ms": 1700001800000,
+            "lookback_minutes": 30,
+            "result_json_file": None,
+            "execute": False,
+            "timeout": 1,
+            "max_output_chars": 2000,
         }
         values.update(overrides)
         return SimpleNamespace(**values)
@@ -1020,6 +1043,69 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(guidance["known_error"]["code"], "ces.0014")
         self.assertTrue(any("not available in SYS.ECS" in warning for warning in guidance["warnings"]))
         self.assertTrue(any("Agent" in action for action in guidance["next_actions"]))
+
+    def test_ces_datapoint_plan_builds_batch_metric_command(self) -> None:
+        result = hcloud_ces_datapoint_plan.build_plan(self.ces_datapoint_args())
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(result["operation"], "BatchListMetricData")
+        body = result["request_spec"]["body"]
+        self.assertEqual(body["filter"], "average")
+        self.assertEqual(body["metrics"][0]["namespace"], "SYS.ECS")
+        self.assertEqual(body["metrics"][0]["metric_name"], "cpu_util")
+        self.assertEqual(body["metrics"][0]["dimensions"][0], {"name": "instance_id", "value": "server-1"})
+        self.assertTrue(result["query_bounds"]["within_batch_limit"])
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn("--arg=--metrics.1.namespace=SYS.ECS", command)
+        self.assertIn("--arg=--metrics.1.dimensions.1.name=instance_id", command)
+        self.assertIn("--arg=--metrics.1.dimensions.1.value=server-1", command)
+        self.assertTrue(result["metric_guidance"]["found"])
+
+    def test_ces_datapoint_plan_interprets_empty_agent_metric(self) -> None:
+        payload = {
+            "success": True,
+            "service": "CES",
+            "operation": "BatchListMetricData",
+            "parsed_json": {
+                "metrics": [
+                    {
+                        "namespace": "AGT.ECS",
+                        "metric_name": "mem_usedPercent",
+                        "datapoints": [],
+                    }
+                ]
+            },
+        }
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json") as handle:
+            json.dump(payload, handle)
+            handle.flush()
+            result = hcloud_ces_datapoint_plan.build_plan(
+                self.ces_datapoint_args(
+                    namespace="SYS.ECS",
+                    metric_name="mem_used_percent",
+                    result_json_file=handle.name,
+                )
+            )
+
+        self.assertTrue(result["success"], result)
+        interpretation = result["result_interpretation"]
+        self.assertEqual(interpretation["state"], "empty_datapoints")
+        self.assertEqual(interpretation["datapoint_count"], 0)
+        self.assertTrue(any("Agent" in cause for cause in interpretation["likely_causes"]))
+        self.assertTrue(any("namespace mismatch" in cause for cause in interpretation["likely_causes"]))
+
+    def test_ces_datapoint_plan_rejects_too_wide_window(self) -> None:
+        result = hcloud_ces_datapoint_plan.build_plan(
+            self.ces_datapoint_args(
+                from_ms=1700000000000,
+                to_ms=1700000000000 + 3001 * 300 * 1000,
+            )
+        )
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["query_bounds"]["within_batch_limit"])
+        self.assertTrue(any("too wide" in error for error in result["validation"]["errors"]))
 
     def test_lts_readonly_builds_discovery_and_skips_log_query_without_params(self) -> None:
         result = hcloud_lts_readonly.build_plan(self.lts_args())
