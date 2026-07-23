@@ -12,7 +12,7 @@
 
 当前架构重点是十个平面：
 
-- **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点和 Terraform 候选。
+- **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json`、`references/scenario-contracts.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点、Terraform 候选，以及重点场景的输入/证据/输出契约。
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
 - **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 使用已安装的 `huaweicloudsdk*` package 或维护期源码 fallback，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。

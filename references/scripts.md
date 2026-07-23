@@ -51,7 +51,7 @@ python3 scripts/hcloud_scenario_router.py \
   --pretty
 ```
 
-Use this before deep execution when the user describes a broad cloud goal. It maps natural language to local playbooks, service guides, planners, SDK supplements, and Terraform candidates. The router also expands compact Chinese service aliases from `references/service-aliases.json`, for example `云耀云` -> `FLEXUS-L` and `云监控` -> `CES`. The router is local and planner-only: it does not install official skills, execute hcloud, call SDK APIs, or create Terraform files.
+Use this before deep execution when the user describes a broad cloud goal. It maps natural language to local playbooks, service guides, planners, SDK supplements, and Terraform candidates. For selected high-value routes, the returned `scenario_contract` also states required inputs, evidence requirements, output sections, and risk boundaries from `references/scenario-contracts.json`. The router also expands compact Chinese service aliases from `references/service-aliases.json`, for example `云耀云` -> `FLEXUS-L` and `云监控` -> `CES`. The router is local and planner-only: it does not install official skills, execute hcloud, call SDK APIs, or create Terraform files.
 
 You can pass a service/category hint when the user's wording is short:
 
@@ -62,6 +62,29 @@ python3 scripts/hcloud_scenario_router.py \
   --service VPC \
   --pretty
 ```
+
+### CCI Workload Preflight
+
+```bash
+python3 scripts/hcloud_cci_workload_plan.py \
+  --namespace production \
+  --namespace-flavor general-computing \
+  --vpc-id <vpc-id> \
+  --subnet-id <subnet-id> \
+  --neutron-network-id <neutron-network-id> \
+  --subnet-cidr <subnet-cidr> \
+  --security-group-id <security-group-id> \
+  --network-name production-network \
+  --workload-name web \
+  --image swr.example.com/org/web:1.0.0 \
+  --cpu-request 500m --cpu-limit 500m \
+  --memory-request 1Gi --memory-limit 1Gi \
+  --service-name web \
+  --region <region> \
+  --pretty
+```
+
+Use this for CCI deployment planning and readiness work. It only builds preflight and read-only evidence plans: it does not run `hcloud`, create namespace/Network/workloads, submit changes, or accept image-pull credentials. It requires matching CPU and memory request/limit values, rejects a subnet that overlaps `10.247.0.0/16`, and blocks any delete intent. For ELB/EIP public access, additionally supply a business justification and a bounded source CIDR; `0.0.0.0/0` is rejected. On Windows, invoke the same script with `python` from the active Python environment.
 
 ### Cache Prewarm
 

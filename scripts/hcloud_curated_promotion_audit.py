@@ -13,6 +13,7 @@ import hcloud_common
 
 DEFAULT_CANDIDATES = (
     "DCS",
+    "CCI",
     "RFS",
     "UCS",
     "WAF",
@@ -50,6 +51,7 @@ SERVICE_GOAL_TAGS = {
     "RDS": {"用好云"},
     "DCS": {"用好云"},
     "CCE": {"上好云", "用好云"},
+    "CCI": {"上好云", "用好云", "管好云"},
     "CDN": {"上好云", "用好云"},
     "DNS": {"上好云", "管好云"},
     "SCM": {"上好云", "管好云"},

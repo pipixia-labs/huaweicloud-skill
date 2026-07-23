@@ -20,7 +20,12 @@ import hcloud_terraform_context_inspect
 
 MIN_PYTHON = (3, 10)
 NEED_CHOICES = ("hcloud", "live", "sdk", "terraform", "obsutil", "maas")
-HCLOUD_INSTALL_COMMANDS = [
+KOOCLI_QUICKSTART_URL = "https://support.huaweicloud.com/qs-hcli/hcli_02_003.html"
+KOOCLI_WINDOWS_DOWNLOAD_URL = (
+    "https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/"
+    "huaweicloud-cli-windows-amd64.zip"
+)
+POSIX_HCLOUD_INSTALL_COMMANDS = [
     "curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o ./hcloud_install.sh",
     "bash ./hcloud_install.sh -y",
     "hcloud version",
@@ -29,16 +34,51 @@ HCLOUD_CONFIG_COMMANDS = [
     "hcloud configure init --cli-profile <profile-name>",
     "hcloud configure list",
 ]
-SDK_INSTALL_COMMANDS = [
-    "python3 -m pip install huaweicloudsdkcore huaweicloudsdkecs huaweicloudsdkvpc",
-]
-TERRAFORM_CHECK_COMMANDS = [
-    "terraform version",
-    "python3 scripts/hcloud_terraform_context_inspect.py --pretty",
-]
-OBSUTIL_CHECK_COMMANDS = [
-    "obsutil version",
-]
+
+
+def platform_family(system_name: str | None = None) -> str:
+    """Return a stable platform family for installation guidance."""
+    value = (system_name or platform.system()).strip().lower()
+    return "windows" if value == "windows" else "posix"
+
+
+def command_python(system_name: str | None = None) -> str:
+    """Return the conventional Python command for user-facing local guidance."""
+    return "python" if platform_family(system_name) == "windows" else "python3"
+
+
+def hcloud_install_guidance(system_name: str | None = None) -> tuple[list[str], list[str]]:
+    """Return platform-specific KooCLI setup guidance without executing it."""
+    if platform_family(system_name) != "windows":
+        return list(POSIX_HCLOUD_INSTALL_COMMANDS), []
+    return (
+        [
+            f'Invoke-WebRequest -Uri "{KOOCLI_WINDOWS_DOWNLOAD_URL}" -OutFile "$env:TEMP\\hcloud.zip"',
+            '$installDir = Join-Path $env:LOCALAPPDATA "HuaweiCloud\\KooCLI"; New-Item -ItemType Directory -Force -Path $installDir',
+            'Expand-Archive -Path "$env:TEMP\\hcloud.zip" -DestinationPath $installDir -Force',
+            '$env:Path += ";$installDir"; hcloud version',
+        ],
+        [
+            "Persist the directory containing hcloud.exe in the user Path before opening a new PowerShell session.",
+            f"Verify the download and installation steps against {KOOCLI_QUICKSTART_URL} before running them.",
+        ],
+    )
+
+
+def sdk_install_commands(system_name: str | None = None) -> list[str]:
+    """Return a platform-appropriate SDK installation command for user review."""
+    return [f"{command_python(system_name)} -m pip install huaweicloudsdkcore huaweicloudsdkecs huaweicloudsdkvpc"]
+
+
+def terraform_check_commands(system_name: str | None = None) -> list[str]:
+    """Return platform-appropriate Terraform readiness commands for user review."""
+    return ["terraform version", f"{command_python(system_name)} scripts/hcloud_terraform_context_inspect.py --pretty"]
+
+
+def obsutil_check_commands(system_name: str | None = None) -> list[str]:
+    """Return the platform-appropriate obsutil version command for user review."""
+    executable = "obsutil.exe" if platform_family(system_name) == "windows" else "obsutil"
+    return [f"{executable} version"]
 
 
 def run_command(command: list[str], timeout: int = 15) -> dict[str, Any]:
@@ -94,7 +134,11 @@ def inspect_python() -> dict[str, Any]:
             "executable": sys.executable,
             "platform": platform.platform(),
         },
-        next_actions=[] if ok else ["Install Python 3.10+ and rerun this doctor."],
+        next_actions=[] if ok else [
+            "Install Python 3.10+ and rerun this doctor."
+            if platform_family() != "windows"
+            else "Install Python 3.10+ so the `python` command is available, then rerun this doctor."
+        ],
     )
 
 
@@ -117,7 +161,8 @@ def inspect_hcloud() -> dict[str, Any]:
     install_commands = []
     if not found:
         next_actions.append("Install Huawei Cloud KooCLI before live hcloud discovery or changes.")
-        install_commands = HCLOUD_INSTALL_COMMANDS
+        install_commands, platform_notes = hcloud_install_guidance()
+        next_actions.extend(platform_notes)
     if found and not profile_auth_ready:
         next_actions.append("Configure or choose an hcloud profile before live cloud calls.")
     meta_repo = summary.get("meta_repo", {})
@@ -127,6 +172,7 @@ def inspect_hcloud() -> dict[str, Any]:
         required=True,
         summary="KooCLI is available." if found else "KooCLI hcloud binary is missing.",
         details={
+            "platform": platform_family(),
             "hcloud": hcloud,
             "config_exists": config.get("exists") if isinstance(config, dict) else False,
             "current_profile_name": config.get("current_profile_name") if isinstance(config, dict) else None,
@@ -224,7 +270,7 @@ def inspect_sdk(needs: set[str]) -> dict[str, Any]:
         summary="Huawei Cloud Python SDK packages are installed." if installed_count else "SDK is optional and not installed.",
         details=sdk_runtime,
         next_actions=[] if installed_count else ["Install only the service SDK packages needed by a selected SDK supplement."],
-        install_commands=[] if installed_count else SDK_INSTALL_COMMANDS,
+        install_commands=[] if installed_count else sdk_install_commands(),
     )
 
 
@@ -247,7 +293,7 @@ def inspect_terraform(needs: set[str], workdir: Path) -> dict[str, Any]:
             "forbidden_artifacts": context.get("forbidden_artifacts", []),
         },
         next_actions=[] if found else ["Install Terraform only when the task explicitly needs IaC, import, drift, or long-term management."],
-        install_commands=[] if found else TERRAFORM_CHECK_COMMANDS,
+        install_commands=[] if found else terraform_check_commands(),
     )
 
 
@@ -299,7 +345,7 @@ def inspect_obsutil(needs: set[str]) -> dict[str, Any]:
         summary="obsutil is available." if found else "obsutil is optional and not installed.",
         details={"path": path, "version_command": version, "config": config},
         next_actions=[] if found else ["Install obsutil only for OBS bucket/object/static-website workflows that need obsutil."],
-        install_commands=[] if found else OBSUTIL_CHECK_COMMANDS,
+        install_commands=[] if found else obsutil_check_commands(),
     )
 
 

@@ -7,7 +7,6 @@ import argparse
 import json
 import subprocess
 import time
-from pathlib import Path
 from typing import Any
 
 import hcloud_common
@@ -62,10 +61,7 @@ def classify_status(status: str | None) -> str:
 
 def build_show_job_command(args: argparse.Namespace) -> list[str]:
     """Build the hcloud_safe_exec.py command used for one ShowJob poll."""
-    script_path = Path(__file__).with_name("hcloud_safe_exec.py")
-    command = [
-        "python3",
-        str(Path("scripts") / script_path.name),
+    command = hcloud_common.safe_exec_command_prefix() + [
         "--service",
         "ECS",
         "--operation",
@@ -120,11 +116,7 @@ def compact_attempt(index: int, exec_result: dict[str, Any], status: str | None,
 
 def build_resource_verification(args: argparse.Namespace) -> dict[str, Any]:
     """Return follow-up guidance for ECS resource state verification."""
-    verifier_path = Path(__file__).with_name("hcloud_ecs_verify_active.py")
-    followup_command = [
-        "python3",
-        str(Path("scripts") / verifier_path.name),
-    ]
+    followup_command = hcloud_common.bundled_script_command("hcloud_ecs_verify_active.py")
     for server_id in args.server_id:
         followup_command.append(f"--server-id={server_id}")
     for server_name in args.server_name:

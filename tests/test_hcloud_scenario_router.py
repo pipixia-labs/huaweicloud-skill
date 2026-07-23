@@ -110,6 +110,8 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("references/playbooks/obs-static-website-hosting.md", match["primary_playbooks"])
         self.assertIn("references/playbooks/obs-boundary.md", match["primary_playbooks"])
         self.assertIn("scripts/hcloud_obs_readonly.py", match["planners"])
+        self.assertEqual(match["scenario_contract"]["id"], "obs-static-website-hosting")
+        self.assertIn("bucket_name", match["scenario_contract"]["required_inputs"])
         followup_tools = [item["tool"] for item in match["recommended_followups"]]
         self.assertIn("scripts/hcloud_closure_plan.py", followup_tools)
 
@@ -159,8 +161,11 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("CCI", match["services"])
         self.assertIn("references/playbooks/swr-image-readiness.md", match["primary_playbooks"])
         self.assertIn("references/playbooks/cci-workload-readiness.md", match["primary_playbooks"])
+        self.assertIn("scripts/hcloud_cci_workload_plan.py", match["planners"])
         self.assertIn("scripts/hcloud_resource_discovery.py", match["planners"])
         self.assertIn("scripts/hcloud_service_change_plan.py", match["planners"])
+        self.assertEqual(match["scenario_contract"]["id"], "container-image-deployment")
+        self.assertIn("workload_and_access_verification", match["scenario_contract"]["output_sections"])
         self.assertTrue(match["terraform_candidate"])
 
     def test_routes_cce_assessment_to_cloud_native_playbook(self) -> None:
@@ -231,7 +236,16 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertTrue((ROOT / "references" / "terraform-workflow.md").exists())
         self.assertTrue((ROOT / "references" / "terraform" / "README.md").exists())
         self.assertTrue((ROOT / "references" / "service-aliases.json").exists())
+        contract_path = ROOT / "references" / "scenario-contracts.json"
+        self.assertTrue(contract_path.exists())
         self.assertTrue((ROOT / "scripts" / "hcloud_terraform_router.py").exists())
+        contracts = hcloud_scenario_router.load_scenario_contracts(contract_path)
+        scenario_ids = {str(scenario.get("id")) for scenario in router.get("scenarios", [])}
+        for contract_id, contract in contracts.items():
+            with self.subTest(contract_id=contract_id):
+                self.assertIn(contract_id, scenario_ids)
+                for key in ("required_inputs", "evidence_requirements", "output_sections", "risk_boundaries"):
+                    self.assertTrue(contract.get(key), key)
         for scenario in router.get("scenarios", []):
             for key in ("primary_playbooks", "guides", "planners"):
                 for relative_path in scenario.get(key, []):

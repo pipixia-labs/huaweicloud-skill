@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import hashlib
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -71,8 +72,19 @@ def script_path(name: str) -> Path:
 
 
 def safe_exec_command_prefix() -> list[str]:
-    """Return the stable command prefix for the bundled safe executor."""
-    return ["python3", str(script_path("hcloud_safe_exec.py"))]
+    """Return a cross-platform command prefix for the bundled safe executor."""
+    return bundled_script_command("hcloud_safe_exec.py")
+
+
+def bundled_script_command(name: str) -> list[str]:
+    """Return a cross-platform Python command for a bundled script.
+
+    ``sys.executable`` keeps generated planner commands inside the agent's
+    active runtime. This avoids assuming a POSIX-only ``python3`` executable
+    when the skill is installed on Windows.
+    """
+    python_executable = sys.executable or ("python.exe" if sys.platform == "win32" else "python3")
+    return [python_executable, str(script_path(name))]
 
 
 def load_json(path: Path) -> Any:

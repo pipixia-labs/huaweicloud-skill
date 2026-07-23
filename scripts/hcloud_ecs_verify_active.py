@@ -7,7 +7,6 @@ import argparse
 import json
 import subprocess
 import time
-from pathlib import Path
 from typing import Any
 
 import hcloud_common
@@ -66,10 +65,7 @@ def server_status(server: dict[str, Any]) -> str | None:
 
 def build_list_servers_command(args: argparse.Namespace) -> list[str]:
     """Build the safe_exec command used for one ECS ListServersDetails poll."""
-    script_path = Path(__file__).with_name("hcloud_safe_exec.py")
-    command = [
-        "python3",
-        str(Path("scripts") / script_path.name),
+    command = hcloud_common.safe_exec_command_prefix() + [
         "--service",
         "ECS",
         "--operation",

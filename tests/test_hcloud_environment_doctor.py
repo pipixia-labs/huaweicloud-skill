@@ -133,6 +133,28 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertEqual(optional["status"], "skipped")
         self.assertEqual(required["status"], "blocker")
 
+    def test_windows_guidance_uses_powershell_and_windows_executables(self) -> None:
+        commands, notes = hcloud_environment_doctor.hcloud_install_guidance("Windows")
+
+        self.assertTrue(any(command.startswith("Invoke-WebRequest") for command in commands))
+        self.assertTrue(any("Expand-Archive" in command for command in commands))
+        self.assertTrue(any("hcloud version" in command for command in commands))
+        self.assertTrue(any("hcloud.exe" in note for note in notes))
+        self.assertEqual(hcloud_environment_doctor.command_python("Windows"), "python")
+        self.assertEqual(hcloud_environment_doctor.obsutil_check_commands("Windows"), ["obsutil.exe version"])
+        self.assertIn(
+            "python scripts/hcloud_terraform_context_inspect.py --pretty",
+            hcloud_environment_doctor.terraform_check_commands("Windows"),
+        )
+
+    def test_posix_guidance_preserves_python3_and_shell_install_path(self) -> None:
+        commands, notes = hcloud_environment_doctor.hcloud_install_guidance("Linux")
+
+        self.assertEqual(notes, [])
+        self.assertTrue(any(command.startswith("curl ") for command in commands))
+        self.assertEqual(hcloud_environment_doctor.command_python("Linux"), "python3")
+        self.assertEqual(hcloud_environment_doctor.obsutil_check_commands("Linux"), ["obsutil version"])
+
 
 if __name__ == "__main__":
     unittest.main()

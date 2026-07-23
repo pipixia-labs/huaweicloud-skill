@@ -54,6 +54,7 @@
         "scripts/hcloud_billing_readonly.py",
         "scripts/hcloud_billing_result_summarize.py",
         "scripts/hcloud_cce_assessment_plan.py",
+        "scripts/hcloud_cci_workload_plan.py",
         "scripts/hcloud_ces_alarm_plan.py",
         "scripts/hcloud_ces_datapoint_plan.py",
         "scripts/hcloud_closure_plan.py",

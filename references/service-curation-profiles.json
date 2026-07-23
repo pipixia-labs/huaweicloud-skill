@@ -270,6 +270,51 @@
         "verification_policy": "cluster_status_node_status_and_kubeconfig_boundary"
       }
     },
+    "CCI": {
+      "status": "candidate",
+      "target_coverage": "medium",
+      "lifecycle_stage": "promotion_candidate",
+      "user_value": "在无服务器容器上线前把 namespace、Network、规格、镜像和公网入口风险收敛为可验证证据。",
+      "tenant_goal_tags": [
+        "上好云",
+        "用好云",
+        "管好云"
+      ],
+      "scenario_tags": [
+        "serverless-container",
+        "workload-readiness",
+        "network-exposure"
+      ],
+      "min_live_read_smoked_operations": 2,
+      "readiness_operations": [
+        "listCoreV1Namespace",
+        "listNetworkingCciIoV1beta1NamespacedNetwork",
+        "listCoreV1NamespacedResourceQuota",
+        "listCoreV1NamespacedEvent"
+      ],
+      "resource_query_operations": [
+        "listAppsV1NamespacedDeployment",
+        "listAppsV1NamespacedStatefulSet",
+        "listCoreV1NamespacedPod",
+        "listCoreV1NamespacedService"
+      ],
+      "playbooks": [
+        "references/playbooks/cci-workload-readiness.md"
+      ],
+      "risk_profile": {
+        "mutation_policy": "planner_only_hard_gates_until_dedicated_guarded_flow",
+        "default_risk": "high",
+        "submit_policy": "no_submit_or_generic_mutation_from_cci_workload_plan",
+        "verification_policy": "namespace_network_then_workload_pod_service_and_protocol_evidence"
+      },
+      "official_docs": [
+        "https://support.huaweicloud.com/cci/"
+      ],
+      "known_shape_exceptions": [
+        "Some CCI status endpoints are not yet classified as safe generic resource-query operations; use list evidence and validate command shape before adding a focused read path.",
+        "No live-read smoke evidence is claimed by this candidate profile."
+      ]
+    },
     "CDN": {
       "status": "curated",
       "target_coverage": "low",

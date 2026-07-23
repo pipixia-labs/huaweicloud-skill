@@ -13,6 +13,7 @@ import hcloud_common
 
 ROUTER_PATH = hcloud_common.REFERENCES_DIR / "scenario-router.json"
 SERVICE_ALIAS_PATH = hcloud_common.REFERENCES_DIR / "service-aliases.json"
+SCENARIO_CONTRACT_PATH = hcloud_common.REFERENCES_DIR / "scenario-contracts.json"
 
 TERRAFORM_ROUTE = {
     "context_inspect": "scripts/hcloud_terraform_context_inspect.py",
@@ -57,6 +58,21 @@ def load_service_aliases(path: Path = SERVICE_ALIAS_PATH) -> dict[str, str]:
     if not isinstance(aliases, dict):
         return {}
     return {str(alias): str(service).upper() for alias, service in aliases.items()}
+
+
+def load_scenario_contracts(path: Path = SCENARIO_CONTRACT_PATH) -> dict[str, dict[str, Any]]:
+    """Load local scenario contracts keyed by their matching scenario IDs."""
+    if not path.exists():
+        return {}
+    data = hcloud_common.load_json(path)
+    contracts = data.get("contracts", [])
+    if not isinstance(contracts, list):
+        return {}
+    return {
+        str(item["id"]): dict(item)
+        for item in contracts
+        if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"]
+    }
 
 
 def recommended_followups(scenario: dict[str, Any]) -> list[dict[str, str]]:
@@ -128,6 +144,7 @@ def route(query: str, category: str | None = None, service: str | None = None, l
     """Route a user goal to local scenario entries."""
     router = load_router(router_path)
     service_aliases = load_service_aliases()
+    scenario_contracts = load_scenario_contracts()
     matches = []
     for scenario in router.get("scenarios", []):
         if not isinstance(scenario, dict):
@@ -152,6 +169,7 @@ def route(query: str, category: str | None = None, service: str | None = None, l
                 "primary_playbooks": scenario.get("primary_playbooks", []),
                 "guides": scenario.get("guides", []),
                 "planners": scenario.get("planners", []),
+                "scenario_contract": scenario_contracts.get(str(scenario.get("id") or "")),
                 "recommended_followups": recommended_followups(scenario),
                 "sdk_supplements": scenario.get("sdk_supplements", []),
                 "terraform_candidate": scenario.get("terraform_candidate", False),

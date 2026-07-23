@@ -21,7 +21,7 @@
 python3 scripts/hcloud_scenario_router.py "<user-goal>" --pretty
 ```
 
-路由结果只用于选择 `references/playbooks/`、`references/guides/`、planner、SDK supplement 和 Terraform 候选；它不执行 hcloud、SDK 或 Terraform 操作。
+路由结果只用于选择 `references/playbooks/`、`references/guides/`、planner、SDK supplement 和 Terraform 候选。对于带 `scenario_contract` 的重点场景，还要按契约确认输入、采集证据并组织交付；它不执行 hcloud、SDK 或 Terraform 操作。
 
 如果路由结果或用户原话明确指向 Terraform/IaC、环境复制、import、drift review 或长期纳管，再运行 Terraform 资产路由：
 

@@ -101,9 +101,15 @@ class HcloudCommonTest(unittest.TestCase):
     def test_safe_exec_command_prefix_uses_absolute_bundled_script(self) -> None:
         prefix = hcloud_common.safe_exec_command_prefix()
 
-        self.assertEqual(prefix[0], "python3")
+        self.assertEqual(prefix[0], sys.executable)
         self.assertTrue(Path(prefix[1]).is_absolute())
         self.assertEqual(Path(prefix[1]).name, "hcloud_safe_exec.py")
+
+    def test_bundled_script_command_uses_current_runtime(self) -> None:
+        prefix = hcloud_common.bundled_script_command("hcloud_ecs_verify_active.py")
+
+        self.assertEqual(prefix[0], sys.executable)
+        self.assertEqual(Path(prefix[1]), SCRIPTS / "hcloud_ecs_verify_active.py")
 
     def test_redaction_avoids_generic_token_and_short_numeric_values(self) -> None:
         payload = {

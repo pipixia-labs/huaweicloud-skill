@@ -11,6 +11,31 @@
 - 用户要查询 CCI Pod/Deployment/Service 状态。
 - 用户遇到 CCI 镜像拉取失败、Service 暴露失败、Pod 不 Ready、日志查不到。
 
+## 推荐入口：先生成前置检查与验收计划
+
+先使用 CCI 专用 planner 收集输入和生成只读证据命令。它不会执行任何云资源变更；Windows 请将命令中的 `python3` 替换为当前 Python 环境的 `python`。
+
+```bash
+python3 scripts/hcloud_cci_workload_plan.py \
+  --namespace <namespace> \
+  --namespace-flavor general-computing \
+  --vpc-id <vpc-id> \
+  --subnet-id <subnet-id> \
+  --neutron-network-id <neutron-network-id> \
+  --subnet-cidr <subnet-cidr> \
+  --security-group-id <security-group-id> \
+  --network-name <network-name> \
+  --workload-name <workload-name> \
+  --image <image:tag-or-digest> \
+  --cpu-request <cpu> --cpu-limit <same-cpu> \
+  --memory-request <memory> --memory-limit <same-memory> \
+  --service-name <service-name> \
+  --region <region> \
+  --pretty
+```
+
+planner 输出按依赖顺序组织证据：namespace → Network → quota/events → workload → Pod → Service → 协议探测。它只生成 `hcloud_resource_query.py` 的计划命令，不会自动运行命令。`readiness=ready_to_review` 也不等于变更授权。
+
 ## 标准只读检查
 
 1. 查询 CCI namespace：
@@ -70,10 +95,11 @@ python3 scripts/hcloud_resource_query.py \
 CCI 的 namespace、Network、Deployment、Service、Secret、Ingress、EIPPool 创建/更新都是写操作。生成计划前必须确认：
 
 - region / project / enterprise project。
-- namespace 名称和资源类型。
-- Network 绑定的 VPC、subnet、安全组。
+- namespace 名称、用途和规格类型（通用算力或 GPU）。
+- Network 先于工作负载存在，并绑定正确的 VPC、subnet、`neutronNetwork` 和安全组。
+- subnet CIDR 不得与 CCI 保留网段 `10.247.0.0/16` 重叠。
 - 镜像地址、tag/digest、拉取凭证。
-- CPU、内存、GPU、临时存储、环境变量、Secret/ConfigMap。
+- CPU、内存、GPU、临时存储、环境变量、Secret/ConfigMap；CCI 的 CPU/内存 request 和 limit 必须一致。
 - 副本数、健康检查、端口、Service 类型。
 - 是否需要 EIP、ELB、DNS、HTTPS、访问源限制。
 - 日志是否进入 LTS，指标是否进入 CES。
@@ -82,9 +108,11 @@ CCI 的 namespace、Network、Deployment、Service、Secret、Ingress、EIPPool 
 ## 风险边界
 
 - 不自动创建 Deployment、Service、Secret、Network 或 EIPPool。
+- 不生成 namespace、Network、工作负载或 EIPPool 的删除命令；namespace 删除必须先盘点其下资源、确认备份/回滚与依赖，并在独立受控流程中二次确认。
 - 不在最终输出里展示镜像拉取密码、token、Secret value。
 - 不把 Pod Running 当成业务可用；必须补协议探测或 Service/Ingress 访问证据。
 - 不建议直接创建裸 Pod 承载长期服务；优先 Deployment/Job/StatefulSet，按用户目标选择。
+- EIP/ELB 公网暴露必须提供业务理由和受限来源 CIDR；不接受 `0.0.0.0/0` 作为 planner 的通过条件。
 - 变更前先用 planner 或 Terraform route，真实执行必须二次确认。
 
 ## 常见问题

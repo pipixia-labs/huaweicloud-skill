@@ -71,7 +71,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | 环境、认证、profile、region/project | `hcloud_environment_doctor.py`、`hcloud_context_inspect.py` |
 | 自然语言场景路由 | `hcloud_scenario_router.py` |
 | 真实 hcloud 查询或受控系统命令 | `hcloud_safe_exec.py` |
-| 多服务发现、目标查询、readiness/live validation | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py` |
+| 多服务发现、目标查询、readiness/live validation（含 CCI 工作负载前检） | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py`、`hcloud_cci_workload_plan.py` |
 | 创建/变更计划和 guarded flow | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
 | P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |
 | 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py`、`hcloud_billing_live_read.py` |
