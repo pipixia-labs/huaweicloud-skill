@@ -274,6 +274,55 @@ class SafeExecRedactionTest(unittest.TestCase):
         self.assertIn("permission_hint", result["error_details"])
         self.assertIn("vpc:securityGroupRules:list", result["error_details"]["permission_hint"]["required_actions"])
 
+    def test_cli_supplies_user_and_home_defaults_to_hcloud_subprocess(self) -> None:
+        """KooCLI receives shell defaults even when the sandbox omits them."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import os\n"
+                "print(f\"USER={os.environ.get('USER', '')};HOME={os.environ.get('HOME', '')}\")\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+            sandbox_env = {
+                key: value
+                for key, value in os.environ.items()
+                if key not in {"USER", "HOME"}
+            }
+            sandbox_env["PATH"] = f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--command-part=obs",
+                    "--command-part=ls",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=sandbox_env,
+            )
+
+        result = json.loads(completed.stdout)
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["stdout"], "USER=hcloud;HOME=/tmp\n")
+
+    def test_hcloud_subprocess_env_preserves_runtime_values(self) -> None:
+        """A credential runtime's own home and user values are never replaced."""
+
+        env = hcloud_safe_exec.build_hcloud_subprocess_env(
+            {"USER": "sandbox-user", "HOME": "/tmp/runtime-home"}
+        )
+
+        self.assertEqual(env["USER"], "sandbox-user")
+        self.assertEqual(env["HOME"], "/tmp/runtime-home")
+
 
 if __name__ == "__main__":
     unittest.main()

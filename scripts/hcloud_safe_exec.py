@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import tempfile
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -429,6 +431,25 @@ def build_command(args: argparse.Namespace, temp_json_file: Path | None) -> list
     return command
 
 
+def build_hcloud_subprocess_env(
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Return an inherited environment KooCLI can use in a minimal sandbox.
+
+    KooCLI resolves the current user's home directory through the ``USER``
+    environment variable when CGO-backed user lookup is unavailable. Some
+    non-login sandbox images omit both shell variables, so provide stable,
+    non-secret defaults while preserving any runtime-projected credential home.
+    """
+
+    command_env = dict(os.environ if environ is None else environ)
+    if not command_env.get("USER", "").strip():
+        command_env["USER"] = "hcloud"
+    if not command_env.get("HOME", "").strip():
+        command_env["HOME"] = "/tmp"
+    return command_env
+
+
 def ensure_json_input_args(args: argparse.Namespace) -> None:
     """Validate JSON input arguments."""
     if args.json_input_file and args.json_input_text:
@@ -498,6 +519,7 @@ def main() -> int:
             encoding="utf-8",
             errors="replace",
             cwd=args.cwd,
+            env=build_hcloud_subprocess_env(),
             timeout=args.timeout,
             check=False,
         )
