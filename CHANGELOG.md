@@ -2,8 +2,15 @@
 
 ## Unreleased
 
-- Refreshed the hcloud metadata-backed catalog from the local KooCLI cache. The default runtime scope now excludes HCS/ManageOne private-cloud control planes, retains AgentArts public-cloud coverage, and reports 199 services with 15,702 operations.
-- Added a hard manual gate for BSS mutations, including billing-period conversion, while preserving read-only BSS workflows.
+暂无。
+
+## 0.7.2 - 2026-07-23
+
+- 刷新 hcloud metadata-backed catalog：默认运行时排除 HCS/ManageOne 私有云控制面，保留 AgentArts 公有云覆盖，更新为 199 个服务、15,702 个 operation。
+- BSS 写操作（包括计费周期转换）进入 hard manual gate，只读 Billing/BSS 路径保持不变。
+- 生成的本地脚本命令改用当前 Python 解释器；环境体检增加 Windows PowerShell/KooCLI、Python、Terraform 和 obsutil 指引。
+- 场景路由为 OBS 静态站点、可观测、成本治理和容器镜像部署返回结构化输入、证据、输出与风险契约。
+- 新增 CCI 工作负载前检与证据 planner：按 namespace、Network、quota/events、workload、Pod、Service、协议探测顺序组织只读证据，并拦截删除、公网暴露、保留网段和不一致的资源 request/limit。
 
 ## 0.7.1 - 2026-07-05
 

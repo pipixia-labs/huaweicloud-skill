@@ -2,8 +2,41 @@
 
 ## Unreleased
 
-- 刷新 hcloud metadata-backed catalog：默认运行时排除 HCS/ManageOne 私有云控制面，保留 AgentArts 公有云覆盖，catalog 更新为 199 个服务、15,702 个 operation。
-- BSS 写操作（包括计费周期转换）进入 hard manual gate；只读 Billing/BSS 路径保持不变。
+暂无。
+
+## v0.7.2 / 0.7.2 - 2026-07-23
+
+v0.7.2 聚焦运行环境可移植性、场景交付约束和无服务器容器部署前的安全证据链。`hcloud` 仍是资源查询与验证主路径；本版本没有新增默认资源创建、删除或 SDK 变更执行能力。
+
+### 主要变化
+
+- **Catalog 与 Billing 安全边界**
+  - 刷新 hcloud metadata-backed catalog：默认排除 HCS/ManageOne 私有云控制面，保留 AgentArts 公有云覆盖，共 199 个服务、15,702 个 operation。
+  - BSS 写操作（包括计费周期转换）进入 hard manual gate，只读 Billing/BSS 工作流保持不变。
+
+- **Windows 与运行时兼容**
+  - 生成的 safe-exec 和 ECS 后续验证命令使用当前 Python 解释器，不再假定只有 POSIX `python3`。
+  - `hcloud_environment_doctor.py` 为 Windows 提供 KooCLI PowerShell 下载/解压/Path 校验指引，以及 `python`、Terraform 和 `obsutil.exe` 的平台化检查命令；诊断器仍然只检查，不会自动安装或改写配置。
+
+- **场景契约**
+  - 场景路由为 OBS 静态站点、可观测 readiness、审计与成本治理、容器镜像部署返回 machine-readable 契约，明确所需输入、证据、输出结构和风险边界。
+
+- **CCI 工作负载前检**
+  - 新增 `hcloud_cci_workload_plan.py`，以非执行方式编排 namespace、Network、quota/events、workload、Pod、Service 和协议探测的证据计划。
+  - CCI planner 拦截 delete intent、与 `10.247.0.0/16` 重叠的子网、CPU/内存 request 与 limit 不一致，以及缺少业务理由或受限来源 CIDR 的 ELB/EIP 公网暴露。
+  - CCI 作为中等覆盖的候选服务进入 curation profile；尚未声称真实账号只读 smoke 证据。
+
+### 验证
+
+- 与本版本相关的 Windows、场景路由、CCI、curation 和架构契约测试：73 项通过。
+- `python3 -m compileall -q scripts tests`、关键 JSON 解析与 `git diff --check`：通过。
+- 全量测试当前有 1 项既有 Billing 外部参考目录重命名问题：代码仍指向旧目录，不影响本版本的 catalog、Windows 或 CCI 功能。
+
+### 兼容性与安全说明
+
+- 本版本不自动安装 KooCLI、SDK、Terraform 或 obsutil。
+- CCI planner 不调用 hcloud、不接收镜像拉取凭据，也不产生可提交的资源变更或删除命令。
+- `ready_to_review` 仅表示前置输入和规划检查齐备，不代表变更授权或应用已可用。
 
 ## v0.7.1 / 0.7.1 - 2026-07-05
 
