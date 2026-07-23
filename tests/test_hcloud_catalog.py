@@ -336,6 +336,44 @@ class HcloudCatalogTest(unittest.TestCase):
         self.assertEqual(operation["detail_file"], "ListHostRisks_v5_cn.yaml")
         self.assertEqual(operation["optional_params"], ["host_id"])
 
+    def test_build_catalog_excludes_hcs_metadata_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            meta_repo = Path(tmp_dir)
+            self.write_json(
+                meta_repo / "services_cn.json",
+                {
+                    "items": [
+                        {
+                            "Category": "HCS",
+                            "IsGlobal": True,
+                            "Service": {"Text": "HCSECS", "Description": "Private-cloud ECS"},
+                        },
+                        {
+                            "Category": "人工智能",
+                            "IsGlobal": False,
+                            "Service": {"Text": "AgentArts", "Description": "Agent platform"},
+                        },
+                    ]
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "hcsecs" / "apis_cn.json",
+                {"apiList": {"ListServers": {"Name": "ListServers", "Versions": ["v1"]}}},
+            )
+            self.write_json(
+                meta_repo / "template" / "agentarts" / "apis_cn.json",
+                {"apiList": {"ListCoreGateways": {"Name": "ListCoreGateways", "Versions": ["v1"]}}},
+            )
+
+            public_catalog = build_hcloud_catalog.build_catalog(meta_repo)
+            all_metadata_catalog = build_hcloud_catalog.build_catalog(meta_repo, include_hcs=True)
+
+        self.assertEqual(public_catalog["source"]["runtime_scope"], "public-cloud")
+        self.assertEqual(public_catalog["source"]["excluded_categories"], ["HCS"])
+        self.assertEqual(set(public_catalog["services"]), {"agentarts"})
+        self.assertEqual(all_metadata_catalog["source"]["runtime_scope"], "all-metadata")
+        self.assertEqual(set(all_metadata_catalog["services"]), {"agentarts", "hcsecs"})
+
 
 if __name__ == "__main__":
     unittest.main()

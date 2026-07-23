@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
   <img src="https://img.shields.io/badge/execution-hcloud%20CLI--first-brightgreen.svg" alt="执行面" />
   <img src="https://img.shields.io/badge/offline%20tests-300%2B-brightgreen.svg" alt="离线测试" />
-  <img src="https://img.shields.io/badge/catalog-198%20services%20%2F%2015%2C666%20ops-blue.svg" alt="覆盖" />
+  <img src="https://img.shields.io/badge/catalog-199%20services%20%2F%2015%2C702%20ops-blue.svg" alt="覆盖" />
 </p>
 
 通用 Agent 直接操作云资源有三类典型事故：
@@ -32,7 +32,7 @@ Agent 会自动完成：检查 KooCLI/profile/region/project → 按本地 regis
 
 | 维度 | 裸 Agent | 使用 huaweicloud-skill |
 | --- | --- | --- |
-| API 发现 | 靠模型记忆猜 service/operation | 本地 catalog（198 服务 / 15,666 operation）+ registry + `--help` 实证 |
+| API 发现 | 靠模型记忆猜 service/operation | 本地 catalog（199 服务 / 15,702 operation）+ registry + `--help` 实证 |
 | 变更控制 | 可能直接提交创建/删除/绑定 | 计划 → dry-run → 风险门禁 → 显式确认 → 执行 → 回读 |
 | 完成判断 | API 成功即宣布完成 | job 终态 → 资源状态 → SSH/协议/机内 → 业务证据，层层验收 |
 | 错误处理 | 自然语言猜原因 | 结构化分桶：认证 / 权限 / region-project / 参数 / 配额 / 网络 |
@@ -55,7 +55,7 @@ flowchart LR
 
 ## 核心能力
 
-- **CLI-first 执行面**：基于本机 `hcloud` 的真实 service、operation 和 help 工作；内置 catalog 覆盖 198 个服务、15,666 个 operation，按服务懒加载，不炸上下文。
+- **CLI-first 执行面**：基于本机 `hcloud` 的真实 service、operation 和 help 工作；内置 catalog 覆盖 199 个公有云服务、15,702 个 operation，按服务懒加载，不炸上下文。
 - **场景路由**：自然语言目标直接映射到本地 playbook、服务指南和 planner，覆盖建站、监控排障、成本优化、权限诊断、容器部署等高频场景。
 - **变更门禁**：dry-run、风险识别、显式确认、执行记录、变更后验证一条链；安全、身份、密钥、治理类操作进入硬门禁。
 - **验收闭环**：内置 HTTP/TCP/DNS/TLS 验收探测和证据判定，把"资源 ACTIVE"和"业务可用"严格区分开。

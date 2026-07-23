@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-暂无。
+- 刷新 hcloud metadata-backed catalog：默认运行时排除 HCS/ManageOne 私有云控制面，保留 AgentArts 公有云覆盖，catalog 更新为 199 个服务、15,702 个 operation。
+- BSS 写操作（包括计费周期转换）进入 hard manual gate；只读 Billing/BSS 路径保持不变。
 
 ## v0.7.1 / 0.7.1 - 2026-07-05
 

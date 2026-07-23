@@ -68,6 +68,7 @@ ACTION_TOKENS = tuple(dict.fromkeys((*READ_ONLY_ACTIONS, *MUTATING_ACTIONS)))
 IGNORED_PARAM_NAMES = {"x-auth-token", "content-type", "authorization", "x-language", "[n]"}
 PROJECT_PARAM_NAMES = {"project_id", "projectid"}
 MAX_TEXT = 320
+PRIVATE_CLOUD_CATEGORY = "hcs"
 
 
 def normalize_token(value: str) -> str:
@@ -134,6 +135,11 @@ def load_services_update_times(meta_repo: Path) -> dict[str, Any]:
         if services_file.exists():
             update_times[language] = load_json(services_file).get("updateTime")
     return update_times
+
+
+def is_private_cloud_service(service_info: dict[str, Any]) -> bool:
+    """Return whether service metadata describes an HCS/ManageOne control plane."""
+    return str(service_info.get("category") or "").strip().casefold() == PRIVATE_CLOUD_CATEGORY
 
 
 def select_version(versions: Any) -> str:
@@ -349,8 +355,15 @@ def load_api_entries(template_dir: Path) -> list[tuple[str, dict[str, Any], str]
     return sorted(operations.values(), key=lambda item: item[0].lower())
 
 
-def build_catalog(meta_repo: Path) -> dict[str, Any]:
-    """Build the complete generated catalog from a metaRepo directory."""
+def build_catalog(meta_repo: Path, include_hcs: bool = False) -> dict[str, Any]:
+    """Build a generated catalog, excluding private-cloud services by default.
+
+    The raw KooCLI metadata cache contains HCS and ManageOne control-plane
+    templates alongside Huawei Cloud public-cloud metadata. They are retained
+    in the source cache, but are not compatible with this skill's default
+    public-cloud runtime. Set ``include_hcs`` only for dedicated private-cloud
+    maintenance or review.
+    """
     services = load_service_items(meta_repo)
     template_root = meta_repo / "template"
     catalog_services: dict[str, Any] = {}
@@ -363,6 +376,8 @@ def build_catalog(meta_repo: Path) -> dict[str, Any]:
             continue
         service_key = normalize_token(template_dir.name)
         service_info = services.get(service_key, {})
+        if not include_hcs and is_private_cloud_service(service_info):
+            continue
         service_name = str(service_info.get("name") or template_dir.name.upper())
         operations: dict[str, Any] = {}
         operation_language_counts: dict[str, int] = {}
@@ -395,6 +410,8 @@ def build_catalog(meta_repo: Path) -> dict[str, Any]:
         "schema_version": 1,
         "source": {
             "format": "hcloud metaRepo",
+            "runtime_scope": "all-metadata" if include_hcs else "public-cloud",
+            "excluded_categories": [] if include_hcs else ["HCS"],
             "languages": list(LANGUAGE_ORDER),
             "merge_strategy": "operation-level English metadata preferred; Chinese metadata fills missing services, operations, and details",
             "services_update_time": services_update_times.get("en"),
@@ -494,6 +511,11 @@ def parse_args() -> argparse.Namespace:
         default=str(DEFAULT_SERVICE_OUTPUT_DIR),
         help="Generated per-service catalog output directory.",
     )
+    parser.add_argument(
+        "--include-hcs",
+        action="store_true",
+        help="Include HCS/ManageOne private-cloud metadata instead of the default public-cloud catalog scope.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Write indented JSON instead of compact JSON.")
     return parser.parse_args()
 
@@ -502,7 +524,7 @@ def main() -> int:
     """Generate the hcloud service catalog."""
     args = parse_args()
     source = Path(args.source_meta_repo).expanduser().resolve()
-    catalog = build_catalog(source)
+    catalog = build_catalog(source, include_hcs=args.include_hcs)
     output = Path(args.output).expanduser().resolve() if args.output else None
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)

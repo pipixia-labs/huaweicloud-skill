@@ -3,6 +3,10 @@
   "split": true,
   "source": {
     "format": "hcloud metaRepo",
+    "runtime_scope": "public-cloud",
+    "excluded_categories": [
+      "HCS"
+    ],
     "languages": [
       "en",
       "cn"
@@ -11,10 +15,10 @@
     "services_update_time": 1780540681,
     "services_update_times": {
       "en": 1780540681,
-      "cn": 1780650477
+      "cn": 1784795570
     },
-    "service_count": 198,
-    "operation_count": 15666
+    "service_count": 199,
+    "operation_count": 15702
   },
   "services": {
     "aad": {
@@ -32,6 +36,21 @@
       },
       "operation_count": 74,
       "service_file": "hcloud-service-catalog/aad.json"
+    },
+    "agentarts": {
+      "name": "AgentArts",
+      "service_key": "agentarts",
+      "template_dir": "agentarts",
+      "category": "人工智能",
+      "description": "智果AgentArts智能体平台",
+      "is_global": false,
+      "metadata_language": "cn",
+      "service_metadata_language": "cn",
+      "operation_language_counts": {
+        "cn": 5
+      },
+      "operation_count": 5,
+      "service_file": "hcloud-service-catalog/agentarts.json"
     },
     "agentidentity": {
       "name": "AgentIdentity",
@@ -225,9 +244,9 @@
       "metadata_language": "cn",
       "service_metadata_language": "en",
       "operation_language_counts": {
-        "cn": 87
+        "cn": 88
       },
-      "operation_count": 87,
+      "operation_count": 88,
       "service_file": "hcloud-service-catalog/bss.json"
     },
     "cae": {
@@ -1591,12 +1610,13 @@
       "category": "Management & Governance",
       "description": "Identity and Access Management",
       "is_global": true,
-      "metadata_language": "en",
+      "metadata_language": "mixed",
       "service_metadata_language": "en",
       "operation_language_counts": {
+        "cn": 13,
         "en": 222
       },
-      "operation_count": 222,
+      "operation_count": 235,
       "service_file": "hcloud-service-catalog/iam.json"
     },
     "iamaccessanalyzer": {
@@ -2486,10 +2506,10 @@
       "metadata_language": "mixed",
       "service_metadata_language": "en",
       "operation_language_counts": {
-        "cn": 33,
+        "cn": 50,
         "en": 271
       },
-      "operation_count": 304,
+      "operation_count": 321,
       "service_file": "hcloud-service-catalog/rds.json"
     },
     "res": {

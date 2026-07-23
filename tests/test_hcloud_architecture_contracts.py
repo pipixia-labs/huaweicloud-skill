@@ -289,6 +289,18 @@ class ArchitectureContractsTest(unittest.TestCase):
             service="IAMAccessAnalyzer",
             metadata_category="Management & Governance",
         )
+        iam_provider_risk = hcloud_change_plan.assess_risk(
+            "CreateOIDCProviderV5",
+            dryrun_supported=True,
+            service="IAM",
+            metadata_category="Management & Governance",
+        )
+        billing_mutation_risk = hcloud_change_plan.assess_risk(
+            "UpdatePeriodToOnDemandInstantly",
+            dryrun_supported=True,
+            service="BSS",
+            metadata_category="Management & Governance",
+        )
         read_risk = hcloud_change_plan.assess_risk(
             "ListPolicies",
             dryrun_supported=True,
@@ -300,6 +312,10 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertTrue(security_risk.hard_guard)
         self.assertEqual(identity_risk.level, "high")
         self.assertTrue(identity_risk.hard_guard)
+        self.assertEqual(iam_provider_risk.level, "high")
+        self.assertTrue(iam_provider_risk.hard_guard)
+        self.assertEqual(billing_mutation_risk.level, "high")
+        self.assertTrue(billing_mutation_risk.hard_guard)
         self.assertEqual(read_risk.level, "low")
         self.assertFalse(read_risk.hard_guard)
 

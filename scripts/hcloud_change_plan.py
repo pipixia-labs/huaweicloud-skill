@@ -56,6 +56,7 @@ HIGH_RISK_CONTEXT_TERMS = ("Os", "Password", "PrivateKey", "Private", "Key", "Cr
 NAMESPACE_OR_MODIFIER_TOKENS = ("Batch", "Nova", "Neutron", "Glance", "Cinder", "Keystone")
 HARD_GUARD_CATEGORIES = {"security & compliance"}
 HARD_GUARD_SERVICES = {
+    "BSS",
     "IAM",
     "IAMACCESSANALYZER",
     "IDENTITYCENTER",

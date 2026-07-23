@@ -3,6 +3,10 @@
   "catalog_schema_version": 1,
   "source": {
     "format": "hcloud metaRepo",
+    "runtime_scope": "public-cloud",
+    "excluded_categories": [
+      "HCS"
+    ],
     "languages": [
       "en",
       "cn"
@@ -11,10 +15,10 @@
     "services_update_time": 1780540681,
     "services_update_times": {
       "en": 1780540681,
-      "cn": 1780650477
+      "cn": 1784795570
     },
-    "service_count": 198,
-    "operation_count": 15666
+    "service_count": 199,
+    "operation_count": 15702
   },
   "services": {
     "aad": {
@@ -22,6 +26,12 @@
       "operation_count": 74,
       "operations_hash": "abefc0de83c45ec4",
       "required_params_hash": "df9155cf7401fc84"
+    },
+    "agentarts": {
+      "name": "AgentArts",
+      "operation_count": 5,
+      "operations_hash": "9afeaedbe8ac69af",
+      "required_params_hash": "c5ffecfc72642eb2"
     },
     "agentidentity": {
       "name": "AgentIdentity",
@@ -97,9 +107,9 @@
     },
     "bss": {
       "name": "BSS",
-      "operation_count": 87,
-      "operations_hash": "8b5b4869e8b95383",
-      "required_params_hash": "7c32ae83f008b1ab"
+      "operation_count": 88,
+      "operations_hash": "6f859679edc80a3a",
+      "required_params_hash": "feacab259f4c7068"
     },
     "cae": {
       "name": "CAE",
@@ -637,9 +647,9 @@
     },
     "iam": {
       "name": "IAM",
-      "operation_count": 222,
-      "operations_hash": "86785c9315e4a5d8",
-      "required_params_hash": "ee3321731b1f897f"
+      "operation_count": 235,
+      "operations_hash": "351e750eaeffe177",
+      "required_params_hash": "c0ea823f992660e0"
     },
     "iamaccessanalyzer": {
       "name": "IAMAccessAnalyzer",
@@ -991,9 +1001,9 @@
     },
     "rds": {
       "name": "RDS",
-      "operation_count": 304,
-      "operations_hash": "a4da2692588c3d7a",
-      "required_params_hash": "9e0ab7e5c74599cc"
+      "operation_count": 321,
+      "operations_hash": "07f1ab1168256997",
+      "required_params_hash": "0ff67f9cc8d567c3"
     },
     "res": {
       "name": "RES",
@@ -1206,5 +1216,5 @@
       "required_params_hash": "55a18948e28a4924"
     }
   },
-  "catalog_hash": "4af8d723dcc8661b"
+  "catalog_hash": "e702614c395004ca"
 }

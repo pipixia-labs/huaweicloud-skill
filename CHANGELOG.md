@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-暂无。
+- Refreshed the hcloud metadata-backed catalog from the local KooCLI cache. The default runtime scope now excludes HCS/ManageOne private-cloud control planes, retains AgentArts public-cloud coverage, and reports 199 services with 15,702 operations.
+- Added a hard manual gate for BSS mutations, including billing-period conversion, while preserving read-only BSS workflows.
 
 ## 0.7.1 - 2026-07-05
 

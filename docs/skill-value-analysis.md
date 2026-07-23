@@ -418,14 +418,14 @@ python3 -m unittest discover tests
 
 | 证据项 | 当前结果 | 说明 |
 | --- | --- | --- |
-| generated hcloud catalog | 198 个 metadata 服务，15,666 个 operation | 用于 registry 外服务的安全发现、显式只读查询和 planner-only 计划。 |
+| generated hcloud catalog | 199 个公有云 metadata 服务，15,702 个 operation | 用于 registry 外服务的安全发现、显式只读查询和 planner-only 计划。 |
 | curated registry | 19 个服务，311 个 registered operation | 包括 query、resource query、change operation、planner、verifier 和 known limits。 |
 | registry 查询能力 | 157 个 query operation，72 个 resource query operation | 区分通用发现和目标型详情查询。 |
 | registry 变更规划能力 | 82 个 change operation | 表示可被 planner 识别，不等于可以自动 submit。 |
-| metadata-backed 服务 | 180 个 registry 外服务 | 默认只开放保守兜底能力，不包装成 curated 闭环。 |
+| metadata-backed 服务 | 181 个 registry 外服务 | 默认只开放保守兜底能力，不包装成 curated 闭环。 |
 | 自动化测试 | 219 个单元测试通过 | 约束脚本、registry、Terraform/SDK 补充和安全边界。 |
 
-这些数字的意义不是“Agent 可以自动执行 15,666 个操作”。正确理解是：
+这些数字的意义不是“Agent 可以自动执行 15,702 个操作”。正确理解是：
 
 - catalog 扩大了 Agent 的发现面。
 - registry 定义了受控能力面。
