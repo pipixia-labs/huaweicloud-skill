@@ -46,6 +46,23 @@ python3 scripts/hcloud_resource_discovery.py \
 - 不要连续重试同一个 COC 调用超过一次。
 - 记录 region、project、ECS ID、错误码、缺失权限提示和是否存在 agency/SCP/custom deny 可能。
 
+## COC 双 region 上下文
+
+COC 排障必须分开两个 region：
+
+- `coc_service_region`：调用 COC API、查询脚本和管理任务的控制面 endpoint 区域。
+- `target_instance_region`：目标 HCSS/ECS 实例真实所在区域。
+
+当出现脚本存在但目标查不到、agent offline、跨区 target not found，或同一实例在某个 COC endpoint 不可见时，按以下顺序取证：
+
+1. 记录 COC endpoint 和 `coc_service_region`。
+2. 记录目标的 `provider`、`type`、`resource_id`、`region_id`。
+3. 确认目标已被该 COC 控制面纳管，且 agent 在线。
+4. 确认 project/agency 权限。
+5. 最后再检查 script ID 和 execute 参数。
+
+两个 region 中任一个未知时，不要只切换 `--region` 连续重试；明确报告缺少哪个上下文。目标 region 正确但 COC endpoint 错误时，应定位为控制面上下文问题；agent status 为空时，不能把任务失败直接归因到脚本。
+
 ## COC 委托与临时凭证模式
 
 如果要把 COC 用作已有 ECS 的机内执行通道，先把授权链和临时凭证设计清楚，不要直接把“能创建脚本”当成“可以安全登录机器”。

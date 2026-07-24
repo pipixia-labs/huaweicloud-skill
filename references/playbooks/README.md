@@ -15,7 +15,7 @@
 - `web-application-production-readiness.md`
   - 为生产 Web/API 上线串联计算、ELB、RDS、VPC、安全组、DNS/CDN/SCM/WAF、观测、备份和成本证据。
 - `obs-static-website-hosting.md`
-  - OBS 静态网站托管、自定义域名、CNAME、匿名访问和 403/404 排障。
+  - OBS 静态网站托管、自定义域名、CNAME、匿名访问、备案证据边界和 403/404 排障。
 - `flexus-l-readiness.md`
   - Flexus L/轻量服务器选型、费用确认、创建/续费/退订边界和验收要求。
 - `ecs-inventory.md`
@@ -43,7 +43,7 @@
 - `swr-image-readiness.md`
   - SWR namespace、repository、tag、登录凭证、推送/拉取权限和镜像清理边界。
 - `dws-diagnostic-method.md`
-  - DWS/数据库排障的指标、假设、证据、根因分类和报告方法。
+  - DWS CPU、内存和 I/O 排障的范围、采样语义、证据归因和报告方法。
 - `functiongraph-readiness.md`
   - FunctionGraph 函数、runtime、handler、触发器、LTS 日志和调用副作用边界。
 - `maas-usage-governance.md`
@@ -59,7 +59,7 @@
 - `ecs-monitoring-troubleshooting.md`
   - 排查 ECS 监控指标为空、内存指标命名不匹配和 CES 告警创建前置证据。
 - `observability-readiness.md`
-  - 用资源状态、CES 指标、CES alarm planner 和 LTS 只读日志建立可观测证据链。
+  - 用资源状态、CES 指标、CES alarm planner 和 LTS 只读日志建立可观测证据链，并覆盖 ModelArts 训练作业的渐进诊断。
 - `cts-audit-readiness.md`
   - CTS 审计 trail、trace、关键事件通知和 OBS 投递检查候选手册。
 - `tms-tag-governance.md`
@@ -114,6 +114,7 @@
 - 目标是低成本网站、静态站或轻量服务器选型：先看 `entry-level-web-hosting.md`
 - 目标是生产 Web/API 上线、域名 HTTPS、ELB、RDS、WAF/CDN 或多服务入口闭环：先看 `web-application-production-readiness.md`
 - 目标是 OBS 静态网站、自定义域名或 403/404 排障：先看 `obs-static-website-hosting.md` 和 `obs-boundary.md`
+- 目标是网站/App 备案、公安备案或经营性许可规则判断：先看 `obs-static-website-hosting.md` 的规则证据边界，不使用静态知识库直接下结论
 - 目标是 Flexus L/轻量服务器购买、续费或退订：先看 `flexus-l-readiness.md`
 - 目标需要进入机器内执行命令或 COC 不可用：先看 `coc-readiness.md` 和 `ecs-ssh-access-readiness.md`
 - 目标是修复或续跑已有命名资源：先看 `resource-idempotency-reconcile.md`
@@ -137,6 +138,7 @@
 - 目标是监控指标：先看 `ces-metric-readiness.md`
 - 目标是 ECS 内存/磁盘/Agent 指标查不到或 CES 告警指标不存在：先看 `ecs-monitoring-troubleshooting.md`
 - 目标是综合判断资源健康、闲置或生产可用性：先看 `observability-readiness.md`
+- 目标是 ModelArts 训练失败、训练卡住或任务长时间无进展：先看 `observability-readiness.md` 的 ModelArts 渐进诊断
 - 目标是审计操作记录或事件追踪：先看 `cts-audit-readiness.md`
 - 目标是标签治理、成本分摊或资源归属：先看 `tms-tag-governance.md`
 - 目标是备份、恢复点或 vault 姿态：先看 `cbr-backup-posture.md`

@@ -218,6 +218,55 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("FLEXUS-L", match["services"])
         self.assertTrue(any("alias:云耀云->FLEXUS-L" in reason for reason in match["reasons"]))
 
+    def test_routes_ucs_governance_to_existing_container_platform_path(self) -> None:
+        result = hcloud_scenario_router.route(
+            "UCS 集群纳管后 policy job success 但仍有 violation",
+            limit=1,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "container-readiness")
+        self.assertIn("UCS", match["services"])
+        self.assertIn("references/playbooks/ucs-fleet-readiness.md", match["primary_playbooks"])
+
+    def test_routes_dws_pressure_to_diagnostic_method(self) -> None:
+        result = hcloud_scenario_router.route(
+            "DWS CPU 高且部分节点 I/O 延迟持续升高",
+            limit=1,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "dws-performance-diagnosis")
+        self.assertIn("DWS", match["services"])
+        self.assertIn("references/playbooks/dws-diagnostic-method.md", match["primary_playbooks"])
+        self.assertFalse(match["terraform_candidate"])
+
+    def test_routes_modelarts_stalled_training_to_progressive_diagnosis(self) -> None:
+        result = hcloud_scenario_router.route(
+            "ModelArts 训练作业 Running 但日志没有进展",
+            limit=1,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "modelarts-training-diagnosis")
+        self.assertIn("ModelArts", match["services"])
+        self.assertIn("references/playbooks/observability-readiness.md", match["primary_playbooks"])
+        self.assertEqual(match["recommended_followups"], [])
+
+    def test_routes_icp_question_to_conditional_rule_evidence(self) -> None:
+        result = hcloud_scenario_router.route(
+            "中国大陆 OBS 网站上线前 ICP 和公安备案怎么判断",
+            limit=1,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "obs-static-website-hosting")
+        self.assertIn("references/playbooks/obs-static-website-hosting.md", match["primary_playbooks"])
+
     def test_unknown_goal_has_no_match(self) -> None:
         result = hcloud_scenario_router.route("烹饪晚饭和整理书架", limit=3)
 

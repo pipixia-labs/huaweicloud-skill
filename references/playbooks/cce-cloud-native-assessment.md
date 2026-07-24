@@ -86,7 +86,39 @@ Kubernetes 层只在用户确认 kubeconfig/RBAC 后执行。典型证据包括�
 
 kubeconfig、token、证书和 Secret 都必须脱敏，不写入报告正文或 planning 文件。
 
-### 4. 评分建议
+### 4. 指标空序列的判断顺序
+
+指标为空不能解释成“0 错误”或“资源健康”。先沿采集链逐层取证：
+
+1. AOM Prometheus 插件/实例是否与目标集群真实绑定。
+2. 目标组件是否暴露 metrics endpoint。
+3. etcd、controller-manager、scheduler 是否存在对应 ServiceMonitor。
+4. autoscaler、ingress、GPU 等组件是否存在对应 PodMonitor。
+5. Ingress 请求类指标是否在采集白名单中显式启用。
+6. 最后才检查 query、label、step 和时间窗。
+
+任一采集前置缺失时，结论是 `evidence_gap`，不能继续用空序列评价负载。
+
+指标语义还要避免两类常见误判：
+
+- CoreDNS 的 NXDOMAIN 可能是正常的不存在域名查询，应与 SERVFAIL、超时等真实解析失败分开。
+- apiserver 的 WATCH/CONNECT 是长连接语义，应从常规请求延迟中排除或单列；P95 需要按 verb 下钻后再解释。
+
+固定利用率阈值只能作为排查线索。是否异常还需要历史基线、持续时间、容量目标和业务影响。只有能证明 ELB 与 LoadBalancer Service/IP、NAT 与集群 VPC、EIP 与具体 ELB/NAT/Service 的绑定关系时，才能把外部资源指标归到该集群；同 region、名称相似或同时波动都不够。
+
+### 5. 告警关联与复盘
+
+- 当前故障查询 active 告警；复盘近期故障必须同时查询历史/已恢复告警。active 为空不能证明时间窗内没有故障。
+- 优先按 resource ID、cluster、namespace、node、workload、event type 和时间窗分组；仅凭标题或关键词相似不能合并。
+- `burst`、`sustained`、`recovered-and-repeated`、`possible-noise` 只表示调查时序：
+  - 短时集中出现可标为 `burst`；
+  - 长时间保持可标为 `sustained`；
+  - 恢复后多次再现可标为 `recovered-and-repeated`；
+  - 同源重复上报但没有资源状态变化可标为 `possible-noise`。
+- 这些标签只决定下一条证据，不直接生成根因，也不触发告警清理、禁用或自动处置。
+- 只有标题、没有精确资源 ID 时，只能标记弱关联。
+
+### 6. 评分建议
 
 可以按每个维度给 0 到 3 分：
 

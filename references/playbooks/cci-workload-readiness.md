@@ -90,6 +90,32 @@ python3 scripts/hcloud_resource_query.py \
 
 4. 如需确认镜像，先进入 `swr-image-readiness.md`。
 
+## 已知 CLI 阻塞与只读降级
+
+### 包含点号的 annotation key
+
+CCI Network 等对象可能依赖包含点号的 annotation key。某些 hcloud 版本中，普通嵌套参数或 `--cli-jsonInput` 的 dry-run 看起来保留了该 key，但真实请求可能把它拆成错误层级或直接遗漏。
+
+遇到这类对象时按以下证据顺序判断：
+
+1. 记录当前 hcloud 版本和 operation shape。
+2. 检查 dry-run 或请求摘要里的 annotation，而不是只看命令退出码。
+3. 创建后必须回读对象，确认完整 key 和 value 真实存在。
+4. 升级 hcloud 后重新验证，不能把一次复现写成所有版本的长期事实。
+
+如果 dry-run 有值、真实回读却缺少 annotation，只能报告“当前版本相关的 CLI 序列化阻塞”，并停止后续 workload 创建。不要据此宣称 CCI API 不支持，也不要自动切换到 Python、裸 HTTP、SDK 或 kubectl 写入旁路。
+
+### Pod exec 不可用时
+
+Pod exec 依赖交互式 WebSocket，批处理环境或当前 hcloud 入口可能无法稳定建立会话。exec 失败不等于容器故障；此时先降级到只读证据：
+
+1. workload / Pod status 和 container state；
+2. events、restart count 和 termination reason；
+3. 有限时间窗的 stdout/stderr 或 LTS 日志；
+4. Service/Ingress 状态和外部协议探测。
+
+只有这些证据仍不足，并且用户明确确认交互访问时，才考虑受控 exec。日志可读也不等于应用健康，仍需 Service/Ingress 或协议证据。
+
 ## 创建或更新前检查
 
 CCI 的 namespace、Network、Deployment、Service、Secret、Ingress、EIPPool 创建/更新都是写操作。生成计划前必须确认：
@@ -124,6 +150,8 @@ CCI 的 namespace、Network、Deployment、Service、Secret、Ingress、EIPPool 
 | Service 没公网入口 | Service 类型、EIP/ELB、Network 或安全组未配置 | 进入 `eip-public-ip-readiness.md` 和 `vpc-network-readiness.md`。 |
 | 无日志 | 应用未输出 stdout/stderr，或 LTS 未配置 | 进入 `lts-log-readiness.md`。 |
 | 健康检查失败 | 端口、路径、启动时间或协议不匹配 | 先读 Pod/Service 状态，再生成 probe 计划。 |
+| dry-run 有 annotation、回读却缺失 | 当前 hcloud 版本可能错误序列化包含点号的 key | 记录版本和请求/回读差异，停止 workload 创建，不自动切换执行器。 |
+| Pod exec 失败 | WebSocket/交互通道不可用，或权限/网络失败 | 先查 status、events、container state 和有限日志；不要直接判容器故障。 |
 
 ## 验收
 

@@ -101,6 +101,41 @@
       "skip_standard_followups": true
     },
     {
+      "id": "modelarts-training-diagnosis",
+      "name": "ModelArts training diagnosis",
+      "category": "ai",
+      "description": "Diagnose failed, stalled, or no-progress ModelArts training jobs through job details, stages, events, bounded task logs, and explicit evidence gaps.",
+      "triggers": [
+        "modelarts",
+        "modelarts 训练",
+        "训练作业失败",
+        "训练任务失败",
+        "训练作业卡住",
+        "训练任务卡住",
+        "训练无进展",
+        "training job"
+      ],
+      "services": [
+        "ModelArts",
+        "OBS",
+        "LTS"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/observability-readiness.md",
+        "references/playbooks/lts-log-readiness.md",
+        "references/playbooks/iam-permission-diagnostics.md"
+      ],
+      "guides": [],
+      "planners": [
+        "scripts/hcloud_resource_discovery.py",
+        "scripts/hcloud_resource_query.py",
+        "scripts/hcloud_lts_readonly.py"
+      ],
+      "sdk_supplements": [],
+      "terraform_candidate": false,
+      "skip_standard_followups": true
+    },
+    {
       "id": "environment-doctor",
       "name": "Environment setup and tool readiness",
       "category": "environment",
@@ -365,6 +400,11 @@
         "cname",
         "dns",
         "备案",
+        "icp",
+        "icp备案",
+        "公安备案",
+        "公安联网备案",
+        "经营性许可",
         "403",
         "404",
         "cdn"
@@ -819,13 +859,54 @@
       "terraform_candidate": false
     },
     {
+      "id": "dws-performance-diagnosis",
+      "name": "DWS performance diagnosis",
+      "category": "database",
+      "description": "Diagnose DWS CPU, memory, and I/O pressure through node scope, sampling semantics, SQL/session/process correlation, and evidence-bounded attribution.",
+      "triggers": [
+        "dws",
+        "gaussdb dws",
+        "数据仓库性能",
+        "dws cpu",
+        "dws 内存",
+        "dws io",
+        "dws i/o",
+        "dws 慢查询"
+      ],
+      "services": [
+        "DWS",
+        "CES",
+        "LTS"
+      ],
+      "primary_playbooks": [
+        "references/playbooks/dws-diagnostic-method.md",
+        "references/playbooks/observability-readiness.md",
+        "references/playbooks/lts-log-readiness.md"
+      ],
+      "guides": [],
+      "planners": [
+        "scripts/hcloud_resource_discovery.py",
+        "scripts/hcloud_resource_query.py",
+        "scripts/hcloud_observability_plan.py",
+        "scripts/hcloud_lts_readonly.py"
+      ],
+      "sdk_supplements": [],
+      "terraform_candidate": false,
+      "skip_standard_followups": true
+    },
+    {
       "id": "container-readiness",
       "name": "CCE and container platform readiness",
       "category": "container",
-      "description": "Discover CCE clusters, nodes, network dependencies, metrics, and workload platform readiness.",
+      "description": "Discover CCE/CCI clusters, UCS fleets, nodes, network dependencies, metrics, workloads, and policy-governance readiness.",
       "triggers": [
         "cce",
         "cci",
+        "ucs",
+        "多集群",
+        "集群纳管",
+        "fleet",
+        "policy instance",
         "swr",
         "kubernetes",
         "k8s",
@@ -856,6 +937,7 @@
       "services": [
         "CCE",
         "CCI",
+        "UCS",
         "SWR",
         "VPC",
         "ELB",
@@ -865,6 +947,7 @@
         "references/playbooks/cce-cloud-native-assessment.md",
         "references/playbooks/cce-cluster-readiness.md",
         "references/playbooks/cci-workload-readiness.md",
+        "references/playbooks/ucs-fleet-readiness.md",
         "references/playbooks/swr-image-readiness.md",
         "references/playbooks/vpc-network-readiness.md",
         "references/playbooks/observability-readiness.md",
