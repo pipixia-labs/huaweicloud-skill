@@ -17,7 +17,6 @@ import hcloud_common
 import hcloud_context_inspect
 import hcloud_terraform_context_inspect
 
-
 MIN_PYTHON = (3, 10)
 NEED_CHOICES = ("hcloud", "live", "sdk", "terraform", "obsutil", "maas")
 KOOCLI_QUICKSTART_URL = "https://support.huaweicloud.com/qs-hcli/hcli_02_003.html"
@@ -415,9 +414,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "summary": summarize(checks),
         "checks": checks,
         "source_references": [
-            "reference-projects/huaweicloud-skills-by-huawei/skills/devtools/cli/huawei-cloud-cli-guidance",
-            "reference-projects/huaweicloud-skills-by-huawei/skills/devtools/terraform/huawei-cloud-terraform-installer",
-            "reference-projects/huaweicloud-skills-by-huawei/skills/storage/obs/huawei-cloud-obs-website-host",
+            "references/auth-and-context.md",
+            "references/terraform/README.md",
+            "references/playbooks/obs-static-website-hosting.md",
         ],
         "execution_boundary": "This doctor does not install packages, modify credentials, write config, run terraform init/plan/apply, or call Huawei Cloud APIs.",
     }

@@ -32,17 +32,17 @@
 
 ## Provider inventory 维护
 
-`inventories/provider-resource-inventory.md` 和 `inventories/provider-data-source-inventory.md` 来自本地 `reference-projects/terraform-provider-huaweicloud/docs` 快照。当前快照是 provider changelog `1.93.0`，包含 1689 个 resource 和 2251 个 data source。
+`inventories/provider-resource-inventory.md` 和 `inventories/provider-data-source-inventory.md` 是随 Skill 发布的 Provider 文档快照。当前快照是 provider changelog `1.93.0`，包含 1689 个 resource 和 2251 个 data source。
 
 维护时运行：
 
 ```bash
-python3 scripts/hcloud_terraform_provider_inventory.py --write --pretty
-python3 scripts/hcloud_terraform_provider_inventory.py --fail-on-drift --pretty
-python3 scripts/hcloud_terraform_provider_inventory.py --signal-kind resources --signal-name rds_instance --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py --provider-root <provider-source-root> --write --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py --provider-root <provider-source-root> --fail-on-drift --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py --provider-root <provider-source-root> --signal-kind resources --signal-name rds_instance --pretty
 ```
 
-这些 inventory 只回答“provider 覆盖了什么”。`--signal-kind/--signal-name` 只读 provider Markdown，抽取单个 resource/data source 的 `ForceNew`、`Import` 段和敏感字段线索；生成或修改 `.tf` 前可用它提醒用户“这个字段变更可能重建资源”或“这个资源支持 import 但不能自动导入”。import、drift review 和 remote state 进入 `operations.md`。它们不是默认路由清单，更不是执行许可清单。新增 resource/data source 进入示例或 agent 默认路线前，还要看是否符合 `hcloud` 发现、Terraform plan review、风险分级和后置验证要求。
+`--provider-root` 必须由维护者显式提供，脚本不会搜索 Skill 外部目录。这些 inventory 只回答“provider 覆盖了什么”。`--signal-kind/--signal-name` 只读 provider Markdown，抽取单个 resource/data source 的 `ForceNew`、`Import` 段和敏感字段线索；生成或修改 `.tf` 前可用它提醒用户“这个字段变更可能重建资源”或“这个资源支持 import 但不能自动导入”。import、drift review 和 remote state 进入 `operations.md`。它们不是默认路由清单，更不是执行许可清单。新增 resource/data source 进入示例或 agent 默认路线前，还要看是否符合 `hcloud` 发现、Terraform plan review、风险分级和后置验证要求。
 
 ## 资产卫生
 

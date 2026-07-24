@@ -50,6 +50,7 @@ python3 scripts/hcloud_resource_query.py \
 
 ```bash
 python3 scripts/hcloud_terraform_provider_inventory.py \
+  --provider-root <provider-source-root> \
   --signal-kind resources \
   --signal-name <provider_resource_name> \
   --pretty

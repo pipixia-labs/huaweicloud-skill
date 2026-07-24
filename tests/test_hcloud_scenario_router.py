@@ -7,7 +7,6 @@ import sys
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -205,7 +204,7 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("references/terraform/operations.md", match["primary_playbooks"])
         self.assertIn("scripts/hcloud_terraform_context_inspect.py", match["planners"])
         self.assertIn("scripts/hcloud_terraform_operations_plan.py", match["planners"])
-        self.assertIn("scripts/hcloud_terraform_provider_inventory.py", match["planners"])
+        self.assertNotIn("scripts/hcloud_terraform_provider_inventory.py", match["planners"])
         self.assertFalse(match["terraform_candidate"])
         self.assertEqual(match["recommended_followups"], [])
 

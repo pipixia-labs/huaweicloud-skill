@@ -2,8 +2,8 @@
   "schema_version": 1,
   "description": "Compact ECS CES metric guidance for planner-only alarm drafts.",
   "source_assets": [
-    "reference-projects/huaweicloud-skills-by-huawei/skills/monitoring/ecs/huawei-cloud-ecs-alert/references/memory-monitoring-guide.md",
-    "reference-projects/huaweicloud-skills-by-huawei/skills/monitoring/ces/huawei-cloud-ces-ecs-monitoring/references/ces-metrics-reference.md"
+    "https://github.com/huaweicloud/huaweicloud-skills/blob/master/skills/monitoring/ecs/huawei-cloud-ecs-alert/references/memory-monitoring-guide.md",
+    "https://github.com/huaweicloud/huaweicloud-skills/blob/master/skills/monitoring/ces/huawei-cloud-ces-ecs-monitoring/references/ces-metrics-reference.md"
   ],
   "namespaces": {
     "SYS.ECS": {

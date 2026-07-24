@@ -10,17 +10,15 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 from importlib import metadata as importlib_metadata
 from importlib import util as importlib_util
-import re
 from pathlib import Path
 from typing import Any
 
 import hcloud_common
 
-
-ROOT = hcloud_common.ROOT
-DEFAULT_SDK_ROOT = ROOT.parent / "reference-projects" / "huaweicloud-sdk-python-v3"
+DEFAULT_SDK_ROOT: Path | None = None
 READ_ONLY_ACTIONS = {"List", "Show", "Count", "Check", "Search", "Query", "Get", "Download"}
 IGNORED_REQUIRED_PATH_PARAMS = {"project_id", "projectid", "domain_id", "domainid"}
 IGNORED_SDK_PACKAGES = {"huaweicloudsdkcore", "huaweicloudsdkall"}
@@ -377,7 +375,9 @@ def inspect_sdk(
         "success": True,
         "mode": "sdk_metadata",
         "role": "supplemental_to_hcloud",
-        "package_discovery": "installed_packages_first",
+        "package_discovery": "installed_packages_first_with_explicit_source_fallback"
+        if sdk_root
+        else "installed_packages_only",
         "sdk_source_root": str(sdk_root) if sdk_root else None,
         "sdk_source_root_exists": source_root_exists,
         "service": service.upper() if service else None,
@@ -466,7 +466,7 @@ def parse_args() -> argparse.Namespace:
         "--sdk-root",
         type=Path,
         default=DEFAULT_SDK_ROOT,
-        help="Optional huaweicloud-sdk-python-v3 source tree used as maintenance/test fallback after installed packages.",
+        help="Explicit huaweicloud-sdk-python-v3 source tree used as a maintenance/test fallback. No source tree is discovered by default.",
     )
     parser.add_argument("--service", help="SDK service name, for example ECS or VPC.")
     parser.add_argument("--operation", help="SDK operation name, for example ListFlavors.")

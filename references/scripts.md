@@ -163,15 +163,22 @@ python3 scripts/hcloud_terraform_catalog.py --write --pretty
 Use this during maintenance after changing `examples/terraform/` or `references/terraform/`. It rebuilds `terraform-example-catalog.json` and `terraform-reference-catalog.json`. Do not manually edit generated catalog JSON unless you are fixing a temporary local experiment.
 
 ```bash
-python3 scripts/hcloud_terraform_provider_inventory.py --write --pretty
-python3 scripts/hcloud_terraform_provider_inventory.py --fail-on-drift --pretty
 python3 scripts/hcloud_terraform_provider_inventory.py \
+  --provider-root <provider-source-root> \
+  --write \
+  --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py \
+  --provider-root <provider-source-root> \
+  --fail-on-drift \
+  --pretty
+python3 scripts/hcloud_terraform_provider_inventory.py \
+  --provider-root <provider-source-root> \
   --signal-kind resources \
   --signal-name rds_instance \
   --pretty
 ```
 
-Use this during maintenance after updating the local `reference-projects/terraform-provider-huaweicloud` checkout. It rebuilds provider resource/data-source inventories from `docs/resources` and `docs/data-sources`, records the local changelog snapshot, and detects inventory drift. `--signal-kind/--signal-name` reads the provider Markdown for one resource or data source and returns docs-first ForceNew, Import, and sensitive-field hints. These inventories and signals are review aids only; they do not grant execution permission and must not run `terraform import` or `terraform apply`.
+Use this during maintenance after updating an explicit local `terraform-provider-huaweicloud` checkout. `--provider-root` is required; the script never searches outside the Skill. It rebuilds provider resource/data-source inventories from `docs/resources` and `docs/data-sources`, records the changelog snapshot, and detects inventory drift. `--signal-kind/--signal-name` reads the provider Markdown for one resource or data source and returns docs-first ForceNew, Import, and sensitive-field hints. These inventories and signals are review aids only; they do not grant execution permission and must not run `terraform import` or `terraform apply`.
 
 ### Terraform Workflow Reference
 
@@ -533,7 +540,18 @@ The wrapper only allows reviewed BSS `List*` and `Show*` operations from `hcloud
 python3 scripts/hcloud_billing_operation_gap.py --pretty
 ```
 
-Use this during skill maintenance to compare local `hcloud_billing_readonly.py` coverage with official `huaweicloud-skills-by-huawei` billing-scout and business-support-query references. The audit is local-only: it reads markdown and script filenames, reports supported operations, P1/P2 missing operations, pricing API gaps, and enhanced pricing helper references, but does not run `hcloud`, read credentials, or query billing data.
+Use this during skill maintenance to compare local `hcloud_billing_readonly.py` coverage with the normalized official-reference snapshot in `references/billing/operation-gap-baseline.json`. The default audit is fully self-contained and reports supported operations, P1/P2 missing operations, pricing API gaps, and enhanced pricing helper references without running `hcloud`, reading credentials, or querying billing data.
+
+To refresh that snapshot, pass the upstream files explicitly; the script never searches a sibling repository:
+
+```bash
+python3 scripts/hcloud_billing_operation_gap.py \
+  --scout-related-commands <upstream-root>/skills/bss/billing/huawei-cloud-billing-scout/references/related-commands.md \
+  --business-bss-guide <upstream-root>/skills/bss/billing/huawei-cloud-business-tf-support/references/bss/guide.md \
+  --business-bss-script-dir <upstream-root>/skills/bss/billing/huawei-cloud-business-tf-support/scripts/bss \
+  --write-baseline references/billing/operation-gap-baseline.json \
+  --pretty
+```
 
 ### Billing Result Summarizer
 
@@ -775,7 +793,7 @@ python3 scripts/hcloud_catalog_smoke_candidates.py \
   --pretty
 ```
 
-Use this before expanding the metadata-backed live smoke matrix. It combines generated question frequency, generated catalog discovery operations, curated-registry exclusion, and existing `live-read-smoked` confidence entries to suggest the next services and read-only operations to test.
+Use this before expanding the metadata-backed live smoke matrix. By default it combines the bundled catalog, curated-registry exclusion, and existing `live-read-smoked` confidence entries, so selection is identical whether or not another project exists beside the Skill. Maintainers may add `--questions-dir <generated-questions-root>` as an explicit optional frequency signal.
 
 When you already have a review-approved candidate pool, restrict the selector instead of scanning the full catalog:
 

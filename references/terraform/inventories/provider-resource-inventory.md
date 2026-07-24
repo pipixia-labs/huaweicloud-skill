@@ -2,14 +2,14 @@
 
 这份文档把参考仓库 `docs/resources` 中的资源家族完整搬运到 skill 内部，作为 provider 资源覆盖面的总索引。
 
-来源快照：`reference-projects/terraform-provider-huaweicloud`，provider changelog 顶部版本 `1.93.0`，日期 `June 12, 2026`。
+来源快照：上游 `huaweicloud/terraform-provider-huaweicloud`，provider changelog 顶部版本 `1.93.0`，日期 `June 12, 2026`。
 覆盖统计：1689 个条目，124 个家族。
 
 阅读方式：
 - 先按家族名查看 provider 是否覆盖某个方向。
 - 再结合 `provider-capability-index.md` 判断是否值得进入主线。
 - 再结合 `reference-example-inventory.md` 判断是否已经有成型 example。
-- 这份文件是生成索引；维护时用 `scripts/hcloud_terraform_provider_inventory.py` 从 provider docs 重建。
+- 这份文件是生成索引；维护时用 `scripts/hcloud_terraform_provider_inventory.py --provider-root <provider-source-root>` 从显式传入的 provider docs 重建。
 
 ## aad (9)
 - `aad_black_white_list`

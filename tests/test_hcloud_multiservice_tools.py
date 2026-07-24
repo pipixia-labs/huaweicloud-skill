@@ -893,6 +893,11 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(result["success"], result)
         self.assertTrue(result["planning_only"])
         self.assertEqual(result["execution_boundary"], "local_reference_diff_only_no_hcloud_no_credentials")
+        self.assertEqual(result["reference_sources"]["mode"], "bundled_snapshot")
+        self.assertEqual(
+            result["reference_sources"]["baseline"],
+            "references/billing/operation-gap-baseline.json",
+        )
         self.assertFalse(result["coverage"]["complete"])
         self.assertIn("ListCosts", result["coverage"]["supported_operations"])
         self.assertIn("ListResourceUsageSummary", result["coverage"]["supported_operations"])

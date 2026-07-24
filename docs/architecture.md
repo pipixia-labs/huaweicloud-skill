@@ -15,13 +15,17 @@
 - **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json`、`references/scenario-contracts.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点、Terraform 候选，以及重点场景的输入/证据/输出契约。
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
-- **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 使用已安装的 `huaweicloudsdk*` package 或维护期源码 fallback，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。
+- **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 默认只使用已安装的 `huaweicloudsdk*` package，也允许维护者显式传入源码目录，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。
 - **IaC 资产面**：`hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`references/terraform/catalog/` 和 `examples/terraform/` 负责 Terraform 环境检查、资产路由和示例渐进加载；`references/terraform-workflow.md` 定义 plan/validate/apply/verify 流程和 hcloud 后置验证边界。
 - **MaaS API 面**：`references/maas-model-calls.md`、`references/maas-model-catalog.json` 和 `scripts/maas_*.py` 负责华为云 MaaS 模型 API 的 dry-run、payload 构造、调用和异步任务查询；不进入 KooCLI service registry。
 - **验证面**：job waiter、resource query、resource verifier、service readiness 分层确认结果。
 - **闭环面**：`hcloud_lifecycle_closure_plan.py` 把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 的 P0 典型任务组织成六阶段 planner-only 闭环。
 - **治理/场景面**：账号盘点、闲置审计、teardown review、可观测、Billing/Cost request spec、P1 governance closure、P2 scenario closure 和 curation profiles 支持生命周期治理和后续场景演进。
 - **回归面**：单测、架构契约、materials drift 和 coverage 检查持续约束实现。
+
+## 独立安装边界
+
+`huaweicloud-skill` 是可独立复制的发布单元。默认代码只能读取 Skill 内置资产、已安装的软件/package，以及用户目录中的 KooCLI、Terraform、OBS 等运行时配置；不得根据 `ROOT.parent` 猜测相邻源码仓库。SDK 源码、Terraform Provider 源码、完整问题集和其他上游资料只能作为显式维护输入，不参与普通 Agent 运行。
 
 ## 顶层结构
 

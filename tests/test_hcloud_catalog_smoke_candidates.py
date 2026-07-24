@@ -9,7 +9,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -39,6 +38,13 @@ class HcloudCatalogSmokeCandidatesTest(unittest.TestCase):
         """Write JSON test data."""
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    def test_question_frequency_is_optional_without_external_defaults(self) -> None:
+        result = hcloud_catalog_smoke_candidates.collect_question_frequency(None)
+
+        self.assertFalse(result["available"])
+        self.assertIsNone(result["questions_dir"])
+        self.assertEqual(result["files_checked"], 0)
 
     def test_select_candidates_prefers_frequent_metadata_backed_services(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

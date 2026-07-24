@@ -12,8 +12,7 @@ from typing import Any
 import hcloud_catalog
 import hcloud_common
 
-
-DEFAULT_QUESTIONS_DIR = hcloud_common.ROOT.parent / "agent_with_massive_apis" / "data" / "huawei_cloud" / "generated_questions"
+DEFAULT_QUESTIONS_DIR: Path | None = None
 
 
 def split_api_reference(raw_api: str, default_service: str) -> tuple[str, str]:
@@ -38,16 +37,16 @@ def iter_question_files(questions_dir: Path) -> list[Path]:
     return files
 
 
-def collect_question_frequency(questions_dir: Path) -> dict[str, Any]:
+def collect_question_frequency(questions_dir: Path | None) -> dict[str, Any]:
     """Return per-service and per-operation reference counts from question files."""
     service_counts: collections.Counter[str] = collections.Counter()
     operation_counts: dict[str, collections.Counter[str]] = collections.defaultdict(collections.Counter)
     errors: list[dict[str, str]] = []
-    files = iter_question_files(questions_dir)
+    files = iter_question_files(questions_dir) if questions_dir else []
     if not files:
         return {
             "available": False,
-            "questions_dir": str(questions_dir),
+            "questions_dir": str(questions_dir) if questions_dir else None,
             "files_checked": 0,
             "service_counts": {},
             "operation_counts": {},
@@ -139,7 +138,7 @@ def select_candidates(
     catalog_path: Path = hcloud_catalog.CATALOG_PATH,
     registry_path: Path = hcloud_common.REGISTRY_PATH,
     confidence_path: Path = hcloud_catalog.CONFIDENCE_PATH,
-    questions_dir: Path = DEFAULT_QUESTIONS_DIR,
+    questions_dir: Path | None = DEFAULT_QUESTIONS_DIR,
     limit: int = 12,
     operations_per_service: int = 2,
     include_curated: bool = False,
@@ -244,7 +243,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--catalog", default=str(hcloud_catalog.CATALOG_PATH), help="Generated catalog path.")
     parser.add_argument("--registry", default=str(hcloud_common.REGISTRY_PATH), help="Service registry path.")
     parser.add_argument("--confidence", default=str(hcloud_catalog.CONFIDENCE_PATH), help="Confidence sidecar path.")
-    parser.add_argument("--questions-dir", default=str(DEFAULT_QUESTIONS_DIR), help="Generated questions directory.")
+    parser.add_argument(
+        "--questions-dir",
+        help="Explicit generated questions directory used as an optional maintenance ranking signal.",
+    )
     parser.add_argument("--limit", type=int, default=12, help="Maximum services to return.")
     parser.add_argument("--operations-per-service", type=int, default=2, help="Suggested read-only operations per service.")
     parser.add_argument("--service", action="append", help="Restrict candidates to specific services. Can be repeated.")
@@ -266,7 +268,7 @@ def main() -> int:
         catalog_path=Path(args.catalog),
         registry_path=Path(args.registry),
         confidence_path=Path(args.confidence),
-        questions_dir=Path(args.questions_dir),
+        questions_dir=Path(args.questions_dir) if args.questions_dir else None,
         limit=args.limit,
         operations_per_service=args.operations_per_service,
         include_curated=args.include_curated,

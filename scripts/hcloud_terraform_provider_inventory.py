@@ -4,19 +4,16 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 from pathlib import Path
 from typing import Any
 
 import hcloud_common
 
-
 TERRAFORM_DIR = hcloud_common.REFERENCES_DIR / "terraform"
 INVENTORY_DIR = TERRAFORM_DIR / "inventories"
 RESOURCE_INVENTORY_PATH = INVENTORY_DIR / "provider-resource-inventory.md"
 DATA_SOURCE_INVENTORY_PATH = INVENTORY_DIR / "provider-data-source-inventory.md"
-DEFAULT_PROVIDER_ROOT = hcloud_common.ROOT.parent / "reference-projects" / "terraform-provider-huaweicloud"
 
 
 def strip_provider_prefix(name: str) -> str:
@@ -157,7 +154,7 @@ def read_provider_snapshot(provider_root: Path) -> dict[str, Any]:
     """Return the top changelog version/date for a local provider snapshot."""
     changelog = provider_root / "CHANGELOG.md"
     snapshot = {
-        "source": "reference-projects/terraform-provider-huaweicloud",
+        "source": "https://github.com/huaweicloud/terraform-provider-huaweicloud",
         "version": None,
         "date": None,
     }
@@ -260,7 +257,12 @@ def compare_inventory(generated: dict[str, Any], existing_path: Path) -> dict[st
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider-root", type=Path, default=DEFAULT_PROVIDER_ROOT, help="Local terraform-provider-huaweicloud checkout.")
+    parser.add_argument(
+        "--provider-root",
+        type=Path,
+        required=True,
+        help="Explicit local terraform-provider-huaweicloud checkout used for maintenance.",
+    )
     parser.add_argument("--write", action="store_true", help="Write provider inventory markdown files.")
     parser.add_argument("--fail-on-drift", action="store_true", help="Return non-zero when committed inventories differ from provider docs.")
     parser.add_argument("--signal-kind", choices=["resources", "data-sources"], help="Return docs-first signals for one or more provider items.")

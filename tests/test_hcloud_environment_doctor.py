@@ -12,7 +12,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -59,6 +58,12 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertFalse(result["summary"]["ready"])
         self.assertEqual(result["summary"]["required_blockers"], ["terraform"])
         self.assertIn("does not install packages", result["execution_boundary"])
+        self.assertTrue(
+            all(
+                not Path(reference).is_absolute() and (ROOT / reference).exists()
+                for reference in result["source_references"]
+            )
+        )
 
     def test_auth_inspection_reports_presence_without_secret_values(self) -> None:
         with mock.patch.dict(

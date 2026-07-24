@@ -12,7 +12,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from xml.sax.saxutils import escape
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -79,6 +78,31 @@ hcloud_run_journal = load_module("hcloud_run_journal", SCRIPTS / "hcloud_run_jou
 
 class ArchitectureContractsTest(unittest.TestCase):
     """Validate docs, registry, and script contracts stay aligned."""
+
+    def test_scripts_do_not_auto_discover_sibling_source_repositories(self) -> None:
+        forbidden_markers = (
+            "ROOT.parent",
+            "hcloud_common.ROOT.parent",
+            "reference-projects",
+            "agent_with_massive_apis",
+            "huaweicloud-skills-by-huawei",
+        )
+
+        for path in sorted(SCRIPTS.glob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            for marker in forbidden_markers:
+                with self.subTest(script=path.name, marker=marker):
+                    self.assertNotIn(marker, text)
+
+    def test_bundled_question_coverage_fixture_is_self_contained(self) -> None:
+        result = check_question_coverage.analyze_questions(
+            check_question_coverage.DEFAULT_QUESTIONS_DIR,
+            xlsx_path=check_question_coverage.DEFAULT_XLSX_PATH,
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["files_checked"], 4)
+        self.assertIsNone(result["xlsx_validation"])
 
     def test_service_registry_paths_and_high_coverage_contracts(self) -> None:
         registry = json.loads((ROOT / "references" / "service-registry.json").read_text(encoding="utf-8"))
@@ -691,6 +715,14 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("scripts/hcloud_change_plan.py", by_group["guarded_change"])
         self.assertIn("scripts/hcloud_sdk_readonly.py", by_group["runtime_supplement"])
         self.assertIn("scripts/check_question_coverage.py", by_group["maintenance_and_regression"])
+        self.assertIn(
+            "scripts/hcloud_terraform_provider_inventory.py",
+            by_group["maintenance_and_regression"],
+        )
+        self.assertNotIn(
+            "scripts/hcloud_terraform_provider_inventory.py",
+            by_group["default_runtime"],
+        )
         self.assertIn("scripts/hcloud_common.py", by_group["internal_library"])
         self.assertIn("scripts/hcloud_output_policy.py", by_group["internal_library"])
         self.assertIn("scripts/qwen_text_to_image.py", by_group["compatibility"])

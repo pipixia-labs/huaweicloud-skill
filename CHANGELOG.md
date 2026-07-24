@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Skill 默认运行不再发现父目录中的参考仓库：账单差距检查改用内置规范化基线，问题覆盖使用内置最小回归样例，SDK/Provider/完整问题集仅接受显式维护路径；同时增加独立安装架构契约。
 - 生成 catalog 现在保留 operation 的逐版本参数和请求信息；新增 `hcloud_operation_resolver.py`，让普通直接 `hcloud` 命令按实参生成显式 `Operation/vN`，高风险大输出读操作则生成带显式版本的 safe-exec 命令。
 - `hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 接入统一版本解析；只读命令仅在明确的版本/参数使用错误时允许一次受限纠正，mutation 不自动重放。
 - 新增机器可读的大输出策略，覆盖大列表、日志/事件、时序指标、全租户记录和内容/下载操作；`hcloud_safe_exec.py` 默认自动分页、摘要或落盘，并对不安全的 full 请求返回可执行纠正命令。

@@ -270,7 +270,7 @@ def parse_args() -> argparse.Namespace:
         "--sdk-root",
         type=Path,
         default=hcloud_sdk_catalog.DEFAULT_SDK_ROOT,
-        help="Optional huaweicloud-sdk-python-v3 source tree used only as fallback after installed packages.",
+        help="Explicit huaweicloud-sdk-python-v3 source tree used only as a maintenance/test fallback after installed packages.",
     )
     parser.add_argument(
         "--supplement-registry",

@@ -20,7 +20,7 @@ flowchart TD
     References --> MaasGuide["references/maas-model-calls.md"]
     References --> TFRefs["references/terraform/*"]
     TFExamples["examples/terraform/*"] --> TFCatalog["references/terraform/catalog/*.json"]
-    TFProvider["reference-projects/terraform-provider-huaweicloud/docs"] --> TFInventory["references/terraform/inventories/provider-*-inventory.md"]
+    TFProvider["explicit Provider source/docs"] --> TFInventory["references/terraform/inventories/provider-*-inventory.md"]
     Registry --> Scripts["scripts/*.py"]
     Curation --> Scripts
     SDKRegistry --> Scripts
@@ -244,12 +244,12 @@ Terraform 资产分两层：
 
 Terraform catalog 的意义是“资产完整吸收，但运行时少量命中”。开发者不应该让 agent 默认读取所有示例，而应该通过 router 根据用户目标选择少量 reference 和 example。
 
-Provider inventory 是覆盖面索引，不是执行面。当前由 `scripts/hcloud_terraform_provider_inventory.py` 从本地 provider reference docs 生成，快照为 provider changelog `1.93.0`，覆盖 1684 个 resource 和 2239 个 data source。它的作用是回答“provider 有没有这个资源/数据源”，不能直接推导出“agent 应该默认使用 Terraform 创建/修改这个资源”。
+Provider inventory 是覆盖面索引，不是执行面。当前由 `scripts/hcloud_terraform_provider_inventory.py` 从维护者显式传入的 Provider docs 生成，随 Skill 发布的快照为 provider changelog `1.93.0`，覆盖 1689 个 resource 和 2251 个 data source。它的作用是回答“provider 有没有这个资源/数据源”，不能直接推导出“agent 应该默认使用 Terraform 创建/修改这个资源”。
 
 维护原则：
 
 - 修改 Terraform 示例或 reference 后运行 `hcloud_terraform_catalog.py --write --pretty`。
-- 更新本地 provider reference 后运行 `hcloud_terraform_provider_inventory.py --write --pretty` 和 `--fail-on-drift`。
+- 更新 Provider 源码后，通过 `--provider-root <provider-source-root>` 显式传入源码目录，再运行 `--write` 和 `--fail-on-drift`。
 - 用 `hcloud_terraform_context_inspect.py` 检查 `.terraform/`、`terraform.tfstate*`、真实 `*.tfvars`、`crash.log` 等 forbidden artifact。
 - 用 Terraform asset tests 检查 catalog、router 和资产卫生。
 - Terraform 示例不等同于已经执行过的云变更；真实 plan/apply 仍需要本机 Terraform CLI、provider、认证环境变量和用户确认。
@@ -262,6 +262,8 @@ Provider inventory 是覆盖面索引，不是执行面。当前由 `scripts/hcl
 - 检查 service registry 中的 operation 是否能映射到查询、资源查询、planner 或 guarded flow。
 - 检查 operation alias 是否能映射到真实 KooCLI operation，例如 RDS 配置详情查询映射到 `ShowConfiguration`。
 - 对架构契约测试提供 fixture 级别的安全回归能力。
+
+无参数运行时使用 `references/maintenance/question-coverage/` 中随 Skill 发布的最小回归样例，不依赖其他项目。需要审计完整问题集或验证工作簿时，维护者分别显式传入 `--questions-dir <generated-questions-root>` 和 `--xlsx-path <validation.xlsx>`。
 
 扩展 registry 或风险判断时，应同步更新该脚本和相关契约测试，确保 coverage 和安全边界没有退化。
 

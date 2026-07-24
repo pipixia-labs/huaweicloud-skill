@@ -10,7 +10,6 @@ from typing import Any
 import hcloud_common
 import hcloud_sdk_catalog
 
-
 REGISTRY_PATH = hcloud_common.REFERENCES_DIR / "sdk-supplement-registry.json"
 ALLOWED_VALUES = {
     "request_types",
@@ -236,7 +235,7 @@ def parse_args() -> argparse.Namespace:
         "--sdk-root",
         type=Path,
         default=hcloud_sdk_catalog.DEFAULT_SDK_ROOT,
-        help="Optional SDK source fallback for metadata validation after installed packages.",
+        help="Explicit SDK source fallback for maintenance metadata validation after installed packages.",
     )
     parser.add_argument("--require-metadata", action="store_true", help="Fail when SDK metadata is unavailable.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")

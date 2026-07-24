@@ -217,7 +217,6 @@
         "scripts/hcloud_terraform_context_inspect.py",
         "scripts/hcloud_terraform_router.py",
         "scripts/hcloud_terraform_operations_plan.py",
-        "scripts/hcloud_terraform_provider_inventory.py",
         "scripts/hcloud_resource_discovery.py",
         "scripts/hcloud_resource_query.py"
       ],

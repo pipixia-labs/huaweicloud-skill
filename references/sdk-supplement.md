@@ -6,19 +6,19 @@
 
 - **主执行面**：`hcloud` / KooCLI。
 - **SDK 补充面**：已安装的 `huaweicloudsdk*` Python package。
-- **SDK 源码参考**：`reference-projects/huaweicloud-sdk-python-v3` 只用于本仓库维护、测试和离线比对；用户机器不要求存在该目录。
+- **SDK 源码参考**：维护者可通过 `--sdk-root <sdk-source-root>` 显式传入 `huaweicloud-sdk-python-v3` checkout，用于测试和离线比对；默认不会搜索 Skill 外部目录。
 - **未来 IaC 面**：Terraform 应作为单独的 plan/validate/apply/verify 链路接入，不由 SDK runner 替代。
 
 ## 参考快照
 
-当前维护参考来自 `reference-projects/huaweicloud-sdk-python-v3`：
+当前维护快照来自上游 `huaweicloud/huaweicloud-sdk-python-v3`：
 
 - 本地 `VERSION`：`3.1.199`
 - 本地 changelog 日期：`2026-06-11`
 - 运行时要求：用户机器不需要 SDK 源码，只需要按需安装 pip package
 - Python 要求：SDK 文档声明 Python 3.6+
 
-注意：这只是本仓库维护期快照。真实用户环境应以已安装 package 版本和当前 PyPI/SDK 中心为准；agent 不应假设用户机器存在 reference 源码。
+注意：这只是本仓库维护期快照。真实用户环境应以已安装 package 版本和当前 PyPI/SDK 中心为准；agent 不应假设用户机器存在源码 checkout。
 
 ## 运行时认证与 region 线索
 

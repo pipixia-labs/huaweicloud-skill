@@ -6,19 +6,17 @@ from __future__ import annotations
 import argparse
 import collections
 import re
-import sys
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 from typing import Any
 
 import hcloud_change_plan
 import hcloud_common
 
-
 ROOT = hcloud_common.ROOT
-DEFAULT_QUESTIONS_DIR = ROOT.parent / "agent_with_massive_apis" / "data" / "huawei_cloud" / "generated_questions"
-DEFAULT_XLSX_PATH = ROOT.parent / "agent_with_massive_apis" / "data" / "huawei_cloud" / "data-by-changping" / "data.xlsx"
+DEFAULT_QUESTIONS_DIR = ROOT / "references" / "maintenance" / "question-coverage"
+DEFAULT_XLSX_PATH: Path | None = None
 REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 DEFAULT_MIN_REGISTERED_RATIO = 0.10
 
@@ -676,7 +674,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--questions-dir", default=str(DEFAULT_QUESTIONS_DIR), help="Path to generated_questions.")
-    parser.add_argument("--xlsx-path", default=str(DEFAULT_XLSX_PATH), help="Optional path to data.xlsx validation data.")
+    parser.add_argument("--xlsx-path", help="Explicit optional path to data.xlsx validation data.")
     parser.add_argument("--skip-xlsx", action="store_true", help="Do not analyze data.xlsx validation data.")
     parser.add_argument("--registry", default=str(REGISTRY_PATH), help="Path to service-registry.json.")
     parser.add_argument(
@@ -701,7 +699,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     """Run the generated question coverage check."""
     args = parse_args()
-    xlsx_path = None if args.skip_xlsx else Path(args.xlsx_path)
+    xlsx_path = None if args.skip_xlsx or not args.xlsx_path else Path(args.xlsx_path)
     try:
         min_registered_ratios = parse_min_registered_ratios(args.min_registered_ratio)
     except ValueError as exc:

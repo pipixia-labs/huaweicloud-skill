@@ -22,7 +22,7 @@ terraform {
 
 ## 参考快照
 
-当前维护参考来自 `reference-projects/terraform-provider-huaweicloud`：
+当前维护快照来自上游 `huaweicloud/terraform-provider-huaweicloud`；刷新时通过 `--provider-root <provider-source-root>` 显式传入本地 checkout：
 
 - 本地 provider changelog 顶部版本：`1.93.0`
 - 本地 changelog 日期：`June 12, 2026`

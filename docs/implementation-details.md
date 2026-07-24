@@ -190,7 +190,7 @@ flowchart LR
 
 关键实现边界：
 
-- 用户机器不需要 SDK 源码；`reference-projects/huaweicloud-sdk-python-v3` 只用于维护期对照。
+- 用户机器不需要 SDK 源码；维护期源码对照必须通过 `--sdk-root <sdk-source-root>` 显式传入。
 - `hcloud_sdk_catalog.py` 可以在没有安装 SDK package 时返回能力缺口，调用方应降级回 hcloud。
 - `hcloud_sdk_readonly.py --execute` 只对 allowlist、read-only、low risk 的 operation 生效。
 - SDK runner 不负责 mutation、批量治理写操作或 Terraform/IaC。

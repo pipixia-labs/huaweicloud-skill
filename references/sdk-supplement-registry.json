@@ -6,7 +6,7 @@
     "sdk_role": "supplemental_to_hcloud",
     "default_mode": "plan",
     "generic_mutations_allowed": false,
-    "source_preference": "installed_package_then_maintenance_source_fallback"
+    "source_preference": "installed_package_then_explicit_maintenance_source"
   },
   "operations": [
     {

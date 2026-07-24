@@ -194,7 +194,7 @@ SDK 补充层是 v0.4 增加的 hcloud 辅助能力。设计目标不是“SDK �
 关键边界：
 
 - 运行时不要求用户机器有 SDK 源码仓库；只使用 pip 或其他方式安装的 `huaweicloudsdk*` package。
-- `reference-projects/huaweicloud-sdk-python-v3` 只作为维护期参考，不是用户运行时依赖。
+- SDK 源码只作为通过 `--sdk-root <sdk-source-root>` 显式传入的维护期参考，不是用户运行时依赖。
 - 当前维护快照是 SDK `3.1.199`，但 agent 应以用户已安装 package 和当前包源为准；没有 package 时自动回退 hcloud。
 - SDK auth/region 线索来自 SDK 文档：`HUAWEICLOUD_SDK_AK`、`HUAWEICLOUD_SDK_SK`、临时 token、Basic/Global credentials、region/endpoint fallback、Pod Identity 和 `ClientRequestException` 字段。
 - SDK allowlist 由 `references/sdk-supplement-registry.json` 控制，不能临时把任意 SDK mutation 暴露成 runner。

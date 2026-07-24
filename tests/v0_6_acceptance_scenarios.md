@@ -163,7 +163,7 @@
 
 - 先运行 `scripts/hcloud_terraform_context_inspect.py --pretty` 检查本地 Terraform/hcloud/provider cache 和禁止提交的运行时产物。
 - 用 `scripts/hcloud_terraform_router.py` 选择少量 Terraform 参考资产，不全量浏览示例。
-- 用 `scripts/hcloud_terraform_provider_inventory.py --signal-kind resources --signal-name <name>` 查询 docs-first ForceNew、Import、敏感字段信号。
+- 用 `scripts/hcloud_terraform_provider_inventory.py --provider-root <provider-source-root> --signal-kind resources --signal-name <name>` 查询 docs-first ForceNew、Import、敏感字段信号。
 - 明确 v0.6 只做 plan-review、data-source discipline 和环境体检；`terraform import`、drift 自动化、remote state、blueprints 留到 v0.6.x。
 
 ### Acceptance signals

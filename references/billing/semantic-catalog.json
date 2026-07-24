@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "HuaweiCloudBillingSemanticCatalog",
-  "source": "reference-projects/huaweicloud-skills-by-huawei/skills/bss/billing/huawei-cloud-billing-scout/references/semantic",
+  "source": "https://github.com/huaweicloud/huaweicloud-skills/tree/master/skills/bss/billing/huawei-cloud-billing-scout/references/semantic",
   "source_version": "KooCLI 7.2.2",
   "execution_boundary": "planner_only; no credentials, signing, HTTP sending, order/payment/subscription mutations, or raw spend dumps",
   "bss_cli_defaults": {

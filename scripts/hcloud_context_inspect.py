@@ -177,15 +177,20 @@ def inspect_hcloud_binary() -> dict[str, Any]:
     return result
 
 
-def inspect_sdk_runtime(sdk_root_path: Path) -> dict[str, Any]:
+def inspect_sdk_runtime(sdk_root_path: Path | None) -> dict[str, Any]:
     """Inspect optional Huawei Cloud Python SDK runtime/package availability."""
     installed_packages = hcloud_sdk_catalog.find_installed_service_packages()
-    source_packages = hcloud_sdk_catalog.find_service_packages(sdk_root_path) if sdk_root_path.exists() else []
+    source_root_exists = bool(sdk_root_path and sdk_root_path.exists())
+    source_packages = (
+        hcloud_sdk_catalog.find_service_packages(sdk_root_path)
+        if sdk_root_path and source_root_exists
+        else []
+    )
     result: dict[str, Any] = {
         "installed_package_count": len(installed_packages),
         "installed_services_sample": sorted({str(package["service_key"]).upper() for package in installed_packages})[:80],
-        "source_root_exists": sdk_root_path.exists(),
-        "source_root_path": str(sdk_root_path),
+        "source_root_exists": source_root_exists,
+        "source_root_path": str(sdk_root_path) if sdk_root_path else None,
         "source_service_package_count": len(source_packages),
         "role": "supplemental_to_hcloud",
         "primary_runtime": "hcloud",
