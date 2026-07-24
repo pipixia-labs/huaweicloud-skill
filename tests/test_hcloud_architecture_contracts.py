@@ -764,6 +764,10 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertTrue(policy["families"])
         self.assertIn("OUTPUT_POLICY_REQUIRED", skill_text)
         self.assertIn("references/hcloud-output-policies.json", skill_text)
+        self.assertIn("禁止先执行裸 `hcloud` 试探响应大小", skill_text)
+        self.assertIn("不得把完整列表、完整文件或完整 `parsed_json` 再输出到对话", skill_text)
+        for operation_key in policy["operations"]:
+            self.assertIn(f"`{operation_key}`", skill_text)
         self.assertIn("--output-mode=auto", output_guide)
         self.assertIn("--allow-large-output", output_guide)
 

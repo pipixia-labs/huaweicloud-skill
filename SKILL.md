@@ -37,7 +37,13 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 3. 查询类默认稳定化：
    - 调用优先级：专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
-   - 默认 JSON 输出。镜像/规格/全租户资源列表、日志/事件、时序指标、账单明细和文件/下载内容不要直接执行裸 `hcloud`；必须走 `hcloud_safe_exec.py` 的默认 `auto` 输出策略，让完整结果在需要时落盘、对话只接收摘要。
+   - 以下 operation 均属于大输出；命中时禁止先执行裸 `hcloud` 试探响应大小，直接使用 `hcloud_safe_exec.py --output-mode=auto`：
+     - 镜像、规格和资源列表：`IMS:ListImages`、`IMS:GlanceListImages`、`ECS:ListFlavors`、`ECS:ListFlavorSellPolicies`、`ECS:ListServersDetails`、`DNS:ListRecordSets`。
+     - 日志、事件和指标：`LTS:ListLogs`、`CTS:ListTraces`、`CFW:ListAccessControlLogs`、`CFW:ListAttackLogs`、`CFW:ListFlowLogs`、`CES:BatchListMetricData`、`CES:BatchListSpecifiedMetricData`、`CES:ShowMetricData`。
+     - 全租户和工作负载资源：`RMS:ListAllResources`、`RMS:ListResources`、`COC:ListResources`、`CCI:listCoreV1PodForAllNamespaces`、`CCI:listNamespacedPods`、`CCI:listCoreV1NamespacedPod`、`CCI:listCoreV1NamespacedEvent`、`CCI:listMetricsV1beta1NamespacedPodMetrics`、`SWR:ListRepositoryTags`。
+     - 文件和下载：`CodeArtsRepo:ShowFileContent`、`CodeArtsRepo:ShowFileRaw`、`CodeArtsRepo:ShowReadmeFile`、`CodeArtsRepo:DownloadArchive`、`CodeArtsRepo:ShowRepositoryArchive`、`RDS:DownloadErrorlog`、`RDS:DownloadSlowlog`、`DDS:DownloadErrorlog`、`DDS:DownloadSlowlog`。
+   - 以下命名规则同样直接按大输出处理，不允许先裸跑：下载/导出/文件内容/归档/diff/构建日志；日志/事件/审计/告警/历史；CES/AOM 指标、时序和采样点；BSS/RMS/COC/CONFIG/SECMASTER/HSS 的全租户 `List*`、`Search*`、`Query*`、聚合和资源历史 operation。
+   - 命中大输出策略后，Agent 只读取摘要、数量、字段结构、少量样本和落盘路径；不得把完整列表、完整文件或完整 `parsed_json` 再输出到对话。
    - `OUTPUT_POLICY_REQUIRED` 不是云 API 失败；按返回的 `corrected_command` 或补齐 `corrected_command_template` 中的时间/范围参数后再执行一次，不要原样重试。
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
