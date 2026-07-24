@@ -793,6 +793,12 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("references/versioning-policy.md", skill_text)
         self.assertIn("hcloud_closure_plan.py", skill_text)
         self.assertIn("hcloud_acceptance_closure.py", skill_text)
+        self.assertIn("不要自行拼接或直接执行裸 `hcloud` 命令", skill_text)
+        self.assertIn("专用场景脚本 ->", skill_text)
+        self.assertIn(
+            "只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底",
+            skill_text,
+        )
         self.assertIn("CHANGELOG.md", version_text)
         self.assertIn("RELEASE_NOTES.md", version_text)
         self.assertNotIn("## 当前版本覆盖", skill_text)

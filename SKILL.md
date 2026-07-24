@@ -9,6 +9,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 - 单一 skill 覆盖华为云上云、用云、管云场景，默认以租户体验和可验证闭环为中心。
 - `hcloud` 是云资源查询、执行、回读和验收的主链路；没有可用 `hcloud` 时，不宣称已经查询或修改云资源。
+- Agent 默认不要自行拼接或直接执行裸 `hcloud` 命令；优先调用本 skill 提供的脚本，让脚本统一处理版本选择、参数构造、脱敏、输出收敛、错误分类和纠正重试。
 - SDK 只做窄范围补充，例如参数、region/endpoint、错误结构、凭证来源线索，或 allowlist 内的稳定只读查询。
 - Terraform 是辅助 IaC 面，只在用户明确需要可重复创建、环境复制、长期纳管、import 或 drift review 时进入；不能跳过 hcloud 发现和后置验证。
 - MaaS 是 API-first 能力面。模型调用使用 MaaS API Key；用量统计是治理查询，按本地 AK/SK 签名规划处理。不要让用户在对话里粘贴密钥。
@@ -34,6 +35,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 用 `hcloud_scenario_router.py` 找到本地 playbook、guide、planner、SDK supplement 和 Terraform 候选。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
+   - 调用优先级：专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
    - 默认 JSON 输出。镜像/规格/全租户资源列表、日志/事件、时序指标、账单明细和文件/下载内容不要直接执行裸 `hcloud`；必须走 `hcloud_safe_exec.py` 的默认 `auto` 输出策略，让完整结果在需要时落盘、对话只接收摘要。
    - `OUTPUT_POLICY_REQUIRED` 不是云 API 失败；按返回的 `corrected_command` 或补齐 `corrected_command_template` 中的时间/范围参数后再执行一次，不要原样重试。
