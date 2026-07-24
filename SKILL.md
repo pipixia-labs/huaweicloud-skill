@@ -34,6 +34,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 用 `hcloud_scenario_router.py` 找到本地 playbook、guide、planner、SDK supplement 和 Terraform 候选。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
+   - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；最终直接 `hcloud` 命令显式写成 `Operation/vN`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一解析逻辑。
    - 默认 JSON 输出，必要时用 `--cli-query`、`--result-file` 或 parsed JSON 文件控制大结果。
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
@@ -70,7 +71,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | --- | --- |
 | 环境、认证、profile、region/project | `hcloud_environment_doctor.py`、`hcloud_context_inspect.py` |
 | 自然语言场景路由 | `hcloud_scenario_router.py` |
-| 真实 hcloud 查询或受控系统命令 | `hcloud_safe_exec.py` |
+| hcloud 版本选择、真实查询或受控系统命令 | `hcloud_operation_resolver.py`、`hcloud_safe_exec.py` |
 | 多服务发现、目标查询、readiness/live validation（含 CCI 工作负载前检） | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py`、`hcloud_cci_workload_plan.py` |
 | 创建/变更计划和 guarded flow | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
 | P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |

@@ -55,8 +55,9 @@
 动作：
 
 1. 运行 `hcloud <service> --help`
-2. 确认 operation 名是否真的存在
-3. 如果不存在，先不要继续猜参数
+2. 运行 `hcloud_operation_resolver.py --service <service> --operation <operation> --verify-help --pretty`，核对可用版本和本机默认版本
+3. 确认 operation 名及 `Operation/vN` 是否真的存在
+4. 如果不存在，先不要继续猜参数
 
 ### 4. `APIE_ERROR`
 
@@ -128,9 +129,19 @@
 
 动作：
 
-1. 回看 `hcloud <service> <operation> --help`
-2. 若是系统参数冲突，优先改成 `cli-*`
-3. 若与 API 参数重名且难以处理，考虑转成 `--cli-jsonInput`
+1. 先看 `version_resolution.candidates`，确认当前 `/vN` 是否支持这些参数
+2. 回看 `hcloud <service> <operation> --help`
+3. 若解析器给出 `corrected_operation`，只读操作可使用纠正后的显式版本重试一次
+4. 若是系统参数冲突，优先改成 `cli-*`
+5. 若与 API 参数重名且难以处理，考虑转成 `--cli-jsonInput`
+
+### 6.1 版本纠错边界
+
+- 未显式指定版本的只读操作，如果首次失败明确属于 operation/参数/版本不匹配，`hcloud_safe_exec.py` 最多切换到另一个兼容版本重试一次。
+- 显式指定但参数不兼容时，不先执行错误命令；输出 `corrected_operation` 和纠正命令，由 agent 重新审查。
+- 创建、修改、删除等 mutation 不自动切换版本或重放，避免重复变更。
+- 认证、权限、配额、region/project、网络和服务端业务错误不切换 API 版本，按原错误类型处理。
+- 同一命令纠正后仍失败时停止，不循环试遍所有版本。
 
 ### 7. 空响应体
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_schema_version": 1,
+  "catalog_schema_version": 2,
   "source": {
     "format": "hcloud metaRepo",
     "runtime_scope": "public-cloud",

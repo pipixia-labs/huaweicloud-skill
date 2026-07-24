@@ -8,7 +8,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY_CATALOG_PATH = ROOT / "references" / "hcloud-service-catalog.generated.json"
 CATALOG_INDEX_PATH = ROOT / "references" / "hcloud-service-catalog.index.json"
@@ -20,6 +19,7 @@ DISCOVERY_ACTIONS = {"List", "Count", "Search", "Query", "Check"}
 IGNORED_REQUIRED_PARAMS = {"x-auth-token", "content-type", "authorization", "x-language", "project_id", "projectid"}
 PROJECT_PARAM_NAMES = {"project_id", "projectid"}
 AUTH_PARAM_NAMES = IGNORED_REQUIRED_PARAMS - PROJECT_PARAM_NAMES
+VERSION_SUFFIX_RE = re.compile(r"^(?P<name>.+?)/(?P<version>v[0-9][a-z0-9._-]*)$", re.IGNORECASE)
 
 
 def normalize_token(value: str) -> str:
@@ -30,6 +30,15 @@ def normalize_token(value: str) -> str:
 def normalize_param_name(value: str) -> str:
     """Normalize a KooCLI parameter name for comparison."""
     return value.strip().lstrip("-").replace("-", "_").lower()
+
+
+def split_operation_version(operation_name: str) -> tuple[str, str | None]:
+    """Return a base operation name and optional explicit API version."""
+
+    match = VERSION_SUFFIX_RE.fullmatch(operation_name.strip())
+    if not match:
+        return operation_name.strip(), None
+    return match.group("name"), match.group("version").lower()
 
 
 def load_catalog(path: Path = CATALOG_PATH) -> dict[str, Any]:
@@ -130,7 +139,41 @@ def operation_index(service: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def resolve_operation(service: dict[str, Any], operation_name: str) -> dict[str, Any] | None:
     """Resolve an operation name against a catalog service."""
-    return operation_index(service).get(normalize_token(operation_name))
+    base_operation, _ = split_operation_version(operation_name)
+    return operation_index(service).get(normalize_token(base_operation))
+
+
+def operation_versions(operation: dict[str, Any]) -> list[str]:
+    """Return normalized API versions exposed for an operation."""
+
+    versions = [
+        str(version).strip().lower()
+        for version in operation.get("versions", [])
+        if str(version).strip()
+    ]
+    if versions:
+        return list(dict.fromkeys(versions))
+    selected = str(operation.get("selected_version") or "").strip().lower()
+    return [selected] if selected else []
+
+
+def operation_version_detail(operation: dict[str, Any], version: str | None) -> dict[str, Any]:
+    """Return parameter/request metadata for one API version.
+
+    Schema-v1 catalogs only contain flat metadata for their selected version.
+    Keep accepting those catalogs while preferring schema-v2 per-version data.
+    """
+
+    normalized_version = str(version or "").strip().lower()
+    version_details = operation.get("version_details")
+    if isinstance(version_details, dict):
+        for candidate, detail in version_details.items():
+            if str(candidate).strip().lower() == normalized_version and isinstance(detail, dict):
+                return detail
+    selected = str(operation.get("selected_version") or "").strip().lower()
+    if not normalized_version or normalized_version == selected:
+        return operation
+    return {}
 
 
 def command_service_name(service: dict[str, Any], fallback: str) -> str:

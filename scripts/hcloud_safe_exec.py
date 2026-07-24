@@ -15,14 +15,15 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import hcloud_catalog
+import hcloud_operation_resolver
 from hcloud_common import (
+    coerce_output_text,
     collect_inline_secrets,
     collect_json_secrets,
     collect_known_secrets,
-    coerce_output_text,
     emit_json,
     load_json,
-    looks_like_secret_arg,
     redact_command,
     redact_json,
     redact_text,
@@ -132,6 +133,12 @@ ERROR_TYPE_CATEGORY = {
     "APIE_ERROR": "metadata",
     "TIMEOUT": "network",
 }
+VERSION_USAGE_ERROR_PATTERNS = (
+    r"unsupported\s+(?:operation|parameter|version)",
+    r"unknown\s+(?:operation|flag|command)",
+    r"不支持.{0,12}(?:operation|参数|版本)",
+    r"(?:operation|参数|版本).{0,12}不支持",
+)
 REFERENCES_DIR = Path(__file__).resolve().parents[1] / "references"
 IAM_ACTIONS_PATH = REFERENCES_DIR / "iam-actions-catalog.json"
 
@@ -284,7 +291,7 @@ def iam_action_hint(
     if not isinstance(service_entry, dict):
         return None
 
-    operation_key = str(operation or "").strip()
+    operation_key, _ = hcloud_catalog.split_operation_version(str(operation or "").strip())
     operations = service_entry.get("operations") if isinstance(service_entry.get("operations"), dict) else {}
     operation_entry = operations.get(operation_key)
     match = "operation"
@@ -410,7 +417,11 @@ def maybe_parse_json(stdout: str | bytes | None) -> tuple[Any | None, str | None
         return None, str(exc)
 
 
-def build_command(args: argparse.Namespace, temp_json_file: Path | None) -> list[str]:
+def build_command(
+    args: argparse.Namespace,
+    temp_json_file: Path | None,
+    operation: str | None = None,
+) -> list[str]:
     """Build the final hcloud subprocess command."""
     binary = shutil.which("hcloud")
     if not binary:
@@ -419,7 +430,7 @@ def build_command(args: argparse.Namespace, temp_json_file: Path | None) -> list
     if args.command_part:
         command = [binary] + args.command_part
     else:
-        command = [binary, args.service, args.operation]
+        command = [binary, args.service, operation or args.operation]
 
     command.extend(args.arg)
 
@@ -429,6 +440,116 @@ def build_command(args: argparse.Namespace, temp_json_file: Path | None) -> list
         command.append(f"--cli-jsonInput={temp_json_file}")
 
     return command
+
+
+def execute_once(
+    command: list[str],
+    args: argparse.Namespace,
+    known_secrets: set[str],
+    operation_for_hint: str | None,
+) -> dict[str, Any]:
+    """Execute one hcloud attempt and return a redacted structured result."""
+
+    started_at = time.time()
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=args.cwd,
+        env=build_hcloud_subprocess_env(),
+        timeout=args.timeout,
+        check=False,
+    )
+    duration_seconds = round(time.time() - started_at, 3)
+    raw_stdout = completed.stdout
+    raw_stderr = completed.stderr
+    parsed_json = None
+    parsed_json_error = None
+    if args.expect_json:
+        parsed_json, parsed_json_error = maybe_parse_json(raw_stdout)
+        if parsed_json is not None:
+            known_secrets.update(collect_json_secrets(parsed_json))
+
+    redacted_stdout = redact_text(raw_stdout, known_secrets)
+    redacted_stderr = redact_text(raw_stderr, known_secrets)
+    stdout_trimmed, stdout_truncated = trim_text(redacted_stdout, args.max_output_chars)
+    stderr_trimmed, stderr_truncated = trim_text(redacted_stderr, args.max_output_chars)
+    error_type = classify_error(raw_stdout, raw_stderr)
+    redacted_parsed_json = redact_json(parsed_json, known_secrets) if parsed_json is not None else None
+    cloud_error = extract_cloud_error(redacted_parsed_json, redacted_stdout, redacted_stderr)
+    has_cloud_error = bool(cloud_error.get("code") or cloud_error.get("message"))
+    logical_success = completed.returncode == 0 and error_type is None and not has_cloud_error
+
+    error_details = None
+    if not logical_success:
+        error_details = classify_common_error(
+            error_type,
+            redacted_stdout,
+            redacted_stderr,
+            redacted_parsed_json,
+            args.service,
+            operation_for_hint,
+        )
+
+    return {
+        "success": logical_success,
+        "return_code": completed.returncode,
+        "duration_seconds": duration_seconds,
+        "service": args.service,
+        "operation": args.operation,
+        "command": redact_command(command, known_secrets),
+        "stdout": stdout_trimmed,
+        "stderr": stderr_trimmed,
+        "stdout_truncated": stdout_truncated,
+        "stderr_truncated": stderr_truncated,
+        "error_type": error_type,
+        "error_details": error_details,
+        "advice": (error_details or {}).get("advice") or advice_for_error(error_type),
+        "parsed_json": redacted_parsed_json,
+        "parsed_json_error": parsed_json_error,
+        "config_context": {
+            "cwd": args.cwd,
+            "timeout": args.timeout,
+            "expect_json": args.expect_json,
+            "used_temp_json_input": False,
+        },
+    }
+
+
+def is_version_usage_error(result: dict[str, Any]) -> bool:
+    """Return whether a failed attempt is eligible for version correction."""
+
+    if result.get("error_type") not in {"USE_ERROR", "APIE_ERROR"}:
+        return False
+    combined = "\n".join(
+        str(value or "")
+        for value in (
+            result.get("stdout"),
+            result.get("stderr"),
+            (result.get("error_details") or {}).get("cloud_error_message"),
+        )
+    )
+    return any(re.search(pattern, combined, flags=re.IGNORECASE) for pattern in VERSION_USAGE_ERROR_PATTERNS)
+
+
+def attempt_summary(
+    result: dict[str, Any],
+    resolved_operation: str | None,
+    attempt: int,
+) -> dict[str, Any]:
+    """Return a compact auditable record for one execution attempt."""
+
+    return {
+        "attempt": attempt,
+        "resolved_operation": resolved_operation,
+        "success": bool(result.get("success")),
+        "return_code": result.get("return_code"),
+        "command": result.get("command", []),
+        "error_type": result.get("error_type"),
+        "error_details": result.get("error_details"),
+    }
 
 
 def build_hcloud_subprocess_env(
@@ -481,6 +602,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-json", action="store_true", help="Attempt to parse stdout as JSON.")
     parser.add_argument("--result-file", help="Optional path to save the full structured result JSON.")
     parser.add_argument("--parsed-json-file", help="Optional path to save only parsed_json when available.")
+    parser.add_argument(
+        "--skip-version-resolve",
+        action="store_true",
+        help="Bypass catalog-backed API version resolution for compatibility or diagnostics.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print the JSON result.")
     args = parser.parse_args()
 
@@ -510,73 +636,120 @@ def main() -> int:
     known_secrets.update(collect_json_input_secrets(args))
 
     started_at = time.time()
+    result: dict[str, Any] | None = None
+    version_resolution: dict[str, Any] | None = None
+    resolved_operation = args.operation
+    provided_params = hcloud_operation_resolver.provided_param_names_from_args(args.arg)
     try:
-        command = build_command(args, temp_json_file)
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            cwd=args.cwd,
-            env=build_hcloud_subprocess_env(),
-            timeout=args.timeout,
-            check=False,
-        )
-        duration_seconds = round(time.time() - started_at, 3)
-        raw_stdout = completed.stdout
-        raw_stderr = completed.stderr
-        parsed_json = None
-        parsed_json_error = None
-        if args.expect_json:
-            parsed_json, parsed_json_error = maybe_parse_json(raw_stdout)
-            if parsed_json is not None:
-                known_secrets.update(collect_json_secrets(parsed_json))
-
-        redacted_stdout = redact_text(raw_stdout, known_secrets)
-        redacted_stderr = redact_text(raw_stderr, known_secrets)
-        stdout_trimmed, stdout_truncated = trim_text(redacted_stdout, args.max_output_chars)
-        stderr_trimmed, stderr_truncated = trim_text(redacted_stderr, args.max_output_chars)
-        error_type = classify_error(raw_stdout, raw_stderr)
-        redacted_parsed_json = redact_json(parsed_json, known_secrets) if parsed_json is not None else None
-        cloud_error = extract_cloud_error(redacted_parsed_json, redacted_stdout, redacted_stderr)
-        has_cloud_error = bool(cloud_error.get("code") or cloud_error.get("message"))
-        logical_success = completed.returncode == 0 and error_type is None and not has_cloud_error
-
-        error_details = None
-        if not logical_success:
-            error_details = classify_common_error(
-                error_type,
-                redacted_stdout,
-                redacted_stderr,
-                redacted_parsed_json,
+        if args.service and args.operation and not args.skip_version_resolve:
+            version_resolution = hcloud_operation_resolver.resolve_operation_version(
                 args.service,
                 args.operation,
+                provided_params,
             )
+            if not version_resolution.get("success"):
+                corrected_operation = version_resolution.get("corrected_operation")
+                corrected_command = None
+                if corrected_operation:
+                    corrected_command = [
+                        "hcloud",
+                        args.service,
+                        str(corrected_operation),
+                        *args.arg,
+                    ]
+                result = {
+                    "success": False,
+                    "return_code": None,
+                    "duration_seconds": round(time.time() - started_at, 3),
+                    "service": args.service,
+                    "operation": args.operation,
+                    "resolved_operation": None,
+                    "command": [],
+                    "stdout": "",
+                    "stderr": "",
+                    "stdout_truncated": False,
+                    "stderr_truncated": False,
+                    "error_type": "VERSION_RESOLUTION_ERROR",
+                    "error_details": {
+                        "category": "operation_version",
+                        "error_type": "VERSION_RESOLUTION_ERROR",
+                        "cloud_error_code": None,
+                        "cloud_error_message": version_resolution.get("reason"),
+                        "source": "local_catalog",
+                        "signals": [version_resolution.get("confidence")],
+                        "advice": "Use corrected_operation/corrected_command or revise the supplied API parameters.",
+                    },
+                    "advice": "Use corrected_operation/corrected_command or revise the supplied API parameters.",
+                    "parsed_json": None,
+                    "parsed_json_error": None,
+                    "version_resolution": version_resolution,
+                    "corrected_operation": corrected_operation,
+                    "corrected_command": redact_command(corrected_command or [], known_secrets),
+                    "attempts": [],
+                    "config_context": {
+                        "cwd": args.cwd,
+                        "timeout": args.timeout,
+                        "expect_json": args.expect_json,
+                        "used_temp_json_input": bool(temp_json_file),
+                    },
+                }
+            else:
+                resolved_operation = str(version_resolution.get("resolved_operation") or args.operation)
 
-        result = {
-            "success": logical_success,
-            "return_code": completed.returncode,
-            "duration_seconds": duration_seconds,
-            "service": args.service,
-            "operation": args.operation,
-            "command": redact_command(command, known_secrets),
-            "stdout": stdout_trimmed,
-            "stderr": stderr_trimmed,
-            "stdout_truncated": stdout_truncated,
-            "stderr_truncated": stderr_truncated,
-            "error_type": error_type,
-            "error_details": error_details,
-            "advice": (error_details or {}).get("advice") or advice_for_error(error_type),
-            "parsed_json": redacted_parsed_json,
-            "parsed_json_error": parsed_json_error,
-            "config_context": {
-                "cwd": args.cwd,
-                "timeout": args.timeout,
-                "expect_json": args.expect_json,
-                "used_temp_json_input": bool(temp_json_file),
-            },
-        }
+        if result is None:
+            attempts: list[dict[str, Any]] = []
+            base_operation, explicit_version = hcloud_catalog.split_operation_version(args.operation or "")
+            current_resolution = version_resolution
+            command = build_command(args, temp_json_file, resolved_operation)
+            result = execute_once(command, args, known_secrets, base_operation or args.operation)
+            attempts.append(attempt_summary(result, resolved_operation, 1))
+
+            can_correct = (
+                not result["success"]
+                and current_resolution is not None
+                and current_resolution.get("resolved")
+                and current_resolution.get("read_only") is True
+                and explicit_version is None
+                and is_version_usage_error(result)
+            )
+            if can_correct:
+                alternate_resolution = hcloud_operation_resolver.resolve_operation_version(
+                    args.service,
+                    base_operation,
+                    provided_params,
+                    excluded_versions=[str(current_resolution.get("selected_version") or "")],
+                )
+                alternate_operation = alternate_resolution.get("resolved_operation")
+                if (
+                    alternate_resolution.get("success")
+                    and alternate_resolution.get("resolved")
+                    and alternate_operation
+                    and alternate_operation != resolved_operation
+                ):
+                    original_operation = resolved_operation
+                    resolved_operation = str(alternate_operation)
+                    alternate_command = build_command(args, temp_json_file, resolved_operation)
+                    result = execute_once(
+                        alternate_command,
+                        args,
+                        known_secrets,
+                        base_operation or args.operation,
+                    )
+                    attempts.append(attempt_summary(result, resolved_operation, 2))
+                    result["version_correction"] = {
+                        "reason": "read_only_version_usage_error",
+                        "from_operation": original_operation,
+                        "to_operation": resolved_operation,
+                        "resolution": alternate_resolution,
+                    }
+                    current_resolution = alternate_resolution
+
+            result["duration_seconds"] = round(time.time() - started_at, 3)
+            result["resolved_operation"] = resolved_operation
+            result["attempts"] = attempts
+            if current_resolution is not None:
+                result["version_resolution"] = current_resolution
+            result["config_context"]["used_temp_json_input"] = bool(temp_json_file)
     except FileNotFoundError as exc:
         result = {
             "success": False,
@@ -584,6 +757,7 @@ def main() -> int:
             "duration_seconds": round(time.time() - started_at, 3),
             "service": args.service,
             "operation": args.operation,
+            "resolved_operation": resolved_operation,
             "command": [],
             "stdout": "",
             "stderr": str(exc),
@@ -608,6 +782,8 @@ def main() -> int:
                 "expect_json": args.expect_json,
                 "used_temp_json_input": bool(temp_json_file),
             },
+            "version_resolution": version_resolution,
+            "attempts": [],
         }
     except subprocess.TimeoutExpired as exc:
         stdout_text = coerce_output_text(exc.stdout)
@@ -618,6 +794,7 @@ def main() -> int:
             "duration_seconds": round(time.time() - started_at, 3),
             "service": args.service,
             "operation": args.operation,
+            "resolved_operation": resolved_operation,
             "command": redact_command(exc.cmd if isinstance(exc.cmd, list) else [], known_secrets),
             "stdout": redact_text(stdout_text, known_secrets),
             "stderr": redact_text(stderr_text, known_secrets),
@@ -642,11 +819,14 @@ def main() -> int:
                 "expect_json": args.expect_json,
                 "used_temp_json_input": bool(temp_json_file),
             },
+            "version_resolution": version_resolution,
+            "attempts": [],
         }
     finally:
         if temp_json_file and temp_json_file.exists():
             temp_json_file.unlink()
 
+    assert result is not None
     if args.result_file:
         result_path = Path(args.result_file)
         result_path.parent.mkdir(parents=True, exist_ok=True)

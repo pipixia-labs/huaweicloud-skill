@@ -57,6 +57,23 @@ hcloud <service> <operation> --help
 - 这一步可能依赖 live metadata
 - 如果失败，不要直接瞎猜参数
 
+### 4. 多 API 版本选择
+
+同一个 operation 可能同时提供 V2、V3，且各版本参数并不相同。不要把“不写版本时的默认版本”理解为所有参数都能在该版本使用。
+
+如果 agent 最终要直接执行 `hcloud`，先让本地解析器根据参数生成显式版本命令：
+
+```bash
+python3 scripts/hcloud_operation_resolver.py \
+  --service VPC \
+  --operation ListSecurityGroups \
+  --param vpc_id=<vpc-id> \
+  --arg=--cli-region=ap-southeast-1 \
+  --emit-command
+```
+
+这个例子会选择支持 `vpc_id` 的 `ListSecurityGroups/v2`。多版本命令最终统一写成 `Operation/vN`，便于审查和失败纠正。使用 `hcloud_safe_exec.py` 或 `hcloud_resource_query.py` 时不必单独调用解析器，它们会执行同样的预解析。
+
 ## 二、查询类命令的默认形态
 
 推荐默认骨架：
@@ -66,6 +83,8 @@ hcloud <service> <operation> \
   --cli-region=<region> \
   --cli-output=json
 ```
+
+这里的 `<operation>` 在本地 catalog 能解析出版本时应为显式的 `<operation>/vN`。
 
 然后再追加：
 

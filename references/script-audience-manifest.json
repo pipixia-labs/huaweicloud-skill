@@ -67,6 +67,7 @@
         "scripts/hcloud_meta_lookup.py",
         "scripts/hcloud_obs_readonly.py",
         "scripts/hcloud_observability_plan.py",
+        "scripts/hcloud_operation_resolver.py",
         "scripts/hcloud_prewarm_cache.py",
         "scripts/hcloud_resource_discovery.py",
         "scripts/hcloud_resource_query.py",

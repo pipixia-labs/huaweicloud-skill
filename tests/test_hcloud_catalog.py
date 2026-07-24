@@ -9,7 +9,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -178,6 +177,76 @@ class HcloudCatalogTest(unittest.TestCase):
             operation = hcloud_catalog.resolve_operation(service, "ListClusterGroup")
             self.assertIsNotNone(operation)
             self.assertTrue(hcloud_catalog.is_discovery_operation(operation))
+
+    def test_build_catalog_preserves_version_specific_operation_details(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            meta_repo = Path(tmp_dir)
+            self.write_json(
+                meta_repo / "services_en.json",
+                {
+                    "items": [
+                        {
+                            "Category": "Networking",
+                            "IsGlobal": False,
+                            "Service": {"Text": "VPC", "Description": "Virtual Private Cloud"},
+                        }
+                    ]
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "vpc" / "apis_en.json",
+                {
+                    "apiList": {
+                        "listsecuritygroups": {
+                            "Name": "ListSecurityGroups",
+                            "Versions": ["v3", "v2"],
+                            "Suggests": {
+                                "v2": "Query security groups with the legacy API.",
+                                "v3": "Query security groups with the current API.",
+                            },
+                        }
+                    }
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "vpc" / "ListSecurityGroups_v2_en.yaml",
+                {
+                    "Description": "V2 security groups.",
+                    "Request": {"Method": "GET", "Path": "/v1/{project_id}/security-groups"},
+                    "Params": [
+                        {"Name": ["project_id"], "Required": True, "Position": "path"},
+                        {"Name": ["vpc_id"], "Required": False, "Position": "query"},
+                    ],
+                },
+            )
+            self.write_json(
+                meta_repo / "template" / "vpc" / "ListSecurityGroups_v3_en.yaml",
+                {
+                    "Description": "V3 security groups.",
+                    "Request": {"Method": "GET", "Path": "/v3/{project_id}/vpc/security-groups"},
+                    "Params": [
+                        {"Name": ["project_id"], "Required": True, "Position": "path"},
+                        {"Name": ["name", "[N]"], "Required": False, "Position": "query"},
+                    ],
+                },
+            )
+
+            catalog = build_hcloud_catalog.build_catalog(meta_repo)
+
+        self.assertEqual(catalog["schema_version"], 2)
+        service = hcloud_catalog.resolve_service(catalog, "VPC")
+        self.assertIsNotNone(service)
+        operation = hcloud_catalog.resolve_operation(service, "ListSecurityGroups/v2")
+        self.assertIsNotNone(operation)
+        self.assertEqual(operation["selected_version"], "v3")
+        self.assertEqual(operation["optional_params"], ["name"])
+        self.assertEqual(operation["version_details"]["v2"]["optional_params"], ["vpc_id"])
+        self.assertEqual(operation["version_details"]["v3"]["optional_params"], ["name"])
+        self.assertEqual(
+            hcloud_catalog.operation_version_detail(operation, "v2")["path"],
+            "/v1/{project_id}/security-groups",
+        )
+        self.assertEqual(hcloud_catalog.operation_versions(operation), ["v3", "v2"])
 
     def test_confidence_sidecar_references_catalog_operations(self) -> None:
         catalog = hcloud_catalog.load_catalog(ROOT / "references" / "hcloud-service-catalog.index.json")

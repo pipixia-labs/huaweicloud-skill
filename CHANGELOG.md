@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-暂无。
+- 生成 catalog 现在保留 operation 的逐版本参数和请求信息；新增 `hcloud_operation_resolver.py`，让直接 `hcloud` 命令按实参生成显式 `Operation/vN`。
+- `hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 接入统一版本解析；只读命令仅在明确的版本/参数使用错误时允许一次受限纠正，mutation 不自动重放。
 
 ## 0.8.0 - 2026-07-24
 

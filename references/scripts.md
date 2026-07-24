@@ -107,6 +107,21 @@ python3 scripts/hcloud_meta_lookup.py \
 
 Use this to inspect the local KooCLI metadata cache: service presence, operation count, operation detail, endpoint, and region metadata. Operation detail files are parsed as JSON first; YAML parsing is attempted only when PyYAML is available.
 
+### Operation Version Resolver
+
+```bash
+python3 scripts/hcloud_operation_resolver.py \
+  --service VPC \
+  --operation ListSecurityGroups \
+  --param vpc_id=<vpc-id> \
+  --arg=--cli-region=ap-southeast-1 \
+  --pretty
+```
+
+Use this before a raw `hcloud` call when an operation has multiple API versions. It compares provided parameters with per-version local metadata, preserves a compatible explicit `/vN`, and otherwise selects one deterministic version. Add `--verify-help` to consult the installed KooCLI default when local help is available. Add `--emit-command` to produce a directly executable, explicitly versioned `hcloud` command for agents that do not use the wrappers.
+
+If an explicit version conflicts with the parameters, the resolver exits non-zero and returns `corrected_operation` plus a redacted correction command. Do not repeat the original command unchanged.
+
 ### SDK Supplement Metadata
 
 ```bash
@@ -212,7 +227,7 @@ python3 scripts/hcloud_safe_exec.py \
   --pretty
 ```
 
-Use this for real `hcloud` calls instead of raw shell execution when possible. It redacts sensitive command/stdout/stderr/JSON fields, parses JSON, classifies common errors, and returns `error_details` for auth, region/project, permission, quota, parameter, not found, and network failures.
+Use this for real `hcloud` calls instead of raw shell execution when possible. It resolves OpenAPI-style operations to explicit `/vN`, redacts sensitive command/stdout/stderr/JSON fields, parses JSON, classifies common errors, and returns `error_details` for auth, region/project, permission, quota, parameter, not found, and network failures. For an unversioned read-only request, a clear operation/parameter/version usage failure can trigger one bounded retry with another compatible version. Mutations and unrelated error categories are never replayed by this correction path.
 
 For permission failures, `error_details.permission_hint` may include best-effort action hints from `references/iam-actions-catalog.json`. Treat those hints as a review checklist: exact IAM policy syntax, enterprise-project scope, agency trust, service enablement, SCP/custom deny rules, and tenant-side role design still need verification before asking the user to change permissions.
 
@@ -527,6 +542,8 @@ python3 scripts/hcloud_resource_query.py \
 ```
 
 Use when a read operation needs explicit target parameters. Do not guess resource IDs. Sensitive reads such as `ShowServerPassword` and certificate private-key reads are blocked unless `--allow-sensitive-read` is explicit.
+
+The output includes `resolved_operation` and `version_resolution`. Commands use an explicit `/vN`; for example, `ListSecurityGroups` with `vpc_id` resolves to `ListSecurityGroups/v2`.
 
 ### OBS Read-Only Adapter
 

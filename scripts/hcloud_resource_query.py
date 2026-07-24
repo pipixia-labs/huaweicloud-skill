@@ -10,14 +10,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-import hcloud_change_plan
 import hcloud_catalog
+import hcloud_change_plan
 import hcloud_common
+import hcloud_operation_resolver
 import hcloud_resource_discovery
 import hcloud_sdk_catalog
 import hcloud_sdk_supplement_audit
 from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, normalize_token
-
 
 ROOT = hcloud_common.ROOT
 
@@ -113,27 +113,31 @@ def arg_param_value(value: str) -> tuple[str, str] | None:
 
 def operation_scope(service_entry: dict[str, Any], operation: str) -> str | None:
     """Return whether an operation is a generic or explicit-parameter read query."""
-    if operation in service_entry.get("resource_query_operations", []):
+    base_operation, _ = hcloud_catalog.split_operation_version(operation)
+    if base_operation in service_entry.get("resource_query_operations", []):
         return "resource_query"
-    if operation in service_entry.get("query_operations", []):
+    if base_operation in service_entry.get("query_operations", []):
         return "query"
     return None
 
 
 def canonical_operation(service: str, operation: str) -> str:
     """Return the executable KooCLI operation name for a user-facing alias."""
-    return OPERATION_ALIASES.get((service.upper(), operation), operation)
+    base_operation, version = hcloud_catalog.split_operation_version(operation)
+    canonical = OPERATION_ALIASES.get((service.upper(), base_operation), base_operation)
+    return f"{canonical}/{version}" if version else canonical
 
 
 def resolve_registered_operation(service_entry: dict[str, Any], operation: str) -> str | None:
     """Resolve operation aliases and case variants against registered read operations."""
+    base_operation, explicit_version = hcloud_catalog.split_operation_version(operation)
     registered = list(service_entry.get("resource_query_operations", [])) + list(service_entry.get("query_operations", []))
-    if operation in registered:
-        return operation
-    normalized_operation = hcloud_resource_discovery.normalize_operation(operation)
+    if base_operation in registered:
+        return f"{base_operation}/{explicit_version}" if explicit_version else base_operation
+    normalized_operation = hcloud_resource_discovery.normalize_operation(base_operation)
     for item in registered:
         if hcloud_resource_discovery.normalize_operation(item) == normalized_operation:
-            return item
+            return f"{item}/{explicit_version}" if explicit_version else item
     return None
 
 
@@ -163,9 +167,10 @@ def metadata_required_params(service: str, operation: str) -> list[str]:
 
 def required_params(service: str, operation: str) -> list[str]:
     """Return required explicit parameters for a read query."""
+    base_operation, _ = hcloud_catalog.split_operation_version(operation)
     params = set(metadata_required_params(service, operation))
     params.update(catalog_required_params(service, operation))
-    params.update(CURATED_REQUIRED_PARAMS.get((service.upper(), operation), ()))
+    params.update(CURATED_REQUIRED_PARAMS.get((service.upper(), base_operation), ()))
     return sorted(params)
 
 
@@ -178,7 +183,9 @@ def catalog_required_params(service: str, operation: str) -> list[str]:
     catalog_operation = hcloud_catalog.resolve_operation(catalog_service, operation)
     if not catalog_operation:
         return []
-    return hcloud_catalog.normalized_required_params(catalog_operation)
+    _, version = hcloud_catalog.split_operation_version(operation)
+    detail = hcloud_catalog.operation_version_detail(catalog_operation, version)
+    return hcloud_catalog.normalized_required_params(detail or catalog_operation)
 
 
 def provided_param_names(args: argparse.Namespace, params: dict[str, str]) -> set[str]:
@@ -195,10 +202,11 @@ def provided_param_names(args: argparse.Namespace, params: dict[str, str]) -> se
 
 def sdk_supplement_for_hcloud(service: str, operation: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Return curated SDK supplement entry and metadata hint for a hcloud operation."""
-    supplement = hcloud_sdk_supplement_audit.registry_entry_for_hcloud_operation(service, operation)
+    base_operation, _ = hcloud_catalog.split_operation_version(operation)
+    supplement = hcloud_sdk_supplement_audit.registry_entry_for_hcloud_operation(service, base_operation)
     if not supplement:
         return None, None
-    sdk_operation = str(supplement.get("sdk_operation") or operation)
+    sdk_operation = str(supplement.get("sdk_operation") or base_operation)
     return supplement, hcloud_sdk_catalog.sdk_hint_for_operation(service, sdk_operation)
 
 
@@ -449,12 +457,13 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "available_resource_query_operations": entry.get("resource_query_operations", []) if entry else [],
         }
 
-    risk = hcloud_change_plan.assess_risk(operation, dryrun_supported=False)
+    base_operation, _ = hcloud_catalog.split_operation_version(operation)
+    risk = hcloud_change_plan.assess_risk(base_operation, dryrun_supported=False)
     if risk.level == "high" and not args.allow_sensitive_read:
         return {
             "success": False,
             "service": service,
-            "operation": operation,
+            "operation": base_operation,
             "requested_operation": requested_operation,
             "operation_scope": scope,
             "risk": risk.to_dict(),
@@ -462,19 +471,61 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         }
 
     params = parse_key_value(args.param, "--param")
-    required = required_params(service, operation)
-    missing = [name for name in required if name not in provided_param_names(args, params)]
-    sdk_supplement, sdk_hint = sdk_supplement_for_hcloud(service, operation)
+    provided_params = provided_param_names(args, params)
+    version_resolution = hcloud_operation_resolver.resolve_operation_version(
+        command_service,
+        operation,
+        provided_params,
+    )
+    if not version_resolution.get("success"):
+        result = {
+            "success": False,
+            "service": service,
+            "operation": base_operation,
+            "requested_operation": requested_operation,
+            "operation_scope": scope,
+            "provided_params": sorted(provided_params),
+            "version_resolution": version_resolution,
+            "corrected_operation": version_resolution.get("corrected_operation"),
+            "error": "Operation API version resolution failed.",
+        }
+        corrected_operation = version_resolution.get("corrected_operation")
+        if corrected_operation:
+            corrected_command, _ = build_command(
+                args,
+                command_entry,
+                params,
+                str(corrected_operation),
+                command_service if scope.startswith("metadata_") else service,
+            )
+            result["corrected_command"] = corrected_command
+            result["corrected_command_shell"] = shlex.join(corrected_command)
+        return result
+
+    resolved_operation = str(version_resolution.get("resolved_operation") or operation)
+    resolved_base_operation, resolved_version = hcloud_catalog.split_operation_version(
+        resolved_operation
+    )
+    selected_catalog_detail = (
+        hcloud_catalog.operation_version_detail(catalog_operation, resolved_version)
+        if catalog_operation
+        else None
+    )
+    required = required_params(service, resolved_operation)
+    missing = [name for name in required if name not in provided_params]
+    sdk_supplement, sdk_hint = sdk_supplement_for_hcloud(service, resolved_operation)
     if missing:
         return {
             "success": False,
             "service": service,
-            "operation": operation,
+            "operation": resolved_base_operation,
+            "resolved_operation": resolved_operation,
             "requested_operation": requested_operation,
             "operation_scope": scope,
             "required_params": required,
-            "provided_params": sorted(provided_param_names(args, params)),
+            "provided_params": sorted(provided_params),
             "missing_params": missing,
+            "version_resolution": version_resolution,
             "error": "Missing required explicit query parameters.",
         }
     sdk_validation = validate_sdk_typed_params(args, params, sdk_hint)
@@ -482,12 +533,14 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         return {
             "success": False,
             "service": service,
-            "operation": operation,
+            "operation": resolved_base_operation,
+            "resolved_operation": resolved_operation,
             "requested_operation": requested_operation,
             "operation_scope": scope,
             "sdk_supplement": sdk_supplement,
             "sdk_evidence": sdk_hint,
             "sdk_param_validation": sdk_validation,
+            "version_resolution": version_resolution,
             "error": "SDK supplement parameter validation failed.",
         }
 
@@ -495,20 +548,22 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         args,
         command_entry,
         params,
-        operation,
+        resolved_operation,
         command_service if scope.startswith("metadata_") else service,
-        catalog_param_flag_names(catalog_operation) if scope.startswith("metadata_") else None,
+        catalog_param_flag_names(selected_catalog_detail) if scope.startswith("metadata_") else None,
     )
     result: dict[str, Any] = {
         "success": True,
         "mode": "execute" if args.execute else "plan",
         "service": service,
-        "operation": operation,
+        "operation": resolved_base_operation,
+        "resolved_operation": resolved_operation,
         "operation_scope": scope,
         "coverage": "metadata-backed" if scope.startswith("metadata_") else entry.get("coverage"),
         "risk": risk.to_dict(),
         "required_params": required,
-        "provided_params": sorted(provided_param_names(args, params)),
+        "provided_params": sorted(provided_params),
+        "version_resolution": version_resolution,
         "command": command,
         "command_shell": shlex.join(command),
     }
@@ -517,12 +572,24 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             {
                 "metadata_backed": True,
                 "catalog_service": command_service,
-                "catalog_operation_summary": catalog_operation.get("summary") if catalog_operation else None,
-                "catalog_operation_method": catalog_operation.get("method") if catalog_operation else None,
-                "catalog_operation_path": catalog_operation.get("path") if catalog_operation else None,
+                "catalog_operation_summary": (
+                    selected_catalog_detail.get("summary")
+                    if selected_catalog_detail
+                    else catalog_operation.get("summary") if catalog_operation else None
+                ),
+                "catalog_operation_method": (
+                    selected_catalog_detail.get("method")
+                    if selected_catalog_detail
+                    else catalog_operation.get("method") if catalog_operation else None
+                ),
+                "catalog_operation_path": (
+                    selected_catalog_detail.get("path")
+                    if selected_catalog_detail
+                    else catalog_operation.get("path") if catalog_operation else None
+                ),
             }
         )
-    if requested_operation != operation:
+    if requested_operation != resolved_base_operation:
         result["requested_operation"] = requested_operation
     if region_resolution:
         result["region_resolution"] = region_resolution

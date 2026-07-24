@@ -13,7 +13,6 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -322,6 +321,158 @@ class SafeExecRedactionTest(unittest.TestCase):
 
         self.assertEqual(env["USER"], "sandbox-user")
         self.assertEqual(env["HOME"], "/tmp/runtime-home")
+
+    def test_cli_resolves_unversioned_operation_before_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, sys\n"
+                "print(json.dumps(sys.argv[1:]))\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "VPC",
+                    "--operation",
+                    "ListSecurityGroups",
+                    "--arg=--vpc_id=vpc-123",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(result["resolved_operation"], "ListSecurityGroups/v2")
+        self.assertEqual(result["version_resolution"]["confidence"], "exact_parameter_match")
+        self.assertEqual(
+            result["parsed_json"],
+            ["VPC", "ListSecurityGroups/v2", "--vpc_id=vpc-123"],
+        )
+
+    def test_cli_rejects_explicit_version_parameter_conflict_before_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            marker_path = tmp_path / "executed"
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "from pathlib import Path\n"
+                f"Path({str(marker_path)!r}).write_text('executed', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "VPC",
+                    "--operation",
+                    "ListSecurityGroups/v3",
+                    "--arg=--vpc_id=vpc-123",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(marker_path.exists())
+        self.assertEqual(result["error_type"], "VERSION_RESOLUTION_ERROR")
+        self.assertEqual(result["corrected_operation"], "ListSecurityGroups/v2")
+        self.assertEqual(result["corrected_command"][2], "ListSecurityGroups/v2")
+
+    def test_read_only_usage_error_retries_one_alternate_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, sys\n"
+                "operation = sys.argv[2]\n"
+                "if operation.endswith('/v3'):\n"
+                "    print('[USE_ERROR] unsupported operation version')\n"
+                "    raise SystemExit(1)\n"
+                "print(json.dumps({'operation': operation}))\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "VPC",
+                    "--operation",
+                    "ListSecurityGroups",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+        self.assertEqual(completed.returncode, 0)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["resolved_operation"], "ListSecurityGroups/v2")
+        self.assertEqual(result["parsed_json"], {"operation": "ListSecurityGroups/v2"})
+        self.assertEqual(len(result["attempts"]), 2)
+        self.assertEqual(
+            result["version_correction"]["reason"],
+            "read_only_version_usage_error",
+        )
+
+    def test_mutation_usage_error_is_never_retried_with_another_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "print('[USE_ERROR] unsupported operation version')\n"
+                "raise SystemExit(1)\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "VPC",
+                    "--operation",
+                    "CreateSecurityGroup",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(result["success"])
+        self.assertEqual(result["resolved_operation"], "CreateSecurityGroup/v3")
+        self.assertEqual(len(result["attempts"]), 1)
+        self.assertNotIn("version_correction", result)
 
 
 if __name__ == "__main__":

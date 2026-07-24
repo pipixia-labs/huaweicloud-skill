@@ -10,7 +10,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = Path.home() / ".hcloud" / "metaRepo"
 DEFAULT_FINGERPRINT_OUTPUT = ROOT / "references" / "hcloud-service-catalog.fingerprint.json"
@@ -213,6 +212,42 @@ def load_detail(
     return {}, None, None
 
 
+def load_version_detail(
+    template_dir: Path,
+    operation_name: str,
+    version: str,
+    language: str,
+    *,
+    allow_unversioned: bool,
+) -> tuple[dict[str, Any], str | None, str | None]:
+    """Load metadata for one exact API version.
+
+    Multi-version operations must not borrow another version's detail file:
+    their parameters and request paths can differ even when the operation name
+    is identical. An unversioned detail file is accepted only for operations
+    that expose a single version.
+    """
+
+    detail_languages = (language, *(candidate for candidate in LANGUAGE_ORDER if candidate != language))
+    candidates: list[Path] = []
+    for detail_language in detail_languages:
+        candidates.append(template_dir / f"{operation_name}_{version}_{detail_language}.yaml")
+        if allow_unversioned:
+            candidates.append(template_dir / f"{operation_name}_{detail_language}.yaml")
+
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            payload = load_json(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            detail_language = candidate.stem.rsplit("_", 1)[-1]
+            return payload, candidate.name, detail_language
+    return {}, None, None
+
+
 def iter_param_names(param: dict[str, Any]) -> list[str]:
     """Return parameter names from one metadata param object."""
     raw_names = param.get("Name", [])
@@ -294,32 +329,31 @@ def retained_param_items(params: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def build_operation(template_dir: Path, raw_api: dict[str, Any], language: str) -> dict[str, Any] | None:
-    """Build one compact catalog operation item."""
-    operation_name = str(raw_api.get("Name") or "").strip()
-    if not operation_name:
-        return None
-    version = select_version(raw_api.get("Versions", []))
-    detail, detail_file, detail_language = load_detail(template_dir, operation_name, version, language)
+def build_version_detail(
+    template_dir: Path,
+    operation_name: str,
+    version: str,
+    language: str,
+    suggests: dict[str, Any],
+    *,
+    allow_unversioned: bool,
+) -> dict[str, Any]:
+    """Build compact metadata for one operation API version."""
+
+    detail, detail_file, detail_language = load_version_detail(
+        template_dir,
+        operation_name,
+        version,
+        language,
+        allow_unversioned=allow_unversioned,
+    )
     all_params = build_param_items(detail)
-    required_params = business_param_names(all_params, required=True)
-    optional_params = business_param_names(all_params, required=False)
     request = detail.get("Request", {}) if isinstance(detail.get("Request"), dict) else {}
-    suggests = raw_api.get("Suggests", {})
-    summary = ""
-    if isinstance(suggests, dict):
-        summary = str(suggests.get(version) or next((value for value in suggests.values() if value), "") or "")
-    action = operation_action(operation_name)
     params_lower = {normalize_param_name(name) for name in all_param_names(all_params)}
     return {
-        "name": operation_name,
-        "summary": clean_text(summary),
+        "version": version,
+        "summary": clean_text(suggests.get(version)),
         "description": clean_text(detail.get("Description")),
-        "versions": raw_api.get("Versions", []) if isinstance(raw_api.get("Versions"), list) else [],
-        "selected_version": version,
-        "metadata_language": language,
-        "action": action,
-        "read_only": action in READ_ONLY_ACTIONS,
         "detail_cached": bool(detail_file),
         "detail_file": detail_file,
         "detail_language": detail_language,
@@ -327,10 +361,83 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any], language: str) 
         "path": request.get("Path"),
         "has_body_params": request.get("HasBodyParams"),
         "params": retained_param_items(all_params),
-        "required_params": required_params,
-        "optional_params": optional_params,
+        "required_params": business_param_names(all_params, required=True),
+        "optional_params": business_param_names(all_params, required=False),
         "supports_limit": "limit" in params_lower,
     }
+
+
+def build_operation(template_dir: Path, raw_api: dict[str, Any], language: str) -> dict[str, Any] | None:
+    """Build one compact catalog operation item."""
+    operation_name = str(raw_api.get("Name") or "").strip()
+    if not operation_name:
+        return None
+    raw_versions = raw_api.get("Versions", [])
+    versions = (
+        [str(item).strip() for item in raw_versions if str(item).strip()]
+        if isinstance(raw_versions, list)
+        else []
+    )
+    version = select_version(versions)
+    suggests = raw_api.get("Suggests", {})
+    suggests = suggests if isinstance(suggests, dict) else {}
+    version_details = {
+        candidate_version: build_version_detail(
+            template_dir,
+            operation_name,
+            candidate_version,
+            language,
+            suggests,
+            allow_unversioned=len(versions) == 1,
+        )
+        for candidate_version in versions
+    }
+    selected_detail = version_details.get(version, {})
+    if not selected_detail.get("detail_cached"):
+        detail, detail_file, detail_language = load_detail(template_dir, operation_name, version, language)
+        all_params = build_param_items(detail)
+        request = detail.get("Request", {}) if isinstance(detail.get("Request"), dict) else {}
+        selected_detail = {
+            "version": version,
+            "summary": clean_text(suggests.get(version)),
+            "description": clean_text(detail.get("Description")),
+            "detail_cached": bool(detail_file),
+            "detail_file": detail_file,
+            "detail_language": detail_language,
+            "method": request.get("Method"),
+            "path": request.get("Path"),
+            "has_body_params": request.get("HasBodyParams"),
+            "params": retained_param_items(all_params),
+            "required_params": business_param_names(all_params, required=True),
+            "optional_params": business_param_names(all_params, required=False),
+            "supports_limit": "limit"
+            in {normalize_param_name(name) for name in all_param_names(all_params)},
+        }
+    action = operation_action(operation_name)
+    operation = {
+        "name": operation_name,
+        "summary": selected_detail.get("summary")
+        or clean_text(next((value for value in suggests.values() if value), "")),
+        "description": selected_detail.get("description", ""),
+        "versions": versions,
+        "selected_version": version,
+        "metadata_language": language,
+        "action": action,
+        "read_only": action in READ_ONLY_ACTIONS,
+        "detail_cached": bool(selected_detail.get("detail_cached")),
+        "detail_file": selected_detail.get("detail_file"),
+        "detail_language": selected_detail.get("detail_language"),
+        "method": selected_detail.get("method"),
+        "path": selected_detail.get("path"),
+        "has_body_params": selected_detail.get("has_body_params"),
+        "params": selected_detail.get("params", []),
+        "required_params": selected_detail.get("required_params", []),
+        "optional_params": selected_detail.get("optional_params", []),
+        "supports_limit": bool(selected_detail.get("supports_limit")),
+    }
+    if len(versions) > 1:
+        operation["version_details"] = version_details
+    return operation
 
 
 def load_api_entries(template_dir: Path) -> list[tuple[str, dict[str, Any], str]]:
@@ -368,7 +475,7 @@ def build_catalog(meta_repo: Path, include_hcs: bool = False) -> dict[str, Any]:
     template_root = meta_repo / "template"
     catalog_services: dict[str, Any] = {}
     if not template_root.exists():
-        return {"schema_version": 1, "source": {"format": "hcloud metaRepo"}, "services": catalog_services}
+        return {"schema_version": 2, "source": {"format": "hcloud metaRepo"}, "services": catalog_services}
 
     for template_dir in sorted(path for path in template_root.iterdir() if path.is_dir()):
         api_entries = load_api_entries(template_dir)
@@ -407,7 +514,7 @@ def build_catalog(meta_repo: Path, include_hcs: bool = False) -> dict[str, Any]:
     services_update_times = load_services_update_times(meta_repo)
     operation_count = sum(service["operation_count"] for service in catalog_services.values())
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "source": {
             "format": "hcloud metaRepo",
             "runtime_scope": "all-metadata" if include_hcs else "public-cloud",

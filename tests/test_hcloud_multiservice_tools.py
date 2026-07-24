@@ -12,7 +12,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -1821,6 +1820,56 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["operation"], "ShowVpc")
         self.assertIn("--arg=--vpc_id=vpc-1", result["command"])
 
+    def test_resource_query_selects_v2_for_vpc_id_filter(self) -> None:
+        args = SimpleNamespace(
+            service="VPC",
+            operation="ListSecurityGroups",
+            param=["vpc_id=vpc-1"],
+            arg=[],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            execute=False,
+            timeout=1,
+            allow_sensitive_read=False,
+        )
+
+        result = hcloud_resource_query.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["operation"], "ListSecurityGroups")
+        self.assertEqual(result["resolved_operation"], "ListSecurityGroups/v2")
+        self.assertEqual(
+            result["version_resolution"]["confidence"],
+            "exact_parameter_match",
+        )
+        self.assertIn("ListSecurityGroups/v2", result["command"])
+        self.assertIn("--arg=--vpc_id=vpc-1", result["command"])
+
+    def test_resource_query_corrects_explicit_incompatible_version(self) -> None:
+        args = SimpleNamespace(
+            service="VPC",
+            operation="ListSecurityGroups/v3",
+            param=["vpc_id=vpc-1"],
+            arg=[],
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            execute=False,
+            timeout=1,
+            allow_sensitive_read=False,
+        )
+
+        result = hcloud_resource_query.build_plan(args)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["corrected_operation"], "ListSecurityGroups/v2")
+        self.assertIn("ListSecurityGroups/v2", result["corrected_command"])
+        self.assertEqual(
+            result["version_resolution"]["reason"],
+            "provided_parameters_are_not_supported_by_explicit_version",
+        )
+
     def test_generic_resource_query_rejects_obs_dedicated_runner(self) -> None:
         args = SimpleNamespace(
             service="OBS",
@@ -2014,7 +2063,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(result["success"], result)
         self.assertEqual(result["requested_operation"], "ShowConfigurationDetail")
         self.assertEqual(result["operation"], "ShowConfiguration")
-        self.assertIn("ShowConfiguration", result["command"])
+        self.assertIn("ShowConfiguration/v3", result["command"])
         self.assertIn("--arg=--config_id=config-1", result["command"])
 
     def test_service_readiness_builds_vpc_profile(self) -> None:

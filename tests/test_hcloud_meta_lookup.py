@@ -8,7 +8,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "hcloud_meta_lookup.py"
 SPEC = importlib.util.spec_from_file_location("hcloud_meta_lookup", SCRIPT)
@@ -116,6 +115,37 @@ class MetaLookupTest(unittest.TestCase):
         assert detail is not None
         self.assertEqual(detail["detail_file"], "ListCnOnly_v5_cn.yaml")
         self.assertEqual(detail["detail_language"], "cn")
+
+    def test_load_operation_detail_honors_explicit_api_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            template_dir = Path(tmp_dir)
+            for version, parameter in (("v2", "vpc_id"), ("v3", "name")):
+                (template_dir / f"ListSecurityGroups_{version}_en.yaml").write_text(
+                    json.dumps(
+                        {
+                            "Request": {"Method": "GET", "Path": f"/{version}/security-groups"},
+                            "Params": [
+                                {
+                                    "Name": [parameter],
+                                    "Required": False,
+                                    "Position": "query",
+                                }
+                            ],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            detail = hcloud_meta_lookup.load_operation_detail(
+                template_dir,
+                "ListSecurityGroups/v2",
+            )
+
+        self.assertIsNotNone(detail)
+        assert detail is not None
+        self.assertEqual(detail["version"], "v2")
+        self.assertEqual(detail["detail_file"], "ListSecurityGroups_v2_en.yaml")
+        self.assertEqual(detail["params"][0]["name"], ["vpc_id"])
 
 
 if __name__ == "__main__":

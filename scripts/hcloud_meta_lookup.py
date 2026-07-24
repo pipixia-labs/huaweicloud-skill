@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import hcloud_catalog
 import hcloud_common
 
 LANGUAGE_ORDER = ("en", "cn")
@@ -76,12 +77,18 @@ def collect_template_dirs(meta_repo: Path) -> dict[str, Path]:
 
 def detail_operation_name(detail_file: Path, language: str) -> str:
     """Return the operation name represented by a cached detail file."""
+    operation_name, _ = detail_operation_identity(detail_file, language)
+    return operation_name
+
+
+def detail_operation_identity(detail_file: Path, language: str) -> tuple[str, str | None]:
+    """Return the operation name and optional API version from a detail file."""
     suffix = f"_{language}.yaml"
     stem = detail_file.name[: -len(suffix)]
     candidate, _, maybe_version = stem.rpartition("_")
     if candidate and re.fullmatch(r"v[0-9][A-Za-z0-9._-]*", maybe_version):
-        return candidate
-    return stem
+        return candidate, maybe_version.lower()
+    return stem, None
 
 
 def summarize_service(item: dict[str, Any], template_dir: Path | None) -> dict[str, Any]:
@@ -146,11 +153,14 @@ def load_operation_detail(template_dir: Path | None, operation_name: str) -> dic
     if template_dir is None:
         return None
 
-    target = normalize_token(operation_name)
+    base_operation, explicit_version = hcloud_catalog.split_operation_version(operation_name)
+    target = normalize_token(base_operation)
     for language in LANGUAGE_ORDER:
-        for detail_file in template_dir.glob(f"*_{language}.yaml"):
-            candidate_name = detail_operation_name(detail_file, language)
+        for detail_file in sorted(template_dir.glob(f"*_{language}.yaml")):
+            candidate_name, candidate_version = detail_operation_identity(detail_file, language)
             if normalize_token(candidate_name) != target:
+                continue
+            if explicit_version and candidate_version != explicit_version:
                 continue
             detail, detail_format, error = load_structured_detail(detail_file)
             if not isinstance(detail, dict):
@@ -158,6 +168,7 @@ def load_operation_detail(template_dir: Path | None, operation_name: str) -> dic
                     "detail_file": detail_file.name,
                     "detail_file_format": detail_format,
                     "detail_language": language,
+                    "version": candidate_version,
                     "error": error or "Cached detail file exists but did not parse to an object.",
                 }
 
@@ -167,6 +178,7 @@ def load_operation_detail(template_dir: Path | None, operation_name: str) -> dic
                 "detail_file": detail_file.name,
                 "detail_file_format": detail_format,
                 "detail_language": language,
+                "version": candidate_version,
                 "description": detail.get("Description"),
                 "group_id": detail.get("GroupId"),
                 "cli_version": detail.get("CLIVersion"),
