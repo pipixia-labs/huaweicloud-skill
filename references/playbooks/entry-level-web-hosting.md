@@ -2,7 +2,7 @@
 
 ## 目标
 
-面向小白用户、小企业和低预算试运行场景，先用最少复杂度完成网站上线与可验证访问，再按流量、后端、运维和成本需求升级到更重的架构。不要因为用户说“网站”就默认购买 ECS。
+面向小白用户、小企业和低预算试运行场景，先用最少复杂度完成网站上线与可验证访问，再按流量、后端、运维和成本需求升级到更重的架构。不要因为用户说“网站”就默认购买 ECS；也不要因为 agent 能生成静态页面，就覆盖用户明确指定的机器、ECS 或公网 IP。
 
 ## 适用场景
 
@@ -11,9 +11,19 @@
 - 用户在 OBS、CDN、DNS、Flexus L、轻量服务器、ECS 之间犹豫。
 - Web 应用还不确定是否需要数据库、后台任务、登录态或长期运维。
 
+## 架构选择硬规则
+
+1. 先运行 `hcloud_scenario_router.py`，先读 `architecture_decision`，再读路由排名。
+2. 用户指定机器、主机、ECS、云服务器、SSH、Nginx、Docker 或返回公网 IP 时，选择 ECS/计算实例路径；不能用 OBS 代替。
+3. 用户指定 OBS/对象存储，同时又指定机器或服务端动态能力时，必须澄清，确认前不创建任何资源。
+4. 购物车、订单、支付、库存、用户登录、管理后台、服务端、后端或数据库属于动态能力，不能按 OBS-only 方案执行。
+5. 只有“电商/商城”但没有说明功能时，先确认是静态展示页还是真实电商系统。
+6. 一般网站没有说明运行载体时，询问 OBS 静态托管、Flexus 还是 ECS；不要静默选择。
+7. 架构必须依据用户原始需求确定。不能先生成静态文件，再以“产物是静态的”为由倒推 OBS。
+
 ## 选型顺序
 
-1. 静态站优先 OBS 静态网站托管。
+1. 已确认纯静态、没有显式计算约束且用户接受静态托管时，优先 OBS 静态网站托管。
    - 适合纯 HTML/CSS/JS、图片、下载页、文档站。
    - 成本和运维复杂度最低。
    - 自定义域名、CNAME、匿名访问和 403/404 排障按 `obs-static-website-hosting.md` 处理。
@@ -53,7 +63,7 @@ Terraform 只用于生成和评审可重复资产，不替代 hcloud/obsutil 发
 
 ## OBS 静态站路径
 
-先读取 `obs-static-website-hosting.md`，再按下面流程执行。OBS 静态站不是“桶创建成功”就完成，正式上线至少要确认 website endpoint、自定义域名、DNS 解析、匿名访问和 HTTP 行为。
+先读取 `obs-static-website-hosting.md`，再按下面流程执行。OBS 静态站不是“桶创建成功”就完成，OBS 默认域名也只能用于临时源站验证；正式上线至少要确认自定义域名、DNS 解析、匿名访问和 HTTP/浏览器行为。
 
 1. 检查 OBS 能力和桶边界：
 
@@ -72,8 +82,9 @@ python3 scripts/hcloud_obs_readonly.py \
    - 没有 `.env`、私钥、真实 tfvars、后台源码密钥。
 5. 上线后验收：
    - 自定义域名解析到 OBS website endpoint。
-   - OBS 静态网站 endpoint 返回 200/3xx。
-   - 首页、关键资源、移动端截图可用。
+   - OBS 静态网站 endpoint 只作为源站临时验证，不能单独作为正式交付 URL。
+   - 自定义域名返回 200/3xx，`Content-Type` 符合网页/资源类型。
+   - 首页、关键资源、桌面端和移动端截图可用。
    - 缺失路径返回 404 或配置的 error document。
    - 如有 CDN/DNS，分别验证源站直连和 CDN 域名。
 
@@ -100,6 +111,8 @@ python3 scripts/hcloud_scenario_router.py \
 2. 准备 ECS 创建和登录闭环：
    - `ecs-create-readiness.md`
    - `ecs-ssh-access-readiness.md`
+   - `ecs-user-data-service-readiness.md`
+   - `eip-public-ip-readiness.md`
    - `coc-readiness.md`
 3. 部署服务时优先使用幂等脚本或 cloud-init。
 4. 验收必须包含：
@@ -107,7 +120,9 @@ python3 scripts/hcloud_scenario_router.py \
    - SSH 或 COC/机内命令成功。
    - 服务进程和监听端口存在。
    - 安全组来源收敛。
+   - EIP 状态正常，并回读确认绑定到目标 ECS/port。
    - 公网 HTTP/HTTPS 协议探测成功。
+   - 用户要求返回 IP 时，输出已验收的 EIP 公网地址；不能用私网 IP、OBS 域名或未绑定 EIP 代替。
 
 ## 成本和运维提示
 
@@ -123,6 +138,7 @@ python3 scripts/hcloud_scenario_router.py \
 给用户的方案不要只给一个产品名。至少给出：
 
 - 推荐路径：OBS 静态站 / Flexus L / ECS。
+- 用户原始约束以及最终路径是否完全满足这些约束。
 - 为什么：是否需要后端、预算、运维复杂度、后续扩展。
 - 本轮要做的最小步骤。
 - 需要用户确认的费用、域名、region、公开访问范围。

@@ -289,6 +289,14 @@
         "ecs",
         "云服务器",
         "弹性云服务器",
+        "机器",
+        "主机",
+        "服务器",
+        "云主机",
+        "虚拟机",
+        "部署到机器",
+        "返回公网 IP",
+        "返回IP",
         "实例",
         "flavor",
         "规格",
@@ -301,11 +309,14 @@
         "ECS",
         "IMS",
         "KPS",
-        "VPC"
+        "VPC",
+        "EIP"
       ],
       "primary_playbooks": [
         "references/playbooks/ecs-create-readiness.md",
         "references/playbooks/ecs-ssh-access-readiness.md",
+        "references/playbooks/ecs-user-data-service-readiness.md",
+        "references/playbooks/eip-public-ip-readiness.md",
         "references/playbooks/coc-readiness.md",
         "references/playbooks/ims-image-discovery.md",
         "references/playbooks/kps-keypair-discovery.md"
@@ -318,6 +329,7 @@
         "scripts/hcloud_resource_discovery.py",
         "scripts/hcloud_resource_query.py",
         "scripts/hcloud_ecs_create_plan.py",
+        "scripts/hcloud_eip_change_flow.py",
         "scripts/hcloud_guarded_change_flow.py"
       ],
       "sdk_supplements": [
@@ -447,6 +459,9 @@
         "静态站",
         "静态网站",
         "网站",
+        "站点",
+        "网页",
+        "页面",
         "独立站",
         "flexus",
         "flexus l",
@@ -460,6 +475,7 @@
         "CDN",
         "DNS",
         "ECS",
+        "EIP",
         "FLEXUS-L"
       ],
       "primary_playbooks": [
@@ -469,6 +485,8 @@
         "references/playbooks/static-site-generated-assets-readiness.md",
         "references/playbooks/obs-boundary.md",
         "references/playbooks/ecs-create-readiness.md",
+        "references/playbooks/ecs-user-data-service-readiness.md",
+        "references/playbooks/eip-public-ip-readiness.md",
         "references/playbooks/coc-readiness.md",
         "references/playbooks/dns-zone-record-readiness.md"
       ],
@@ -481,6 +499,7 @@
         "scripts/hcloud_obs_readonly.py",
         "scripts/hcloud_obs_change_plan.py",
         "scripts/hcloud_ecs_create_plan.py",
+        "scripts/hcloud_eip_change_flow.py",
         "scripts/hcloud_guarded_change_flow.py"
       ],
       "sdk_supplements": [],
@@ -497,6 +516,17 @@
         "web api",
         "api 服务",
         "业务系统",
+        "电商",
+        "商城",
+        "购物车",
+        "订单",
+        "支付",
+        "库存",
+        "用户登录",
+        "管理后台",
+        "后台任务",
+        "服务端",
+        "后端",
         "生产",
         "上线",
         "上线闭环",

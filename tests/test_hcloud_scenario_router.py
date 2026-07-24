@@ -77,6 +77,89 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         self.assertIn("scripts/hcloud_environment_doctor.py", match["planners"])
         self.assertTrue(match["terraform_candidate"])
 
+    def test_explicit_machine_constraint_routes_website_to_ecs_with_eip(self) -> None:
+        result = hcloud_scenario_router.route(
+            "帮我搭建一个泡泡玛特风格的个人玩具站点。机器放在北京4上。",
+            limit=3,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        decision = result["architecture_decision"]
+        self.assertTrue(decision["applicable"])
+        self.assertIn(
+            {"type": "compute", "signal": "机器"},
+            decision["explicit_constraints"],
+        )
+        self.assertEqual(decision["recommended_architecture"], "ecs_single")
+        self.assertFalse(decision["clarification_required"])
+        self.assertFalse(result["change_execution_blocked"])
+        match = result["matches"][0]
+        self.assertEqual(match["id"], "ecs-compute-readiness")
+        self.assertIn("EIP", match["services"])
+        self.assertIn(
+            "references/playbooks/eip-public-ip-readiness.md",
+            match["primary_playbooks"],
+        )
+        self.assertIn(
+            "references/playbooks/ecs-user-data-service-readiness.md",
+            match["primary_playbooks"],
+        )
+
+    def test_generic_website_requires_hosting_clarification(self) -> None:
+        result = hcloud_scenario_router.route(
+            "帮我在北京4搭建一个个人作品站点",
+            limit=3,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        decision = result["architecture_decision"]
+        self.assertTrue(decision["applicable"])
+        self.assertIsNone(decision["recommended_architecture"])
+        self.assertTrue(decision["clarification_required"])
+        self.assertTrue(result["change_execution_blocked"])
+        self.assertIn("OBS", decision["clarification_question"])
+        self.assertIn("ECS", decision["clarification_question"])
+
+    def test_explicit_obs_static_site_routes_without_compute_substitution(self) -> None:
+        result = hcloud_scenario_router.route(
+            "帮我部署纯静态展示站，可以使用 OBS 静态托管",
+            limit=3,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        decision = result["architecture_decision"]
+        self.assertEqual(decision["recommended_architecture"], "obs_static")
+        self.assertFalse(decision["clarification_required"])
+        self.assertEqual(result["matches"][0]["id"], "obs-static-website-hosting")
+
+    def test_dynamic_commerce_capabilities_do_not_route_to_obs_only(self) -> None:
+        result = hcloud_scenario_router.route(
+            "搭建玩具商城，需要购物车、订单、支付和管理后台",
+            limit=3,
+        )
+
+        self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
+        decision = result["architecture_decision"]
+        self.assertEqual(decision["recommended_architecture"], "dynamic_web")
+        self.assertTrue(decision["clarification_required"])
+        self.assertTrue(result["change_execution_blocked"])
+        self.assertEqual(
+            result["matches"][0]["id"],
+            "web-application-production-readiness",
+        )
+
+    def test_conflicting_obs_and_machine_constraints_require_clarification(self) -> None:
+        result = hcloud_scenario_router.route(
+            "静态站使用 OBS，但必须部署在我的 ECS 机器上",
+            limit=3,
+        )
+
+        decision = result["architecture_decision"]
+        self.assertIsNone(decision["recommended_architecture"])
+        self.assertTrue(decision["clarification_required"])
+        self.assertTrue(decision["architecture_conflicts"])
+        self.assertTrue(result["change_execution_blocked"])
+
     def test_routes_production_web_app_to_multi_service_closure(self) -> None:
         result = hcloud_scenario_router.route(
             "生产 Web 应用上线，ECS 接 RDS，ELB 域名 HTTPS 和 WAF 怎么闭环",
@@ -271,6 +354,25 @@ class HcloudScenarioRouterTest(unittest.TestCase):
 
         self.assertFalse(result["success"], json.dumps(result, ensure_ascii=False))
         self.assertEqual(result["matches"], [])
+        self.assertFalse(result["architecture_decision"]["applicable"])
+        self.assertFalse(result["change_execution_blocked"])
+
+    def test_web_architecture_guidance_enforces_hard_constraints_and_completion(self) -> None:
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        entry_text = (
+            ROOT / "references" / "playbooks" / "entry-level-web-hosting.md"
+        ).read_text(encoding="utf-8")
+        obs_text = (
+            ROOT / "references" / "playbooks" / "obs-static-website-hosting.md"
+        ).read_text(encoding="utf-8")
+        ecs_text = (
+            ROOT / "references" / "playbooks" / "ecs-create-readiness.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("change_execution_blocked=true", skill_text)
+        self.assertIn("不能先生成静态文件", entry_text)
+        self.assertIn("默认域名只用于临时源站验证", obs_text)
+        self.assertIn("不能返回私网 IP、OBS 域名", ecs_text)
 
     def test_router_references_existing_local_assets(self) -> None:
         router = hcloud_scenario_router.load_router()

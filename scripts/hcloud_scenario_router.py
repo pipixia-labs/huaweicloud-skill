@@ -10,7 +10,6 @@ from typing import Any
 
 import hcloud_common
 
-
 ROUTER_PATH = hcloud_common.REFERENCES_DIR / "scenario-router.json"
 SERVICE_ALIAS_PATH = hcloud_common.REFERENCES_DIR / "service-aliases.json"
 SCENARIO_CONTRACT_PATH = hcloud_common.REFERENCES_DIR / "scenario-contracts.json"
@@ -35,6 +34,93 @@ P0_ACCEPTANCE_FOLLOWUPS = [
         "purpose": "Use plan/run/evaluate subcommands to collect and judge acceptance evidence.",
     },
 ]
+
+WEBSITE_TERMS = (
+    "网站",
+    "站点",
+    "网页",
+    "官网",
+    "独立站",
+    "静态网站",
+    "静态站",
+    "展示站",
+    "商城",
+    "电商",
+    "web app",
+    "web应用",
+    "web 应用",
+    "web api",
+    "api服务",
+    "api 服务",
+)
+DEPLOYMENT_TERMS = (
+    "搭建",
+    "部署",
+    "创建",
+    "购买",
+    "上线",
+    "发布",
+    "托管",
+    "运行",
+    "放在",
+)
+ECS_COMPUTE_CONSTRAINT_TERMS = (
+    "弹性云服务器",
+    "云服务器",
+    "虚拟机",
+    "云主机",
+    "服务器",
+    "机器",
+    "主机",
+    "ecs",
+    "ssh",
+    "nginx",
+    "docker",
+    "公网 ip",
+    "公网ip",
+    "返回 ip",
+    "返回ip",
+    "ip 地址",
+    "ip地址",
+)
+FLEXUS_CONSTRAINT_TERMS = (
+    "flexus l",
+    "flexus",
+    "轻量应用服务器",
+    "轻量服务器",
+)
+OBS_CONSTRAINT_TERMS = (
+    "对象存储",
+    "使用 obs",
+    "用 obs",
+    "接受 obs",
+    "可以用 obs",
+    "obs 静态",
+    "obs",
+)
+STATIC_SITE_TERMS = (
+    "纯静态",
+    "静态网站",
+    "静态站",
+    "纯前端",
+    "html/css/js",
+)
+DYNAMIC_CAPABILITY_TERMS = (
+    "购物车",
+    "订单",
+    "支付",
+    "库存",
+    "用户登录",
+    "管理后台",
+    "后台任务",
+    "服务端",
+    "后端",
+    "数据库",
+)
+COMMERCE_AMBIGUITY_TERMS = (
+    "电商",
+    "商城",
+)
 
 
 def normalize_token(value: str) -> str:
@@ -83,6 +169,141 @@ def recommended_followups(scenario: dict[str, Any]) -> list[dict[str, str]]:
     if services & P0_CLOSURE_SERVICES:
         return [dict(item) for item in P0_ACCEPTANCE_FOLLOWUPS]
     return []
+
+
+def matched_signals(query: str, terms: tuple[str, ...]) -> list[str]:
+    """Return configured intent signals found in a natural-language query."""
+    query_lower = query.lower()
+    query_token = normalize_token(query)
+    return [
+        term
+        for term in terms
+        if term.lower() in query_lower or normalize_token(term) in query_token
+    ]
+
+
+def analyze_web_architecture(query: str) -> dict[str, Any]:
+    """Extract website hosting constraints and decide whether clarification is required."""
+    website_signals = matched_signals(query, WEBSITE_TERMS)
+    deployment_signals = matched_signals(query, DEPLOYMENT_TERMS)
+    compute_signals = matched_signals(query, ECS_COMPUTE_CONSTRAINT_TERMS)
+    flexus_signals = matched_signals(query, FLEXUS_CONSTRAINT_TERMS)
+    obs_signals = matched_signals(query, OBS_CONSTRAINT_TERMS)
+    static_signals = matched_signals(query, STATIC_SITE_TERMS)
+    dynamic_signals = matched_signals(query, DYNAMIC_CAPABILITY_TERMS)
+    commerce_signals = matched_signals(query, COMMERCE_AMBIGUITY_TERMS)
+
+    # "轻量服务器" contains "服务器" but names a distinct product choice.
+    if flexus_signals:
+        compute_signals = [
+            signal for signal in compute_signals if signal not in {"服务器"}
+        ]
+
+    applicable = bool(
+        website_signals
+        and (
+            deployment_signals
+            or compute_signals
+            or flexus_signals
+            or obs_signals
+            or static_signals
+            or dynamic_signals
+            or commerce_signals
+        )
+    )
+    explicit_constraints = [
+        *({"type": "compute", "signal": signal} for signal in compute_signals),
+        *({"type": "flexus", "signal": signal} for signal in flexus_signals),
+        *({"type": "obs", "signal": signal} for signal in obs_signals),
+    ]
+    conflicts: list[str] = []
+    if compute_signals and obs_signals:
+        conflicts.append("同时指定了 ECS/机器与 OBS 静态托管，运行载体不唯一。")
+    if flexus_signals and obs_signals:
+        conflicts.append("同时指定了 Flexus/轻量服务器与 OBS 静态托管，运行载体不唯一。")
+    if obs_signals and dynamic_signals:
+        conflicts.append("OBS 静态托管不能承载已声明的服务端动态能力。")
+
+    recommended_architecture: str | None = None
+    clarification_required = False
+    clarification_question: str | None = None
+
+    if applicable and conflicts:
+        clarification_required = True
+        clarification_question = (
+            "你同时指定了不同运行载体或不兼容能力。请确认最终使用 "
+            "OBS 静态托管、Flexus，还是 ECS；如果需要服务端能力，请选择计算实例路径。"
+        )
+    elif applicable and compute_signals:
+        recommended_architecture = "ecs_web" if dynamic_signals else "ecs_single"
+    elif applicable and flexus_signals:
+        recommended_architecture = "flexus_l"
+    elif applicable and obs_signals:
+        recommended_architecture = "obs_static"
+    elif applicable and dynamic_signals:
+        recommended_architecture = "dynamic_web"
+        clarification_required = True
+        clarification_question = (
+            "该站点包含服务端动态能力。请确认使用 Flexus/单台 ECS，"
+            "还是需要 ELB、RDS 等生产 Web 架构；确认前不要创建资源。"
+        )
+    elif applicable and commerce_signals:
+        clarification_required = True
+        clarification_question = (
+            "你需要的是静态电商展示页，还是包含登录、购物车、订单、支付、"
+            "库存或管理后台的真实电商站点？"
+        )
+    elif applicable and static_signals:
+        recommended_architecture = "obs_static"
+    elif applicable:
+        clarification_required = True
+        clarification_question = (
+            "这个站点要使用 OBS 静态托管，还是部署到 Flexus/ECS 机器？"
+            "如果需要返回公网 IP、运行后端或登录机器，请选择 ECS/Flexus 路径。"
+        )
+
+    return {
+        "applicable": applicable,
+        "website_intent": bool(website_signals),
+        "website_signals": website_signals,
+        "deployment_signals": deployment_signals,
+        "explicit_constraints": explicit_constraints,
+        "static_signals": static_signals,
+        "dynamic_signals": dynamic_signals,
+        "commerce_signals": commerce_signals,
+        "architecture_conflicts": conflicts,
+        "recommended_architecture": recommended_architecture,
+        "clarification_required": clarification_required,
+        "clarification_question": clarification_question,
+    }
+
+
+def architecture_score_adjustment(
+    scenario_id: str,
+    decision: dict[str, Any],
+) -> tuple[int, str | None]:
+    """Return a deterministic route boost derived from explicit web constraints."""
+    recommended = decision.get("recommended_architecture")
+    if recommended == "ecs_single" and scenario_id == "ecs-compute-readiness":
+        return 40, "architecture:explicit compute target +40"
+    if recommended == "ecs_web":
+        if scenario_id == "web-application-production-readiness":
+            return 48, "architecture:dynamic workload on explicit compute target +48"
+        if scenario_id == "ecs-compute-readiness":
+            return 32, "architecture:explicit compute target +32"
+    if recommended == "obs_static" and scenario_id == "obs-static-website-hosting":
+        return 40, "architecture:explicit static/OBS target +40"
+    if recommended == "flexus_l" and scenario_id == "entry-level-web-hosting":
+        return 40, "architecture:explicit Flexus target +40"
+    if recommended == "dynamic_web" and scenario_id == "web-application-production-readiness":
+        return 40, "architecture:dynamic web capabilities +40"
+    if (
+        recommended is None
+        and decision.get("commerce_signals")
+        and scenario_id == "web-application-production-readiness"
+    ):
+        return 24, "architecture:commerce clarification route +24"
+    return 0, None
 
 
 def score_scenario(
@@ -145,6 +366,7 @@ def route(query: str, category: str | None = None, service: str | None = None, l
     router = load_router(router_path)
     service_aliases = load_service_aliases()
     scenario_contracts = load_scenario_contracts()
+    architecture_decision = analyze_web_architecture(query)
     matches = []
     for scenario in router.get("scenarios", []):
         if not isinstance(scenario, dict):
@@ -156,6 +378,13 @@ def route(query: str, category: str | None = None, service: str | None = None, l
             service=service,
             service_aliases=service_aliases,
         )
+        architecture_adjustment, architecture_reason = architecture_score_adjustment(
+            str(scenario.get("id") or ""),
+            architecture_decision,
+        )
+        score += architecture_adjustment
+        if architecture_reason:
+            reasons.append(architecture_reason)
         if score <= 0:
             continue
         matches.append(
@@ -184,6 +413,10 @@ def route(query: str, category: str | None = None, service: str | None = None, l
         "service": service,
         "match_count": len(matches),
         "matches": matches[:limit],
+        "architecture_decision": architecture_decision,
+        "change_execution_blocked": bool(
+            architecture_decision.get("clarification_required", False)
+        ),
         "routing_boundary": "Routes to local hcloud-first playbooks/planners; does not install or execute external skills.",
     }
 

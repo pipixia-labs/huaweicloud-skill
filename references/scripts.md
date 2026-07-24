@@ -51,7 +51,7 @@ python3 scripts/hcloud_scenario_router.py \
   --pretty
 ```
 
-Use this before deep execution when the user describes a broad cloud goal. It maps natural language to local playbooks, service guides, planners, SDK supplements, and Terraform candidates. For selected high-value routes, the returned `scenario_contract` also states required inputs, evidence requirements, output sections, and risk boundaries from `references/scenario-contracts.json`. The router also expands compact Chinese service aliases from `references/service-aliases.json`, for example `云耀云` -> `FLEXUS-L` and `云监控` -> `CES`. The router is local and planner-only: it does not install official skills, execute hcloud, call SDK APIs, or create Terraform files.
+Use this before deep execution when the user describes a broad cloud goal. It maps natural language to local playbooks, service guides, planners, SDK supplements, and Terraform candidates. For website deployment goals, inspect the top-level `architecture_decision` before ranked `matches`: explicit compute/OBS/Flexus constraints are preserved, dynamic capabilities are surfaced, and unresolved conflicts set `change_execution_blocked=true` with a focused clarification question. For selected high-value routes, the returned `scenario_contract` also states required inputs, evidence requirements, output sections, and risk boundaries from `references/scenario-contracts.json`. The router also expands compact Chinese service aliases from `references/service-aliases.json`, for example `云耀云` -> `FLEXUS-L` and `云监控` -> `CES`. The router is local and planner-only: it does not install official skills, execute hcloud, call SDK APIs, or create Terraform files.
 
 You can pass a service/category hint when the user's wording is short:
 

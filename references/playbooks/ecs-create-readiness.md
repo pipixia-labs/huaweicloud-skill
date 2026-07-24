@@ -174,6 +174,7 @@ python3 scripts/hcloud_ecs_verify_active.py \
 - VPC
 - 子网
 - 安全组
+- 网站需要公网访问或用户要求返回 IP 时，还需要 EIP 与带宽
 - 根盘和数据盘类型
 
 当前版本 skill 对这些依赖不硬编码 operation 名，而是要求先发现当前 CLI 中可用的 operation：
@@ -183,6 +184,16 @@ python3 scripts/hcloud_ecs_verify_active.py \
 - `hcloud VPC --help`
 
 如果当前环境下 service 级帮助都因 metadata 失败拿不到，就退回本地缓存和 raw materials，不要直接猜。
+
+## 网站部署和公网 IP 闭环
+
+用户要求“部署到机器”“返回 IP”或从公网访问 ECS 时，ECS `ACTIVE` 仍不代表任务完成：
+
+1. 读取 `ecs-user-data-service-readiness.md`，通过幂等 user-data、SSH 或 COC 部署并启动 Web 服务。
+2. 读取 `eip-public-ip-readiness.md`，创建或选择 EIP，绑定到目标 ECS/port。
+3. 回读 EIP 状态、公网地址和绑定对象，确认不是未绑定或绑定到其他资源。
+4. 从公网地址探测 HTTP/HTTPS，并确认服务进程和目标端口在机内监听。
+5. 最终返回经过验收的 EIP 公网地址、HTTP 状态和绑定目标。不能返回私网 IP、OBS 域名或仅创建未绑定的 EIP。
 
 ## 安全组选择与权限降级
 
