@@ -10,9 +10,9 @@ Most command-line scripts use `scripts/hcloud_common.py` for repository paths, r
 
 ## Script Audience Manifest
 
-Use `references/script-audience-manifest.json` during maintenance or upgrade review to decide whether a script is a normal runtime entry point, a guarded-change tool, a runtime supplement, a maintenance/regression utility, an internal library, or a compatibility shim. v0.6 documents these boundaries without physically merging scripts.
+Use `references/script-audience-manifest.json` during maintenance or upgrade review to decide whether a script is a normal runtime entry point, a guarded-change tool, a runtime supplement, a maintenance/regression utility, an internal library, or a deprecated compatibility shim.
 
-Do not treat file count alone as a reason to merge tools. Merge candidates should wait for a separately scoped v0.6.x change when the target wrapper, tests, compatibility behavior, and safety boundaries are clear.
+Since v0.8.0, scripts in the `compatibility` group are deprecated. They remain callable during the v0.8/v0.9 retirement window, but new documentation, routes, examples, and agent workflows must use their unified replacements. Do not remove them before the v1.0 compatibility review, and do not treat file count alone as a reason to merge tools.
 
 ## Context And Metadata
 
@@ -602,9 +602,9 @@ python3 scripts/hcloud_closure_plan.py \
   --pretty
 ```
 
-Use this as the default closure-planning entry. It wraps P0 lifecycle, P1 governance, and P2 scenario closure planners without changing their safety gates. The tier-specific scripts remain compatibility modules for existing workflows and focused tests.
+Use this as the default closure-planning entry. It wraps P0 lifecycle, P1 governance, and P2 scenario closure planners without changing their safety gates. The tier-specific scripts are deprecated compatibility modules retained for existing workflows and focused tests.
 
-### Lifecycle Closure Plan Compatibility
+### Lifecycle Closure Plan Compatibility (Deprecated in v0.8.0)
 
 ```bash
 python3 scripts/hcloud_lifecycle_closure_plan.py \
@@ -620,7 +620,7 @@ python3 scripts/hcloud_lifecycle_closure_plan.py \
   --pretty
 ```
 
-Use this when the user asks for a task-level closure plan rather than a single low-level command. v0.3.2 covers the P0 closure set: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS. Without `--service`, it generates closure profiles for all P0 services. The planner returns six stages: context/dependency discovery, operation/parameter planning, risk/security gates, controlled execution/error handling, post-change verification, and governance/audit follow-up.
+This name is deprecated; use `hcloud_closure_plan.py --tier lifecycle` for new workflows. It is retained for existing callers that need the P0 closure set: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS. Without `--service`, it generates closure profiles for all P0 services. The planner returns six stages: context/dependency discovery, operation/parameter planning, risk/security gates, controlled execution/error handling, post-change verification, and governance/audit follow-up.
 
 The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unsafe VPC ingress such as `0.0.0.0/0` on SSH/Web ports is hard-blocked before any submit path exists. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only. The `post_change_verification` stage includes an `acceptance_evidence_plan` with service-specific evidence items and missing-input status; it plans acceptance evidence but does not run live probes.
 
@@ -666,9 +666,9 @@ python3 scripts/hcloud_acceptance_closure.py chain \
   --pretty
 ```
 
-Use this after lifecycle closure planning. The `plan` subcommand turns `acceptance_evidence_plan` items into probe templates, `run` prepares or runs only supported HTTP/TCP/DNS/TLS probes, `evaluate` reads local evidence status JSON, and `chain` composes the three stages. Without `--execute`, `run` and `chain` only report prepared probes and missing evidence. Metadata and link-local targets such as `169.254.169.254` are blocked even when a placeholder value renders them. Private, loopback, or `.local` targets require `--allow-private-targets` after the user confirms the target belongs to the tenant acceptance path. The compatibility entry points `hcloud_acceptance_probe_plan.py`, `hcloud_acceptance_probe_run.py`, and `hcloud_acceptance_evidence_result.py` remain available for focused workflows and tests, but new user-facing flows should prefer this unified command.
+Use this after lifecycle closure planning. The `plan` subcommand turns `acceptance_evidence_plan` items into probe templates, `run` prepares or runs only supported HTTP/TCP/DNS/TLS probes, `evaluate` reads local evidence status JSON, and `chain` composes the three stages. Without `--execute`, `run` and `chain` only report prepared probes and missing evidence. Metadata and link-local targets such as `169.254.169.254` are blocked even when a placeholder value renders them. Private, loopback, or `.local` targets require `--allow-private-targets` after the user confirms the target belongs to the tenant acceptance path. The old `hcloud_acceptance_probe_plan.py`, `hcloud_acceptance_probe_run.py`, and `hcloud_acceptance_evidence_result.py` names are deprecated in v0.8.0 and remain available only for existing workflows and focused tests.
 
-### Governance Closure Plan Compatibility
+### Governance Closure Plan Compatibility (Deprecated in v0.8.0)
 
 ```bash
 python3 scripts/hcloud_governance_closure_plan.py \
@@ -679,11 +679,11 @@ python3 scripts/hcloud_governance_closure_plan.py \
   --pretty
 ```
 
-Use this when the user asks for a P1 governance closure plan instead of a single governance command. The default service set is TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo. The planner returns five stages: governance scope, read-only evidence, risk/privacy gate, review plan, and promotion readiness. The read-only evidence stage includes generated evidence command plans for supported non-billing services and missing target-parameter gaps for target-scoped queries.
+This name is deprecated; use `hcloud_closure_plan.py --tier governance` for new workflows. The retained planner covers TMS, CTS, CBR, RMS/Config, Billing/BSS, WAF, DLI, and CodeArtsRepo. It returns five stages: governance scope, read-only evidence, risk/privacy gate, review plan, and promotion readiness. The read-only evidence stage includes generated evidence command plans for supported non-billing services and missing target-parameter gaps for target-scoped queries.
 
 The script is planner-only and does not execute `hcloud`, sign Billing/Cost requests, write tags, update trackers, change backup policies, modify WAF rules, execute DLI workloads, or mutate repositories. Billing/BSS output reuses `hcloud_billing_readonly.py` request specs and reviewed hcloud command plans while keeping credentials outside the planner. Promotion readiness reuses `hcloud_curated_promotion_audit.py` so each P1 service shows live-smoke and profile gaps before curated promotion.
 
-### P2 Scenario Closure Plan Compatibility
+### P2 Scenario Closure Plan Compatibility (Deprecated in v0.8.0)
 
 ```bash
 python3 scripts/hcloud_p2_scenario_closure_plan.py \
@@ -694,7 +694,7 @@ python3 scripts/hcloud_p2_scenario_closure_plan.py \
   --pretty
 ```
 
-Use this when the user asks to continue P2 scenario closure after the P0/P1 lifecycle and governance planners. Without `--group`, it plans all P2 groups: CCE, NAT, DCS, RFS, UCS, IAM/KPS/IMS dependencies, security posture, and database family. The planner returns four stages: scenario scope, read-only evidence, risk boundary, and next closure steps.
+This name is deprecated; use `hcloud_closure_plan.py --tier scenario` for new workflows. Without `--group`, the retained planner covers all P2 groups: CCE, NAT, DCS, RFS, UCS, IAM/KPS/IMS dependencies, security posture, and database family. It returns four stages: scenario scope, read-only evidence, risk boundary, and next closure steps.
 
 The script is planner-only and does not execute `hcloud` or submit cluster, NAT, cache, stack, fleet, security, key, IAM, or database changes. Curated-profile services generate discovery and target-scoped read-only command plans when enough parameters exist. Security posture services (`HSS`, `SecMaster`, `CFW`, `DBSS`, `KMS`) and database-family services (`GaussDB`, `GaussDBforNoSQL`, `GaussDBforopenGauss`, `DDS`, `DDM`, `DWS`) stay metadata-backed evidence-gap plans in this release; that status is intentional and must not be described as curated maturity.
 
@@ -1010,4 +1010,4 @@ MAAS_API_KEY=<key> python3 scripts/maas_text_to_image.py \
   --format webp
 ```
 
-`scripts/qwen_text_to_image.py` remains a compatibility entry point for existing workflows. API keys are read only from `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY`; they must not be written to files, logs, site code, or manifests. If MaaS fails, report the Huawei Cloud authentication/quota/service error and do not fall back to non-Huawei image APIs.
+`scripts/qwen_text_to_image.py` is deprecated in v0.8.0 and remains available only for existing workflows; use `scripts/maas_text_to_image.py` for batch site assets or `scripts/maas_image_generation.py` for general image generation and editing. API keys are read only from `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY`; they must not be written to files, logs, site code, or manifests. If MaaS fails, report the Huawei Cloud authentication/quota/service error and do not fall back to non-Huawei image APIs.

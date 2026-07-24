@@ -5,7 +5,8 @@
 ## 1. 生成 lifecycle plan
 
 ```bash
-python3 scripts/hcloud_lifecycle_closure_plan.py \
+python3 scripts/hcloud_closure_plan.py \
+  --tier lifecycle \
   --service EIP \
   --param publicip_id=<eip-id> \
   --param target_resource_id=<ecs-or-port-id> \
@@ -24,7 +25,7 @@ python3 scripts/hcloud_lifecycle_closure_plan.py \
 ## 2. 生成非执行 probe plan
 
 ```bash
-python3 scripts/hcloud_acceptance_probe_plan.py \
+python3 scripts/hcloud_acceptance_closure.py plan \
   --plan-file=eip-lifecycle-plan.json \
   --pretty
 ```
@@ -64,7 +65,7 @@ python3 scripts/hcloud_acceptance_probe_plan.py \
 ## 4. 判定验收结果
 
 ```bash
-python3 scripts/hcloud_acceptance_evidence_result.py \
+python3 scripts/hcloud_acceptance_closure.py evaluate \
   --plan-file=eip-lifecycle-plan.json \
   --evidence-file=eip-evidence-status.json \
   --pretty

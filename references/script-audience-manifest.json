@@ -149,7 +149,15 @@
     {
       "id": "compatibility",
       "audience": "existing workflows that still call legacy names",
-      "boundary": "Keep as compatibility entry points during the v0.8/v0.9 retirement window; prefer unified names in new documentation and remove or internalize stale names for v1.0.",
+      "status": "deprecated",
+      "deprecated_in": "v0.8.0",
+      "replacement_entry_points": [
+        "scripts/hcloud_closure_plan.py",
+        "scripts/hcloud_acceptance_closure.py",
+        "scripts/maas_image_generation.py",
+        "scripts/maas_text_to_image.py"
+      ],
+      "boundary": "Deprecated in v0.8.0 and retained only for existing workflows during the v0.8/v0.9 retirement window. New documentation, routes, and examples must use unified entry points. Remove or internalize stale names for v1.0 only after the documented compatibility review.",
       "scripts": [
         "scripts/hcloud_acceptance_evidence_result.py",
         "scripts/hcloud_acceptance_probe_plan.py",

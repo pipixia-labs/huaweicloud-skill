@@ -693,11 +693,42 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("scripts/check_question_coverage.py", by_group["maintenance_and_regression"])
         self.assertIn("scripts/hcloud_common.py", by_group["internal_library"])
         self.assertIn("scripts/qwen_text_to_image.py", by_group["compatibility"])
+        compatibility = next(group for group in groups if group["id"] == "compatibility")
+        self.assertEqual(compatibility["status"], "deprecated")
+        self.assertEqual(compatibility["deprecated_in"], "v0.8.0")
+        self.assertIn("scripts/hcloud_closure_plan.py", compatibility["replacement_entry_points"])
+        self.assertIn("scripts/hcloud_acceptance_closure.py", compatibility["replacement_entry_points"])
         self.assertIn("compatibility_retirement_policy", manifest["consolidation_policy"])
         self.assertEqual(
             manifest["consolidation_policy"]["compatibility_retirement_policy"]["source"],
             "references/versioning-policy.md",
         )
+
+    def test_active_docs_and_examples_use_unified_entry_points(self) -> None:
+        legacy_entry_points = {
+            "hcloud_acceptance_evidence_result.py",
+            "hcloud_acceptance_probe_plan.py",
+            "hcloud_acceptance_probe_run.py",
+            "hcloud_governance_closure_plan.py",
+            "hcloud_lifecycle_closure_plan.py",
+            "hcloud_p2_scenario_closure_plan.py",
+            "qwen_text_to_image.py",
+        }
+        active_paths = [
+            ROOT / "README.md",
+            ROOT / "SKILL.md",
+            ROOT / "references" / "runtime-safety-boundaries.md",
+            ROOT / "references" / "maas-model-calls.md",
+            ROOT / "references" / "maas-image-generation.md",
+            ROOT / "references" / "scenario-router.json",
+            *sorted((ROOT / "examples").rglob("*.md")),
+        ]
+
+        for path in active_paths:
+            text = path.read_text(encoding="utf-8")
+            for legacy_entry_point in legacy_entry_points:
+                with self.subTest(path=path.relative_to(ROOT), entry=legacy_entry_point):
+                    self.assertNotIn(legacy_entry_point, text)
 
     def test_skill_entry_stays_slim_and_points_to_truth_sources(self) -> None:
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")

@@ -4,6 +4,13 @@
 
 暂无。
 
+## 0.8.0 - 2026-07-24
+
+- 为受限 sandbox 中启动的 hcloud 子进程补齐非敏感 `USER` / `HOME` 默认值，同时保留运行时已经注入的环境，避免 KooCLI 因最小环境缺少用户目录信息而启动失败。
+- 深化 CCI、CCE、UCS、Flexus/COC、DWS、ModelArts 和 ICP 场景的专家证据链，补充证据顺序、语义边界、误判防护、完成状态和停止条件。
+- 按既定退役节奏将 7 个旧 closure、acceptance 和 MaaS 命名入口标记为 deprecated；文件继续兼容，新的文档、路由和示例统一使用收敛后的入口。
+- EIP 验收示例迁移到 `hcloud_closure_plan.py` 和 `hcloud_acceptance_closure.py`，并增加架构契约测试防止活跃文档重新引用旧入口。
+
 ## 0.7.2 - 2026-07-23
 
 - 刷新 hcloud metadata-backed catalog：默认运行时排除 HCS/ManageOne 私有云控制面，保留 AgentArts 公有云覆盖，更新为 199 个服务、15,702 个 operation。

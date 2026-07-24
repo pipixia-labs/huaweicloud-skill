@@ -104,7 +104,7 @@ Supported input image formats in the local catalog: png, jpeg, jpg, webp, bmp, a
 
 ## Image Generation And Editing
 
-Use `maas_image_generation.py` for new image generation and image editing. The older `maas_text_to_image.py` and `qwen_text_to_image.py` remain compatibility entry points for site-asset generation.
+Use `maas_image_generation.py` for new image generation and image editing. For batch site-asset generation from a prompt manifest, use `maas_text_to_image.py`.
 
 Text-to-image dry-run:
 

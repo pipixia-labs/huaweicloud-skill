@@ -4,6 +4,47 @@
 
 暂无。
 
+## v0.8.0 / 0.8.0 - 2026-07-24
+
+v0.8.0 聚焦“少而精”的专家证据增强和统一入口治理：不增加第二套 Skill 架构，不扩大默认执行面，也不移除现有兼容脚本。`hcloud` 继续作为资源查询、执行和回读主路径，新增内容主要帮助 Agent 更准确地判断证据是否充分、任务是否真正完成。
+
+### 主要变化
+
+- **受限运行环境兼容**
+  - `hcloud_safe_exec.py` 在继承当前环境的基础上，为缺失的 `USER` 和 `HOME` 提供非敏感默认值。
+  - 解决最小 sandbox 环境中 KooCLI 无法解析当前用户目录的问题；已经由运行时注入的 profile、凭据和目录环境不会被覆盖。
+
+- **云原生与多集群证据**
+  - CCI 增加版本相关 annotation 的精确写入/回读要求，以及 WebSocket exec 不可用时的日志、事件和只读状态降级路径。
+  - CCE 补充指标采集依赖、CoreDNS/apiserver 指标语义、资源绑定一致性和活动告警加历史告警的关联判断。
+  - UCS 区分源 CCE ID 与 UCS ID，并补充管理面可达性、`Available` 完成状态和策略从 warn 到 deny 的分阶段证据。
+
+- **计算、运维与数据仓库诊断**
+  - Flexus/COC 使用七层完成状态，区分云资源、远程执行、系统、进程、端口、协议和持续运行证据；COC 同时区分服务控制面区域与目标实例区域。
+  - DWS 将 CPU 采样语义、CN/DN 内存归属，以及吞吐、IOPS、时延、队列证据分开判断，避免把单一指标直接归因为节点故障。
+
+- **AI 与网站合规证据**
+  - ModelArts 训练诊断采用作业详情到训练日志的渐进证据链，缺少关键证据时停止下结论。
+  - ICP 相关指导只提供带适用范围和时间边界的规则证据方法，不固化可能过期的备案结论。
+
+- **v0.8 统一入口治理**
+  - `hcloud_acceptance_evidence_result.py`、`hcloud_acceptance_probe_plan.py`、`hcloud_acceptance_probe_run.py`、三个分层 closure planner 以及 `qwen_text_to_image.py` 正式标记为 deprecated。
+  - 旧文件在 v0.8/v0.9 窗口继续可调用；新工作流使用 `hcloud_acceptance_closure.py`、`hcloud_closure_plan.py`、`maas_image_generation.py` 或 `maas_text_to_image.py`。
+  - EIP 验收示例已迁移到统一入口；新增架构契约，阻止活跃文档、路由和示例重新使用旧命名。
+
+### 验证
+
+- 兼容入口、架构契约、safe-exec、专家证据和场景路由聚焦测试：68 项通过。
+- 全量离线回归：352 项中 351 项通过；唯一失败仍是既有 Billing 外部参考目录缺少 `guide.md`，此前已经在未包含本版本改动的基线上复现。
+- `python3 -m compileall -q scripts tests`、217 个 reference JSON 解析与 `git diff --check`：通过；活跃文档旧入口扫描无命中。
+
+### 兼容性与安全说明
+
+- v0.8.0 只标记旧入口 deprecated，没有删除脚本，也没有改变现有调用结果和安全门禁。
+- 本版本没有增加默认资源创建、修改、删除、Terraform apply 或通用 SDK mutation 能力。
+- 专家证据链是诊断和验收判断规则，不代表未采集证据的服务已经完成真实账号验证。
+- v0.9 计划把主路径测试进一步迁移到统一入口；是否在 v1.0 移除旧入口仍需按连续版本使用情况单独评审。
+
 ## v0.7.2 / 0.7.2 - 2026-07-23
 
 v0.7.2 聚焦运行环境可移植性、场景交付约束和无服务器容器部署前的安全证据链。`hcloud` 仍是资源查询与验证主路径；本版本没有新增默认资源创建、删除或 SDK 变更执行能力。

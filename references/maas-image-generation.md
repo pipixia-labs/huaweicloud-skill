@@ -4,7 +4,7 @@ Use this reference when a Huawei Cloud web deployment needs generated bitmap ass
 
 The required provider is Huawei Cloud ModelArts MaaS. Do not use non-Huawei endpoints for this skill.
 
-The compatibility helper is `scripts/maas_text_to_image.py`. `scripts/qwen_text_to_image.py` and `references/qwen-image-generation.md` remain compatibility aliases for older workflows. The general image helper is `scripts/maas_image_generation.py`. The default MaaS text-to-image model parameter remains `qwen-image`.
+The batch site-asset helper is `scripts/maas_text_to_image.py`. The general image helper is `scripts/maas_image_generation.py`. The default MaaS text-to-image model parameter remains `qwen-image`.
 
 ## Required API
 

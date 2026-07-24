@@ -65,7 +65,7 @@
 
 ## 6.1 自动 probe 目标必须受限
 
-- `hcloud_acceptance_closure.py run/chain --execute` 和 `hcloud_acceptance_probe_run.py --execute` 只能执行由已审阅 acceptance evidence plan 派生的 HTTP/TCP/DNS/TLS 模板，不能把它们当任意 URL/端口扫描器。
+- `hcloud_acceptance_closure.py run/chain --execute` 只能执行由已审阅 acceptance evidence plan 派生的 HTTP/TCP/DNS/TLS 模板，不能把它当任意 URL/端口扫描器。
 - 云元数据和 link-local 目标必须 hard-block，例如 `169.254.169.254`、`169.254.0.0/16`、IPv6 link-local；不要因为用户把它们填进 `<probe_url>`、`<target_host>` 或 DNS 记录就发包。
 - `localhost`、loopback、RFC1918 内网、reserved 地址和 `.local` 名称默认不自动 probe；只有用户明确确认目标来自租户自己的验收路径时，才允许使用 `--allow-private-targets`。
 - HTTP/HTTPS probe 不跟随重定向；遇到 3xx 只记录返回码，避免从公网入口被重定向到本机、内网或元数据地址。
