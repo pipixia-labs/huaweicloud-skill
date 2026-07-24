@@ -34,6 +34,7 @@ def query_args(args: argparse.Namespace) -> SimpleNamespace:
         f"log_stream_id={args.log_stream_id}",
         f"start_time={args.start_time}",
         f"end_time={args.end_time}",
+        f"limit={args.limit}",
     ]
     return SimpleNamespace(
         service="LTS",

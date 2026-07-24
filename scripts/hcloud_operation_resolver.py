@@ -15,6 +15,7 @@ from typing import Any
 
 import hcloud_catalog
 import hcloud_common
+import hcloud_output_policy
 
 SYSTEM_PARAM_NAMES = {
     "debug",
@@ -398,6 +399,55 @@ def parse_key_value_params(values: Iterable[str]) -> tuple[list[str], list[str]]
     return names, arguments
 
 
+def execution_command(
+    service: str,
+    operation: str,
+    param_arguments: list[str],
+    raw_arguments: list[str],
+    *,
+    read_only: bool | None,
+) -> tuple[list[str], list[str] | None, dict[str, Any]]:
+    """Return the preferred command and an optional direct-hcloud alternative."""
+
+    direct_command = [
+        "hcloud",
+        service,
+        operation,
+        *param_arguments,
+        *raw_arguments,
+    ]
+    provided_params = provided_param_names_from_args(
+        [*param_arguments, *raw_arguments]
+    )
+    policy = hcloud_output_policy.resolve_output_policy(
+        service,
+        operation,
+        requested_mode="auto",
+        provided_params=provided_params,
+        allow_large_output=False,
+    )
+    if read_only is not True or not policy.get("high_volume"):
+        return direct_command, None, policy
+
+    operation_arguments = [*param_arguments, *raw_arguments]
+    if not any(
+        hcloud_catalog.normalize_param_name(argument.split("=", 1)[0])
+        == "cli_output"
+        for argument in operation_arguments
+    ):
+        operation_arguments.append("--cli-output=json")
+    safe_command = hcloud_common.safe_exec_command_prefix() + [
+        "--service",
+        service,
+        "--operation",
+        operation,
+        *[f"--arg={argument}" for argument in operation_arguments],
+        "--expect-json",
+        "--output-mode=auto",
+    ]
+    return safe_command, direct_command, policy
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
 
@@ -409,7 +459,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--catalog-path", type=Path, help="Optional generated catalog index/full file.")
     parser.add_argument("--verify-help", action="store_true", help="Ask local hcloud help to confirm the default version.")
     parser.add_argument("--help-timeout", type=int, default=10, help="Timeout for local hcloud help.")
-    parser.add_argument("--emit-command", action="store_true", help="Print only the resolved direct hcloud command.")
+    parser.add_argument(
+        "--emit-command",
+        action="store_true",
+        help="Print the preferred resolved command; high-volume reads use hcloud_safe_exec.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.help_timeout < 1:
@@ -440,30 +494,44 @@ def main() -> int:
         if catalog_service:
             command_service = hcloud_catalog.command_service_name(catalog_service, args.service)
         if result.get("success"):
-            command = [
-                "hcloud",
+            command, direct_command, output_policy = execution_command(
                 command_service,
                 str(result["resolved_operation"]),
-                *param_arguments,
-                *args.arg,
-            ]
+                param_arguments,
+                args.arg,
+                read_only=result.get("read_only"),
+            )
             known_secrets = hcloud_common.collect_inline_secrets(command)
             result["command"] = hcloud_common.redact_command(command, known_secrets)
             result["command_shell"] = shlex.join(result["command"])
+            if output_policy.get("high_volume"):
+                result["output_policy"] = output_policy
+            if direct_command is not None:
+                result["direct_hcloud_command"] = hcloud_common.redact_command(
+                    direct_command,
+                    known_secrets,
+                )
         elif result.get("corrected_operation"):
-            corrected_command = [
-                "hcloud",
+            corrected_command, direct_command, output_policy = execution_command(
                 command_service,
                 str(result["corrected_operation"]),
-                *param_arguments,
-                *args.arg,
-            ]
+                param_arguments,
+                args.arg,
+                read_only=result.get("read_only"),
+            )
             known_secrets = hcloud_common.collect_inline_secrets(corrected_command)
             result["corrected_command"] = hcloud_common.redact_command(
                 corrected_command,
                 known_secrets,
             )
             result["corrected_command_shell"] = shlex.join(result["corrected_command"])
+            if output_policy.get("high_volume"):
+                result["output_policy"] = output_policy
+            if direct_command is not None:
+                result["direct_hcloud_command"] = hcloud_common.redact_command(
+                    direct_command,
+                    known_secrets,
+                )
     except ValueError as exc:
         result = {"success": False, "error": str(exc), "retryable": False}
 

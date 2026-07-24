@@ -118,7 +118,7 @@ python3 scripts/hcloud_operation_resolver.py \
   --pretty
 ```
 
-Use this before a raw `hcloud` call when an operation has multiple API versions. It compares provided parameters with per-version local metadata, preserves a compatible explicit `/vN`, and otherwise selects one deterministic version. Add `--verify-help` to consult the installed KooCLI default when local help is available. Add `--emit-command` to produce a directly executable, explicitly versioned `hcloud` command for agents that do not use the wrappers.
+Use this before a raw `hcloud` call when an operation has multiple API versions. It compares provided parameters with per-version local metadata, preserves a compatible explicit `/vN`, and otherwise selects one deterministic version. Add `--verify-help` to consult the installed KooCLI default when local help is available. Add `--emit-command` to produce the preferred executable command: ordinary small reads remain direct, explicitly versioned `hcloud`; operations matched by `hcloud-output-policies.json` are automatically emitted through `hcloud_safe_exec.py --output-mode=auto`.
 
 If an explicit version conflicts with the parameters, the resolver exits non-zero and returns `corrected_operation` plus a redacted correction command. Do not repeat the original command unchanged.
 
@@ -222,12 +222,30 @@ python3 scripts/hcloud_safe_exec.py \
   --operation ListFlavors \
   --arg=--cli-region=cn-north-4 \
   --arg=--project_id=example-project-id \
-  --arg=--limit=20 \
-  --expect-json \
-  --pretty
+  --expect-json
 ```
 
 Use this for real `hcloud` calls instead of raw shell execution when possible. It resolves OpenAPI-style operations to explicit `/vN`, redacts sensitive command/stdout/stderr/JSON fields, parses JSON, classifies common errors, and returns `error_details` for auth, region/project, permission, quota, parameter, not found, and network failures. For an unversioned read-only request, a clear operation/parameter/version usage failure can trigger one bounded retry with another compatible version. Mutations and unrelated error categories are never replayed by this correction path.
+
+The default `--output-mode=auto` loads `references/hcloud-output-policies.json`. Known catalog/log/time-series/account-wide operations receive summary or file-only handling and policy pagination defaults; unclassified JSON switches to a summary when it exceeds `--max-parsed-json-chars` (default 12000). Successful parsed JSON suppresses duplicate raw stdout. Summary output contains schema, array counts, a bounded sample, artifact state, and policy evidence instead of the complete payload.
+
+To keep a complete response while returning only a summary:
+
+```bash
+python3 scripts/hcloud_safe_exec.py \
+  --service ECS \
+  --operation ListFlavors \
+  --arg=--cli-region=cn-north-4 \
+  --expect-json \
+  --output-mode=summary \
+  --parsed-json-file=<parsed-result-json>
+```
+
+`file-only` content/download policies create a platform-native temporary artifact if no path is supplied. `--result-file` stores the full structured result, `--parsed-json-file` stores the full redacted JSON body, and `--raw-output-file` stores complete redacted non-JSON stdout. Agent-facing stdout never embeds these full artifacts in summary/file-only mode.
+
+Explicit `--output-mode=full` is allowed for a known high-volume operation only with `--allow-large-output`. Prefer an artifact plus summary; use the override only when a reviewed local consumer genuinely needs the complete response in stdout.
+
+When preflight returns `OUTPUT_POLICY_REQUIRED`, execute `corrected_command` or replace the required placeholders in `corrected_command_template`. This is a bounded local correction path; do not repeat the original unsafe command unchanged.
 
 For permission failures, `error_details.permission_hint` may include best-effort action hints from `references/iam-actions-catalog.json`. Treat those hints as a review checklist: exact IAM policy syntax, enterprise-project scope, agency trust, service enablement, SCP/custom deny rules, and tenant-side role design still need verification before asking the user to change permissions.
 

@@ -19,10 +19,21 @@
 | `CLI_ERROR` | KooCLI 本地运行时或命令处理异常 | 查本机 KooCLI 版本和 `~/.hcloud/logs/` |
 | `OPENAPI_ERROR` | 真实云服务 API 返回错误 | 看服务端语义和请求参数 |
 | `APIE_ERROR` | API Explorer 元数据获取失败 | 检查 DNS、网络、meta cache、online/offline mode |
+| `OUTPUT_POLICY_REQUIRED` | 本地大输出门禁拒绝了缺少范围或显式豁免的命令 | 执行纠正命令，或补齐纠正模板中的范围参数 |
 
 ## 三、按问题类型处理
 
-### 1. 提示缺少 `cli-region`
+### 1. `OUTPUT_POLICY_REQUIRED`
+
+这是 `hcloud_safe_exec.py` 在访问云 API 前触发的本地输出门禁，不是华为云服务故障。
+
+- `missing_required_output_filters`：补齐 `corrected_command_template` 中的时间、范围或资源参数。
+- `large_output_requires_explicit_override`：默认执行返回的 `corrected_command`，让结果摘要化。
+- 真正需要完整结果时，把完整响应写到 `--result-file`、`--parsed-json-file` 或 `--raw-output-file`；不要把文件内容整体读回对话。
+- 已知大输出若明确选择 `--output-mode=full`，还必须传 `--allow-large-output`。这属于显式审阅后的本地消费路径，不是 Agent 默认路径。
+- 不要原样重试同一条被门禁拒绝的命令。
+
+### 2. 提示缺少 `cli-region`
 
 现象：
 
@@ -34,7 +45,7 @@
 2. 没有就显式加 `--cli-region=<region>`
 3. 不要假设默认 region 总存在
 
-### 2. 提示不支持的 service
+### 3. 提示不支持的 service
 
 现象：
 
@@ -46,7 +57,7 @@
 2. 确认服务名拼写
 3. 如果当前走 offline mode，考虑元数据是否过旧
 
-### 3. 提示不支持的 operation
+### 4. 提示不支持的 operation
 
 现象：
 
@@ -59,7 +70,7 @@
 3. 确认 operation 名及 `Operation/vN` 是否真的存在
 4. 如果不存在，先不要继续猜参数
 
-### 4. `APIE_ERROR`
+### 5. `APIE_ERROR`
 
 现象：
 
@@ -84,7 +95,7 @@
    - `hcloud meta download`
 4. 如果当前环境根本不能联网，就不要继续依赖 live help
 
-### 5. `NETWORK_ERROR`
+### 6. `NETWORK_ERROR`
 
 现象：
 
@@ -100,7 +111,7 @@
 3. 必要时增加：
    - `--cli-retry-count`
 
-### 5.1 `CLI_ERROR`
+### 7. `CLI_ERROR`
 
 现象：
 
@@ -120,7 +131,7 @@
 3. 如果错误和元数据缓存相关，再考虑 `hcloud meta clear` 或 `hcloud meta download`。
 4. 不要把 `CLI_ERROR` 直接归因到云服务业务参数；只有看到 `OPENAPI_ERROR` 或服务端错误码后，才进入服务端排查。
 
-### 6. 参数不正确或重复
+### 8. 参数不正确或重复
 
 现象：
 
@@ -135,7 +146,7 @@
 4. 若是系统参数冲突，优先改成 `cli-*`
 5. 若与 API 参数重名且难以处理，考虑转成 `--cli-jsonInput`
 
-### 6.1 版本纠错边界
+### 8.1 版本纠错边界
 
 - 未显式指定版本的只读操作，如果首次失败明确属于 operation/参数/版本不匹配，`hcloud_safe_exec.py` 最多切换到另一个兼容版本重试一次。
 - 显式指定但参数不兼容时，不先执行错误命令；输出 `corrected_operation` 和纠正命令，由 agent 重新审查。
@@ -143,7 +154,7 @@
 - 认证、权限、配额、region/project、网络和服务端业务错误不切换 API 版本，按原错误类型处理。
 - 同一命令纠正后仍失败时停止，不循环试遍所有版本。
 
-### 7. 空响应体
+### 9. 空响应体
 
 现象：
 

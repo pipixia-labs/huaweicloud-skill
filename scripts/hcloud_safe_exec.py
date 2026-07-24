@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -17,6 +20,7 @@ from typing import Any
 
 import hcloud_catalog
 import hcloud_operation_resolver
+import hcloud_output_policy
 from hcloud_common import (
     coerce_output_text,
     collect_inline_secrets,
@@ -27,6 +31,7 @@ from hcloud_common import (
     redact_command,
     redact_json,
     redact_text,
+    safe_exec_command_prefix,
 )
 
 ERROR_TYPES = ("USE_ERROR", "NETWORK_ERROR", "CLI_ERROR", "OPENAPI_ERROR", "APIE_ERROR")
@@ -165,6 +170,36 @@ def collect_json_input_secrets(args: argparse.Namespace) -> set[str]:
     except (OSError, json.JSONDecodeError):
         return secrets
     return secrets
+
+
+def collect_json_input_param_names(args: argparse.Namespace) -> set[str]:
+    """Collect normalized parameter names embedded in JSON input."""
+
+    payloads: list[Any] = []
+    try:
+        if args.json_input_file:
+            payloads.append(load_json(Path(args.json_input_file)))
+        if args.json_input_text:
+            payloads.append(json.loads(args.json_input_text))
+    except (OSError, json.JSONDecodeError):
+        return set()
+
+    names: set[str] = set()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                normalized = hcloud_catalog.normalize_param_name(str(key))
+                if normalized:
+                    names.add(normalized)
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    for payload in payloads:
+        visit(payload)
+    return names
 
 
 def classify_error(stdout: str, stderr: str) -> str | None:
@@ -395,6 +430,192 @@ def trim_text(text: str, max_chars: int) -> tuple[str, bool]:
     return text[:max_chars], True
 
 
+def build_safe_exec_retry_command(
+    args: argparse.Namespace,
+    *,
+    output_mode: str,
+    extra_operation_args: list[str] | None = None,
+) -> list[str]:
+    """Rebuild this safe-exec invocation for a policy-guided retry."""
+
+    command = safe_exec_command_prefix()
+    if args.command_part:
+        for part in args.command_part:
+            command.append(f"--command-part={part}")
+    else:
+        command.extend(["--service", args.service, "--operation", args.operation])
+    for raw_arg in [*args.arg, *(extra_operation_args or [])]:
+        command.append(f"--arg={raw_arg}")
+    if args.json_input_file:
+        command.append(f"--json-input-file={args.json_input_file}")
+    if args.cwd:
+        command.append(f"--cwd={args.cwd}")
+    command.extend(
+        [
+            f"--timeout={args.timeout}",
+            f"--max-output-chars={args.max_output_chars}",
+            f"--max-parsed-json-chars={args.max_parsed_json_chars}",
+            f"--sample-items={args.sample_items}",
+            f"--output-mode={output_mode}",
+        ]
+    )
+    if args.expect_json:
+        command.append("--expect-json")
+    if args.result_file:
+        command.append(f"--result-file={args.result_file}")
+    if args.parsed_json_file:
+        command.append(f"--parsed-json-file={args.parsed_json_file}")
+    if args.raw_output_file:
+        command.append(f"--raw-output-file={args.raw_output_file}")
+    if args.skip_version_resolve:
+        command.append("--skip-version-resolve")
+    if args.pretty:
+        command.append("--pretty")
+    return command
+
+
+def default_artifact_path(
+    service: str | None,
+    operation: str | None,
+    *,
+    suffix: str,
+) -> Path:
+    """Create a unique temporary artifact path for a large cloud response."""
+
+    safe_service = re.sub(r"[^A-Za-z0-9]+", "-", str(service or "hcloud")).strip("-")
+    safe_operation = re.sub(
+        r"[^A-Za-z0-9]+",
+        "-",
+        hcloud_output_policy.normalize_operation(operation) or "output",
+    ).strip("-")
+    handle = tempfile.NamedTemporaryFile(
+        prefix=f"hcloud-{safe_service}-{safe_operation}-",
+        suffix=suffix,
+        delete=False,
+    )
+    handle.close()
+    return Path(handle.name)
+
+
+def artifact_metadata(path: Path, kind: str) -> dict[str, Any]:
+    """Return integrity and size metadata for one persisted redacted artifact."""
+
+    payload = path.read_bytes()
+    return {
+        "kind": kind,
+        "path": str(path),
+        "bytes": len(payload),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "redacted": True,
+    }
+
+
+def write_json_artifact(path: Path, value: Any) -> dict[str, Any]:
+    """Persist redacted JSON and return artifact metadata."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return artifact_metadata(path, "parsed_json")
+
+
+def write_text_artifact(path: Path, value: str) -> dict[str, Any]:
+    """Persist redacted command stdout and return artifact metadata."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(value, encoding="utf-8")
+    return artifact_metadata(path, "raw_stdout")
+
+
+def select_emission_mode(result: dict[str, Any], policy: dict[str, Any]) -> str:
+    """Select the final agent-facing mode after the response size is known."""
+
+    effective_mode = str(policy.get("effective_mode") or "auto")
+    if effective_mode != "auto":
+        return effective_mode
+    parsed_json = result.get("parsed_json")
+    if parsed_json is None:
+        return "summary" if result.get("stdout_truncated") else "full"
+    serialized = json.dumps(
+        parsed_json,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    if len(serialized) > int(policy.get("max_parsed_json_chars", 12000)):
+        return "summary"
+    return "full"
+
+
+def build_output_policy_error(
+    args: argparse.Namespace,
+    policy: dict[str, Any],
+    known_secrets: set[str],
+    started_at: float,
+) -> dict[str, Any]:
+    """Return a structured preflight failure with a safe retry command."""
+
+    missing = list(policy.get("missing_required", []))
+    if missing:
+        additions = [f"--{name}=<required:{name}>" for name in missing]
+        retry = build_safe_exec_retry_command(
+            args,
+            output_mode=str(policy.get("effective_mode") or "summary"),
+            extra_operation_args=additions,
+        )
+        advice = (
+            "Supply the missing bounded query filters, then execute "
+            "corrected_command_template."
+        )
+        corrected_key = "corrected_command_template"
+    else:
+        retry = build_safe_exec_retry_command(args, output_mode="summary")
+        advice = (
+            "Use the corrected summary command, or repeat the full request with "
+            "--allow-large-output and an explicit artifact path."
+        )
+        corrected_key = "corrected_command"
+
+    redacted_retry = redact_command(retry, known_secrets)
+    return {
+        "success": False,
+        "return_code": None,
+        "duration_seconds": round(time.time() - started_at, 3),
+        "service": args.service,
+        "operation": args.operation,
+        "resolved_operation": None,
+        "command": [],
+        "stdout": "",
+        "stderr": "",
+        "stdout_truncated": False,
+        "stderr_truncated": False,
+        "error_type": "OUTPUT_POLICY_REQUIRED",
+        "error_details": {
+            "category": "output_policy",
+            "error_type": "OUTPUT_POLICY_REQUIRED",
+            "cloud_error_code": None,
+            "cloud_error_message": policy.get("blocked_reason"),
+            "source": "local_output_policy",
+            "signals": missing or [policy.get("risk_class")],
+            "advice": advice,
+        },
+        "advice": advice,
+        "parsed_json": None,
+        "parsed_json_error": None,
+        "output_policy": policy,
+        corrected_key: redacted_retry,
+        f"{corrected_key}_shell": shlex.join(redacted_retry),
+        "attempts": [],
+        "config_context": {
+            "cwd": args.cwd,
+            "timeout": args.timeout,
+            "expect_json": args.expect_json,
+            "used_temp_json_input": False,
+        },
+    }
+
+
 def maybe_parse_json(stdout: str | bytes | None) -> tuple[Any | None, str | None]:
     """Try to parse stdout as JSON."""
     stdout = coerce_output_text(stdout)
@@ -509,6 +730,7 @@ def execute_once(
         "advice": (error_details or {}).get("advice") or advice_for_error(error_type),
         "parsed_json": redacted_parsed_json,
         "parsed_json_error": parsed_json_error,
+        "_raw_stdout": redacted_stdout,
         "config_context": {
             "cwd": args.cwd,
             "timeout": args.timeout,
@@ -599,9 +821,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cwd", help="Working directory for the hcloud subprocess.")
     parser.add_argument("--timeout", type=int, default=120, help="Subprocess timeout in seconds.")
     parser.add_argument("--max-output-chars", type=int, default=20000, help="Maximum number of chars kept for stdout and stderr.")
+    parser.add_argument(
+        "--max-parsed-json-chars",
+        type=int,
+        default=12000,
+        help="Maximum parsed JSON size emitted in auto mode before switching to a summary.",
+    )
+    parser.add_argument(
+        "--sample-items",
+        type=int,
+        default=3,
+        help="Maximum primary-array items included in a summary.",
+    )
+    parser.add_argument(
+        "--output-mode",
+        choices=hcloud_output_policy.OUTPUT_MODES,
+        default="auto",
+        help="Agent-facing output contract. Auto applies local operation policies.",
+    )
+    parser.add_argument(
+        "--allow-large-output",
+        action="store_true",
+        help="Allow explicit full output for a locally classified high-volume operation.",
+    )
     parser.add_argument("--expect-json", action="store_true", help="Attempt to parse stdout as JSON.")
     parser.add_argument("--result-file", help="Optional path to save the full structured result JSON.")
     parser.add_argument("--parsed-json-file", help="Optional path to save only parsed_json when available.")
+    parser.add_argument(
+        "--raw-output-file",
+        help="Optional path to save complete redacted stdout for non-JSON or file-only operations.",
+    )
     parser.add_argument(
         "--skip-version-resolve",
         action="store_true",
@@ -614,8 +863,117 @@ def parse_args() -> argparse.Namespace:
         parser.error("Provide either --command-part ... or both --service and --operation.")
     if args.command_part and (args.service or args.operation):
         parser.error("Do not mix --command-part with --service/--operation.")
+    if args.max_output_chars < 1:
+        parser.error("--max-output-chars must be greater than 0.")
+    if args.max_parsed_json_chars < 1:
+        parser.error("--max-parsed-json-chars must be greater than 0.")
+    if args.sample_items < 0:
+        parser.error("--sample-items must be 0 or greater.")
 
     return args
+
+
+def finalize_output(
+    result: dict[str, Any],
+    args: argparse.Namespace,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist full artifacts and return the bounded agent-facing result."""
+
+    full_result = copy.deepcopy(result)
+    raw_stdout = str(full_result.pop("_raw_stdout", ""))
+    selected_mode = (
+        select_emission_mode(full_result, policy)
+        if full_result.get("success")
+        else "error"
+    )
+    final_policy = copy.deepcopy(policy)
+    final_policy["selected_mode"] = selected_mode
+    parsed_json = full_result.get("parsed_json")
+    if parsed_json is not None:
+        serialized = json.dumps(
+            parsed_json,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        final_policy["parsed_json_chars"] = len(serialized)
+    else:
+        final_policy["parsed_json_chars"] = 0
+
+    artifacts: list[dict[str, Any]] = []
+    if args.parsed_json_file and parsed_json is not None:
+        artifacts.append(
+            write_json_artifact(Path(args.parsed_json_file), parsed_json)
+        )
+    elif (
+        args.parsed_json_file
+        and raw_stdout
+        and selected_mode == "file-only"
+        and full_result.get("success")
+    ):
+        artifacts.append(
+            write_text_artifact(Path(args.parsed_json_file), raw_stdout)
+        )
+    if args.raw_output_file and raw_stdout:
+        artifacts.append(
+            write_text_artifact(Path(args.raw_output_file), raw_stdout)
+        )
+
+    final_policy["full_payload_persisted"] = bool(artifacts or args.result_file)
+    final_policy["artifact_required_for_full_payload"] = (
+        selected_mode in {"summary", "file-only"}
+        and not final_policy["full_payload_persisted"]
+    )
+    full_result["output_policy"] = final_policy
+    if artifacts:
+        full_result["artifacts"] = artifacts
+    if args.result_file:
+        result_path = Path(args.result_file)
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text(
+            json.dumps(full_result, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        result_artifact = artifact_metadata(result_path, "structured_result")
+        artifacts.append(result_artifact)
+
+    generated_artifact = final_policy.get("generated_artifact")
+    if (
+        not full_result.get("success")
+        and isinstance(generated_artifact, dict)
+        and generated_artifact.get("path")
+    ):
+        generated_path = Path(str(generated_artifact["path"]))
+        if generated_path.exists() and generated_path.stat().st_size == 0:
+            generated_path.unlink()
+
+    emitted = copy.deepcopy(full_result)
+    emitted["output_policy"] = final_policy
+    if artifacts:
+        emitted["artifacts"] = artifacts
+
+    if full_result.get("success") and parsed_json is not None:
+        emitted["stdout"] = ""
+        emitted["stdout_suppressed"] = True
+        emitted["stdout_suppressed_reason"] = "parsed_json_available"
+        if selected_mode in {"summary", "file-only"}:
+            emitted["parsed_json_summary"] = hcloud_output_policy.summarize_json(
+                parsed_json,
+                final_policy,
+                include_sample=selected_mode == "summary",
+            )
+            emitted["parsed_json"] = None
+            emitted["parsed_json_suppressed"] = True
+    elif full_result.get("success") and selected_mode in {"summary", "file-only"}:
+        emitted["stdout_summary"] = {
+            "chars": len(raw_stdout),
+            "content_suppressed": True,
+        }
+        emitted["stdout"] = ""
+        emitted["stdout_suppressed"] = True
+        emitted["stdout_suppressed_reason"] = "output_policy"
+
+    return emitted
 
 
 def main() -> int:
@@ -640,8 +998,78 @@ def main() -> int:
     version_resolution: dict[str, Any] | None = None
     resolved_operation = args.operation
     provided_params = hcloud_operation_resolver.provided_param_names_from_args(args.arg)
+    output_policy_params = provided_params | collect_json_input_param_names(args)
+    output_policy = hcloud_output_policy.resolve_output_policy(
+        args.service,
+        args.operation,
+        requested_mode=args.output_mode,
+        provided_params=output_policy_params,
+        allow_large_output=args.allow_large_output,
+        max_parsed_json_chars=args.max_parsed_json_chars,
+        sample_items=args.sample_items,
+    )
+    default_limit = output_policy.get("default_limit")
+    if (
+        isinstance(default_limit, dict)
+        and output_policy.get("effective_mode") == "summary"
+        and str(default_limit.get("param")) not in provided_params
+    ):
+        limit_param = str(default_limit["param"])
+        limit_value = int(default_limit["value"])
+        args.arg.append(f"--{limit_param}={limit_value}")
+        provided_params.add(limit_param)
+        output_policy_params.add(limit_param)
+        output_policy["applied_default_args"] = [
+            {
+                "param": limit_param,
+                "value": limit_value,
+                "reason": "output_policy_default",
+            }
+        ]
+
+    if (
+        output_policy.get("effective_mode") == "file-only"
+        and not (args.result_file or args.parsed_json_file or args.raw_output_file)
+    ):
+        if args.expect_json:
+            args.parsed_json_file = str(
+                default_artifact_path(
+                    args.service,
+                    args.operation,
+                    suffix=".json",
+                )
+            )
+            output_policy["generated_artifact"] = {
+                "kind": "parsed_json",
+                "path": args.parsed_json_file,
+            }
+        else:
+            args.raw_output_file = str(
+                default_artifact_path(
+                    args.service,
+                    args.operation,
+                    suffix=".txt",
+                )
+            )
+            output_policy["generated_artifact"] = {
+                "kind": "raw_stdout",
+                "path": args.raw_output_file,
+            }
+
+    if output_policy.get("blocked"):
+        result = build_output_policy_error(
+            args,
+            output_policy,
+            known_secrets,
+            started_at,
+        )
     try:
-        if args.service and args.operation and not args.skip_version_resolve:
+        if (
+            result is None
+            and args.service
+            and args.operation
+            and not args.skip_version_resolve
+        ):
             version_resolution = hcloud_operation_resolver.resolve_operation_version(
                 args.service,
                 args.operation,
@@ -750,6 +1178,7 @@ def main() -> int:
             if current_resolution is not None:
                 result["version_resolution"] = current_resolution
             result["config_context"]["used_temp_json_input"] = bool(temp_json_file)
+            result["output_policy"] = output_policy
     except FileNotFoundError as exc:
         result = {
             "success": False,
@@ -827,20 +1256,8 @@ def main() -> int:
             temp_json_file.unlink()
 
     assert result is not None
-    if args.result_file:
-        result_path = Path(args.result_file)
-        result_path.parent.mkdir(parents=True, exist_ok=True)
-        result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    if args.parsed_json_file and result.get("parsed_json") is not None:
-        parsed_path = Path(args.parsed_json_file)
-        parsed_path.parent.mkdir(parents=True, exist_ok=True)
-        parsed_path.write_text(
-            json.dumps(result["parsed_json"], ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-    emit_json(result, pretty=args.pretty)
+    emitted_result = finalize_output(result, args, output_policy)
+    emit_json(emitted_result, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

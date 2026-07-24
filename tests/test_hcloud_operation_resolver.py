@@ -86,6 +86,7 @@ class HcloudOperationResolverTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["resolved_operation"], "ListSecurityGroups/v2")
         self.assertEqual(result["confidence"], "exact_parameter_match")
+        self.assertEqual(len(result["candidates"]), 2)
         self.assertEqual(result["candidates"][0]["unsupported_params"], ["vpc_id"])
 
     def test_unversioned_operation_uses_catalog_default_when_versions_match(self) -> None:
@@ -181,6 +182,33 @@ class HcloudOperationResolverTest(unittest.TestCase):
             completed.stdout.strip(),
             "hcloud VPC ListSecurityGroups/v2 --vpc_id=vpc-123 --cli-region=cn-north-4",
         )
+
+    def test_cli_routes_high_volume_read_through_safe_exec(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--service",
+                "ECS",
+                "--operation",
+                "ListFlavors",
+                "--arg=--cli-region=cn-north-4",
+                "--emit-command",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        command = completed.stdout.strip()
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertIn("hcloud_safe_exec.py", command)
+        self.assertIn("--service ECS", command)
+        self.assertIn("--operation ListFlavors/", command)
+        self.assertIn("--arg=--cli-output=json", command)
+        self.assertIn("--output-mode=auto", command)
+        self.assertIn("--expect-json", command)
 
 
 if __name__ == "__main__":

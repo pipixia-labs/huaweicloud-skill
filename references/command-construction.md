@@ -72,7 +72,7 @@ python3 scripts/hcloud_operation_resolver.py \
   --emit-command
 ```
 
-这个例子会选择支持 `vpc_id` 的 `ListSecurityGroups/v2`。多版本命令最终统一写成 `Operation/vN`，便于审查和失败纠正。使用 `hcloud_safe_exec.py` 或 `hcloud_resource_query.py` 时不必单独调用解析器，它们会执行同样的预解析。
+这个例子会选择支持 `vpc_id` 的 `ListSecurityGroups/v2`。多版本命令最终统一写成 `Operation/vN`，便于审查和失败纠正。普通小查询的 `--emit-command` 输出直接 `hcloud`；命中大输出策略时，输出会自动改成包装显式版本 operation 的 `hcloud_safe_exec.py --output-mode=auto`，避免 Agent 从命令生成阶段绕过摘要和落盘门禁。使用 `hcloud_safe_exec.py` 或 `hcloud_resource_query.py` 时不必单独调用解析器，它们会执行同样的预解析。
 
 ## 二、查询类命令的默认形态
 
@@ -92,6 +92,10 @@ hcloud <service> <operation> \
 - 过滤条件
 - `limit`
 - `--cli-query`
+
+大列表、日志/事件、时序指标、全租户记录和文件/下载内容不要直接执行裸 `hcloud`。用 `hcloud_safe_exec.py` 的默认 `--output-mode=auto`，由 `references/hcloud-output-policies.json` 自动添加分页、要求时间/范围参数，并把 Agent 输出收敛成摘要或文件。只有已经通过服务端过滤且确定是小结果的普通查询，才适合直接执行显式版本的 `hcloud Service Operation/vN ...`。
+
+如果本地门禁返回 `OUTPUT_POLICY_REQUIRED`，优先执行 `corrected_command`；返回的是 `corrected_command_template` 时，先补齐 `<required:...>`，再执行一次。不要把同一条不安全命令原样重试。
 
 ### 推荐例子
 

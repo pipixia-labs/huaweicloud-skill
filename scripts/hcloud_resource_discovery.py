@@ -12,10 +12,14 @@ from typing import Any
 
 import hcloud_catalog
 import hcloud_common
+import hcloud_output_policy
 import hcloud_sdk_catalog
 import hcloud_sdk_supplement_audit
-from hcloud_meta_lookup import collect_template_dirs, load_operation_detail, normalize_token
-
+from hcloud_meta_lookup import (
+    collect_template_dirs,
+    load_operation_detail,
+    normalize_token,
+)
 
 ROOT = hcloud_common.ROOT
 REGISTRY_PATH = hcloud_common.REGISTRY_PATH
@@ -200,16 +204,34 @@ def build_safe_exec_command(
         service,
         operation,
     )
-    if args.limit is not None:
+    requested_limit = args.limit
+    default_limit = hcloud_output_policy.default_limit(service, operation)
+    used_policy_default = False
+    if requested_limit is None and default_limit and default_limit[0] == "limit":
+        requested_limit = default_limit[1]
+        used_policy_default = True
+    if requested_limit is not None:
         if "limit" in unsupported_optional_args:
             omitted_args.append("--limit")
         elif "limit" in param_names:
-            used_limit = args.limit
+            used_limit = requested_limit
             if operation_detail:
-                used_limit, adjustment = hcloud_catalog.bounded_limit_value(operation_detail, args.limit)
+                used_limit, adjustment = hcloud_catalog.bounded_limit_value(
+                    operation_detail,
+                    requested_limit,
+                )
                 if adjustment:
                     parameter_adjustments.append(adjustment)
             command.append(f"--arg=--limit={used_limit}")
+            if used_policy_default:
+                parameter_adjustments.append(
+                    {
+                        "param": "limit",
+                        "requested": None,
+                        "used": used_limit,
+                        "reason": "output_policy_default",
+                    }
+                )
         else:
             omitted_args.append("--limit")
     header_args, generated_headers, unsupported_headers = generated_header_args(operation_detail)

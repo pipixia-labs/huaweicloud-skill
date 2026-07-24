@@ -142,6 +142,7 @@
       "scripts": [
         "scripts/hcloud_common.py",
         "scripts/hcloud_core.py",
+        "scripts/hcloud_output_policy.py",
         "scripts/hcloud_run_journal.py",
         "scripts/hcloud_security_policy.py",
         "scripts/maas_common.py"

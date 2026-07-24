@@ -1130,6 +1130,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["log_query_plan"]["operation"], "ListLogs")
         self.assertIn("--arg=--log_group_id=group-1", result["log_query_plan"]["command"])
         self.assertIn("--arg=--keywords=ERROR", result["log_query_plan"]["command"])
+        self.assertIn("--arg=--limit=10", result["log_query_plan"]["command"])
 
     def test_readonly_smoke_uses_supported_cdn_cli_region(self) -> None:
         args = SimpleNamespace(
@@ -1262,6 +1263,33 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--Client-Request-Id=00000000-0000-0000-0000-000000000000", command_item["command"])
         self.assertEqual(command_item["parameter_adjustments"][0]["reason"], "metadata_minimum")
         self.assertEqual(command_item["generated_args"], [{"param": "Client-Request-Id", "reason": "safe_required_header"}])
+
+    def test_large_catalog_discovery_applies_output_policy_default_limit(self) -> None:
+        args = SimpleNamespace(
+            service="ECS",
+            operation="ListFlavors",
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            limit=None,
+            catalog_max_operations=1,
+            execute=False,
+        )
+
+        result = hcloud_resource_discovery.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        command_item = result["commands"][0]
+        self.assertIn("--arg=--limit=20", command_item["command"])
+        self.assertIn(
+            {
+                "param": "limit",
+                "requested": None,
+                "used": 20,
+                "reason": "output_policy_default",
+            },
+            command_item["parameter_adjustments"],
+        )
 
     def test_resource_discovery_execute_plan_parses_safe_exec_json(self) -> None:
         plan = {

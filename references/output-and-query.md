@@ -86,21 +86,45 @@
 
 ## 五、高风险大输出 API
 
-以下 API 容易返回很大的列表或宽字段对象，执行前要先判断是否真的需要全量进入上下文：
+机器可读策略位于 `references/hcloud-output-policies.json`。运行 `hcloud_safe_exec.py` 时默认使用 `--output-mode=auto`，Agent 不需要先读完本文件或记住 API 名单，策略会在执行前自动命中。
 
-- `IMS ListImages`：镜像列表，公共镜像和共享镜像可能很多。
-- `ECS ListFlavors`：规格列表，字段多，按区域和规格族展开后可能很大。
-- `ECS ListFlavorSellPolicies`：售卖策略列表，常需要和规格、AZ 做交叉分析。
+当前重点保护以下类别：
 
-推荐处理顺序：
+- 镜像、规格和租户级列表：`IMS ListImages`、`ECS ListFlavors`、`ListFlavorSellPolicies`、`ListServersDetails`、DNS RecordSet、RMS/COC 全租户资源。
+- 日志、审计和安全事件：LTS、CTS、CFW、RDS/DDS 日志以及日志/事件/history 家族。
+- 时序数据：CES/AOM metric data。
+- 账号明细：BSS、RMS、COC、SecMaster/HSS 列表和历史记录。
+- 工作负载对象：CCI 全 namespace Pod、事件和指标，SWR tag/manifest 类列表。
+- 文件和下载：CodeArts 文件/归档/diff/build log，以及数据库日志下载。
 
-1. 能用服务端过滤时，先加过滤参数，例如 `limit`、`marker`、`name`、`status`、`visibility`、`architecture`、`flavor_id`、`availability_zone` 等，真实参数以 operation help 为准。
-2. 只需要少量展示时，再用 `--cli-query` 做字段投影或 Top N。
-3. 需要全量核验、跨 API join、排查售卖策略差异时，优先把完整结果落盘，不要把完整 JSON 打印回对话。
-4. 落盘后只向对话返回小摘要：命令是否成功、文件位置、顶层 key、候选数组条数、少量关键字段样本、下一步筛选方式。
-5. 后续读取文件时也不要 `cat` 全量 JSON；用 `jq`、短脚本或 `--cli-query` 等方式只取必要字段。
+策略文件同时保留精确 operation 和家族规则：精确规则负责默认 `limit`、必需时间/范围参数和建议样本字段；家族规则负责保护以后新增但尚未逐项登记的日志、指标、账号记录和内容操作。未登记操作也受通用体积阈值保护。
 
-推荐落盘命令形态：
+### 输出模式
+
+- `auto`：默认模式。小型普通 JSON 保持兼容；已知高风险结果直接摘要或落盘；未知 JSON 超过 12000 字符时自动摘要。
+- `summary`：完整结果不进入对话，只返回顶层 key、数组路径/条数、Top N 样本、是否落盘及文件哈希。
+- `file-only`：内容和下载响应只写入文件；对话不返回样本或顶层字符串值。没有指定路径时生成操作系统临时文件。
+- `full`：已知高风险操作必须同时显式传入 `--allow-large-output`。Agent 默认不要使用。
+
+无论哪种模式，成功解析 JSON 后都不会再把同一份 JSON 复制到 `stdout` 和 `parsed_json` 两个字段中。
+
+### 推荐命令
+
+普通查询直接使用 `auto`：
+
+```bash
+python3 scripts/hcloud_safe_exec.py \
+  --service ECS \
+  --operation ListFlavors \
+  --arg=--cli-region=<region> \
+  --arg=--project_id=<project-id> \
+  --arg=--cli-output=json \
+  --expect-json
+```
+
+策略会自动给 `ListFlavors` 添加默认 `limit=20`，并只向对话返回摘要。
+
+需要完整数据做本地 join 时：
 
 ```bash
 python3 scripts/hcloud_safe_exec.py \
@@ -110,11 +134,20 @@ python3 scripts/hcloud_safe_exec.py \
   --arg=--project_id=<project-id> \
   --arg=--cli-output=json \
   --expect-json \
-  --result-file=<result-json-file> \
+  --output-mode=file-only \
   --parsed-json-file=<parsed-json-file>
 ```
 
-注意：`hcloud_safe_exec.py` 会把结构化结果写入 `result-file`，把解析后的主体写入 `parsed-json-file`。如果调用方同时要求 `--pretty`，仍要确认不会把巨大 `parsed_json` 打回当前上下文；必要时不加 `--pretty`，或者先用更小的 `limit` 确认结构后再全量落盘。
+`--result-file` 保存完整结构化执行结果，`--parsed-json-file` 保存完整且已脱敏的 JSON 主体，`--raw-output-file` 保存完整且已脱敏的非 JSON stdout。Agent 后续也不要 `cat` 全量文件，使用 `jq`、短脚本或字段投影提取必要内容。
+
+### 纠正和重试
+
+如果返回 `OUTPUT_POLICY_REQUIRED`：
+
+- 有 `corrected_command`：直接执行该安全命令。
+- 有 `corrected_command_template`：把 `<required:...>` 替换成真实时间、范围或资源参数后执行。
+- 不要原样重试失败命令。
+- `OUTPUT_POLICY_REQUIRED` 是本地执行前门禁，不是华为云 API 故障。
 
 建议摘要字段：
 

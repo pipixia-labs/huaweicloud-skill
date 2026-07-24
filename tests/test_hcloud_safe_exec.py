@@ -75,6 +75,26 @@ class SafeExecRedactionTest(unittest.TestCase):
 
         self.assertEqual(secrets, {"password-value"})
 
+    def test_collect_json_input_param_names_supports_policy_preflight(self) -> None:
+        args = SimpleNamespace(
+            json_input_file=None,
+            json_input_text=json.dumps(
+                {
+                    "log_group_id": "group-1",
+                    "query": {
+                        "start_time": 1,
+                        "end_time": 2,
+                    },
+                }
+            ),
+        )
+
+        names = hcloud_safe_exec.collect_json_input_param_names(args)
+
+        self.assertTrue(
+            {"log_group_id", "query", "start_time", "end_time"}.issubset(names)
+        )
+
     def test_collect_json_secrets_detects_sensitive_output_keys(self) -> None:
         payload = {
             "servers": [
@@ -163,6 +183,7 @@ class SafeExecRedactionTest(unittest.TestCase):
                 encoding="utf-8",
             )
             parsed_path = tmp_path / "parsed.json"
+            result_path = tmp_path / "result.json"
 
             completed = subprocess.run(
                 [
@@ -175,6 +196,7 @@ class SafeExecRedactionTest(unittest.TestCase):
                     f"--json-input-file={input_path}",
                     "--expect-json",
                     f"--parsed-json-file={parsed_path}",
+                    f"--result-file={result_path}",
                 ],
                 capture_output=True,
                 text=True,
@@ -184,19 +206,257 @@ class SafeExecRedactionTest(unittest.TestCase):
 
             result = json.loads(completed.stdout)
             parsed_file = json.loads(parsed_path.read_text(encoding="utf-8"))
+            full_result_file = json.loads(result_path.read_text(encoding="utf-8"))
 
         self.assertEqual(completed.returncode, 0)
-        self.assertEqual(
-            result["parsed_json"],
-            {"adminPass": "***", "note": "***", "server": {"OS-EXT-SRV-ATTR:user_data": "***"}},
-        )
+        self.assertIsNone(result["parsed_json"])
+        self.assertTrue(result["parsed_json_suppressed"])
+        self.assertEqual(result["output_policy"]["selected_mode"], "summary")
+        self.assertEqual(result["parsed_json_summary"]["json_type"], "dict")
         self.assertEqual(
             parsed_file,
             {"adminPass": "***", "note": "***", "server": {"OS-EXT-SRV-ATTR:user_data": "***"}},
         )
+        self.assertEqual(full_result_file["parsed_json"], parsed_file)
+        self.assertTrue(
+            full_result_file["output_policy"]["full_payload_persisted"]
+        )
         self.assertNotIn("password-value", completed.stdout)
         self.assertNotIn("token-value", completed.stdout)
         self.assertNotIn("encoded-user-data", completed.stdout)
+
+    def test_output_policy_matches_exact_operation_and_family(self) -> None:
+        exact = hcloud_safe_exec.hcloud_output_policy.resolve_output_policy(
+            "ECS",
+            "ListFlavors/v2",
+            requested_mode="auto",
+            provided_params=set(),
+            allow_large_output=False,
+        )
+        family = hcloud_safe_exec.hcloud_output_policy.resolve_output_policy(
+            "BSS",
+            "ListCustomerBillsFeeRecords",
+            requested_mode="auto",
+            provided_params=set(),
+            allow_large_output=False,
+        )
+        reviewed_full = hcloud_safe_exec.hcloud_output_policy.resolve_output_policy(
+            "ECS",
+            "ListFlavors",
+            requested_mode="full",
+            provided_params=set(),
+            allow_large_output=True,
+        )
+
+        self.assertEqual(exact["effective_mode"], "summary")
+        self.assertEqual(exact["default_limit"], {"param": "limit", "value": 20})
+        self.assertEqual(exact["policy_source"], "operation")
+        self.assertEqual(family["effective_mode"], "summary")
+        self.assertEqual(family["policy_id"], "account-records")
+        self.assertEqual(reviewed_full["effective_mode"], "full")
+        self.assertFalse(reviewed_full["blocked"])
+
+    def test_high_volume_command_applies_default_limit_and_emits_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, sys\n"
+                "print(json.dumps({'flavors': [{'id': str(i), 'name': f'c{i}'} for i in range(100)]}))\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "ECS",
+                    "--operation",
+                    "ListFlavors",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertIn("--limit=20", result["command"])
+        self.assertIsNone(result["parsed_json"])
+        self.assertEqual(result["parsed_json_summary"]["primary_array_count"], 100)
+        self.assertEqual(result["parsed_json_summary"]["sample_count"], 3)
+        self.assertNotIn('"id": "99"', completed.stdout)
+
+    def test_generic_oversized_json_switches_to_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json\n"
+                "print(json.dumps({'items': [{'id': i, 'blob': 'x' * 1000} for i in range(20)]}))\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "VPC",
+                    "--operation",
+                    "ListVpcs",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(result["output_policy"]["selected_mode"], "summary")
+        self.assertTrue(result["output_policy"]["artifact_required_for_full_payload"])
+        self.assertIsNone(result["parsed_json"])
+        self.assertEqual(result["parsed_json_summary"]["primary_array_count"], 20)
+        self.assertLess(len(completed.stdout), 12000)
+
+    def test_file_only_policy_generates_redacted_artifact(self) -> None:
+        artifact_path: Path | None = None
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = Path(tmp_dir)
+                hcloud_path = tmp_path / "hcloud"
+                hcloud_path.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import json\n"
+                    "print(json.dumps({'content': 'repository-content'}))\n",
+                    encoding="utf-8",
+                )
+                hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(SCRIPT),
+                        "--service",
+                        "CodeArtsRepo",
+                        "--operation",
+                        "ShowFileContent",
+                        "--expect-json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+                )
+
+            result = json.loads(completed.stdout)
+            artifact_path = Path(result["artifacts"][0]["path"])
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(completed.returncode, 0)
+            self.assertEqual(result["output_policy"]["selected_mode"], "file-only")
+            self.assertIsNone(result["parsed_json"])
+            self.assertEqual(result["parsed_json_summary"]["sample"], [])
+            self.assertEqual(artifact, {"content": "repository-content"})
+            self.assertNotIn("repository-content", completed.stdout)
+        finally:
+            if artifact_path and artifact_path.exists():
+                artifact_path.unlink()
+
+    def test_explicit_full_high_volume_output_requires_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            marker_path = tmp_path / "executed"
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "from pathlib import Path\n"
+                f"Path({str(marker_path)!r}).write_text('executed', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "ECS",
+                    "--operation",
+                    "ListFlavors",
+                    "--expect-json",
+                    "--output-mode=full",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+            executed = marker_path.exists()
+
+        result = json.loads(completed.stdout)
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(executed)
+        self.assertEqual(result["error_type"], "OUTPUT_POLICY_REQUIRED")
+        self.assertIn("--output-mode=summary", result["corrected_command"])
+
+    def test_missing_log_bounds_return_corrected_command_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            marker_path = tmp_path / "executed"
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "from pathlib import Path\n"
+                f"Path({str(marker_path)!r}).write_text('executed', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "LTS",
+                    "--operation",
+                    "ListLogs",
+                    "--arg=--log_group_id=group-1",
+                    "--arg=--log_stream_id=stream-1",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+            executed = marker_path.exists()
+
+        result = json.loads(completed.stdout)
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(executed)
+        self.assertEqual(result["error_type"], "OUTPUT_POLICY_REQUIRED")
+        self.assertEqual(
+            result["output_policy"]["missing_required"],
+            ["start_time", "end_time"],
+        )
+        self.assertIn(
+            "--arg=--start_time=<required:start_time>",
+            result["corrected_command_template"],
+        )
 
     def test_cli_emits_error_details_from_failed_json_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

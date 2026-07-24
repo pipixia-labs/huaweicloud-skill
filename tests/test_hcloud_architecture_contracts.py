@@ -692,6 +692,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("scripts/hcloud_sdk_readonly.py", by_group["runtime_supplement"])
         self.assertIn("scripts/check_question_coverage.py", by_group["maintenance_and_regression"])
         self.assertIn("scripts/hcloud_common.py", by_group["internal_library"])
+        self.assertIn("scripts/hcloud_output_policy.py", by_group["internal_library"])
         self.assertIn("scripts/qwen_text_to_image.py", by_group["compatibility"])
         compatibility = next(group for group in groups if group["id"] == "compatibility")
         self.assertEqual(compatibility["status"], "deprecated")
@@ -703,6 +704,57 @@ class ArchitectureContractsTest(unittest.TestCase):
             manifest["consolidation_policy"]["compatibility_retirement_policy"]["source"],
             "references/versioning-policy.md",
         )
+
+    def test_large_output_policy_is_machine_readable_and_visible_at_entry(self) -> None:
+        import hcloud_catalog
+
+        policy = json.loads(
+            (ROOT / "references" / "hcloud-output-policies.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        output_guide = (
+            ROOT / "references" / "output-and-query.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertEqual(policy["schema_version"], 1)
+        self.assertEqual(policy["operations"]["IMS:ListImages"]["mode"], "summary")
+        self.assertEqual(policy["operations"]["ECS:ListFlavors"]["mode"], "summary")
+        self.assertEqual(
+            policy["operations"]["ECS:ListFlavorSellPolicies"]["mode"],
+            "summary",
+        )
+        self.assertEqual(
+            policy["operations"]["CodeArtsRepo:ShowFileContent"]["mode"],
+            "file-only",
+        )
+        self.assertTrue(policy["families"])
+        self.assertIn("OUTPUT_POLICY_REQUIRED", skill_text)
+        self.assertIn("references/hcloud-output-policies.json", skill_text)
+        self.assertIn("--output-mode=auto", output_guide)
+        self.assertIn("--allow-large-output", output_guide)
+
+        catalog = hcloud_catalog.load_catalog()
+        for key, entry in policy["operations"].items():
+            default_limit = entry.get("default_limit")
+            if not default_limit:
+                continue
+            service_name, operation_name = key.split(":", 1)
+            service = hcloud_catalog.resolve_service(catalog, service_name)
+            operation = hcloud_catalog.resolve_operation(service, operation_name)
+            self.assertIsNotNone(operation, key)
+            for version in hcloud_catalog.operation_versions(operation):
+                detail = hcloud_catalog.operation_version_detail(operation, version)
+                params = {
+                    hcloud_catalog.normalize_param_name(name)
+                    for name in hcloud_catalog.operation_param_names(detail)
+                }
+                self.assertIn(
+                    default_limit["param"],
+                    params,
+                    f"{key}/{version}",
+                )
 
     def test_active_docs_and_examples_use_unified_entry_points(self) -> None:
         legacy_entry_points = {

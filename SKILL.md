@@ -34,8 +34,9 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 用 `hcloud_scenario_router.py` 找到本地 playbook、guide、planner、SDK supplement 和 Terraform 候选。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
-   - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；最终直接 `hcloud` 命令显式写成 `Operation/vN`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一解析逻辑。
-   - 默认 JSON 输出，必要时用 `--cli-query`、`--result-file` 或 parsed JSON 文件控制大结果。
+   - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
+   - 默认 JSON 输出。镜像/规格/全租户资源列表、日志/事件、时序指标、账单明细和文件/下载内容不要直接执行裸 `hcloud`；必须走 `hcloud_safe_exec.py` 的默认 `auto` 输出策略，让完整结果在需要时落盘、对话只接收摘要。
+   - `OUTPUT_POLICY_REQUIRED` 不是云 API 失败；按返回的 `corrected_command` 或补齐 `corrected_command_template` 中的时间/范围参数后再执行一次，不要原样重试。
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
    - 先查现状证据，再生成 change plan / dry-run / guarded submit。
@@ -86,7 +87,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 - 基础流程和安全：`references/workflow.md`、`references/runtime-safety-boundaries.md`、`references/auth-and-context.md`
 - 场景路由和服务资料：`references/scenario-router.json`、`references/guides/`、`references/playbooks/`
-- 命令构造和错误处理：`references/command-construction.md`、`references/error-playbook.md`、`references/output-and-query.md`
+- 命令构造和错误处理：`references/command-construction.md`、`references/error-playbook.md`、`references/output-and-query.md`、`references/hcloud-output-policies.json`
 - 脚本索引和受众边界：`references/scripts.md`、`references/script-audience-manifest.json`
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`
