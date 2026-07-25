@@ -12,7 +12,6 @@ from urllib.parse import urlencode
 
 import hcloud_common
 
-
 DEFAULT_ENDPOINT_BASE = "https://bss-intl.myhuaweicloud.com"
 BILL_CYCLE_RE = re.compile(r"^\d{4}-\d{2}$")
 SEMANTIC_CATALOG_PATH = hcloud_common.REFERENCES_DIR / "billing" / "semantic-catalog.json"
@@ -200,6 +199,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "billing-statements": {
         "title": "ListCustomerBillsFeeRecords",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/bills/customer-bills/fee-records",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -216,6 +216,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "cost-data": {
         "title": "ListCosts",
+        "supports_x_language": True,
         "method": "POST",
         "path": "/v4/costs/cost-analysed-bills/query",
         "doc_url": "https://support.huaweicloud.com/intl/zh-cn/api-oce/costm_00014.html",
@@ -225,6 +226,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "monthly-breakdown": {
         "title": "ListCustomerBillsMonthlyBreakDown",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/bills/customer-bills/monthly-break-down",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -245,6 +247,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "resource-records": {
         "title": "ListCustomerselfResourceRecordDetails",
+        "supports_x_language": True,
         "method": "POST",
         "path": "/v2/bills/customer-bills/res-records/query",
         "doc_url": "https://support.huaweicloud.com/intl/zh-cn/api-oce/mbc_00003.html",
@@ -254,6 +257,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "resource-fee-records": {
         "title": "ListCustomerselfResourceRecords",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/bills/customer-bills/res-fee-records",
         "doc_url": "https://support.huaweicloud.com/intl/zh-cn/api-oce/mbc_00004.html",
@@ -263,6 +267,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "usage-summary": {
         "title": "ListResourceUsageSummary",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/bills/customer-bills/resources/usage/summary",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -280,6 +285,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "usage-detail": {
         "title": "ListResourceUsage",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/bills/customer-bills/resources/usage/details",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -345,6 +351,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "free-resource-infos": {
         "title": "ListFreeResourceInfos",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v3/payments/free-resources/query",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -358,6 +365,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "free-resource-usages": {
         "title": "ListFreeResourceUsages",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v3/payments/free-resources/usages/query",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -430,6 +438,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "order-details": {
         "title": "ShowCustomerOrderDetails",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/orders/customer-orders/details",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -510,6 +519,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "subcustomer-bill-detail": {
         "title": "ListSubCustomerBillDetail",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/bills/subcustomer-bills/detail",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -548,6 +558,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "reference-service-types": {
         "title": "ListServiceTypes",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/products/service-types",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -557,6 +568,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "reference-resource-types": {
         "title": "ListResourceTypes",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/products/resource-types",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -570,6 +582,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "reference-usage-types": {
         "title": "ListUsageTypes",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/products/usage-types",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -584,6 +597,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "reference-measure-units": {
         "title": "ListMeasureUnits",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/products/measure-units",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -593,6 +607,7 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     },
     "reference-service-resources": {
         "title": "ListServiceResources",
+        "supports_x_language": True,
         "method": "GET",
         "path": "/v2/products/service-resources",
         "doc_url": "https://support.huaweicloud.com/api-bss/",
@@ -645,6 +660,13 @@ OPERATION_ALIASES = {
 SOURCE_OPERATION_TO_PLANNER = {
     f"BSS/{metadata['title']}": operation for operation, metadata in OPERATIONS.items()
 }
+
+
+def operation_supports_x_language(operation: str) -> bool:
+    """Return whether a planner key or KooCLI operation accepts X-Language."""
+    planner_operation = SOURCE_OPERATION_TO_PLANNER.get(f"BSS/{operation}", operation)
+    metadata = OPERATIONS.get(planner_operation, {})
+    return bool(metadata.get("supports_x_language"))
 
 
 def load_semantic_catalog(path: Path = SEMANTIC_CATALOG_PATH) -> dict[str, Any]:
@@ -1157,7 +1179,8 @@ def hcloud_safe_exec_command(
         "--expect-json",
     ]
     command.append(f"--arg=--cli-region={defaults['cli_region']}")
-    command.append(f"--arg=--X-Language={x_language or defaults['x_language']}")
+    if x_language:
+        command.append(f"--arg=--X-Language={x_language}")
     command.extend(f"--arg={item}" for item in args)
     return command
 
@@ -1197,6 +1220,9 @@ def build_hcloud_command_plan(
         "read_only": True,
         "service": "BSS",
         "operation": metadata["title"],
+        "operation_capabilities": {
+            "x_language_header": operation_supports_x_language(operation),
+        },
         "cli_defaults": defaults,
         "hcloud_args": cli_args,
         "safe_exec_command": safe_exec_command,
@@ -1352,6 +1378,7 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
     semantic_catalog = load_semantic_catalog()
     defaults = cli_defaults(semantic_catalog)
     semantic_route = build_semantic_route(getattr(args, "entry_point", None), semantic_catalog)
+    supports_x_language = operation_supports_x_language(operation)
     query: dict[str, Any] = {}
     body: dict[str, Any] | None = None
     body_source: str | None = None
@@ -1383,6 +1410,11 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
     except ValueError as exc:
         errors = [str(exc)]
 
+    if supports_x_language and args.language not in SUPPORTED_X_LANGUAGES:
+        errors.append(
+            f"Unsupported X-Language value {args.language!r}; expected one of {sorted(SUPPORTED_X_LANGUAGES)}."
+        )
+
     request_spec = {
         "method": metadata["method"],
         "endpoint_base": args.endpoint_base.rstrip("/"),
@@ -1391,7 +1423,7 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         "headers": optional_fields(
             **{
                 "Content-Type": "application/json",
-                "X-Language": args.language,
+                "X-Language": args.language if supports_x_language else None,
             }
         ),
         "query": query,
@@ -1405,7 +1437,7 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         "This script does not sign or send HTTP requests.",
         "Billing and cost data can contain account, resource, and spend-sensitive information; keep output scope narrow.",
         "Do not infer spend from resource inventory when billing APIs are unavailable.",
-        "BSS hcloud templates must use --cli-region=cn-north-1 and pass language as --X-Language, not --cli-lang.",
+        "BSS hcloud templates must use --cli-region=cn-north-1. Add --X-Language only when operation_capabilities.x_language_header is true; --cli-lang is profile-only and is never an operation argument.",
         "Do not claim full-account totals from one page unless pagination has been completed and checked.",
     ]
     if semantic_route and semantic_route.get("found") and operation not in semantic_route.get("supported_planner_operations", []):
@@ -1449,7 +1481,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--operation", choices=sorted(list(OPERATIONS) + list(OPERATION_ALIASES)))
     parser.add_argument("--entry-point", choices=semantic_entry_point_names(), help="Optional billing semantic entry point.")
     parser.add_argument("--endpoint-base", default=DEFAULT_ENDPOINT_BASE, help="Billing endpoint base URL.")
-    parser.add_argument("--language", default="zh_CN", help="X-Language header value.")
+    parser.add_argument("--language", default="zh_CN", help="X-Language value for operations that support the header.")
     parser.add_argument("--bill-cycle", help="Billing cycle in YYYY-MM format.")
     parser.add_argument("--shared-month", help="Shared month for monthly amortization in YYYY-MM format.")
     parser.add_argument("--begin-time", help="Cost begin_time or fee bill_date_begin.")

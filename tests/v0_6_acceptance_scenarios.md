@@ -71,7 +71,7 @@
 ### Good behavior
 
 - 使用 `scripts/hcloud_billing_readonly.py --entry-point monthly_spend` 或等价参数生成 BSS 只读 request spec 和 safe_exec command plan。
-- 说明 BSS 固定使用 `--cli-region=cn-north-1`、`--cli-lang=cn`，不沿用普通资源 region。
+- 说明 BSS 固定使用 `--cli-region=cn-north-1`，不沿用普通资源 region；`X-Language` 仅由 planner 按 operation 能力追加，`cli-lang` 只是 KooCLI profile 配置。
 - 执行前要求用户确认读取账单；执行后用 `scripts/hcloud_billing_result_summarize.py` 做摘要和脱敏。
 - 对分页结果保持诚实，不把单页数据说成全量月账单。
 

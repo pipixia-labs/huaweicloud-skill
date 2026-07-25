@@ -19,7 +19,7 @@
           "required_actions": [
             "bss:bill:view"
           ],
-          "notes": "Monthly bill summary. BSS hcloud commands use cn-north-1 and cli-lang cn."
+          "notes": "Monthly bill summary. Use BSS region cn-north-1; this operation does not accept X-Language, and cli-lang is only a KooCLI profile setting."
         },
         "ListCosts": {
           "risk": "readonly",

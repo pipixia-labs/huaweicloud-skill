@@ -13,7 +13,6 @@ import hcloud_billing_readonly
 import hcloud_billing_result_summarize
 import hcloud_common
 
-
 CONFIRM_TOKEN = "READ_BILLING_DATA"
 MAX_LIVE_LIMIT = 50
 READ_ONLY_PREFIXES = ("List", "Show")
@@ -95,6 +94,7 @@ def validate_live_read_plan(billing_plan: dict[str, Any], *, fallback_limit: int
     request_spec = billing_plan.get("request_spec", {})
     headers = request_spec.get("headers", {}) if isinstance(request_spec, dict) else {}
     x_language = str(headers.get("X-Language") or "") if isinstance(headers, dict) else ""
+    supports_x_language = hcloud_billing_readonly.operation_supports_x_language(operation)
     limit = planned_int_field(request_spec, "limit", fallback_limit)
 
     if not billing_plan.get("success"):
@@ -107,8 +107,10 @@ def validate_live_read_plan(billing_plan: dict[str, Any], *, fallback_limit: int
         errors.append(f"Only read-only BSS List*/Show* operations are allowed, got {operation or '<missing>'}.")
     if defaults.get("cli_region") != hcloud_billing_readonly.BSS_CLI_REGION:
         errors.append("BSS live reads must use the reviewed fixed cli-region cn-north-1.")
-    if x_language not in hcloud_billing_readonly.SUPPORTED_X_LANGUAGES:
+    if supports_x_language and x_language not in hcloud_billing_readonly.SUPPORTED_X_LANGUAGES:
         errors.append("BSS live reads must pass an official X-Language value: zh_CN or en_US.")
+    if not supports_x_language and x_language:
+        errors.append(f"BSS operation {operation} does not accept X-Language and must omit that header.")
     if limit > MAX_LIVE_LIMIT:
         errors.append(f"Live BSS read limit must be <= {MAX_LIVE_LIMIT}; got {limit}.")
     if limit < 1:

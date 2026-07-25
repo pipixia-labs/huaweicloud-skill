@@ -560,8 +560,10 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(command_plan["supported"])
         self.assertEqual(command_plan["operation"], "ShowCustomerMonthlySum")
         self.assertIn("--arg=--cli-region=cn-north-1", command_plan["safe_exec_command"])
-        self.assertIn("--arg=--X-Language=zh_CN", command_plan["safe_exec_command"])
+        self.assertNotIn("X-Language", request["headers"])
+        self.assertNotIn("--arg=--X-Language=zh_CN", command_plan["safe_exec_command"])
         self.assertNotIn("--arg=--cli-lang=cn", command_plan["safe_exec_command"])
+        self.assertFalse(command_plan["operation_capabilities"]["x_language_header"])
         self.assertIn("--arg=--bill_cycle=2026-05", command_plan["safe_exec_command"])
         self.assertFalse(result["pagination_scope"]["complete_result_claim_allowed"])
         discipline = result["billing_semantic_discipline"]
@@ -569,6 +571,52 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(discipline["selected_fact"], "ShowCustomerMonthlySum")
         self.assertIn("bill_cycle", discipline["billing_period_fields"])
         self.assertIn("service_type_code", discipline["scope_fields"])
+
+    def test_billing_x_language_capability_matches_reviewed_operations(self) -> None:
+        expected = {
+            "billing-statements",
+            "cost-data",
+            "monthly-breakdown",
+            "resource-records",
+            "resource-fee-records",
+            "usage-summary",
+            "usage-detail",
+            "free-resource-infos",
+            "free-resource-usages",
+            "order-details",
+            "subcustomer-bill-detail",
+            "reference-service-types",
+            "reference-resource-types",
+            "reference-usage-types",
+            "reference-measure-units",
+            "reference-service-resources",
+        }
+
+        actual = {
+            operation
+            for operation, metadata in hcloud_billing_readonly.OPERATIONS.items()
+            if metadata.get("supports_x_language")
+        }
+
+        self.assertEqual(actual, expected)
+
+    def test_billing_readonly_adds_x_language_only_for_supported_operation(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(operation="reference-service-types", language="en_US")
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["request_spec"]["headers"]["X-Language"], "en_US")
+        command_plan = result["hcloud_command_plan"]
+        self.assertTrue(command_plan["operation_capabilities"]["x_language_header"])
+        self.assertIn("--arg=--X-Language=en_US", command_plan["safe_exec_command"])
+        self.assertNotIn("--arg=--cli-lang=cn", command_plan["safe_exec_command"])
+
+        invalid = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(operation="reference-service-types", language="cn")
+        )
+        self.assertFalse(invalid["success"])
+        self.assertIn("Unsupported X-Language", invalid["validation"]["errors"][-1])
 
     def test_billing_readonly_builds_generated_cost_data_body(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
@@ -660,8 +708,13 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--operation", command)
         self.assertIn("ShowCustomerAccountBalances", command)
         self.assertIn("--arg=--cli-region=cn-north-1", command)
-        self.assertIn("--arg=--X-Language=zh_CN", command)
+        self.assertNotIn("--arg=--X-Language=zh_CN", command)
         self.assertNotIn("--arg=--cli-lang=cn", command)
+
+        billing_plan = hcloud_billing_readonly.build_request_spec(self.billing_readonly_args())
+        billing_plan["request_spec"]["headers"]["X-Language"] = "zh_CN"
+        guard_errors = hcloud_billing_live_read.validate_live_read_plan(billing_plan, fallback_limit=10)
+        self.assertIn("does not accept X-Language", guard_errors[-1])
 
     def test_billing_readonly_builds_usage_summary_plan(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
@@ -928,8 +981,19 @@ class MultiServiceToolsTest(unittest.TestCase):
         command = result["live_read_plan"]["safe_exec_command"]
         self.assertIn("ShowCustomerMonthlySum", command)
         self.assertIn("--arg=--cli-region=cn-north-1", command)
-        self.assertIn("--arg=--X-Language=zh_CN", command)
+        self.assertNotIn("--arg=--X-Language=zh_CN", command)
         self.assertNotIn("--arg=--cli-lang=cn", command)
+
+    def test_billing_live_read_keeps_supported_x_language_header(self) -> None:
+        result = hcloud_billing_live_read.build_live_read(
+            self.billing_live_read_args(operation="reference-service-types", language="en_US")
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertTrue(result["live_read_plan"]["supported"])
+        command = result["live_read_plan"]["safe_exec_command"]
+        self.assertIn("ListServiceTypes", command)
+        self.assertIn("--arg=--X-Language=en_US", command)
 
     def test_billing_live_read_requires_confirmation_token(self) -> None:
         result = hcloud_billing_live_read.build_live_read(
@@ -966,6 +1030,17 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertFalse(result["execution"]["executed"])
         self.assertFalse(result["live_read_plan"]["supported"])
         self.assertIn("not executable", result["live_read_plan"]["guard_errors"][0])
+
+    def test_billing_docs_do_not_use_cli_lang_as_bss_operation_argument(self) -> None:
+        paths = [
+            ROOT / "references" / "playbooks" / "billing-cost-governance.md",
+            ROOT / "references" / "iam-actions-catalog.json",
+            ROOT / "tests" / "v0_6_acceptance_scenarios.md",
+        ]
+
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertNotIn("--cli-lang=cn", path.read_text(encoding="utf-8"))
 
     def test_billing_live_read_executes_safe_exec_and_returns_redacted_summary(self) -> None:
         safe_exec_result = {

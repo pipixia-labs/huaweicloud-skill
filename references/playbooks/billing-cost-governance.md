@@ -23,13 +23,15 @@ Use this playbook when the user asks for billing, cost analysis, chargeback, res
    - `ListCustomerOrders` / `ShowCustomerOrderDetails` only when order-side evidence is needed.
    Do not replace this path with `ShowCustomerMonthlySum`; monthly summary is a different fact and grain.
 6. For balance, debt, account transactions, resource packages, coupons, stored-value cards, orders, enterprise/sub-customer, partner, or reference-dictionary questions, use the matching `hcloud_billing_readonly.py --operation ...` planner and keep the scope narrow.
-7. Execute only `hcloud_command_plan.safe_exec_command` after the user approves live billing access, account scope, time range, and output handling. BSS hcloud command templates must use `--cli-region=cn-north-1` and `--cli-lang=cn`.
+7. Execute only `hcloud_command_plan.safe_exec_command` after the user approves live billing access, account scope, time range, and output handling. BSS hcloud command templates must use `--cli-region=cn-north-1`; let the planner add `X-Language` only when `operation_capabilities.x_language_header=true`.
 8. Summarize saved safe_exec output with `hcloud_billing_result_summarize.py` before showing data to the user. Use `--include-redacted-records` only when row-level evidence is needed and the scope is confirmed.
 
 ## BSS Command Contract
 
 - `hcloud` service name is always `BSS`; do not invent `account`, `bill`, `cost`, or `billing` service names.
-- BSS commands use fixed CLI defaults: `--cli-region=cn-north-1`, `--cli-lang=cn`, and `--cli-output=json`.
+- BSS commands use fixed `--cli-region=cn-north-1` and `--cli-output=json`.
+- `cli-lang` is a KooCLI profile setting, not a BSS operation argument. Do not put it in generated API commands.
+- `X-Language` is operation-specific. Pass `zh_CN` or `en_US` only when the selected operation exposes that Header; omit it otherwise.
 - For POST-style KooCLI parameters, use dot notation instead of JSON strings:
   - `--time_condition.begin_time=YYYY-MM-DD`
   - `--groupby.1.key=CLOUD_SERVICE_TYPE`

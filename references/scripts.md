@@ -500,7 +500,7 @@ python3 scripts/hcloud_billing_readonly.py \
   --pretty
 ```
 
-Use this to build a planner-only request spec and a reviewed `hcloud_command_plan.safe_exec_command` for official Huawei Cloud Billing/Cost APIs such as balance/debt, monthly bill summary, cost analysis, billing statements, resource records, usage summaries/details, pricing inquiry, resource packages, coupon ledgers, order evidence, enterprise/sub-customer scope, partner ledgers, and reference dimensions. `--entry-point` attaches the local billing semantic catalog from `references/billing/semantic-catalog.json`, including scope/time/money basis, ontology entities, source operations, and currently supported planner operations. BSS hcloud command plans always fix `--cli-region=cn-north-1` and pass language as `--X-Language=zh_CN` or `--X-Language=en_US`; do not replace the BSS region with the user's normal project region.
+Use this to build a planner-only request spec and a reviewed `hcloud_command_plan.safe_exec_command` for official Huawei Cloud Billing/Cost APIs such as balance/debt, monthly bill summary, cost analysis, billing statements, resource records, usage summaries/details, pricing inquiry, resource packages, coupon ledgers, order evidence, enterprise/sub-customer scope, partner ledgers, and reference dimensions. `--entry-point` attaches the local billing semantic catalog from `references/billing/semantic-catalog.json`, including scope/time/money basis, ontology entities, source operations, and currently supported planner operations. BSS hcloud command plans always fix `--cli-region=cn-north-1`; they add `--X-Language=zh_CN` or `--X-Language=en_US` only when `operation_capabilities.x_language_header=true`. `cli-lang` is profile-only and must not appear in an operation command.
 
 The script does not sign requests, accept credentials, send HTTP traffic, or execute hcloud by default. Run the generated safe_exec command only after the user confirms account scope, time range, enterprise project scope, permission boundary, and raw-output handling. Treat `pagination_scope.complete_result_claim_allowed=false` as a hard reminder that one page cannot support full-account conclusions. For enterprise-project ranking, use `operation=cost-data` with `--filter ENTERPRISE_PROJECT_ID=<id>`; `ShowCustomerMonthlySum` does not support enterprise-project filtering.
 
@@ -532,7 +532,7 @@ python3 scripts/hcloud_billing_live_read.py \
   --pretty
 ```
 
-The wrapper only allows reviewed BSS `List*` and `Show*` operations from `hcloud_billing_readonly.py`, keeps `--cli-region=cn-north-1`, passes language through `--X-Language`, rejects pages larger than 50 rows, and returns a redacted billing summary instead of the raw safe_exec result. Use `--include-redacted-records` only when row-level evidence is necessary; raw identifiers still remain hashed.
+The wrapper only allows reviewed BSS `List*` and `Show*` operations from `hcloud_billing_readonly.py`, keeps `--cli-region=cn-north-1`, passes `X-Language` only for operations that expose that Header, rejects pages larger than 50 rows, and returns a redacted billing summary instead of the raw safe_exec result. Use `--include-redacted-records` only when row-level evidence is necessary; raw identifiers still remain hashed.
 
 ### Billing Operation Gap Audit
 
