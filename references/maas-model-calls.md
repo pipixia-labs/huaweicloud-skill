@@ -8,6 +8,7 @@ Use this reference when a task explicitly needs Huawei Cloud MaaS API calls for 
 - Read the key only from `MAAS_API_KEY` or `MODELARTS_MAAS_API_KEY`.
 - Do not write API keys into source files, prompt files, manifests, run journals, docs, shell history examples, or final answers.
 - Run dry-run first when constructing a new request shape.
+- Image, video, and other potentially billable MaaS generation calls are external side effects. Before an online call, present the model, count or scope, intended use, and cost/risk boundary, then wait for the user's explicit confirmation. An initial request to create content is not itself execution authorization.
 - Token Plan endpoints are for supported AI tools and must not be treated as generic API-call quota.
 - Local model information comes from `references/maas-model-catalog.json`; for live availability use MaaS console or `scripts/maas_models.py --online --execute` after the user confirms a live API call.
 

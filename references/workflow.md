@@ -28,6 +28,7 @@ python3 scripts/hcloud_scenario_router.py "<user-goal>" --pretty
 - `explicit_constraints` 是用户明确指定的运行载体或入口要求，优先于低成本默认值。
 - 用户指定机器、ECS、公网 IP、SSH、Nginx 或 Docker 时，不得自动替换成 OBS。
 - `change_execution_blocked=true` 时，先询问 `clarification_question`；确认前停止创建、购买、上传、公开访问和其他写操作。
+- `change_execution_blocked=false` 只表示架构无需继续澄清，不表示用户已经授权执行。涉及计费资源、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先给出合并方案并等待用户明确确认；原始“搭建/部署”请求只授权规划和只读预检。
 - 不要因为 agent 已经生成了纯 HTML/CSS/JS 文件，就反向推断用户原需求必然是 OBS 静态托管。
 
 如果路由结果或用户原话明确指向 Terraform/IaC、环境复制、import、drift review 或长期纳管，再运行 Terraform 资产路由：

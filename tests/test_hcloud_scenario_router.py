@@ -359,17 +359,18 @@ class HcloudScenarioRouterTest(unittest.TestCase):
 
     def test_web_architecture_guidance_enforces_hard_constraints_and_completion(self) -> None:
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        entry_text = (
-            ROOT / "references" / "playbooks" / "entry-level-web-hosting.md"
-        ).read_text(encoding="utf-8")
-        obs_text = (
-            ROOT / "references" / "playbooks" / "obs-static-website-hosting.md"
-        ).read_text(encoding="utf-8")
-        ecs_text = (
-            ROOT / "references" / "playbooks" / "ecs-create-readiness.md"
-        ).read_text(encoding="utf-8")
+        workflow_text = (ROOT / "references" / "workflow.md").read_text(encoding="utf-8")
+        maas_image_text = (ROOT / "references" / "maas-image-generation.md").read_text(encoding="utf-8")
+        entry_text = (ROOT / "references" / "playbooks" / "entry-level-web-hosting.md").read_text(encoding="utf-8")
+        obs_text = (ROOT / "references" / "playbooks" / "obs-static-website-hosting.md").read_text(encoding="utf-8")
+        ecs_text = (ROOT / "references" / "playbooks" / "ecs-create-readiness.md").read_text(encoding="utf-8")
 
         self.assertIn("change_execution_blocked=true", skill_text)
+        self.assertIn("任何网站部署任务", skill_text)
+        self.assertIn("change_execution_blocked=false", skill_text)
+        self.assertIn("只授权规划和只读预检", skill_text)
+        self.assertIn("MaaS 图片/视频调用", workflow_text)
+        self.assertIn("potentially billable external API call", maas_image_text)
         self.assertIn("不能先生成静态文件", entry_text)
         self.assertIn("默认域名只用于临时源站验证", obs_text)
         self.assertIn("不能返回私网 IP、OBS 域名", ecs_text)

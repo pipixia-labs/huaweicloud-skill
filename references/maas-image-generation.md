@@ -6,6 +6,16 @@ The required provider is Huawei Cloud ModelArts MaaS. Do not use non-Huawei endp
 
 The batch site-asset helper is `scripts/maas_text_to_image.py`. The general image helper is `scripts/maas_image_generation.py`. The default MaaS text-to-image model parameter remains `qwen-image`.
 
+## Execution Authorization
+
+MaaS image generation is a potentially billable external API call, not a local
+asset-building step. For a website deployment, do not call it until the agent
+has routed the website request, presented one combined deployment and asset
+plan, and the user has explicitly confirmed that plan. The user's initial
+request to build or deploy a website authorizes planning and read-only
+prechecks only; it does not authorize image generation. The plan must state
+the model, image count, intended site use, and any cost or content risks.
+
 ## Required API
 
 - Endpoint: `https://api.modelarts-maas.com/v1/images/generations`
@@ -31,7 +41,7 @@ The response may return `data[0].b64_json` as either raw base64 or a data URI su
 
 ## Default Workflow
 
-1. Decide the exact site assets needed before calling MaaS, including file names, aspect ratios, subject matter, and where each image will be used.
+1. After the user confirms the combined plan, decide the exact site assets needed before calling MaaS, including file names, aspect ratios, subject matter, and where each image will be used.
 2. Write a prompt JSON file with one item per image:
 
 ```json
