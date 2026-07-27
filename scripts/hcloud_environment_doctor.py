@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import platform
 import shutil
 import subprocess
@@ -13,6 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import credential_aliases
 import hcloud_common
 import hcloud_context_inspect
 import hcloud_terraform_context_inspect
@@ -20,10 +20,7 @@ import hcloud_terraform_context_inspect
 MIN_PYTHON = (3, 10)
 NEED_CHOICES = ("hcloud", "live", "sdk", "terraform", "obsutil", "maas")
 KOOCLI_QUICKSTART_URL = "https://support.huaweicloud.com/qs-hcli/hcli_02_003.html"
-KOOCLI_WINDOWS_DOWNLOAD_URL = (
-    "https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/"
-    "huaweicloud-cli-windows-amd64.zip"
-)
+KOOCLI_WINDOWS_DOWNLOAD_URL = "https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/huaweicloud-cli-windows-amd64.zip"
 POSIX_HCLOUD_INSTALL_COMMANDS = [
     "curl -sSL https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/hcloud_install.sh -o ./hcloud_install.sh",
     "bash ./hcloud_install.sh -y",
@@ -133,7 +130,9 @@ def inspect_python() -> dict[str, Any]:
             "executable": sys.executable,
             "platform": platform.platform(),
         },
-        next_actions=[] if ok else [
+        next_actions=[]
+        if ok
+        else [
             "Install Python 3.10+ and rerun this doctor."
             if platform_family() != "windows"
             else "Install Python 3.10+ so the `python` command is available, then rerun this doctor."
@@ -150,10 +149,7 @@ def inspect_hcloud() -> dict[str, Any]:
     current_profile = config.get("current_profile") if isinstance(config, dict) else None
     profile_auth_ready = bool(
         isinstance(current_profile, dict)
-        and (
-            current_profile.get("has_access_key")
-            or current_profile.get("mode") in {"ecsAgency", "SSO", "AssumeRole"}
-        )
+        and (current_profile.get("has_access_key") or current_profile.get("mode") in {"ecsAgency", "SSO", "AssumeRole"})
     )
     status = "ok" if found else "blocker"
     next_actions = []
@@ -192,65 +188,47 @@ def inspect_hcloud() -> dict[str, Any]:
 
 def env_presence(keys: list[str]) -> dict[str, dict[str, bool]]:
     """Return redacted presence information for environment variables."""
-    return {key: {"set": bool(os.environ.get(key)), "empty": os.environ.get(key) == ""} for key in keys}
+    return credential_aliases.credential_environment_presence(keys)
 
 
 def inspect_auth(needs: set[str]) -> dict[str, Any]:
-    """Inspect cloud credential hints without exposing values."""
-    keys = [
-        "HW_ACCESS_KEY",
-        "HW_SECRET_KEY",
-        "HW_REGION_NAME",
-        "HW_SECURITY_TOKEN",
-        "OS_ACCESS_KEY",
-        "OS_SECRET_KEY",
-        "OS_REGION_NAME",
-        "HUAWEICLOUD_ACCESS_KEY",
-        "HUAWEICLOUD_SECRET_KEY",
-        "HUAWEICLOUD_REGION",
-        "HUAWEI_ACCESS_KEY",
-        "HUAWEI_SECRET_KEY",
-        "HUAWEI_PROJECT_ID",
-        "HUAWEI_REGION",
-        "HUAWEI_DOMAIN_ID",
-        "MAAS_API_KEY",
-        "MODELARTS_MAAS_API_KEY",
-    ]
-    env = env_presence(keys)
-    hw_complete = env["HW_ACCESS_KEY"]["set"] and env["HW_SECRET_KEY"]["set"] and env["HW_REGION_NAME"]["set"]
-    os_complete = env["OS_ACCESS_KEY"]["set"] and env["OS_SECRET_KEY"]["set"] and env["OS_REGION_NAME"]["set"]
-    huaweicloud_complete = (
-        env["HUAWEICLOUD_ACCESS_KEY"]["set"]
-        and env["HUAWEICLOUD_SECRET_KEY"]["set"]
-        and env["HUAWEICLOUD_REGION"]["set"]
-    )
-    huawei_complete = (
-        env["HUAWEI_ACCESS_KEY"]["set"]
-        and env["HUAWEI_SECRET_KEY"]["set"]
-        and env["HUAWEI_REGION"]["set"]
-    )
-    cloud_ready = hw_complete or os_complete or huaweicloud_complete or huawei_complete
+    """Inspect current-process credential visibility without exposing values."""
+    env = credential_aliases.credential_environment_presence()
+    resolved = credential_aliases.resolve_cloud_credentials()
+    observation = credential_aliases.redact_credential_resolution(resolved)
+    cloud_ready = bool(resolved["complete"])
     live_required = "live" in needs
     status = "ok" if cloud_ready else ("blocker" if live_required else "warning")
+    auth_modes: dict[str, bool] = {}
+    for family in credential_aliases.CLOUD_CREDENTIAL_FAMILIES:
+        pair_set = env[family.access_key]["set"] and env[family.secret_key]["set"]
+        region_set = any(env[name]["set"] for name in credential_aliases.REGION_ENV_NAMES)
+        auth_modes[f"{family.name}_env_complete"] = pair_set and region_set
+    auth_modes["maas_api_key_set"] = any(env[name]["set"] for name in credential_aliases.MAAS_API_KEY_ENV_NAMES)
     return check_item(
         "cloud_credentials",
         status,
         required=live_required,
-        summary="Cloud credential environment looks complete." if cloud_ready else "No complete cloud credential environment was found.",
+        summary=(
+            "A complete cloud credential environment is visible to the current process."
+            if cloud_ready
+            else "The current process cannot observe a complete cloud credential environment; stored or action-scoped configuration remains unknown."
+        ),
         details={
             "environment": env,
-            "auth_modes": {
-                "hw_env_complete": hw_complete,
-                "os_env_complete": os_complete,
-                "huaweicloud_env_complete": huaweicloud_complete,
-                "huawei_env_complete": huawei_complete,
-                "maas_api_key_set": env["MAAS_API_KEY"]["set"] or env["MODELARTS_MAAS_API_KEY"]["set"],
+            "auth_modes": auth_modes,
+            "credential_observation": {
+                **observation,
+                "selected_family": observation["family"],
             },
+            "redaction": hcloud_common.redaction_metadata(),
         },
-        next_actions=[] if cloud_ready else [
-            "Use an existing hcloud profile, or set HW_ACCESS_KEY/HW_SECRET_KEY/HW_REGION_NAME for one-off commands.",
-            "Existing HUAWEI_ACCESS_KEY/HUAWEI_SECRET_KEY/HUAWEI_REGION variables can be mapped to HW_* for Terraform subprocesses.",
-            "Never paste AK/SK into chat or logs; configure them locally through hcloud or environment variables.",
+        next_actions=[]
+        if cloud_ready
+        else [
+            "For a cloud action, use the platform's approved action path so stored credentials can be injected only into that subprocess.",
+            "Outside a credential broker, use an existing hcloud profile or one supported same-family AK/SK pair plus a supported region variable.",
+            "Never paste AK/SK into chat or logs; masked values made only of asterisks mean present but hidden, not missing.",
         ],
         install_commands=HCLOUD_CONFIG_COMMANDS if not cloud_ready else [],
     )
@@ -291,7 +269,9 @@ def inspect_terraform(needs: set[str], workdir: Path) -> dict[str, Any]:
             "provider_cache": context.get("provider_cache", {}),
             "forbidden_artifacts": context.get("forbidden_artifacts", []),
         },
-        next_actions=[] if found else ["Install Terraform only when the task explicitly needs IaC, import, drift, or long-term management."],
+        next_actions=[]
+        if found
+        else ["Install Terraform only when the task explicitly needs IaC, import, drift, or long-term management."],
         install_commands=[] if found else terraform_check_commands(),
     )
 
@@ -351,15 +331,22 @@ def inspect_obsutil(needs: set[str]) -> dict[str, Any]:
 def inspect_maas(needs: set[str]) -> dict[str, Any]:
     """Inspect optional MaaS API key presence."""
     required = "maas" in needs
-    env = env_presence(["MAAS_API_KEY", "MODELARTS_MAAS_API_KEY"])
-    has_key = env["MAAS_API_KEY"]["set"] or env["MODELARTS_MAAS_API_KEY"]["set"]
+    env = credential_aliases.credential_environment_presence(credential_aliases.MAAS_API_KEY_ENV_NAMES)
+    _, source_name = credential_aliases.resolve_maas_api_key()
+    has_key = source_name is not None
     status = "ok" if has_key else ("blocker" if required else "skipped")
     return check_item(
         "modelarts_maas",
         status,
         required=required,
         summary="A MaaS API key environment variable is set." if has_key else "MaaS API calls are optional and no MaaS API key is set.",
-        details={"environment": env},
+        details={
+            "environment": env,
+            "selected_source": source_name,
+            "visibility": "current_process_only",
+            "configuration_status": ("observed_in_current_process" if has_key else "unknown"),
+            "redaction": hcloud_common.redaction_metadata(),
+        },
         next_actions=[] if has_key else ["Set MAAS_API_KEY or MODELARTS_MAAS_API_KEY only when calling Huawei Cloud MaaS APIs."],
     )
 
@@ -385,9 +372,7 @@ def summarize(checks: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         **counts,
         "ready": counts.get("blocker", 0) == 0,
-        "required_blockers": [
-            item["name"] for item in checks if item.get("required") and item.get("status") == "blocker"
-        ],
+        "required_blockers": [item["name"] for item in checks if item.get("required") and item.get("status") == "blocker"],
     }
 
 
@@ -418,6 +403,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "references/terraform/README.md",
             "references/playbooks/obs-static-website-hosting.md",
         ],
+        "redaction": hcloud_common.redaction_metadata(),
         "execution_boundary": "This doctor does not install packages, modify credentials, write config, run terraform init/plan/apply, or call Huawei Cloud APIs.",
     }
 

@@ -12,78 +12,83 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import credential_aliases
 import hcloud_common
 import hcloud_terraform_catalog
 
-
-TERRAFORM_ENV_KEYS = (
-    "HW_ACCESS_KEY",
-    "HW_SECRET_KEY",
-    "HW_REGION_NAME",
-    "HW_DOMAIN_ID",
-    "HW_DOMAIN_NAME",
-    "HW_USER_NAME",
-    "HW_USER_ID",
-    "HW_USER_PASSWORD",
-    "HW_PROJECT_ID",
-    "HW_PROJECT_NAME",
-    "HW_SECURITY_TOKEN",
-    "HW_AUTH_TOKEN",
-    "HW_AUTH_URL",
-    "HW_CLOUD",
-    "HW_SHARED_CONFIG_FILE",
-    "HW_PROFILE",
-    "HW_ENTERPRISE_PROJECT_ID",
-    "HW_MAX_RETRIES",
-    "HW_ENABLE_FORCE_NEW",
-    "HW_SIGNING_ALGORITHM",
-    "HW_INSECURE",
-    "HW_ASSUME_ROLE_AGENCY_NAME",
-    "HW_ASSUME_ROLE_DOMAIN_NAME",
-    "HW_ASSUME_ROLE_DOMAIN_ID",
-    "HW_ASSUME_ROLE_DURATION",
-    "HW_ASSUME_ROLE_IDP_ID",
-    "HW_ASSUME_ROLE_ID_TOKEN",
-    "HW_ASSUME_ROLE_ID_TOKEN_FILE",
-    "OS_ACCESS_KEY",
-    "OS_SECRET_KEY",
-    "OS_REGION_NAME",
-    "OS_DOMAIN_ID",
-    "OS_USER_DOMAIN_ID",
-    "OS_PROJECT_DOMAIN_ID",
-    "OS_DOMAIN_NAME",
-    "OS_USER_DOMAIN_NAME",
-    "OS_PROJECT_DOMAIN_NAME",
-    "OS_USERNAME",
-    "OS_USER_ID",
-    "OS_PASSWORD",
-    "OS_PROJECT_ID",
-    "OS_PROJECT_NAME",
-    "OS_TENANT_ID",
-    "OS_TENANT_NAME",
-    "OS_AUTH_TOKEN",
-    "OS_AUTH_URL",
-    "OS_INSECURE",
-    "OS_CACERT",
-    "OS_CERT",
-    "OS_KEY",
-    "OS_AGENCY_NAME",
-    "OS_AGENCY_DOMAIN_NAME",
-    "OS_DELEGATED_PROJECT",
-    "HUAWEICLOUD_ACCESS_KEY",
-    "HUAWEICLOUD_SECRET_KEY",
-    "HUAWEICLOUD_REGION",
-    "HUAWEICLOUD_PROJECT_ID",
-    "HUAWEICLOUD_SECURITY_TOKEN",
-    "HUAWEI_ACCESS_KEY",
-    "HUAWEI_SECRET_KEY",
-    "HUAWEI_REGION",
-    "HUAWEI_PROJECT_ID",
-    "HUAWEI_DOMAIN_ID",
-    "TF_PLUGIN_CACHE_DIR",
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "NO_PROXY",
+TERRAFORM_ENV_KEYS = tuple(
+    dict.fromkeys(
+        (
+            *credential_aliases.ALL_CREDENTIAL_ENV_NAMES,
+            "HW_ACCESS_KEY",
+            "HW_SECRET_KEY",
+            "HW_REGION_NAME",
+            "HW_DOMAIN_ID",
+            "HW_DOMAIN_NAME",
+            "HW_USER_NAME",
+            "HW_USER_ID",
+            "HW_USER_PASSWORD",
+            "HW_PROJECT_ID",
+            "HW_PROJECT_NAME",
+            "HW_SECURITY_TOKEN",
+            "HW_AUTH_TOKEN",
+            "HW_AUTH_URL",
+            "HW_CLOUD",
+            "HW_SHARED_CONFIG_FILE",
+            "HW_PROFILE",
+            "HW_ENTERPRISE_PROJECT_ID",
+            "HW_MAX_RETRIES",
+            "HW_ENABLE_FORCE_NEW",
+            "HW_SIGNING_ALGORITHM",
+            "HW_INSECURE",
+            "HW_ASSUME_ROLE_AGENCY_NAME",
+            "HW_ASSUME_ROLE_DOMAIN_NAME",
+            "HW_ASSUME_ROLE_DOMAIN_ID",
+            "HW_ASSUME_ROLE_DURATION",
+            "HW_ASSUME_ROLE_IDP_ID",
+            "HW_ASSUME_ROLE_ID_TOKEN",
+            "HW_ASSUME_ROLE_ID_TOKEN_FILE",
+            "OS_ACCESS_KEY",
+            "OS_SECRET_KEY",
+            "OS_REGION_NAME",
+            "OS_DOMAIN_ID",
+            "OS_USER_DOMAIN_ID",
+            "OS_PROJECT_DOMAIN_ID",
+            "OS_DOMAIN_NAME",
+            "OS_USER_DOMAIN_NAME",
+            "OS_PROJECT_DOMAIN_NAME",
+            "OS_USERNAME",
+            "OS_USER_ID",
+            "OS_PASSWORD",
+            "OS_PROJECT_ID",
+            "OS_PROJECT_NAME",
+            "OS_TENANT_ID",
+            "OS_TENANT_NAME",
+            "OS_AUTH_TOKEN",
+            "OS_AUTH_URL",
+            "OS_INSECURE",
+            "OS_CACERT",
+            "OS_CERT",
+            "OS_KEY",
+            "OS_AGENCY_NAME",
+            "OS_AGENCY_DOMAIN_NAME",
+            "OS_DELEGATED_PROJECT",
+            "HUAWEICLOUD_ACCESS_KEY",
+            "HUAWEICLOUD_SECRET_KEY",
+            "HUAWEICLOUD_REGION",
+            "HUAWEICLOUD_PROJECT_ID",
+            "HUAWEICLOUD_SECURITY_TOKEN",
+            "HUAWEI_ACCESS_KEY",
+            "HUAWEI_SECRET_KEY",
+            "HUAWEI_REGION",
+            "HUAWEI_PROJECT_ID",
+            "HUAWEI_DOMAIN_ID",
+            "TF_PLUGIN_CACHE_DIR",
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "NO_PROXY",
+        )
+    )
 )
 HUAWEICLOUD_MIRROR_URL = "https://mirrors.huaweicloud.com/terraform/"
 PROVIDER_CACHE_CANDIDATES = (
@@ -261,16 +266,21 @@ def readiness(
 ) -> dict[str, Any]:
     """Return readiness flags and blockers."""
     has_terraform = bool(terraform.get("found"))
-    has_hw_auth = env["HW_ACCESS_KEY"]["set"] and env["HW_SECRET_KEY"]["set"] and env["HW_REGION_NAME"]["set"]
-    has_os_auth = env["OS_ACCESS_KEY"]["set"] and env["OS_SECRET_KEY"]["set"] and env["OS_REGION_NAME"]["set"]
-    has_huaweicloud_auth = env["HUAWEICLOUD_ACCESS_KEY"]["set"] and env["HUAWEICLOUD_SECRET_KEY"]["set"] and env["HUAWEICLOUD_REGION"]["set"]
-    has_huawei_auth = env["HUAWEI_ACCESS_KEY"]["set"] and env["HUAWEI_SECRET_KEY"]["set"] and env["HUAWEI_REGION"]["set"]
+    has_region = any(env[name]["set"] for name in credential_aliases.REGION_ENV_NAMES)
+    family_auth = {
+        family.name: (env[family.access_key]["set"] and env[family.secret_key]["set"] and has_region)
+        for family in credential_aliases.CLOUD_CREDENTIAL_FAMILIES
+    }
+    has_hw_auth = family_auth["hw"]
+    has_os_auth = family_auth["os"]
+    has_huaweicloud_auth = family_auth["huaweicloud"]
+    has_huawei_auth = family_auth["huawei"]
     has_token_auth = (env["HW_AUTH_TOKEN"]["set"] or env["OS_AUTH_TOKEN"]["set"]) and (
         env["HW_REGION_NAME"]["set"] or env["OS_REGION_NAME"]["set"]
     )
     has_shared_config_auth = bool(shared_config["usable_for_provider_shared_config"])
     has_assume_role_hint = env["HW_ASSUME_ROLE_AGENCY_NAME"]["set"] or env["HW_ASSUME_ROLE_IDP_ID"]["set"]
-    has_auth = has_hw_auth or has_os_auth or has_huaweicloud_auth or has_huawei_auth or has_token_auth or has_shared_config_auth
+    has_auth = any(family_auth.values()) or has_token_auth or has_shared_config_auth
     blockers = []
     warnings = []
     if not has_terraform:
@@ -298,14 +308,13 @@ def readiness(
         "blockers": blockers,
         "warnings": warnings,
         "auth": {
-            "hw_env_complete": has_hw_auth,
-            "os_env_complete": has_os_auth,
-            "huaweicloud_env_complete": has_huaweicloud_auth,
-            "huawei_env_complete": has_huawei_auth,
+            **{f"{family_name}_env_complete": complete for family_name, complete in family_auth.items()},
             "token_env_complete": has_token_auth,
             "shared_config_usable": has_shared_config_auth,
             "assume_role_hint_set": has_assume_role_hint,
             "cloud_credentials_complete": has_auth,
+            "visibility": "current_process_only",
+            "configuration_status": ("observed_in_current_process" if has_auth else "unknown"),
         },
         "execution_boundary": "plan/apply require credentials and explicit user confirmation; hcloud remains post-apply verification path",
     }
@@ -335,6 +344,7 @@ def build_context(args: argparse.Namespace) -> dict[str, Any]:
         },
         "forbidden_artifacts": forbidden,
         "readiness": readiness(terraform, env, forbidden, shared_config),
+        "redaction": hcloud_common.redaction_metadata(),
     }
 
 

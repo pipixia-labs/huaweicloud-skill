@@ -48,6 +48,7 @@ The response may return `data[0].b64_json` as either raw base64 or a data URI su
 {
   "items": [
     {
+      "id": "hero",
       "file": "hero.webp",
       "size": "1024x1024",
       "seed": 1,
@@ -56,6 +57,9 @@ The response may return `data[0].b64_json` as either raw base64 or a data URI su
   ]
 }
 ```
+
+`id` 是单项产物的稳定标识。批量脚本会用它报告逐项开始、成功和失败；
+只有图片文件完整且非空时才报告成功。未提供时会从文件名生成兼容标识。
 
 3. Run the helper from the skill directory:
 

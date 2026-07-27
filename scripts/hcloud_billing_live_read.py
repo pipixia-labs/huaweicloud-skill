@@ -252,9 +252,7 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
         return result
     if not approval_ok:
         result["success"] = False
-        result["live_read_plan"]["guard_errors"].append(
-            f"Live billing read requires --confirm-live-billing-read {CONFIRM_TOKEN}."
-        )
+        result["live_read_plan"]["guard_errors"].append(f"Live billing read requires --confirm-live-billing-read {CONFIRM_TOKEN}.")
         return result
 
     execution_result = run_safe_exec(command, args, plan.get("request_spec", {}))

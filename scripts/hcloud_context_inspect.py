@@ -97,9 +97,7 @@ def inspect_meta_repo(meta_repo_path: Path, include_meta_files: bool) -> dict[st
         result["services_update_time"] = None
 
     template_root = meta_repo_path / "template"
-    template_services = sorted(
-        path.name for path in template_root.iterdir() if path.is_dir()
-    ) if template_root.exists() else []
+    template_services = sorted(path.name for path in template_root.iterdir() if path.is_dir()) if template_root.exists() else []
     result["template_services"] = template_services
 
     template_file_count = 0
@@ -181,11 +179,7 @@ def inspect_sdk_runtime(sdk_root_path: Path | None) -> dict[str, Any]:
     """Inspect optional Huawei Cloud Python SDK runtime/package availability."""
     installed_packages = hcloud_sdk_catalog.find_installed_service_packages()
     source_root_exists = bool(sdk_root_path and sdk_root_path.exists())
-    source_packages = (
-        hcloud_sdk_catalog.find_service_packages(sdk_root_path)
-        if sdk_root_path and source_root_exists
-        else []
-    )
+    source_packages = hcloud_sdk_catalog.find_service_packages(sdk_root_path) if sdk_root_path and source_root_exists else []
     result: dict[str, Any] = {
         "installed_package_count": len(installed_packages),
         "installed_services_sample": sorted({str(package["service_key"]).upper() for package in installed_packages})[:80],
@@ -208,6 +202,12 @@ def build_summary(include_meta_files: bool) -> dict[str, Any]:
         "meta_repo": inspect_meta_repo(hcloud_root / "metaRepo", include_meta_files),
         "meta_origin": inspect_meta_origin(hcloud_root / "metaOrigin", include_meta_files),
         "sdk_runtime": inspect_sdk_runtime(hcloud_sdk_catalog.DEFAULT_SDK_ROOT),
+        "redaction": hcloud_common.redaction_metadata(),
+        "credential_visibility": {
+            "scope": "local_profile_and_current_process_only",
+            "stored_platform_credentials_checked": False,
+            "configuration_status_when_absent": "unknown",
+        },
     }
 
 

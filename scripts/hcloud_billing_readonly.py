@@ -657,14 +657,15 @@ OPERATION_ALIASES = {
     "measure-units": "reference-measure-units",
     "service-resources": "reference-service-resources",
 }
-SOURCE_OPERATION_TO_PLANNER = {
-    f"BSS/{metadata['title']}": operation for operation, metadata in OPERATIONS.items()
-}
+SOURCE_OPERATION_TO_PLANNER = {f"BSS/{metadata['title']}": operation for operation, metadata in OPERATIONS.items()}
 
 
 def operation_supports_x_language(operation: str) -> bool:
     """Return whether a planner key or KooCLI operation accepts X-Language."""
-    planner_operation = SOURCE_OPERATION_TO_PLANNER.get(f"BSS/{operation}", operation)
+    planner_operation = SOURCE_OPERATION_TO_PLANNER.get(
+        f"BSS/{operation}",
+        operation,
+    )
     metadata = OPERATIONS.get(planner_operation, {})
     return bool(metadata.get("supports_x_language"))
 
@@ -695,28 +696,13 @@ def build_semantic_route(entry_point: str | None, catalog: dict[str, Any] | None
         }
 
     entities = catalog.get("entities", {})
-    entity_details = {
-        name: entities.get(name, {})
-        for name in entry.get("ontology_entities", [])
-    }
-    source_operations = sorted(
-        {
-            operation
-            for details in entity_details.values()
-            for operation in details.get("source_operations", [])
-        }
-    )
+    entity_details = {name: entities.get(name, {}) for name in entry.get("ontology_entities", [])}
+    source_operations = sorted({operation for details in entity_details.values() for operation in details.get("source_operations", [])})
     supported_operations = sorted(
         set(entry.get("supported_planner_operations", []))
-        | {
-            SOURCE_OPERATION_TO_PLANNER[operation]
-            for operation in source_operations
-            if operation in SOURCE_OPERATION_TO_PLANNER
-        }
+        | {SOURCE_OPERATION_TO_PLANNER[operation] for operation in source_operations if operation in SOURCE_OPERATION_TO_PLANNER}
     )
-    supported_source_operations = sorted(
-        operation for operation in source_operations if operation in SOURCE_OPERATION_TO_PLANNER
-    )
+    supported_source_operations = sorted(operation for operation in source_operations if operation in SOURCE_OPERATION_TO_PLANNER)
     return {
         "entry_point": entry_point,
         "found": True,
@@ -778,22 +764,14 @@ def optional_fields(**values: Any) -> dict[str, Any]:
 
 def validate_required_fields(operation: str, fields: list[str], values: dict[str, Any]) -> list[str]:
     """Return validation errors for missing required query or body fields."""
-    return [
-        f"Missing required {operation} field: {field}."
-        for field in fields
-        if values.get(field) in (None, "", [])
-    ]
+    return [f"Missing required {operation} field: {field}." for field in fields if values.get(field) in (None, "", [])]
 
 
 def build_generic_query(args: argparse.Namespace, metadata: dict[str, Any], operation: str) -> tuple[dict[str, Any], list[str]]:
     """Build query parameters for reviewed read-only BSS List*/Show* operations."""
     query_fields = metadata.get("query_fields", {})
     query = optional_fields(
-        **{
-            param_name: getattr(args, attr_name)
-            for param_name, attr_name in query_fields.items()
-            if hasattr(args, attr_name)
-        }
+        **{param_name: getattr(args, attr_name) for param_name, attr_name in query_fields.items() if hasattr(args, attr_name)}
     )
     return query, []
 
@@ -984,9 +962,7 @@ def pricing_common_product_values(
         return {}, [], errors
     preset = presets.get(preset_name)
     if preset is None:
-        errors.append(
-            f"Unsupported {operation} pricing preset: {preset_name}. Supported presets: {', '.join(sorted(presets))}."
-        )
+        errors.append(f"Unsupported {operation} pricing preset: {preset_name}. Supported presets: {', '.join(sorted(presets))}.")
         return {}, [], errors
 
     raw_specs = [str(item) for item in value_list(getattr(args, "resource_spec", None)) if str(item)]
@@ -1197,7 +1173,9 @@ def build_hcloud_command_plan(
     cli_args: list[str] = []
 
     if metadata["method"] == "POST" and body_source != "generated":
-        blocked_reasons.append("Explicit JSON bodies are kept as request specs; this planner only maps generated safe fields to KooCLI dot notation.")
+        blocked_reasons.append(
+            "Explicit JSON bodies are kept as request specs; this planner only maps generated safe fields to KooCLI dot notation."
+        )
 
     for key, value in request_spec.get("query", {}).items():
         if value not in (None, "", []):
@@ -1210,9 +1188,7 @@ def build_hcloud_command_plan(
     headers = request_spec.get("headers", {})
     x_language = headers.get("X-Language") if isinstance(headers, dict) else None
     safe_exec_command = (
-        hcloud_safe_exec_command(metadata["title"], cli_args, defaults, x_language=x_language)
-        if not blocked_reasons
-        else None
+        hcloud_safe_exec_command(metadata["title"], cli_args, defaults, x_language=x_language) if not blocked_reasons else None
     )
     return {
         "supported": not blocked_reasons,
@@ -1332,11 +1308,7 @@ def semantic_grains(semantic_route: dict[str, Any] | None) -> list[str]:
     """Return grain descriptions from the selected semantic route."""
     if not semantic_route or not semantic_route.get("found"):
         return []
-    grains = [
-        str(details.get("grain"))
-        for details in semantic_route.get("entity_details", {}).values()
-        if details.get("grain")
-    ]
+    grains = [str(details.get("grain")) for details in semantic_route.get("entity_details", {}).values() if details.get("grain")]
     return sorted(set(grains))
 
 
@@ -1357,8 +1329,7 @@ def billing_semantic_discipline(
         "scope_fields": scope_fields(query, body),
         "billing_period_fields": billing_period_fields(query, body),
         "non_additive_rule": (
-            "Do not add or compare billing outputs unless fact, grain, money_basis, scope, "
-            "and billing_period are compatible."
+            "Do not add or compare billing outputs unless fact, grain, money_basis, scope, and billing_period are compatible."
         ),
         "separate_fact_examples": [
             "monthly_summary",
@@ -1403,17 +1374,13 @@ def build_request_spec(args: argparse.Namespace) -> dict[str, Any]:
         query.update(raw_query)
         if query and metadata.get("required_query"):
             errors.extend(
-                error
-                for error in validate_required_fields(operation, metadata.get("required_query", []), query)
-                if error not in errors
+                error for error in validate_required_fields(operation, metadata.get("required_query", []), query) if error not in errors
             )
     except ValueError as exc:
         errors = [str(exc)]
 
     if supports_x_language and args.language not in SUPPORTED_X_LANGUAGES:
-        errors.append(
-            f"Unsupported X-Language value {args.language!r}; expected one of {sorted(SUPPORTED_X_LANGUAGES)}."
-        )
+        errors.append(f"Unsupported X-Language value {args.language!r}; expected one of {sorted(SUPPORTED_X_LANGUAGES)}.")
 
     request_spec = {
         "method": metadata["method"],
@@ -1481,7 +1448,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--operation", choices=sorted(list(OPERATIONS) + list(OPERATION_ALIASES)))
     parser.add_argument("--entry-point", choices=semantic_entry_point_names(), help="Optional billing semantic entry point.")
     parser.add_argument("--endpoint-base", default=DEFAULT_ENDPOINT_BASE, help="Billing endpoint base URL.")
-    parser.add_argument("--language", default="zh_CN", help="X-Language value for operations that support the header.")
+    parser.add_argument(
+        "--language",
+        default="zh_CN",
+        help="X-Language value for operations that support the header.",
+    )
     parser.add_argument("--bill-cycle", help="Billing cycle in YYYY-MM format.")
     parser.add_argument("--shared-month", help="Shared month for monthly amortization in YYYY-MM format.")
     parser.add_argument("--begin-time", help="Cost begin_time or fee bill_date_begin.")
@@ -1501,13 +1472,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--available-zone", help="Pricing available zone filter.")
     parser.add_argument("--pricing-preset", help="Pricing preset such as ecs, evs, eip-bw, eip-flow, eip-ip, obs, sfs, nat, elb, or bms.")
     parser.add_argument("--resource-size", type=int, action="append", help="Pricing resource size. Can be repeated.")
-    parser.add_argument("--size-measure-id", type=int, action="append", help="Pricing size measure ID, for example 15 Mbps or 17 GB. Can be repeated.")
+    parser.add_argument(
+        "--size-measure-id", type=int, action="append", help="Pricing size measure ID, for example 15 Mbps or 17 GB. Can be repeated."
+    )
     parser.add_argument("--usage-value", type=float, action="append", help="On-demand pricing usage value. Defaults to 1.")
     parser.add_argument("--subscription-num", type=int, action="append", help="Pricing subscription quantity. Defaults to 1.")
     parser.add_argument("--inquiry-precision", type=int, default=1, choices=[0, 1], help="On-demand pricing precision mode.")
     parser.add_argument("--period-type", action="append", help="Period pricing type: day/month/year/hour, 天/月/年/小时, or 0/2/3/4.")
     parser.add_argument("--period-num", type=int, action="append", help="Period pricing duration count. Defaults to 1.")
-    parser.add_argument("--fee-installment-mode", choices=["HALF_PAY", "ZERO_PAY", "NA"], help="CloudPond-style fee installment mode when supported.")
+    parser.add_argument(
+        "--fee-installment-mode", choices=["HALF_PAY", "ZERO_PAY", "NA"], help="CloudPond-style fee installment mode when supported."
+    )
     parser.add_argument("--resource-id", help="Resource instance ID filter.")
     parser.add_argument("--enterprise-project-id", help="Enterprise project ID filter.")
     parser.add_argument("--charge-mode", help="Charging mode filter.")

@@ -30,6 +30,8 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 1. 先确认环境和上下文：
    - 首选 `python3 scripts/hcloud_environment_doctor.py --pretty` 或 `python3 scripts/hcloud_context_inspect.py --pretty`。
+   - doctor/context 只能观察当前进程环境和本地 profile；未观察到 AK/SK 或 MaaS API Key 只表示配置状态未知，不得断言用户未配置。CloudClaw 等凭据 broker 可能只在已批准 action 的子进程注入凭据。
+   - 需要项目级服务的 `project_id` 时，用 `python3 scripts/hcloud_project_resolve.py --region=<region> --pretty`，按显式值、环境变量、本地 profile 缓存、IAM `KeystoneListProjects` 的顺序解析；不要因为 IAM SDK 未安装而改写签名请求。
    - 若 `hcloud.found=false`，停止真实云查询和变更，只能给本地方案草稿和安装指引。
 2. 宽泛目标和网站部署先路由：
    - 用 `hcloud_scenario_router.py` 找到本地 playbook、guide、planner、SDK supplement 和 Terraform 候选。
@@ -52,6 +54,8 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
    - 先查现状证据，再生成 change plan / dry-run / guarded submit。
+   - 对可能产生费用或影响线上服务的云资源操作，先形成一套或多套候选方案。Agent 可以调用现有工具、专家能力或自行分析来制定方案；每套方案应说明目标资源、预期影响、持续费用（如适用）、主要风险和验证方式。
+   - 将候选方案交由用户选择并明确确认后，才能执行对应操作；用户仅提出初始需求不构成执行授权。
    - 真实 submit，以及会产生计费或外部副作用的 MaaS 图片/视频生成，必须有用户在查看本次方案后作出的明确确认；初始任务请求、路由成功、dry-run 成功或 `change_execution_blocked=false` 都不是执行授权。安全、身份、密钥、治理类 mutation 默认 hard guard。
 5. P0 高频服务闭环：
    - 先运行 `hcloud_closure_plan.py --tier lifecycle` 生成 lifecycle plan 和 `acceptance_evidence_plan`。
@@ -67,7 +71,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 | 风险点 | 默认处理 |
 | --- | --- |
-| 凭据、AK/SK、API Key、私钥 | 不在对话、日志、manifest、站点代码中回显或保存；让用户使用本地环境变量/profile。 |
+| 凭据、AK/SK、API Key、私钥 | 不在对话、日志、manifest、站点代码中回显或保存；支持文档列出的同家族环境变量别名，不得跨家族拼接 AK/SK。命令/API 输出中的 `***`、`****` 或更多连续星号表示“值存在但已脱敏”，不表示缺失。 |
 | 安全组入口 | SSH/Web 常见端口不得自动开放到 `0.0.0.0/0`；复用已有安全组也要读回规则。 |
 | 异步云任务 | 跟到 job 终态，再做资源状态、协议或业务验收。 |
 | Terraform 状态 | import/state/remote state 是高影响操作；必须显式确认，不能自动 apply/destroy。 |
@@ -82,7 +86,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 | 任务 | 首选入口 |
 | --- | --- |
-| 环境、认证、profile、region/project | `hcloud_environment_doctor.py`、`hcloud_context_inspect.py` |
+| 环境、认证、profile、region/project | `hcloud_environment_doctor.py`、`hcloud_context_inspect.py`、`hcloud_project_resolve.py` |
 | 自然语言场景路由 | `hcloud_scenario_router.py` |
 | hcloud 版本选择、真实查询或受控系统命令 | `hcloud_operation_resolver.py`、`hcloud_safe_exec.py` |
 | 多服务发现、目标查询、readiness/live validation（含 CCI 工作负载前检） | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py`、`hcloud_cci_workload_plan.py` |

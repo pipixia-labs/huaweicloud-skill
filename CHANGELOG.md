@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- MaaS 批量站点图片脚本支持为每个图片声明稳定 `id`，逐项输出开始、成功和失败进度；单项完整落盘后才发送成功检查点，方便宿主平台安全保留已完成图片并只重试缺失项。
 - 网站部署场景新增结构化架构决策：优先保留用户明确指定的机器、ECS、OBS 和公网 IP 约束；托管方式不明确或约束冲突时先澄清并阻止资源变更；补齐 ECS + EIP 部署闭环和 OBS 正式交付边界。
 - Billing planner 改为按 BSS operation 能力生成 `X-Language`：支持该 Header 的接口保留 `zh_CN` / `en_US`，其余接口省略；`cli-lang` 只作为 KooCLI profile 配置，不再进入 API 命令。
 

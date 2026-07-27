@@ -31,6 +31,7 @@ from hcloud_common import (
     redact_command,
     redact_json,
     redact_text,
+    redaction_metadata,
     safe_exec_command_prefix,
 )
 
@@ -564,17 +565,11 @@ def build_output_policy_error(
             output_mode=str(policy.get("effective_mode") or "summary"),
             extra_operation_args=additions,
         )
-        advice = (
-            "Supply the missing bounded query filters, then execute "
-            "corrected_command_template."
-        )
+        advice = "Supply the missing bounded query filters, then execute corrected_command_template."
         corrected_key = "corrected_command_template"
     else:
         retry = build_safe_exec_retry_command(args, output_mode="summary")
-        advice = (
-            "Use the corrected summary command, or repeat the full request with "
-            "--allow-large-output and an explicit artifact path."
-        )
+        advice = "Use the corrected summary command, or repeat the full request with --allow-large-output and an explicit artifact path."
         corrected_key = "corrected_command"
 
     redacted_retry = redact_command(retry, known_secrets)
@@ -882,11 +877,7 @@ def finalize_output(
 
     full_result = copy.deepcopy(result)
     raw_stdout = str(full_result.pop("_raw_stdout", ""))
-    selected_mode = (
-        select_emission_mode(full_result, policy)
-        if full_result.get("success")
-        else "error"
-    )
+    selected_mode = select_emission_mode(full_result, policy) if full_result.get("success") else "error"
     final_policy = copy.deepcopy(policy)
     final_policy["selected_mode"] = selected_mode
     parsed_json = full_result.get("parsed_json")
@@ -902,27 +893,15 @@ def finalize_output(
 
     artifacts: list[dict[str, Any]] = []
     if args.parsed_json_file and parsed_json is not None:
-        artifacts.append(
-            write_json_artifact(Path(args.parsed_json_file), parsed_json)
-        )
-    elif (
-        args.parsed_json_file
-        and raw_stdout
-        and selected_mode == "file-only"
-        and full_result.get("success")
-    ):
-        artifacts.append(
-            write_text_artifact(Path(args.parsed_json_file), raw_stdout)
-        )
+        artifacts.append(write_json_artifact(Path(args.parsed_json_file), parsed_json))
+    elif args.parsed_json_file and raw_stdout and selected_mode == "file-only" and full_result.get("success"):
+        artifacts.append(write_text_artifact(Path(args.parsed_json_file), raw_stdout))
     if args.raw_output_file and raw_stdout:
-        artifacts.append(
-            write_text_artifact(Path(args.raw_output_file), raw_stdout)
-        )
+        artifacts.append(write_text_artifact(Path(args.raw_output_file), raw_stdout))
 
     final_policy["full_payload_persisted"] = bool(artifacts or args.result_file)
     final_policy["artifact_required_for_full_payload"] = (
-        selected_mode in {"summary", "file-only"}
-        and not final_policy["full_payload_persisted"]
+        selected_mode in {"summary", "file-only"} and not final_policy["full_payload_persisted"]
     )
     full_result["output_policy"] = final_policy
     if artifacts:
@@ -938,11 +917,7 @@ def finalize_output(
         artifacts.append(result_artifact)
 
     generated_artifact = final_policy.get("generated_artifact")
-    if (
-        not full_result.get("success")
-        and isinstance(generated_artifact, dict)
-        and generated_artifact.get("path")
-    ):
+    if not full_result.get("success") and isinstance(generated_artifact, dict) and generated_artifact.get("path"):
         generated_path = Path(str(generated_artifact["path"]))
         if generated_path.exists() and generated_path.stat().st_size == 0:
             generated_path.unlink()
@@ -1027,10 +1002,7 @@ def main() -> int:
             }
         ]
 
-    if (
-        output_policy.get("effective_mode") == "file-only"
-        and not (args.result_file or args.parsed_json_file or args.raw_output_file)
-    ):
+    if output_policy.get("effective_mode") == "file-only" and not (args.result_file or args.parsed_json_file or args.raw_output_file):
         if args.expect_json:
             args.parsed_json_file = str(
                 default_artifact_path(
@@ -1064,12 +1036,7 @@ def main() -> int:
             started_at,
         )
     try:
-        if (
-            result is None
-            and args.service
-            and args.operation
-            and not args.skip_version_resolve
-        ):
+        if result is None and args.service and args.operation and not args.skip_version_resolve:
             version_resolution = hcloud_operation_resolver.resolve_operation_version(
                 args.service,
                 args.operation,
@@ -1257,6 +1224,7 @@ def main() -> int:
 
     assert result is not None
     emitted_result = finalize_output(result, args, output_policy)
+    emitted_result["redaction"] = redaction_metadata()
     emit_json(emitted_result, pretty=args.pretty)
     return 0 if result["success"] else 1
 

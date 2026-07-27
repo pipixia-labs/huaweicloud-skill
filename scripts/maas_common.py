@@ -14,11 +14,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import credential_aliases
 import hcloud_common
 
-
 DEFAULT_MAAS_BASE_URL = "https://api.modelarts-maas.com"
-MAAS_API_KEY_ENV_NAMES = ("MAAS_API_KEY", "MODELARTS_MAAS_API_KEY")
+MAAS_API_KEY_ENV_NAMES = credential_aliases.MAAS_API_KEY_ENV_NAMES
 MAX_SEED = 2_147_483_648
 IMAGE_MEDIA_TYPES = {
     ".png": "image/png",
@@ -44,21 +44,16 @@ def endpoint_url(path: str, base_url: str = DEFAULT_MAAS_BASE_URL) -> str:
 
 def api_key_presence() -> dict[str, dict[str, bool]]:
     """Return redacted MaaS API key environment presence."""
-    return {
-        name: {"set": bool(os.environ.get(name)), "empty": os.environ.get(name) == ""}
-        for name in MAAS_API_KEY_ENV_NAMES
-    }
+    return credential_aliases.credential_environment_presence(MAAS_API_KEY_ENV_NAMES)
 
 
 def get_api_key() -> str:
     """Read a Huawei Cloud MaaS API key from the environment without logging it."""
-    for name in MAAS_API_KEY_ENV_NAMES:
-        value = os.environ.get(name, "").strip()
-        if value:
-            return value
+    value, _ = credential_aliases.resolve_maas_api_key()
+    if value:
+        return value
     raise MaasAPIError(
-        "缺少华为云 MaaS API Key。请设置 MAAS_API_KEY 或 MODELARTS_MAAS_API_KEY；"
-        "不要把 API Key 写进代码、命令日志、manifest 或对话。"
+        "缺少华为云 MaaS API Key。请设置 MAAS_API_KEY 或 MODELARTS_MAAS_API_KEY；不要把 API Key 写进代码、命令日志、manifest 或对话。"
     )
 
 

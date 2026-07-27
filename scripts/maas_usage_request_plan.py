@@ -7,16 +7,15 @@ import argparse
 import hashlib
 import hmac
 import json
-import os
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+import credential_aliases
 import hcloud_common
-
 
 DEFAULT_REGION = "cn-southwest-2"
 SERVICE_TYPES = {
@@ -26,25 +25,11 @@ SERVICE_TYPES = {
 }
 INFER_TYPES = ("real_time", "batch")
 PRESETS = ("last-7-days", "last-14-days", "last-30-days", "this-month")
-CREDENTIAL_ENV_KEYS = (
-    "HW_ACCESS_KEY",
-    "HW_SECRET_KEY",
-    "HW_PROJECT_ID",
-    "HW_SECURITY_TOKEN",
-    "HUAWEICLOUD_ACCESS_KEY",
-    "HUAWEICLOUD_SECRET_KEY",
-    "HUAWEICLOUD_PROJECT_ID",
-    "HUAWEI_ACCESS_KEY",
-    "HUAWEI_SECRET_KEY",
-    "HUAWEI_PROJECT_ID",
-    "HUAWEI_REGION",
-    "HUAWEI_DOMAIN_ID",
-    "HUAWEI_SECURITY_TOKEN",
-)
-ACCESS_KEY_ENV_KEYS = ("HW_ACCESS_KEY", "HUAWEICLOUD_ACCESS_KEY", "HUAWEI_ACCESS_KEY", "OS_ACCESS_KEY")
-SECRET_KEY_ENV_KEYS = ("HW_SECRET_KEY", "HUAWEICLOUD_SECRET_KEY", "HUAWEI_SECRET_KEY", "OS_SECRET_KEY")
-PROJECT_ID_ENV_KEYS = ("HW_PROJECT_ID", "HUAWEICLOUD_PROJECT_ID", "HUAWEI_PROJECT_ID", "OS_PROJECT_ID")
-SECURITY_TOKEN_ENV_KEYS = ("HW_SECURITY_TOKEN", "HUAWEICLOUD_SECURITY_TOKEN", "HUAWEI_SECURITY_TOKEN", "OS_SECURITY_TOKEN")
+CREDENTIAL_ENV_KEYS = credential_aliases.ALL_CREDENTIAL_ENV_NAMES
+ACCESS_KEY_ENV_KEYS = credential_aliases.CLOUD_ACCESS_KEY_ENV_NAMES
+SECRET_KEY_ENV_KEYS = credential_aliases.CLOUD_SECRET_KEY_ENV_NAMES
+PROJECT_ID_ENV_KEYS = credential_aliases.PROJECT_ID_ENV_NAMES
+SECURITY_TOKEN_ENV_KEYS = credential_aliases.SECURITY_TOKEN_ENV_NAMES
 ALGORITHM = "SDK-HMAC-SHA256"
 
 
@@ -68,39 +53,38 @@ class DateRange:
 
 def utc_midnight_ms(value: date) -> int:
     """Return the UTC midnight timestamp in milliseconds for a date."""
-    return int(datetime(value.year, value.month, value.day, tzinfo=timezone.utc).timestamp() * 1000)
+    return int(datetime(value.year, value.month, value.day, tzinfo=UTC).timestamp() * 1000)
 
 
 def env_presence(keys: tuple[str, ...] = CREDENTIAL_ENV_KEYS) -> dict[str, dict[str, bool]]:
     """Return redacted credential environment presence."""
-    return {key: {"set": bool(os.environ.get(key)), "empty": os.environ.get(key) == ""} for key in keys}
+    return credential_aliases.credential_environment_presence(keys)
 
 
 def first_env_value(keys: tuple[str, ...]) -> tuple[str | None, str | None]:
     """Return the first non-empty environment value and its variable name."""
-    for key in keys:
-        value = os.environ.get(key)
-        if value:
-            return value, key
-    return None, None
+    return credential_aliases.resolve_first_value(keys)
 
 
 def resolve_credentials() -> dict[str, Any]:
     """Resolve redacted AK/SK/project credential aliases for MaaS usage execution."""
-    access_key, access_key_source = first_env_value(ACCESS_KEY_ENV_KEYS)
-    secret_key, secret_key_source = first_env_value(SECRET_KEY_ENV_KEYS)
+    cloud = credential_aliases.resolve_cloud_credentials()
+    access_key = cloud["access_key"]
+    secret_key = cloud["secret_key"]
     project_id, project_id_source = first_env_value(PROJECT_ID_ENV_KEYS)
-    security_token, security_token_source = first_env_value(SECURITY_TOKEN_ENV_KEYS)
+    security_token = cloud["security_token"]
+    sources = cloud["sources"]
     return {
         "access_key": access_key,
         "secret_key": secret_key,
         "project_id": project_id,
         "security_token": security_token,
         "sources": {
-            "access_key": access_key_source,
-            "secret_key": secret_key_source,
+            "access_key": sources["access_key"],
+            "secret_key": sources["secret_key"],
             "project_id": project_id_source,
-            "security_token": security_token_source,
+            "security_token": sources["security_token"],
+            "credential_family": cloud["family"],
         },
         "presence": {
             "access_key": bool(access_key),
@@ -117,6 +101,7 @@ def redact_credential_resolution(credentials: dict[str, Any]) -> dict[str, Any]:
         "presence": credentials["presence"],
         "sources": credentials["sources"],
         "secrets_printed": False,
+        "redaction": hcloud_common.redaction_metadata(),
     }
 
 
@@ -204,7 +189,7 @@ def sign_headers(
     now: datetime | None = None,
 ) -> dict[str, str]:
     """Build signed Huawei AK/SK headers for the MaaS usage request."""
-    request_time = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
+    request_time = (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
     headers = {
         "Content-Type": "application/json",
         "Host": host,
@@ -226,9 +211,7 @@ def sign_headers(
     )
     string_to_sign = "\n".join([ALGORITHM, request_time, sha256_hex(canonical_request.encode("utf-8"))])
     signature = hmac.new(secret_key.encode("utf-8"), string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
-    headers["Authorization"] = (
-        f"{ALGORITHM} Access={access_key}, SignedHeaders={';'.join(signed_headers)}, Signature={signature}"
-    )
+    headers["Authorization"] = f"{ALGORITHM} Access={access_key}, SignedHeaders={';'.join(signed_headers)}, Signature={signature}"
     return headers
 
 
@@ -253,10 +236,7 @@ def summarize_usage_response(payload: Any) -> dict[str, Any]:
         "total_request_count",
         "total_error_count",
     ]
-    summary["usage_field_presence"] = {
-        field: any(field in item for item in candidate_records) or field in payload
-        for field in fields
-    }
+    summary["usage_field_presence"] = {field: any(field in item for item in candidate_records) or field in payload for field in fields}
     return summary
 
 
@@ -264,9 +244,7 @@ def execute_usage_request(plan: dict[str, Any], *, timeout: int) -> dict[str, An
     """Execute the read-only MaaS usage statistics request with AK/SK signing."""
     credentials = resolve_credentials()
     missing = [
-        name
-        for name, present in credentials["presence"].items()
-        if name in {"access_key", "secret_key", "project_id"} and not present
+        name for name, present in credentials["presence"].items() if name in {"access_key", "secret_key", "project_id"} and not present
     ]
     if missing:
         return {

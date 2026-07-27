@@ -42,14 +42,16 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
 
     def test_build_report_is_check_only_and_tracks_required_blockers(self) -> None:
         args = SimpleNamespace(need=["terraform"], workdir=ROOT)
-        with mock.patch.object(hcloud_environment_doctor, "inspect_python", return_value=item("python", "ok", True)), \
-            mock.patch.object(hcloud_environment_doctor, "inspect_hcloud", return_value=item("hcloud", "ok", True)), \
-            mock.patch.object(hcloud_environment_doctor, "inspect_auth", return_value=item("cloud_credentials", "warning")), \
-            mock.patch.object(hcloud_environment_doctor, "inspect_sdk", return_value=item("sdk", "skipped")), \
-            mock.patch.object(hcloud_environment_doctor, "inspect_terraform", return_value=item("terraform", "blocker", True)), \
-            mock.patch.object(hcloud_environment_doctor, "inspect_obsutil", return_value=item("obsutil", "skipped")), \
-            mock.patch.object(hcloud_environment_doctor, "inspect_maas", return_value=item("maas", "skipped")), \
-            mock.patch.object(hcloud_environment_doctor, "inspect_proxy", return_value=item("proxy", "skipped")):
+        with (
+            mock.patch.object(hcloud_environment_doctor, "inspect_python", return_value=item("python", "ok", True)),
+            mock.patch.object(hcloud_environment_doctor, "inspect_hcloud", return_value=item("hcloud", "ok", True)),
+            mock.patch.object(hcloud_environment_doctor, "inspect_auth", return_value=item("cloud_credentials", "warning")),
+            mock.patch.object(hcloud_environment_doctor, "inspect_sdk", return_value=item("sdk", "skipped")),
+            mock.patch.object(hcloud_environment_doctor, "inspect_terraform", return_value=item("terraform", "blocker", True)),
+            mock.patch.object(hcloud_environment_doctor, "inspect_obsutil", return_value=item("obsutil", "skipped")),
+            mock.patch.object(hcloud_environment_doctor, "inspect_maas", return_value=item("maas", "skipped")),
+            mock.patch.object(hcloud_environment_doctor, "inspect_proxy", return_value=item("proxy", "skipped")),
+        ):
             result = hcloud_environment_doctor.build_report(args)
 
         self.assertTrue(result["success"])
@@ -58,12 +60,7 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertFalse(result["summary"]["ready"])
         self.assertEqual(result["summary"]["required_blockers"], ["terraform"])
         self.assertIn("does not install packages", result["execution_boundary"])
-        self.assertTrue(
-            all(
-                not Path(reference).is_absolute() and (ROOT / reference).exists()
-                for reference in result["source_references"]
-            )
-        )
+        self.assertTrue(all(not Path(reference).is_absolute() and (ROOT / reference).exists() for reference in result["source_references"]))
 
     def test_auth_inspection_reports_presence_without_secret_values(self) -> None:
         with mock.patch.dict(
@@ -104,6 +101,51 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertNotIn("ak-value-secret", payload)
         self.assertNotIn("sk-value-secret", payload)
         self.assertNotIn("project-value", payload)
+
+    def test_auth_inspection_accepts_every_supported_paired_alias(self) -> None:
+        import credential_aliases
+
+        for family in credential_aliases.CLOUD_CREDENTIAL_FAMILIES:
+            with (
+                self.subTest(family=family.name),
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        family.access_key: "access-secret-value",
+                        family.secret_key: "secret-secret-value",
+                        "HUAWEICLOUD_REGION": "cn-north-4",
+                    },
+                    clear=True,
+                ),
+            ):
+                result = hcloud_environment_doctor.inspect_auth({"live"})
+
+            payload = json.dumps(result, ensure_ascii=False)
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(
+                result["details"]["credential_observation"]["selected_family"],
+                family.name,
+            )
+            self.assertEqual(
+                result["details"]["credential_observation"]["visibility"],
+                "current_process_only",
+            )
+            self.assertNotIn("access-secret-value", payload)
+            self.assertNotIn("secret-secret-value", payload)
+
+    def test_missing_current_process_credentials_do_not_claim_user_configuration_missing(
+        self,
+    ) -> None:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = hcloud_environment_doctor.inspect_auth(set())
+
+        self.assertEqual(result["status"], "warning")
+        self.assertEqual(
+            result["details"]["credential_observation"]["configuration_status"],
+            "unknown",
+        )
+        self.assertIn("current process", result["summary"].lower())
+        self.assertNotIn("not configured", result["summary"].lower())
 
     def test_live_need_makes_missing_credentials_a_blocker(self) -> None:
         with mock.patch.dict(os.environ, {}, clear=True):

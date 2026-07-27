@@ -69,6 +69,7 @@
         "scripts/hcloud_observability_plan.py",
         "scripts/hcloud_operation_resolver.py",
         "scripts/hcloud_prewarm_cache.py",
+        "scripts/hcloud_project_resolve.py",
         "scripts/hcloud_resource_discovery.py",
         "scripts/hcloud_resource_query.py",
         "scripts/hcloud_resource_verify.py",
@@ -140,6 +141,7 @@
       "audience": "imported by other scripts, not direct user entry points",
       "boundary": "Keep stable APIs for callers and tests; do not document as normal command-line tools.",
       "scripts": [
+        "scripts/credential_aliases.py",
         "scripts/hcloud_common.py",
         "scripts/hcloud_core.py",
         "scripts/hcloud_output_policy.py",

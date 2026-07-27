@@ -59,21 +59,11 @@ hcloud_ces_alarm_plan = load_module("hcloud_ces_alarm_plan", SCRIPTS / "hcloud_c
 hcloud_ces_datapoint_plan = load_module("hcloud_ces_datapoint_plan", SCRIPTS / "hcloud_ces_datapoint_plan.py")
 hcloud_lts_readonly = load_module("hcloud_lts_readonly", SCRIPTS / "hcloud_lts_readonly.py")
 hcloud_lifecycle_closure_plan = load_module("hcloud_lifecycle_closure_plan", SCRIPTS / "hcloud_lifecycle_closure_plan.py")
-hcloud_governance_closure_plan = load_module(
-    "hcloud_governance_closure_plan", SCRIPTS / "hcloud_governance_closure_plan.py"
-)
-hcloud_p2_scenario_closure_plan = load_module(
-    "hcloud_p2_scenario_closure_plan", SCRIPTS / "hcloud_p2_scenario_closure_plan.py"
-)
-hcloud_closure_maturity_audit = load_module(
-    "hcloud_closure_maturity_audit", SCRIPTS / "hcloud_closure_maturity_audit.py"
-)
-hcloud_acceptance_evidence_result = load_module(
-    "hcloud_acceptance_evidence_result", SCRIPTS / "hcloud_acceptance_evidence_result.py"
-)
-hcloud_acceptance_probe_plan = load_module(
-    "hcloud_acceptance_probe_plan", SCRIPTS / "hcloud_acceptance_probe_plan.py"
-)
+hcloud_governance_closure_plan = load_module("hcloud_governance_closure_plan", SCRIPTS / "hcloud_governance_closure_plan.py")
+hcloud_p2_scenario_closure_plan = load_module("hcloud_p2_scenario_closure_plan", SCRIPTS / "hcloud_p2_scenario_closure_plan.py")
+hcloud_closure_maturity_audit = load_module("hcloud_closure_maturity_audit", SCRIPTS / "hcloud_closure_maturity_audit.py")
+hcloud_acceptance_evidence_result = load_module("hcloud_acceptance_evidence_result", SCRIPTS / "hcloud_acceptance_evidence_result.py")
+hcloud_acceptance_probe_plan = load_module("hcloud_acceptance_probe_plan", SCRIPTS / "hcloud_acceptance_probe_plan.py")
 
 
 class MultiServiceToolsTest(unittest.TestCase):
@@ -377,9 +367,7 @@ class MultiServiceToolsTest(unittest.TestCase):
 
     def current_eip_submit_token(self, args: SimpleNamespace) -> str:
         """Return the submit token for a test EIP flow argument set."""
-        service_plan = hcloud_eip_change_flow.hcloud_service_change_plan.build_service_plan(
-            hcloud_eip_change_flow.service_plan_args(args)
-        )
+        service_plan = hcloud_eip_change_flow.hcloud_service_change_plan.build_service_plan(hcloud_eip_change_flow.service_plan_args(args))
         return hcloud_eip_change_flow.expected_submit_token(args, service_plan)
 
     def current_guarded_submit_token(self, args: SimpleNamespace) -> str:
@@ -543,9 +531,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["assessment"]["status"], "candidate_service_present")
 
     def test_billing_readonly_builds_monthly_sum_request_spec(self) -> None:
-        result = hcloud_billing_readonly.build_request_spec(
-            self.billing_readonly_args(service_type_code="hws.service.type.ec2")
-        )
+        result = hcloud_billing_readonly.build_request_spec(self.billing_readonly_args(service_type_code="hws.service.type.ec2"))
 
         self.assertTrue(result["success"], result)
         self.assertTrue(result["planning_only"])
@@ -592,17 +578,16 @@ class MultiServiceToolsTest(unittest.TestCase):
             "reference-service-resources",
         }
 
-        actual = {
-            operation
-            for operation, metadata in hcloud_billing_readonly.OPERATIONS.items()
-            if metadata.get("supports_x_language")
-        }
+        actual = {operation for operation, metadata in hcloud_billing_readonly.OPERATIONS.items() if metadata.get("supports_x_language")}
 
         self.assertEqual(actual, expected)
 
     def test_billing_readonly_adds_x_language_only_for_supported_operation(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
-            self.billing_readonly_args(operation="reference-service-types", language="en_US")
+            self.billing_readonly_args(
+                operation="reference-service-types",
+                language="en_US",
+            )
         )
 
         self.assertTrue(result["success"], result)
@@ -613,10 +598,16 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("--arg=--cli-lang=cn", command_plan["safe_exec_command"])
 
         invalid = hcloud_billing_readonly.build_request_spec(
-            self.billing_readonly_args(operation="reference-service-types", language="cn")
+            self.billing_readonly_args(
+                operation="reference-service-types",
+                language="cn",
+            )
         )
         self.assertFalse(invalid["success"])
-        self.assertIn("Unsupported X-Language", invalid["validation"]["errors"][-1])
+        self.assertIn(
+            "Unsupported X-Language",
+            invalid["validation"]["errors"][-1],
+        )
 
     def test_billing_readonly_builds_generated_cost_data_body(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
@@ -713,7 +704,10 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         billing_plan = hcloud_billing_readonly.build_request_spec(self.billing_readonly_args())
         billing_plan["request_spec"]["headers"]["X-Language"] = "zh_CN"
-        guard_errors = hcloud_billing_live_read.validate_live_read_plan(billing_plan, fallback_limit=10)
+        guard_errors = hcloud_billing_live_read.validate_live_read_plan(
+            billing_plan,
+            fallback_limit=10,
+        )
         self.assertIn("does not accept X-Language", guard_errors[-1])
 
     def test_billing_readonly_builds_usage_summary_plan(self) -> None:
@@ -969,9 +963,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("/Users/", json.dumps(result, ensure_ascii=False))
 
     def test_billing_live_read_plan_does_not_execute_by_default(self) -> None:
-        result = hcloud_billing_live_read.build_live_read(
-            self.billing_live_read_args(service_type_code="hws.service.type.ec2")
-        )
+        result = hcloud_billing_live_read.build_live_read(self.billing_live_read_args(service_type_code="hws.service.type.ec2"))
 
         self.assertTrue(result["success"], result)
         self.assertEqual(result["mode"], "plan")
@@ -986,7 +978,10 @@ class MultiServiceToolsTest(unittest.TestCase):
 
     def test_billing_live_read_keeps_supported_x_language_header(self) -> None:
         result = hcloud_billing_live_read.build_live_read(
-            self.billing_live_read_args(operation="reference-service-types", language="en_US")
+            self.billing_live_read_args(
+                operation="reference-service-types",
+                language="en_US",
+            )
         )
 
         self.assertTrue(result["success"], result)
@@ -996,9 +991,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--X-Language=en_US", command)
 
     def test_billing_live_read_requires_confirmation_token(self) -> None:
-        result = hcloud_billing_live_read.build_live_read(
-            self.billing_live_read_args(execute=True, confirm_live_billing_read=None)
-        )
+        result = hcloud_billing_live_read.build_live_read(self.billing_live_read_args(execute=True, confirm_live_billing_read=None))
 
         self.assertFalse(result["success"])
         self.assertFalse(result["execution"]["executed"])
@@ -1040,7 +1033,10 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         for path in paths:
             with self.subTest(path=path):
-                self.assertNotIn("--cli-lang=cn", path.read_text(encoding="utf-8"))
+                self.assertNotIn(
+                    "--cli-lang=cn",
+                    path.read_text(encoding="utf-8"),
+                )
 
     def test_billing_live_read_executes_safe_exec_and_returns_redacted_summary(self) -> None:
         safe_exec_result = {
@@ -1583,11 +1579,7 @@ class MultiServiceToolsTest(unittest.TestCase):
                 self.assertNotIn('"parsed_json":', payload)
                 self.assertNotIn("project-1", payload)
 
-        rfs_fixed = json.loads(
-            (ROOT / "tests" / "fixtures" / "hcloud-catalog-readonly-smoke-rfs-fixed.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        rfs_fixed = json.loads((ROOT / "tests" / "fixtures" / "hcloud-catalog-readonly-smoke-rfs-fixed.json").read_text(encoding="utf-8"))
         rfs_row = rfs_fixed["matrix"][0]
         self.assertEqual(rfs_row["result_bucket"], "command_shape_ok")
         self.assertIn("--arg=--limit=10", rfs_row["command"])
@@ -1610,17 +1602,13 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("submit", result)
 
     def test_eip_change_flow_requires_submit_confirmation(self) -> None:
-        result = hcloud_eip_change_flow.build_flow(
-            self.eip_flow_args(execute_submit=True, execute_dryrun=True)
-        )
+        result = hcloud_eip_change_flow.build_flow(self.eip_flow_args(execute_submit=True, execute_dryrun=True))
 
         self.assertFalse(result["success"])
         self.assertEqual(result["submit_guard_failure"]["error"], "Submit execution requires --confirm-submit.")
 
     def test_eip_change_flow_requires_current_submit_token(self) -> None:
-        result = hcloud_eip_change_flow.build_flow(
-            self.eip_flow_args(execute_submit=True, execute_dryrun=True, confirm_submit=True)
-        )
+        result = hcloud_eip_change_flow.build_flow(self.eip_flow_args(execute_submit=True, execute_dryrun=True, confirm_submit=True))
 
         self.assertFalse(result["success"])
         self.assertEqual(
@@ -1629,18 +1617,19 @@ class MultiServiceToolsTest(unittest.TestCase):
         )
 
     def test_eip_change_flow_executes_dryrun_and_verify_with_mocks(self) -> None:
-        with patch.object(
-            hcloud_eip_change_flow,
-            "execute_command",
-            return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
-        ) as dryrun_mock, patch.object(
-            hcloud_eip_change_flow.hcloud_resource_query,
-            "execute_command",
-            return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1", "status": "DOWN"}}},
-        ) as verify_mock:
-            result = hcloud_eip_change_flow.build_flow(
-                self.eip_flow_args(execute_dryrun=True, execute_verify=True)
-            )
+        with (
+            patch.object(
+                hcloud_eip_change_flow,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
+            ) as dryrun_mock,
+            patch.object(
+                hcloud_eip_change_flow.hcloud_resource_query,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1", "status": "DOWN"}}},
+            ) as verify_mock,
+        ):
+            result = hcloud_eip_change_flow.build_flow(self.eip_flow_args(execute_dryrun=True, execute_verify=True))
 
         self.assertTrue(result["success"], result)
         self.assertTrue(result["dryrun"]["success"])
@@ -1652,14 +1641,17 @@ class MultiServiceToolsTest(unittest.TestCase):
     def test_eip_change_flow_writes_journal_for_executed_steps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             journal = Path(tmp_dir) / "flow.jsonl"
-            with patch.object(
-                hcloud_eip_change_flow,
-                "execute_command",
-                return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
-            ), patch.object(
-                hcloud_eip_change_flow.hcloud_resource_query,
-                "execute_command",
-                return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
+            with (
+                patch.object(
+                    hcloud_eip_change_flow,
+                    "execute_command",
+                    return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
+                ),
+                patch.object(
+                    hcloud_eip_change_flow.hcloud_resource_query,
+                    "execute_command",
+                    return_value={"success": True, "parsed_json": {"publicip": {"id": "eip-1"}}},
+                ),
             ):
                 result = hcloud_eip_change_flow.build_flow(
                     self.eip_flow_args(execute_dryrun=True, execute_verify=True, journal=str(journal))
@@ -1689,9 +1681,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--security_group_rule_id=rule-1", result["post_change_verification"]["command"])
 
     def test_guarded_change_flow_requires_submit_confirmation(self) -> None:
-        result = hcloud_guarded_change_flow.build_flow(
-            self.guarded_flow_args(execute_submit=True, execute_dryrun=True)
-        )
+        result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(execute_submit=True, execute_dryrun=True))
 
         self.assertFalse(result["success"])
         self.assertEqual(result["submit_guard_failure"]["error"], "Submit execution requires --confirm-submit.")
@@ -1749,18 +1739,19 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["service_plan"]["commands"], {})
 
     def test_guarded_change_flow_executes_dryrun_and_readiness_with_mocks(self) -> None:
-        with patch.object(
-            hcloud_guarded_change_flow,
-            "execute_command",
-            return_value={"success": True, "parsed_json": {"ok": True}},
-        ) as dryrun_mock, patch.object(
-            hcloud_guarded_change_flow.hcloud_resource_discovery,
-            "execute_plan",
-            return_value={"success": True, "results": []},
-        ) as readiness_mock:
-            result = hcloud_guarded_change_flow.build_flow(
-                self.guarded_flow_args(execute_dryrun=True, execute_readiness=True)
-            )
+        with (
+            patch.object(
+                hcloud_guarded_change_flow,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"ok": True}},
+            ) as dryrun_mock,
+            patch.object(
+                hcloud_guarded_change_flow.hcloud_resource_discovery,
+                "execute_plan",
+                return_value={"success": True, "results": []},
+            ) as readiness_mock,
+        ):
+            result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(execute_dryrun=True, execute_readiness=True))
 
         self.assertTrue(result["success"], result)
         self.assertTrue(result["dryrun"]["success"])
@@ -1772,18 +1763,22 @@ class MultiServiceToolsTest(unittest.TestCase):
     def test_guarded_change_flow_writes_journal_for_dryrun_verify_and_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             journal = Path(tmp_dir) / "guarded.jsonl"
-            with patch.object(
-                hcloud_guarded_change_flow,
-                "execute_command",
-                return_value={"success": True, "parsed_json": {"ok": True}},
-            ), patch.object(
-                hcloud_guarded_change_flow.hcloud_resource_query,
-                "execute_command",
-                return_value={"success": True, "parsed_json": {"security_group_rule": {"id": "rule-1"}}},
-            ), patch.object(
-                hcloud_guarded_change_flow.hcloud_resource_discovery,
-                "execute_plan",
-                return_value={"success": True, "results": []},
+            with (
+                patch.object(
+                    hcloud_guarded_change_flow,
+                    "execute_command",
+                    return_value={"success": True, "parsed_json": {"ok": True}},
+                ),
+                patch.object(
+                    hcloud_guarded_change_flow.hcloud_resource_query,
+                    "execute_command",
+                    return_value={"success": True, "parsed_json": {"security_group_rule": {"id": "rule-1"}}},
+                ),
+                patch.object(
+                    hcloud_guarded_change_flow.hcloud_resource_discovery,
+                    "execute_plan",
+                    return_value={"success": True, "results": []},
+                ),
             ):
                 result = hcloud_guarded_change_flow.build_flow(
                     self.guarded_flow_args(
@@ -1802,18 +1797,21 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(events[2]["type"], "verification")
 
     def test_guarded_change_flow_extracts_verify_id_from_submit_result(self) -> None:
-        with patch.object(
-            hcloud_guarded_change_flow,
-            "execute_command",
-            side_effect=[
-                {"success": True, "parsed_json": {"dryrun": True}},
-                {"success": True, "parsed_json": {"security_group_rule": {"id": "rule-2"}}},
-            ],
-        ) as execute_mock, patch.object(
-            hcloud_guarded_change_flow.hcloud_resource_query,
-            "execute_command",
-            return_value={"success": True, "parsed_json": {"security_group_rule": {"id": "rule-2"}}},
-        ) as verify_mock:
+        with (
+            patch.object(
+                hcloud_guarded_change_flow,
+                "execute_command",
+                side_effect=[
+                    {"success": True, "parsed_json": {"dryrun": True}},
+                    {"success": True, "parsed_json": {"security_group_rule": {"id": "rule-2"}}},
+                ],
+            ) as execute_mock,
+            patch.object(
+                hcloud_guarded_change_flow.hcloud_resource_query,
+                "execute_command",
+                return_value={"success": True, "parsed_json": {"security_group_rule": {"id": "rule-2"}}},
+            ) as verify_mock,
+        ):
             args = self.guarded_flow_args(
                 verify_param=[],
                 execute_dryrun=True,
@@ -1832,18 +1830,14 @@ class MultiServiceToolsTest(unittest.TestCase):
         verify_mock.assert_called_once()
 
     def test_guarded_change_flow_reports_missing_verify_target(self) -> None:
-        result = hcloud_guarded_change_flow.build_flow(
-            self.guarded_flow_args(verify_param=[])
-        )
+        result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(verify_param=[]))
 
         self.assertTrue(result["success"], result)
         self.assertFalse(result["post_change_verification"]["success"])
         self.assertEqual(result["post_change_verification"]["missing_params"], ["security_group_rule_id"])
 
     def test_guarded_change_flow_does_not_verify_wrong_vpc_resource(self) -> None:
-        result = hcloud_guarded_change_flow.build_flow(
-            self.guarded_flow_args(operation="CreateVpcPeering", arg=[], verify_param=[])
-        )
+        result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(operation="CreateVpcPeering", arg=[], verify_param=[]))
 
         self.assertTrue(result["success"], result)
         self.assertFalse(result["post_change_verification"]["success"])
@@ -1889,9 +1883,7 @@ class MultiServiceToolsTest(unittest.TestCase):
             "execute_command",
             return_value={"success": False, "error_details": {"category": "not_found"}},
         ):
-            result = hcloud_guarded_change_flow.build_flow(
-                self.guarded_flow_args(operation="DeleteSecurityGroupRule", execute_verify=True)
-            )
+            result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(operation="DeleteSecurityGroupRule", execute_verify=True))
 
         self.assertTrue(result["success"], result)
         verification = result["post_change_verification"]
@@ -1900,9 +1892,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(verification["verification_profile"]["expect_absent"])
 
     def test_guarded_change_flow_rejects_delegated_planner(self) -> None:
-        result = hcloud_guarded_change_flow.build_flow(
-            self.guarded_flow_args(service="OBS", operation="CreateBucket")
-        )
+        result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(service="OBS", operation="CreateBucket"))
 
         self.assertFalse(result["success"])
         self.assertEqual(result["service_plan"]["delegated_planner"], "scripts/hcloud_obs_change_plan.py")
@@ -2110,9 +2100,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("public_principal", codes)
         self.assertIn("wildcard_resource", codes)
         self.assertIn("public_acl", codes)
-        self.assertTrue(
-            any("Review OBS policy_risk_findings" in warning for warning in result["plan"]["warnings"])
-        )
+        self.assertTrue(any("Review OBS policy_risk_findings" in warning for warning in result["plan"]["warnings"]))
 
     def test_resource_query_rejects_missing_required_param(self) -> None:
         args = SimpleNamespace(
@@ -2471,27 +2459,15 @@ class MultiServiceToolsTest(unittest.TestCase):
             [
                 (
                     "EIP",
-                    {
-                        "publicips": [
-                            {"id": "eip-1", "alias": "unused-eip", "status": "DOWN", "port_id": ""}
-                        ]
-                    },
+                    {"publicips": [{"id": "eip-1", "alias": "unused-eip", "status": "DOWN", "port_id": ""}]},
                 ),
                 (
                     "EVS",
-                    {
-                        "volumes": [
-                            {"id": "vol-1", "name": "old-data", "status": "available", "attachments": []}
-                        ]
-                    },
+                    {"volumes": [{"id": "vol-1", "name": "old-data", "status": "available", "attachments": []}]},
                 ),
                 (
                     "ECS",
-                    {
-                        "servers": [
-                            {"id": "server-1", "name": "stopped-app", "status": "SHUTOFF"}
-                        ]
-                    },
+                    {"servers": [{"id": "server-1", "name": "stopped-app", "status": "SHUTOFF"}]},
                 ),
             ]
         )
@@ -2552,11 +2528,7 @@ class MultiServiceToolsTest(unittest.TestCase):
                             {
                                 "result": {
                                     "success": True,
-                                    "parsed_json": {
-                                        "publicips": [
-                                            {"id": "eip-1", "status": "DOWN", "port_id": None}
-                                        ]
-                                    },
+                                    "parsed_json": {"publicips": [{"id": "eip-1", "status": "DOWN", "port_id": None}]},
                                 }
                             }
                         ]
@@ -3344,9 +3316,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(group["scenario_summary"]["status"], "metadata_evidence_gap")
         evidence = next(stage for stage in group["stages"] if stage["id"] == "read_only_evidence")["evidence"]
         self.assertEqual({entry["service"] for entry in evidence["profiles"]}, {"HSS", "SecMaster", "CFW", "DBSS", "KMS"})
-        self.assertFalse(
-            any(str(plan["operation"]).startswith("Download") for plan in evidence["resource_query_plans"])
-        )
+        self.assertFalse(any(str(plan["operation"]).startswith("Download") for plan in evidence["resource_query_plans"]))
         risk = next(stage for stage in group["stages"] if stage["id"] == "risk_boundary")
         self.assertEqual(risk["mutation_boundary"], "planner_only_no_submit")
 

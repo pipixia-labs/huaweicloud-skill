@@ -3,13 +3,12 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import re
 import sys
 from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = ROOT / "scripts"
@@ -17,6 +16,13 @@ REFERENCES_DIR = ROOT / "references"
 REGISTRY_PATH = REFERENCES_DIR / "service-registry.json"
 
 SECRET_HINTS = (
+    "authorization",
+    "api-key",
+    "api_key",
+    "apikey",
+    "client-secret",
+    "client_secret",
+    "clientsecret",
     "access-key",
     "accesskey",
     "secret-key",
@@ -47,11 +53,11 @@ SECRET_HINTS = (
     "user_data",
     "userdata",
 )
+SECRET_EXACT_NAMES = {"ak", "sk"}
 OBSUTIL_SECRET_ARG_NAMES = {"-i", "-k", "-t", "-token"}
 MIN_REDACT_SECRET_LENGTH = 8
-INLINE_SECRET_ASSIGNMENT_RE = re.compile(
-    r"(?P<key>--?[A-Za-z0-9_.:-]+)(?P<sep>=)(?P<quote>['\"]?)(?P<value>[^\s'\"`,}\]]+)(?P=quote)"
-)
+REDACTION_MARKER = "***"
+INLINE_SECRET_ASSIGNMENT_RE = re.compile(r"(?P<key>--?[A-Za-z0-9_.:-]+)(?P<sep>=)(?P<quote>['\"]?)(?P<value>[^\s'\"`,}\]]+)(?P=quote)")
 JSON_SECRET_FIELD_RE = re.compile(
     r"(?P<prefix>(?P<key_quote>['\"])(?P<key>[^'\"]+)(?P=key_quote)\s*:\s*)"
     r"(?P<value_quote>['\"])(?P<value>.*?)(?P=value_quote)"
@@ -143,7 +149,24 @@ def looks_like_secret_arg(arg: str) -> bool:
     compact = lowered.replace("_", "").replace("-", "")
     if lowered.split("=", 1)[0] in OBSUTIL_SECRET_ARG_NAMES:
         return True
+    if compact in SECRET_EXACT_NAMES:
+        return True
     return any(hint in lowered or hint.replace("_", "").replace("-", "") in compact for hint in SECRET_HINTS)
+
+
+def is_redaction_marker(value: Any) -> bool:
+    """Return True for an all-asterisk masked value of at least three stars."""
+    return isinstance(value, str) and bool(re.fullmatch(r"\*{3,}", value.strip()))
+
+
+def redaction_metadata() -> dict[str, Any]:
+    """Describe the stable masking contract for Agent and caller interpretation."""
+    return {
+        "marker": REDACTION_MARKER,
+        "accepted_marker_pattern": "three_or_more_asterisks",
+        "masked_value_semantics": "present_but_hidden",
+        "masked_value_means_missing": False,
+    }
 
 
 def looks_like_command_key(key: str | None) -> bool:
@@ -204,12 +227,12 @@ def redact_inline_secret_assignments(text: str) -> str:
         key = match.group("key")
         if not looks_like_secret_arg(key):
             return match.group(0)
-        return f"{key}{match.group('sep')}{match.group('quote')}***{match.group('quote')}"
+        return f"{key}{match.group('sep')}{match.group('quote')}{REDACTION_MARKER}{match.group('quote')}"
 
     def replace_json_field(match: re.Match[str]) -> str:
         if not looks_like_secret_arg(match.group("key")):
             return match.group(0)
-        return f"{match.group('prefix')}{match.group('value_quote')}***{match.group('value_quote')}"
+        return f"{match.group('prefix')}{match.group('value_quote')}{REDACTION_MARKER}{match.group('value_quote')}"
 
     redacted = INLINE_SECRET_ASSIGNMENT_RE.sub(replace_cli_assignment, text)
     return JSON_SECRET_FIELD_RE.sub(replace_json_field, redacted)
@@ -220,7 +243,7 @@ def redact_text(text: str | bytes | None, secrets: set[str]) -> str:
     redacted = coerce_output_text(text)
     safe_secrets = (item for item in secrets if is_redactable_secret_value(item))
     for secret in sorted(safe_secrets, key=len, reverse=True):
-        redacted = re.sub(re.escape(secret), "***", redacted)
+        redacted = re.sub(re.escape(secret), REDACTION_MARKER, redacted)
     return redact_inline_secret_assignments(redacted)
 
 
@@ -230,12 +253,12 @@ def redact_command(command: list[str], secrets: set[str]) -> list[str]:
     redact_next = False
     for item in command:
         if redact_next:
-            redacted.append(item if item.startswith("-") else "***")
+            redacted.append(item if item.startswith("-") else REDACTION_MARKER)
             redact_next = False
             continue
         if "=" in item and looks_like_secret_arg(item.split("=", 1)[0]):
             key = item.split("=", 1)[0]
-            redacted.append(f"{key}=***")
+            redacted.append(f"{key}={REDACTION_MARKER}")
         elif looks_like_secret_arg(item.split("=", 1)[0]):
             redacted.append(item)
             redact_next = True
@@ -247,7 +270,7 @@ def redact_command(command: list[str], secrets: set[str]) -> list[str]:
 def redact_json(value: Any, secrets: set[str], key: str | None = None) -> Any:
     """Recursively redact sensitive values in parsed JSON-like data."""
     if key is not None and looks_like_secret_arg(key):
-        return "***"
+        return REDACTION_MARKER
     if isinstance(value, dict):
         return {item_key: redact_json(child, secrets, str(item_key)) for item_key, child in value.items()}
     if isinstance(value, list):

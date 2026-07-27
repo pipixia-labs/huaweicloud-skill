@@ -8,6 +8,10 @@ Most command-line scripts use `scripts/hcloud_common.py` for repository paths, r
 
 `hcloud_safe_exec.py` still exports the redaction helpers for compatibility, but the implementation lives in `hcloud_common.py`. Use `hcloud_common.redact_*` in new code.
 
+Credential aliases are centralized in `scripts/credential_aliases.py`. It is an internal library: runtime scripts should import it instead of maintaining separate AK/SK, region, project, token, or MaaS API Key lists. AK/SK resolution is pair-safe and never combines different naming families. Structured outputs expose only presence/source metadata.
+
+All-star values containing at least three stars are redaction markers. `***`, `****`, and longer all-star strings mean “present but hidden”, not “missing”. Safe-exec and environment reports include a `redaction` object with this contract.
+
 ## Script Audience Manifest
 
 Use `references/script-audience-manifest.json` during maintenance or upgrade review to decide whether a script is a normal runtime entry point, a guarded-change tool, a runtime supplement, a maintenance/regression utility, an internal library, or a deprecated compatibility shim.
@@ -42,6 +46,16 @@ python3 scripts/hcloud_environment_doctor.py \
 ```
 
 The output separates required blockers from optional missing tools and includes copyable install/check commands. Use `hcloud_context_inspect.py` for deeper hcloud metadata details and `hcloud_terraform_context_inspect.py` for deeper Terraform cache/provider details.
+
+### Project ID Resolution
+
+```bash
+python3 scripts/hcloud_project_resolve.py \
+  --region=cn-north-4 \
+  --pretty
+```
+
+Use this when a project-level service needs `project_id`. It checks an explicit value, compatible environment aliases, and matching hcloud profile cache before making a read-only IAM `KeystoneListProjects` call through `hcloud_safe_exec.py`. Add `--local-only` to forbid the IAM lookup. The resolver does not require the IAM Python SDK and never implements request signing itself.
 
 ### Scenario Router
 

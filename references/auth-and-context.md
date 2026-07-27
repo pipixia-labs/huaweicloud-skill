@@ -24,6 +24,29 @@
 - 如果 profile 已经可用，不要为了默认上下文再追问 AK/SK。
 - 如果高优先级认证解析失败，KooCLI 不会自动回退到低优先级认证。
 
+## 环境变量兼容与可见性
+
+本 skill 把 AK/SK 作为同一命名家族解析，绝不从两个家族各取一半：
+
+| 家族 | AK | SK |
+| --- | --- | --- |
+| Cloud SDK 简写 | `CLOUD_SDK_AK` | `CLOUD_SDK_SK` |
+| Cloud SDK 长写 | `CLOUD_SDK_ACCESS_KEY` | `CLOUD_SDK_SECRET_KEY` |
+| Terraform/KooCLI 常用 | `HW_ACCESS_KEY` | `HW_SECRET_KEY` |
+| 华为云通用 ID 写法 | `HUAWEICLOUD_ACCESS_KEY_ID` | `HUAWEICLOUD_SECRET_ACCESS_KEY` |
+| 华为云 SDK 写法 | `HUAWEICLOUD_SDK_AK` | `HUAWEICLOUD_SDK_SK` |
+| 华为云通用写法 | `HUAWEICLOUD_ACCESS_KEY` | `HUAWEICLOUD_SECRET_KEY` |
+| 简写兼容 | `HUAWEI_ACCESS_KEY` | `HUAWEI_SECRET_KEY` |
+| OpenStack 兼容 | `OS_ACCESS_KEY` | `OS_SECRET_KEY` |
+
+region 支持 `CLOUD_SDK_REGION`、`HW_REGION_NAME`、`HW_REGION`、`HUAWEICLOUD_REGION`、`HUAWEI_REGION`、`OS_REGION_NAME`；project/domain/security token 也支持对应的 `CLOUD_SDK_*`、`HUAWEICLOUD_SDK_*`、`HW_*`、`HUAWEICLOUD_*`、`HUAWEI_*`、`OS_*` 写法。MaaS API Key 支持 `MAAS_API_KEY` 和 `MODELARTS_MAAS_API_KEY`。
+
+环境检查只能说明“当前进程是否看得到”。在 CloudClaw 这类凭据 broker 中，普通 Agent 进程看不到已保存凭据是正常的；凭据可能仅在用户批准的 action 子进程中注入。因此：
+
+- 当前进程未发现凭据：配置状态是 `unknown`，不得告诉用户“未配置”。
+- action 子进程发现凭据：只报告来源变量和 presence，禁止输出值。
+- 输出中的 `***`、`****` 或更多连续星号：表示值存在但已被安全脱敏，不表示空值、无效值或未配置；不要因此要求用户重新输入密钥。
+
 ## 默认检查顺序
 
 推荐顺序：
@@ -64,7 +87,22 @@
 如果当前 profile 里没有 `projectId`：
 
 - 先确认当前任务是否真的需要它
-- 如果需要，再通过当前上下文或服务侧发现路径补齐
+- 如果需要，运行：
+
+```bash
+python3 scripts/hcloud_project_resolve.py \
+  --region=cn-north-4 \
+  --pretty
+```
+
+解析顺序固定为：
+
+1. 显式 `--project-id`
+2. 支持的 project ID 环境变量
+3. region 匹配的本地 hcloud profile 缓存
+4. 通过 `hcloud_safe_exec.py` 调用 IAM `KeystoneListProjects`
+
+`project_id` 不是密钥，可以原样返回。不要把“缺少 `huaweicloudsdkiam`”当作阻塞：主链路是 hcloud，不需要安装 IAM SDK，也不要自行实现 AK/SK 请求签名。
 
 ### `domain_id`
 

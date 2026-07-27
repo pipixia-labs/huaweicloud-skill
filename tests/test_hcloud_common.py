@@ -11,7 +11,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -126,6 +125,40 @@ class HcloudCommonTest(unittest.TestCase):
         self.assertEqual(redacted["accessToken"], "***")
         self.assertEqual(redacted["note"], "keep page-token-value but hide ***")
         self.assertEqual(hcloud_common.redact_text("order id 12345678", {"12345678"}), "order id 12345678")
+
+    def test_credential_fields_are_masked_but_project_context_is_preserved(self) -> None:
+        payload = {
+            "ak": "access-secret-value",
+            "sk": "secret-secret-value",
+            "api_key": "api-secret-value",
+            "Authorization": "Bearer bearer-secret-value",
+            "client_secret": "client-secret-value",
+            "project_id": "project-1",
+            "domain_id": "domain-1",
+            "region": "cn-north-4",
+        }
+
+        redacted = hcloud_common.redact_json(payload, set())
+
+        self.assertEqual(redacted["ak"], hcloud_common.REDACTION_MARKER)
+        self.assertEqual(redacted["sk"], hcloud_common.REDACTION_MARKER)
+        self.assertEqual(redacted["api_key"], hcloud_common.REDACTION_MARKER)
+        self.assertEqual(redacted["Authorization"], hcloud_common.REDACTION_MARKER)
+        self.assertEqual(redacted["client_secret"], hcloud_common.REDACTION_MARKER)
+        self.assertEqual(redacted["project_id"], "project-1")
+        self.assertEqual(redacted["domain_id"], "domain-1")
+        self.assertEqual(redacted["region"], "cn-north-4")
+
+    def test_redaction_metadata_explains_all_asterisk_markers(self) -> None:
+        metadata = hcloud_common.redaction_metadata()
+
+        self.assertEqual(metadata["marker"], "***")
+        self.assertEqual(metadata["masked_value_semantics"], "present_but_hidden")
+        self.assertFalse(metadata["masked_value_means_missing"])
+        self.assertTrue(hcloud_common.is_redaction_marker("***"))
+        self.assertTrue(hcloud_common.is_redaction_marker("********"))
+        self.assertFalse(hcloud_common.is_redaction_marker(""))
+        self.assertFalse(hcloud_common.is_redaction_marker("project-1"))
 
 
 if __name__ == "__main__":

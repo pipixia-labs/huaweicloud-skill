@@ -14,6 +14,7 @@ import base64
 import json
 import mimetypes
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -23,12 +24,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_MODEL = "qwen-image"
 DEFAULT_ENDPOINT = "https://api.modelarts-maas.com/v1/images/generations"
 DEFAULT_SIZE = "1024x1024"
 DEFAULT_SEED = 1
 MAX_SEED = 2_147_483_648
+OUTPUT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+ACTION_PROGRESS_PREFIX = "__CLOUD_CLAW_ACTION_PROGRESS__"
 
 
 @dataclass(frozen=True)
@@ -39,10 +41,46 @@ class PromptItem:
     prompt: str
     size: str
     seed: int
+    output_id: str = ""
 
 
 class QwenImageError(RuntimeError):
     """Raised when Huawei Cloud MaaS image generation cannot complete."""
+
+
+def emit_action_progress(
+    *,
+    phase: str,
+    output_id: str,
+    item_label: str,
+    current: int,
+    total: int,
+    attempt: int | None = None,
+    max_attempts: int | None = None,
+    completed_count: int | None = None,
+    failed_count: int | None = None,
+) -> None:
+    """Emit a CloudClaw-compatible, non-secret item progress marker."""
+
+    payload: dict[str, object] = {
+        "phase": phase,
+        "output_id": output_id,
+        "item_label": item_label,
+        "current": current,
+        "total": total,
+    }
+    for key, value in (
+        ("attempt", attempt),
+        ("max_attempts", max_attempts),
+        ("completed_count", completed_count),
+        ("failed_count", failed_count),
+    ):
+        if value is not None:
+            payload[key] = value
+    print(
+        ACTION_PROGRESS_PREFIX + json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+        flush=True,
+    )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -50,6 +88,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--prompt-file", help="JSON file containing prompt items.")
     parser.add_argument("--prompt", help="Single prompt text. Requires --file.")
     parser.add_argument("--file", help="Output file name for --prompt mode.")
+    parser.add_argument(
+        "--output-id",
+        help="Stable checkpoint ID for --prompt mode. Defaults to the file stem.",
+    )
     parser.add_argument("--out-dir", required=True, help="Directory where image assets are written.")
     parser.add_argument("--manifest", help="Manifest path. Defaults to <out-dir>/qwen_manifest.json for compatibility.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Huawei Cloud MaaS image model. Default: {DEFAULT_MODEL}.")
@@ -82,7 +124,15 @@ def load_prompt_items(args: argparse.Namespace) -> list[PromptItem]:
     if args.prompt:
         if not args.file:
             raise QwenImageError("--file is required when using --prompt")
-        raw_items: list[dict[str, Any]] = [{"file": args.file, "prompt": args.prompt, "size": args.size, "seed": args.seed}]
+        raw_items: list[dict[str, Any]] = [
+            {
+                "id": args.output_id,
+                "file": args.file,
+                "prompt": args.prompt,
+                "size": args.size,
+                "seed": args.seed,
+            }
+        ]
     elif args.prompt_file:
         try:
             data = json.loads(Path(args.prompt_file).read_text(encoding="utf-8"))
@@ -108,8 +158,10 @@ def load_prompt_items(args: argparse.Namespace) -> list[PromptItem]:
         if not prompt:
             raise QwenImageError(f"Prompt item {index} is missing prompt")
         target_name = ensure_suffix(file_name, args.format)
+        output_id = normalize_output_id(raw.get("id"), file_name=target_name)
         items.append(
             PromptItem(
+                output_id=output_id,
                 file=target_name,
                 prompt=prompt,
                 size=normalize_size(str(raw.get("size") or args.size)),
@@ -117,6 +169,17 @@ def load_prompt_items(args: argparse.Namespace) -> list[PromptItem]:
             )
         )
     return items
+
+
+def normalize_output_id(value: object, *, file_name: str) -> str:
+    """Return one stable progress/checkpoint ID for an output file."""
+
+    explicit = str(value or "").strip()
+    candidate = explicit or re.sub(r"[^A-Za-z0-9_.-]+", "-", Path(file_name).stem)
+    candidate = candidate.strip("-.")
+    if not OUTPUT_ID_RE.fullmatch(candidate):
+        raise QwenImageError(f"Output {file_name} requires an id matching {OUTPUT_ID_RE.pattern}")
+    return candidate
 
 
 def ensure_suffix(file_name: str, image_format: str) -> str:
@@ -265,7 +328,16 @@ def main(argv: list[str] | None = None) -> int:
             "endpoint": DEFAULT_ENDPOINT,
             "model": args.model,
             "out_dir": str(out_dir),
-            "items": [{"file": item.file, "size": item.size, "seed": item.seed, "prompt": item.prompt} for item in items],
+            "items": [
+                {
+                    "id": item.output_id,
+                    "file": item.file,
+                    "size": item.size,
+                    "seed": item.seed,
+                    "prompt": item.prompt,
+                }
+                for item in items
+            ],
         }
         if args.dry_run:
             print(json.dumps({"success": True, "dry_run": True, "plan": plan}, ensure_ascii=False, indent=2))
@@ -278,17 +350,51 @@ def main(argv: list[str] | None = None) -> int:
             "endpoint_host": urllib.parse.urlparse(DEFAULT_ENDPOINT).netloc,
             "items": [],
         }
-        for item in items:
-            result = generate_item(
-                api_key=api_key,
-                model=args.model,
-                item=item,
-                out_dir=out_dir,
-                image_format=args.format,
-                overwrite=args.overwrite,
-                timeout=args.timeout,
+        for current, item in enumerate(items, start=1):
+            emit_action_progress(
+                phase="item_started",
+                output_id=item.output_id,
+                item_label=item.file,
+                current=current,
+                total=len(items),
+                attempt=1,
+                max_attempts=1,
             )
+            try:
+                result = generate_item(
+                    api_key=api_key,
+                    model=args.model,
+                    item=item,
+                    out_dir=out_dir,
+                    image_format=args.format,
+                    overwrite=args.overwrite,
+                    timeout=args.timeout,
+                )
+                target = out_dir / item.file
+                if not target.is_file() or target.stat().st_size <= 0:
+                    raise QwenImageError(f"Generated output is missing or empty: {item.file}")
+            except Exception:
+                emit_action_progress(
+                    phase="item_failed",
+                    output_id=item.output_id,
+                    item_label=item.file,
+                    current=current,
+                    total=len(items),
+                    attempt=1,
+                    max_attempts=1,
+                    completed_count=current - 1,
+                    failed_count=1,
+                )
+                raise
             manifest["items"].append(result)
+            emit_action_progress(
+                phase="item_succeeded",
+                output_id=item.output_id,
+                item_label=item.file,
+                current=current,
+                total=len(items),
+                completed_count=current,
+            )
             print(f"{result['status']}: {result['file']}", flush=True)
 
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
