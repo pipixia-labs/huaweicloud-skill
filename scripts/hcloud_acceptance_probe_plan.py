@@ -9,7 +9,6 @@ from typing import Any
 
 import hcloud_common
 
-
 PROBE_TEMPLATES = {
     "entry_path_probe": ["tcp_connect <target-host> <port_range_min> from <remote_ip_prefix>"],
     "public_protocol_probe": ["curl -fsS --max-time 10 <probe_url-or-public-ip-url>"],

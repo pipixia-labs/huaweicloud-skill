@@ -12,7 +12,6 @@ import hcloud_common
 import hcloud_resource_query
 import hcloud_service_readiness
 
-
 PROFILE_PATH = hcloud_common.REFERENCES_DIR / "live-validation-profiles.json"
 DEFAULT_SERVICES = ("ECS", "VPC", "EIP", "OBS", "ELB", "RDS")
 SERVICE_ALIASES = {

@@ -671,6 +671,8 @@ python3 scripts/hcloud_closure_plan.py \
 
 Use this as the default closure-planning entry. It wraps P0 lifecycle, P1 governance, and P2 scenario closure planners without changing their safety gates. The tier-specific scripts are deprecated compatibility modules retained for existing workflows and focused tests.
 
+For an EIP-direct public website, after the user has reviewed and confirmed the exposure plan, set the VPC source to `0.0.0.0/0` and add `--allow-public-web`. The P0 wrapper passes this context to both its local policy scan and lower-level change plan; it still accepts only exact TCP 80/443 and remains planner-only.
+
 ### Lifecycle Closure Plan Compatibility (Deprecated in v0.8.0)
 
 ```bash
@@ -689,7 +691,7 @@ python3 scripts/hcloud_lifecycle_closure_plan.py \
 
 This name is deprecated; use `hcloud_closure_plan.py --tier lifecycle` for new workflows. It is retained for existing callers that need the P0 closure set: VPC/security group, EIP, EVS, ELB, RDS, OBS, DNS, SCM, CDN, and CES/LTS. Without `--service`, it generates closure profiles for all P0 services. The planner returns six stages: context/dependency discovery, operation/parameter planning, risk/security gates, controlled execution/error handling, post-change verification, and governance/audit follow-up.
 
-The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unsafe VPC ingress such as `0.0.0.0/0` on SSH/Web ports is hard-blocked before any submit path exists. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only. The `post_change_verification` stage includes an `acceptance_evidence_plan` with service-specific evidence items and missing-input status; it plans acceptance evidence but does not run live probes.
+The script is planner-only. It composes `hcloud_service_change_plan.py`, `hcloud_service_readiness.py`, OBS/LTS adapters, and local policy checks, but it does not execute hcloud calls or submit changes. Unrestricted VPC ingress on SSH and development ports is hard-blocked; exact TCP 80/443 requires the explicit, user-confirmed `--allow-public-web` context described above. EVS output separates cloud-side `ShowVolume` evidence from guest filesystem/mount/read-write readiness. ELB output keeps listener/pool/member creation separate from backend health and protocol probes. RDS adds backup/configuration/connection evidence, OBS routes through obsutil-style planning, DNS/SCM/CDN add propagation/certificate/origin verification, and CES/LTS keeps health evidence read-only. The `post_change_verification` stage includes an `acceptance_evidence_plan` with service-specific evidence items and missing-input status; it plans acceptance evidence but does not run live probes.
 
 ### Acceptance Closure
 
@@ -863,6 +865,8 @@ python3 scripts/hcloud_change_plan.py \
 
 Use for a non-executing risk plan for mutating operations. It classifies operation risk, applies security-group ingress policy checks, generates plan/dry-run and submit commands, and records confirmation/verification requirements. Optional `--metadata-category` applies catalog category risk floors for metadata-backed services.
 
+For a user-confirmed public website whose EIP connects directly to ECS, exact TCP 80/443 ingress from `0.0.0.0/0` can be planned with `--allow-public-web`. The flag does not authorize submit and does not allow SSH, development ports, ambiguous protocols, or port ranges.
+
 ### Service-Aware Change Plan
 
 ```bash
@@ -884,6 +888,12 @@ Metadata category risk floors are applied here. Security/compliance and identity
 python3 scripts/hcloud_guarded_change_flow.py \
   --service VPC \
   --operation CreateSecurityGroupRule \
+  --arg=--direction=ingress \
+  --arg=--protocol=tcp \
+  --arg=--remote_ip_prefix=0.0.0.0/0 \
+  --arg=--port_range_min=443 \
+  --arg=--port_range_max=443 \
+  --allow-public-web \
   --verify-param security_group_rule_id=<rule-id> \
   --region=cn-north-4 \
   --project-id=<project-id> \
@@ -891,6 +901,8 @@ python3 scripts/hcloud_guarded_change_flow.py \
 ```
 
 Use for non-ECS ordinary services with service-aware risk planning, optional dry-run execution, guarded submit, resource-level verification, and post-change read-only readiness. `--execute-submit` must be paired with `--confirm-submit`; medium/high risk also requires a successful dry-run or explicit `--skip-dryrun`. If `risk.hard_guard=true`, submit execution is blocked even with confirmation.
+
+Only add `--allow-public-web` after the user has reviewed and confirmed an EIP-direct public website plan. The generated submit token binds this exposure context to the exact plan; submit still requires `--execute-submit --confirm-submit --submit-token <current-token>`.
 
 This does not replace dedicated planners. EIP uses `hcloud_eip_change_flow.py`, OBS uses `hcloud_obs_change_plan.py`, and ECS creation uses ECS-specific scripts.
 
@@ -935,12 +947,15 @@ python3 scripts/hcloud_ecs_create_plan.py \
 
 Use before ECS creation. It blocks placeholders, missing required fields, unsafe security-group ingress, missing security group rule evidence, and missing login credential choices. When `body.server.security_groups[*].id` references an existing security group, pass readback JSON from VPC `ListSecurityGroupRules` or `ShowSecurityGroup` through `--security-group-evidence-file`; otherwise the plan is not ready to run. Default mode generates a dry-run safe-exec command. To generate a non-dry-run submit command, require:
 
+If the readback evidence intentionally contains exact TCP 80/443 from `0.0.0.0/0` for a user-confirmed EIP-direct public website, add `--allow-public-web`. This does not permit SSH/development ports and does not replace `--confirm-submit`.
+
 ```bash
 python3 scripts/hcloud_ecs_create_plan.py \
   --json-input-file=<path-to-json> \
   --security-group-evidence-file=<list-security-group-rules-or-show-security-group-json> \
   --operation=CreateServers \
   --region=cn-north-4 \
+  --allow-public-web \
   --mode=submit \
   --confirm-submit \
   --pretty

@@ -105,6 +105,7 @@ class MultiServiceToolsTest(unittest.TestCase):
             "arg": ["--security_group_id=sg-1"],
             "no_dryrun": False,
             "allow_unregistered": False,
+            "allow_public_web": False,
             "execute_dryrun": False,
             "execute_submit": False,
             "confirm_submit": False,
@@ -1737,6 +1738,29 @@ class MultiServiceToolsTest(unittest.TestCase):
             "unrestricted_sensitive_ingress_port",
         )
         self.assertEqual(result["service_plan"]["commands"], {})
+
+    def test_guarded_change_flow_allows_public_web_plan_but_still_requires_submit_confirmation(self) -> None:
+        result = hcloud_guarded_change_flow.build_flow(
+            self.guarded_flow_args(
+                arg=[
+                    "--direction=ingress",
+                    "--protocol=tcp",
+                    "--remote_ip_prefix=0.0.0.0/0",
+                    "--port_range_min=443",
+                    "--port_range_max=443",
+                ],
+                allow_public_web=True,
+                execute_submit=True,
+            )
+        )
+
+        self.assertFalse(result["success"], result)
+        self.assertTrue(result["service_plan"]["success"], result)
+        self.assertTrue(result["service_plan"]["public_web_exposure"]["enabled"])
+        self.assertEqual(
+            result["submit_guard_failure"]["error"],
+            "Submit execution requires --confirm-submit.",
+        )
 
     def test_guarded_change_flow_executes_dryrun_and_readiness_with_mocks(self) -> None:
         with (

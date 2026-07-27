@@ -19,5 +19,6 @@ VPC/网络指南覆盖 VPC、子网、安全组、EIP、NAT 和 DNS。网络任�
 ## 不要做
 
 - 不要在 VPC/subnet 不一致时反复重建 ELB listener/member。
-- 不要为 SSH、HTTP、HTTPS 或常见开发端口自动放开 `0.0.0.0/0`。
+- 不要为 SSH `22` 或常见开发端口自动放开 `0.0.0.0/0`。
+- 只有用户确认 EIP 直连 ECS 的公网网站方案后，才可用 `--allow-public-web` 规划精确 TCP `80/443`；ELB/CDN/WAF 后端仍限制到上游来源。
 - 不要把 DNS 解析配置完成等同于公网服务已可访问。

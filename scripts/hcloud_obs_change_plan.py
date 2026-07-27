@@ -15,7 +15,6 @@ import hcloud_obs_readonly
 import hcloud_resource_discovery
 from hcloud_core import CommandPlan
 
-
 CHANGE_OPERATIONS = {
     "CreateBucket": {
         "parts": ("mb", "{bucket_url}"),

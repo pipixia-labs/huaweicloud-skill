@@ -14,7 +14,6 @@ from typing import Any
 import hcloud_common
 import maas_common
 
-
 IMAGE_GENERATIONS_PATH = "/v1/images/generations"
 DEFAULT_MODEL = "qwen-image"
 DEFAULT_SIZE = "1024x1024"

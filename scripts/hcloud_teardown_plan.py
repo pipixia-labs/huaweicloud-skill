@@ -10,7 +10,6 @@ from typing import Any
 
 import hcloud_common
 
-
 SERVICE_ORDER = {
     "ELB": 10,
     "NAT": 20,

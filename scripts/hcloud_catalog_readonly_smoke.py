@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -13,14 +13,13 @@ from typing import Any
 import hcloud_common
 import hcloud_resource_discovery
 
-
 DEFAULT_SERVICES = ("UCS", "RFS", "WAF", "DCS")
 SMOKE_RECORD_SCHEMA_VERSION = 1
 
 
 def utc_now() -> str:
     """Return an ISO-8601 UTC timestamp for persisted smoke evidence."""
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def classify_execution(execution: dict[str, Any]) -> dict[str, Any]:
@@ -193,7 +192,7 @@ def build_smoke(args: argparse.Namespace) -> dict[str, Any]:
     operations = operation_filters(args, services)
     checks = []
     matrix = []
-    for service, operation in zip(services, operations):
+    for service, operation in zip(services, operations, strict=True):
         plan = hcloud_resource_discovery.build_plan(discovery_args(args, service, operation))
         check = {
             "service": service,

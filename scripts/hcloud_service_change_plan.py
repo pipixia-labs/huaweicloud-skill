@@ -8,11 +8,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-import hcloud_change_plan
 import hcloud_catalog
+import hcloud_change_plan
 import hcloud_common
 import hcloud_resource_discovery
-
 
 ROOT = hcloud_common.ROOT
 REGISTRY_PATH = hcloud_common.REGISTRY_PATH
@@ -69,7 +68,8 @@ SERVICE_CONTEXT_HINTS = {
     "VPC": [
         "Resolve region, project, VPC CIDR, subnet CIDR, availability zone, and security group intent.",
         "For security group rules, require direction, protocol, port range, and remote IP prefix.",
-        "Do not use 0.0.0.0/0 for SSH 22 or common Web ports 80, 443, 3000, 5000, 8000, and 8080.",
+        "Do not use 0.0.0.0/0 for SSH 22 or development ports 3000, 5000, 8000, and 8080. "
+        "For a user-confirmed public website, exact TCP 80/443 requires --allow-public-web.",
     ],
     "ELB": [
         "Resolve VPC, subnet, EIP/public/private network type, listener protocol/port, pool protocol, health monitor, backend member address, backend ECS ID, and backend security group.",
@@ -154,6 +154,7 @@ def planner_args(args: argparse.Namespace, cli_region: str | None, command_servi
         json_input_file=args.json_input_file,
         arg=args.arg,
         no_dryrun=args.no_dryrun,
+        allow_public_web=bool(getattr(args, "allow_public_web", False)),
         metadata_category=getattr(args, "metadata_category", None),
     )
 
@@ -433,6 +434,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-input-file", help="Optional JSON input file to pass via --cli-jsonInput.")
     parser.add_argument("--arg", action="append", default=[], help="Additional raw hcloud argument token.")
     parser.add_argument("--no-dryrun", action="store_true", help="Do not add --dryrun even when risk gate asks for it.")
+    parser.add_argument(
+        "--allow-public-web",
+        action="store_true",
+        help=("Allow exact TCP 80/443 ingress from 0.0.0.0/0 for a user-confirmed public website plan. This does not authorize submit."),
+    )
     parser.add_argument("--allow-unregistered", action="store_true", help="Allow an operation not listed in service-registry.json.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     return parser.parse_args()

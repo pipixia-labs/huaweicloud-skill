@@ -17,7 +17,6 @@ from typing import Any
 
 import hcloud_common
 
-
 PLACEHOLDER_RE = re.compile(r"<([^>]+)>")
 PASSED = "passed"
 WARNING = "warning"

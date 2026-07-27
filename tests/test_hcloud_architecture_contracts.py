@@ -412,6 +412,80 @@ class ArchitectureContractsTest(unittest.TestCase):
                 self.assertTrue(plan["success"], plan)
                 self.assertNotIn("policy_violations", plan)
 
+    def test_change_plan_allows_explicit_public_web_ingress(self) -> None:
+        for port in (80, 443):
+            with self.subTest(port=port):
+                args = SimpleNamespace(
+                    service="VPC",
+                    operation="CreateSecurityGroupRule",
+                    region="cn-north-4",
+                    project_id="project-1",
+                    profile=None,
+                    json_input_file=None,
+                    arg=[
+                        "--direction=ingress",
+                        "--protocol=tcp",
+                        "--remote_ip_prefix=0.0.0.0/0",
+                        f"--port_range_min={port}",
+                        f"--port_range_max={port}",
+                    ],
+                    no_dryrun=False,
+                    allow_public_web=True,
+                )
+
+                plan = hcloud_change_plan.build_plan(args)
+
+                self.assertTrue(plan["success"], plan)
+                self.assertEqual(
+                    plan["public_web_exposure"],
+                    {
+                        "enabled": True,
+                        "allowed_protocol": "tcp",
+                        "allowed_ports": [80, 443],
+                        "allowed_ipv4_source": "0.0.0.0/0",
+                    },
+                )
+                self.assertTrue(
+                    any("public Web" in warning for warning in plan["plan"]["warnings"]),
+                    plan["plan"]["warnings"],
+                )
+
+    def test_change_plan_public_web_allowance_keeps_unsafe_rules_blocked(self) -> None:
+        cases = [
+            ("ssh", "tcp", 22, 22),
+            ("development_port", "tcp", 3000, 3000),
+            ("wide_range", "tcp", 80, 443),
+            ("ambiguous_protocol", "all", 80, 80),
+        ]
+        for name, protocol, min_port, max_port in cases:
+            with self.subTest(case=name):
+                args = SimpleNamespace(
+                    service="VPC",
+                    operation="CreateSecurityGroupRule",
+                    region="cn-north-4",
+                    project_id="project-1",
+                    profile=None,
+                    json_input_file=None,
+                    arg=[
+                        "--direction=ingress",
+                        f"--protocol={protocol}",
+                        "--remote_ip_prefix=0.0.0.0/0",
+                        f"--port_range_min={min_port}",
+                        f"--port_range_max={max_port}",
+                    ],
+                    no_dryrun=False,
+                    allow_public_web=True,
+                )
+
+                plan = hcloud_change_plan.build_plan(args)
+
+                self.assertFalse(plan["success"], plan)
+                self.assertEqual(plan["commands"], {})
+                self.assertEqual(
+                    plan["policy_violations"][0]["code"],
+                    "unrestricted_sensitive_ingress_port",
+                )
+
     def test_materials_drift_mapping_is_well_formed(self) -> None:
         result = check_materials_drift.check_mapping()
 

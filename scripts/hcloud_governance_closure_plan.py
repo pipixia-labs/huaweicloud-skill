@@ -14,7 +14,6 @@ import hcloud_curated_promotion_audit
 import hcloud_resource_discovery
 import hcloud_resource_query
 
-
 P1_SERVICES = ("TMS", "CTS", "CBR", "RMS_CONFIG", "BILLING_BSS", "WAF", "DLI", "CODEARTSREPO")
 SERVICE_ALIASES = {
     "RMS": "RMS_CONFIG",

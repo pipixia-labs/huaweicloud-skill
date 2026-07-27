@@ -15,7 +15,6 @@ from typing import Any
 import hcloud_ces_alarm_plan
 import hcloud_common
 
-
 ALLOWED_FILTERS = {"average", "variance", "min", "max", "sum"}
 ALLOWED_PERIODS = {1, 60, 300, 1200, 3600, 14400, 86400}
 MAX_BATCH_QUERY_POINTS = 3000

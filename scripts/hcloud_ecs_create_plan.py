@@ -15,9 +15,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-import hcloud_common
-import hcloud_run_journal
-
+import hcloud_common  # noqa: E402
+import hcloud_run_journal  # noqa: E402
 
 PLACEHOLDER_PATTERN = re.compile(r"<[^<>]+>")
 ALLOWED_OPERATIONS = ("CreateServers", "CreatePostPaidServers")
@@ -221,6 +220,7 @@ def validate_payload(
     max_count: int = DEFAULT_SAFE_MAX_COUNT,
     allow_large_count: bool = False,
     security_group_evidence: Any | None = None,
+    allow_public_web: bool = False,
 ) -> dict[str, Any]:
     """Validate an ECS create cli-jsonInput payload without calling Huawei Cloud."""
     import hcloud_security_policy
@@ -334,9 +334,17 @@ def validate_payload(
     elif not isinstance(publicip, dict):
         errors.append("body.server.publicip must be an object when present.")
 
-    policy_violations = hcloud_security_policy.check_json_payload(data)
+    policy_violations = hcloud_security_policy.check_json_payload(
+        data,
+        allow_public_web=allow_public_web,
+    )
     if security_group_evidence is not None:
-        policy_violations.extend(hcloud_security_policy.check_json_payload(security_group_evidence))
+        policy_violations.extend(
+            hcloud_security_policy.check_json_payload(
+                security_group_evidence,
+                allow_public_web=allow_public_web,
+            )
+        )
     for violation in policy_violations:
         errors.append(f"Security group policy violation at {violation['path']}: {violation['message']}")
 
@@ -443,6 +451,7 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
             max_count=getattr(args, "max_count", DEFAULT_SAFE_MAX_COUNT),
             allow_large_count=getattr(args, "allow_large_count", False),
             security_group_evidence=security_group_evidence,
+            allow_public_web=bool(getattr(args, "allow_public_web", False)),
         )
         if evidence_errors:
             validation["errors"].extend(evidence_errors)
@@ -507,6 +516,16 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
         "commands": commands,
         "next_steps": build_next_steps(args, validation),
     }
+    if getattr(args, "allow_public_web", False):
+        result["public_web_exposure"] = {
+            "enabled": True,
+            "allowed_protocol": "tcp",
+            "allowed_ports": [80, 443],
+            "allowed_ipv4_source": "0.0.0.0/0",
+        }
+        result["next_steps"].append(
+            "After creation, read back the security group rules and verify HTTP/HTTPS from outside the VPC before declaring the website reachable."
+        )
     journal = getattr(args, "journal", None)
     if journal:
         hcloud_run_journal.append_event(
@@ -564,6 +583,14 @@ def parse_args() -> argparse.Namespace:
         "--allow-large-count",
         action="store_true",
         help="Allow body.server.count above --max-count after confirming cost and quota impact.",
+    )
+    parser.add_argument(
+        "--allow-public-web",
+        action="store_true",
+        help=(
+            "Allow exact TCP 80/443 ingress from 0.0.0.0/0 for a user-confirmed public website plan. "
+            "This does not replace --confirm-submit."
+        ),
     )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print the JSON result.")
     parser.add_argument("--journal", help="Optional JSONL journal path for validation/command-plan events.")

@@ -10,7 +10,6 @@ from typing import Any
 import hcloud_catalog
 import hcloud_common
 
-
 DEFAULT_CANDIDATES = (
     "DCS",
     "CCI",

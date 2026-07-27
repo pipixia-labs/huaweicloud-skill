@@ -13,7 +13,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from hcloud_context_inspect import build_summary
 from hcloud_common import (
     coerce_output_text,
     collect_known_secrets,
@@ -21,11 +20,11 @@ from hcloud_common import (
     redact_command,
     redact_text,
 )
+from hcloud_context_inspect import build_summary
 from hcloud_safe_exec import (
     classify_error,
     trim_text,
 )
-
 
 DEFAULT_SERVICES = ("ECS", "IAM", "VPC", "IMS", "KPS")
 CHECKPOINT_VERSION = 1

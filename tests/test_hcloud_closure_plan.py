@@ -8,7 +8,6 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -46,6 +45,7 @@ class HcloudClosurePlanTest(unittest.TestCase):
             "arg": [],
             "no_dryrun": False,
             "allow_unregistered": False,
+            "allow_public_web": False,
             "limit": 5,
             "timeout": 1,
             "min_live_ops": 2,
@@ -66,6 +66,40 @@ class HcloudClosurePlanTest(unittest.TestCase):
         self.assertEqual(result["selected_tier"], "lifecycle")
         self.assertEqual(result["entrypoint"], "scripts/hcloud_closure_plan.py")
         self.assertEqual(result["services"][0]["service"], "VPC")
+
+    def test_lifecycle_public_web_allowance_reaches_policy_and_change_plan(self) -> None:
+        public_web_args = [
+            "--direction=ingress",
+            "--protocol=tcp",
+            "--remote_ip_prefix=0.0.0.0/0",
+            "--port_range_min=443",
+            "--port_range_max=443",
+        ]
+
+        blocked = hcloud_closure_plan.build_plan(
+            self.args(tier="p0", service=["VPC"], arg=public_web_args)
+        )
+        allowed = hcloud_closure_plan.build_plan(
+            self.args(
+                tier="p0",
+                service=["VPC"],
+                arg=public_web_args,
+                allow_public_web=True,
+            )
+        )
+
+        self.assertFalse(blocked["success"], blocked)
+        self.assertTrue(blocked["services"][0]["hard_blocked"])
+        self.assertTrue(allowed["success"], allowed)
+        self.assertFalse(allowed["services"][0]["hard_blocked"])
+        operation_stage = next(
+            stage
+            for stage in allowed["services"][0]["stages"]
+            if stage["id"] == "operation_parameter_planning"
+        )
+        self.assertTrue(
+            operation_stage["change_plan"]["public_web_exposure"]["enabled"]
+        )
 
     def test_builds_governance_plan_through_unified_entry(self) -> None:
         result = hcloud_closure_plan.build_plan(self.args(tier="governance", service=["TMS"]))

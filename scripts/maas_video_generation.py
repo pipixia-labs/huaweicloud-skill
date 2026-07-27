@@ -11,7 +11,6 @@ from typing import Any
 import hcloud_common
 import maas_common
 
-
 VIDEO_GENERATIONS_PATH = "/v1/video/generations"
 DEFAULT_TEXT_TO_VIDEO_MODEL = "Wan2.2-T2V-A14B"
 DEFAULT_IMAGE_TO_VIDEO_MODEL = "Wan2.2-I2V-A14B"

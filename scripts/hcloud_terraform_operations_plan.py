@@ -14,7 +14,6 @@ from typing import Any
 import hcloud_common
 import hcloud_resource_query
 
-
 OPERATIONS = ("import", "drift", "remote-state", "full")
 
 

@@ -10,7 +10,6 @@ from typing import Any
 import hcloud_common
 import hcloud_resource_discovery
 
-
 METRIC_GUIDANCE_PATH = hcloud_common.REFERENCES_DIR / "observability" / "ces-ecs-metric-guidance.json"
 
 

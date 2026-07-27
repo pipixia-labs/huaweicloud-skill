@@ -12,7 +12,6 @@ import hcloud_resource_discovery
 import hcloud_resource_query
 import hcloud_resource_verify
 
-
 PROFILES = {
     "VPC": {
         "list_operation": "ListVpcs",

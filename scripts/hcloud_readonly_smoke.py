@@ -8,9 +8,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import hcloud_common
-import hcloud_resource_discovery
 import hcloud_obs_readonly
-
+import hcloud_resource_discovery
 
 DEFAULT_SERVICES = ("ECS", "EIP", "VPC", "IMS", "KPS", "ELB", "EVS", "NAT", "RDS", "CCE", "CDN", "DNS", "SCM", "OBS", "CES")
 PREFERRED_SMOKE_OPERATIONS = {

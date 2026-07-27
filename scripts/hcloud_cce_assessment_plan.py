@@ -11,7 +11,6 @@ import hcloud_common
 import hcloud_resource_discovery
 import hcloud_resource_query
 
-
 DIMENSION_ORDER = (
     "control_plane",
     "nodes_capacity",

@@ -11,7 +11,6 @@ from typing import Any
 import hcloud_common
 import hcloud_terraform_catalog
 
-
 HCLOUD_FIRST_TERMS = {
     "查",
     "查询",

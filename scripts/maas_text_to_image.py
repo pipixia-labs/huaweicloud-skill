@@ -9,6 +9,5 @@ from __future__ import annotations
 
 from qwen_text_to_image import main
 
-
 if __name__ == "__main__":
     raise SystemExit(main())

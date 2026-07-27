@@ -9,11 +9,10 @@ from types import SimpleNamespace
 from typing import Any
 
 import hcloud_common
-import hcloud_resource_discovery
 import hcloud_obs_readonly
+import hcloud_resource_discovery
 import hcloud_resource_query
 import hcloud_resource_verify
-
 
 DEFAULT_SERVICES = ("ECS", "VPC", "RDS", "IMS", "EVS", "EIP", "ELB", "NAT", "KPS", "IAM", "CCE", "CDN", "DNS", "SCM", "OBS", "CES")
 READINESS_PROFILES = {

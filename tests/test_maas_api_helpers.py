@@ -10,7 +10,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -24,7 +23,6 @@ import maas_image_generation  # noqa: E402
 import maas_models  # noqa: E402
 import maas_usage_request_plan  # noqa: E402
 import maas_video_generation  # noqa: E402
-
 
 REQUIRED_OFFICIAL_DOC_URLS = {
     "https://support.huaweicloud.com/maas/index.html",

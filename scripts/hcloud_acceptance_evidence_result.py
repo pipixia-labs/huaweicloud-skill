@@ -9,7 +9,6 @@ from typing import Any
 
 import hcloud_common
 
-
 STATUS_ORDER = {"passed": 0, "warning": 1, "missing": 2, "blocked": 3}
 PASSED_ALIASES = {"pass", "passed", "ok", "success", "healthy", "ready"}
 WARNING_ALIASES = {"warn", "warning", "degraded"}

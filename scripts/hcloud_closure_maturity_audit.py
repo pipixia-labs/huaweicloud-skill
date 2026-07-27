@@ -11,7 +11,6 @@ import hcloud_governance_closure_plan
 import hcloud_lifecycle_closure_plan
 import hcloud_p2_scenario_closure_plan
 
-
 ECS_SAMPLE_ASSETS = [
     "scripts/hcloud_context_inspect.py",
     "scripts/hcloud_resource_discovery.py",

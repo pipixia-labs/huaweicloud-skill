@@ -11,7 +11,6 @@ from typing import Any
 
 import hcloud_common
 
-
 TERRAFORM_REFERENCES_DIR = hcloud_common.REFERENCES_DIR / "terraform"
 TERRAFORM_EXAMPLES_DIR = hcloud_common.ROOT / "examples" / "terraform"
 CATALOG_DIR = TERRAFORM_REFERENCES_DIR / "catalog"

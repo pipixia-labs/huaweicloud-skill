@@ -9,7 +9,6 @@ from typing import Any
 import hcloud_common
 import maas_common
 
-
 CATALOG_PATH = hcloud_common.REFERENCES_DIR / "maas-model-catalog.json"
 MODELS_PATH = "/v2/models"
 

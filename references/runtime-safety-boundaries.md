@@ -73,10 +73,13 @@
 
 ## 7. 安全组入口端口必须收敛
 
-- 安全组入方向规则中，SSH 端口 `22` 和常见 Web 入口端口 `80`、`443`、`3000`、`5000`、`8000`、`8080` 不允许使用 `0.0.0.0/0` 作为来源。
-- 即使用户目标是公网访问，也不要自动生成或提交上述端口到全网来源的规则；应让用户提供固定客户端 IP、办公网 CIDR、VPN CIDR、跳板机/堡垒机来源、负载均衡来源或私网 CIDR。
-- 创建或修改安全组规则前，必须明确 `direction`、`protocol`、端口范围和来源 CIDR；若来源是 `0.0.0.0/0` 且端口命中上述清单，应停止提交并输出安全策略违规原因。
+- 安全组入方向规则中，SSH `22` 和常见开发端口 `3000`、`5000`、`8000`、`8080` 不允许使用 `0.0.0.0/0` 作为来源；应使用固定管理员 IP、办公网/VPN CIDR、跳板机/堡垒机来源或私网 CIDR。
+- 用户明确要求公网网站、已经查看并确认本次公网暴露方案，且架构是 EIP 直连 ECS 时，可以为精确 TCP `80`、`443` 规则使用 `--allow-public-web`。该参数只解除本地 planner 对这两个标准 Web 入口的硬拦截，不构成 submit 授权。
+- `--allow-public-web` 不允许协议缺失、`all` 协议、端口段或混合端口规则；例如 `80-443`、`22-80` 仍必须阻断。也不能用它开放 `3000`、`5000`、`8000`、`8080`。
+- ECS 位于 ELB、CDN 或 WAF 后面时，不要对后端 ECS 使用 `--allow-public-web` 放开全网来源；后端安全组应限制到上游安全组、健康检查来源或明确的私网 CIDR。
+- 创建或修改安全组规则前，必须明确 `direction`、`protocol`、精确端口和来源 CIDR。公网 Web 方案仍要展示安全影响并取得用户确认，再走 guarded submit 的确认标记和当前 plan token。
 - ECS 创建参数若只引用已有安全组 ID，提交前要查询 `ListSecurityGroupRules` 或 `ShowSecurityGroup` 复核入方向规则；不要假设已有安全组是安全的。
+- 提交后读回安全组规则，并从 VPC 外部执行 HTTP/HTTPS 协议探测；探测未通过时不得声明网站已可公网访问。
 
 ## 8. ECS 初始化和远程排障
 
@@ -86,7 +89,7 @@
 - 若使用 `adminPass`，密码必须在创建前生成并保存到受限权限 artifact；不要依赖日志或 `ShowServerPassword` 事后找回 Linux root 密码。
 - ECS 创建完成不能只停在 `ACTIVE`；需要继续用选定凭证执行 SSH 验收，至少跑通 `echo SSH_OK && id && hostname`，否则不要宣称服务器可登录。
 - 如果 ECS 创建后还需要安装软件、启动服务、挂载磁盘或做应用验收，创建时必须预埋可纳管通道：可用 keypair private key、cloud-init 完成目标脚本、或明确可用的密码登录配置。
-- 创建公网可访问 ECS 时，如果目标安全组不存在或缺少 22/80/443 入方向，先按 VPC/企业项目查询现有安全组和规则；若 `CreateSecurityGroupRule` / `vpc:securityGroupRules:create` 被 SCP 或 IAM 显式拒绝，不要反复补规则。
+- 创建公网可访问 ECS 时，如果目标安全组不存在或缺少网站所需的精确 TCP 80/443 入方向，先按 VPC/企业项目查询现有安全组和规则。只有确实需要 SSH 管理时才添加 22，并把来源限制到管理员网络；若 `CreateSecurityGroupRule` / `vpc:securityGroupRules:create` 被 SCP 或 IAM 显式拒绝，不要反复补规则。
 - `cloud-init` 脚本中写 `/etc/docker/daemon.json`、systemd drop-in、Nginx 站点配置等文件前，先 `mkdir -p` 父目录。
 - 对 Ubuntu 安装 Docker，优先选择当前区域可达的官方/云镜像源；安装失败时可降级为发行版仓库中的 `docker.io`，并说明降级影响。
 - 远程暴露 Docker TCP 2375 属于高风险配置；只有用户明确要求时才开放，并在最终输出中提示这是未加密管理端口。

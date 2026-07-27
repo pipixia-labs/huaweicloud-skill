@@ -11,7 +11,6 @@ from typing import Any
 
 import hcloud_common
 
-
 ACTIVE_STATUS = "ACTIVE"
 
 

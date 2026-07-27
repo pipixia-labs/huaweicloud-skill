@@ -13,7 +13,6 @@ from typing import Any
 import hcloud_common
 import hcloud_resource_discovery
 
-
 READ_OPERATIONS = {
     "ListBuckets": {
         "scope": "query",

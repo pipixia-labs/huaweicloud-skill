@@ -12,11 +12,10 @@ from types import SimpleNamespace
 from typing import Any
 
 import hcloud_common
-import hcloud_run_journal
 import hcloud_resource_discovery
 import hcloud_resource_query
+import hcloud_run_journal
 import hcloud_service_change_plan
-
 
 VERIFY_PROFILES = {
     "VPC": [
@@ -122,6 +121,7 @@ def service_plan_args(args: argparse.Namespace) -> SimpleNamespace:
         json_input_file=args.json_input_file,
         arg=args.arg,
         no_dryrun=args.no_dryrun,
+        allow_public_web=bool(getattr(args, "allow_public_web", False)),
         allow_unregistered=args.allow_unregistered,
     )
 
@@ -135,6 +135,7 @@ def submit_token_payload(args: argparse.Namespace, service_plan: dict[str, Any])
         "region": args.region,
         "project_id": args.project_id,
         "profile": args.profile,
+        "allow_public_web": bool(getattr(args, "allow_public_web", False)),
         "submit": commands.get("submit"),
         "risk": service_plan.get("risk"),
     }
@@ -552,6 +553,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-input-file", help="Optional JSON body file for the change operation.")
     parser.add_argument("--arg", action="append", default=[], help="Additional raw hcloud argument token.")
     parser.add_argument("--no-dryrun", action="store_true", help="Do not add --dryrun to the generated dry-run command.")
+    parser.add_argument(
+        "--allow-public-web",
+        action="store_true",
+        help=(
+            "Allow exact TCP 80/443 ingress from 0.0.0.0/0 for a user-confirmed public website plan. "
+            "This does not replace --confirm-submit or --submit-token."
+        ),
+    )
     parser.add_argument("--allow-unregistered", action="store_true", help="Allow an operation not listed in the registry.")
     parser.add_argument("--execute-dryrun", action="store_true", help="Execute the generated dry-run command.")
     parser.add_argument("--execute-submit", action="store_true", help="Execute the generated submit command.")

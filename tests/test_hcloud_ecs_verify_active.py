@@ -8,7 +8,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "hcloud_ecs_verify_active.py"
 SPEC = importlib.util.spec_from_file_location("hcloud_ecs_verify_active", SCRIPT)

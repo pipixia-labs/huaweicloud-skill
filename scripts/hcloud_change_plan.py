@@ -12,7 +12,6 @@ import hcloud_common
 import hcloud_security_policy
 from hcloud_core import CommandPlan, RiskAssessment
 
-
 READ_ONLY_ACTIONS = ("List", "Show", "Count", "Check", "Search", "Query", "Get", "Download")
 DESTRUCTIVE_ACTIONS = (
     "Clear",
@@ -312,13 +311,18 @@ def build_command(args: argparse.Namespace, use_dryrun: bool) -> list[str]:
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     """Build a risk-gated change plan without executing it."""
+    allow_public_web = bool(getattr(args, "allow_public_web", False))
     risk = assess_risk(
         args.operation,
         dryrun_supported=not args.no_dryrun,
         service=args.service,
         metadata_category=getattr(args, "metadata_category", None),
     )
-    policy_check = hcloud_security_policy.check_change_inputs(args.arg, args.json_input_file)
+    policy_check = hcloud_security_policy.check_change_inputs(
+        args.arg,
+        args.json_input_file,
+        allow_public_web=allow_public_web,
+    )
     policy_violations = policy_check["violations"]
     if policy_violations:
         return {
@@ -350,6 +354,11 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         warnings.append("This operation is under a hard manual gate; generic guarded flows must not execute submit automatically.")
     if risk.dryrun_required and args.no_dryrun:
         warnings.append("Dry-run was disabled by --no-dryrun; use only when the operation does not support dry-run.")
+    if allow_public_web:
+        warnings.append(
+            "Explicit public Web exposure is enabled for planning. Only exact TCP 80/443 rules may use 0.0.0.0/0; "
+            "submit still requires review and user confirmation."
+        )
     if policy_check["scan_error"]:
         warnings.append(policy_check["scan_error"])
 
@@ -381,6 +390,16 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "Verify job, resource, network, and protocol state according to the target service.",
         ],
     }
+    if allow_public_web:
+        result["public_web_exposure"] = {
+            "enabled": True,
+            "allowed_protocol": "tcp",
+            "allowed_ports": [80, 443],
+            "allowed_ipv4_source": "0.0.0.0/0",
+        }
+        result["next_steps"].append(
+            "After submit, read back the security group rule and verify the intended HTTP/HTTPS endpoint from outside the VPC."
+        )
     if risk.hard_guard:
         result["hard_guard"] = True
         result["next_steps"] = [
@@ -402,6 +421,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-input-file", help="Optional JSON input file to pass via --cli-jsonInput.")
     parser.add_argument("--arg", action="append", default=[], help="Additional raw hcloud argument token.")
     parser.add_argument("--no-dryrun", action="store_true", help="Do not add --dryrun even when the operation is risky.")
+    parser.add_argument(
+        "--allow-public-web",
+        action="store_true",
+        help=("Allow exact TCP 80/443 ingress from 0.0.0.0/0 for a user-confirmed public website plan. This does not authorize submit."),
+    )
     parser.add_argument("--metadata-category", help="Optional service category from generated hcloud catalog for risk floors.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     return parser.parse_args()

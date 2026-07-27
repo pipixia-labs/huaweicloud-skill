@@ -5,12 +5,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
 import hcloud_common
-
 
 SEMANTIC_CATALOG_PATH = hcloud_common.REFERENCES_DIR / "billing" / "semantic-catalog.json"
 MONEY_FIELD_HINTS = (

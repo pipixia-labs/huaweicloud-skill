@@ -13,7 +13,6 @@ import hcloud_curated_promotion_audit
 import hcloud_resource_discovery
 import hcloud_resource_query
 
-
 P2_GROUPS = (
     "CCE",
     "NAT",

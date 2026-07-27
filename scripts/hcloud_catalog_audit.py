@@ -10,7 +10,6 @@ from typing import Any
 import hcloud_catalog
 import hcloud_common
 
-
 REGISTRY_PATH = hcloud_common.REGISTRY_PATH
 SPECIAL_RUNNER_SERVICES = {"OBS"}
 

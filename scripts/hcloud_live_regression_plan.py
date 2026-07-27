@@ -8,7 +8,6 @@ from typing import Any
 
 import hcloud_common
 
-
 SCENARIOS: dict[str, dict[str, Any]] = {
     "environment": {
         "title": "Environment and credential readiness",

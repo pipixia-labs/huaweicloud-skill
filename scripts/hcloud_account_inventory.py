@@ -14,7 +14,6 @@ import hcloud_common
 import hcloud_obs_readonly
 import hcloud_resource_discovery
 
-
 INVENTORY_TARGETS = (
     {
         "service": "ECS",

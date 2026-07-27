@@ -11,7 +11,6 @@ import hcloud_common
 import hcloud_resource_discovery
 import hcloud_resource_query
 
-
 RESOURCE_STATE_QUERIES = {
     "ECS": ("ShowServer", "server_id"),
     "EIP": ("ShowPublicip", "publicip_id"),

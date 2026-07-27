@@ -10,7 +10,6 @@ from typing import Any
 import hcloud_common
 import maas_common
 
-
 TEXT_V2_PATH = "/v2/chat/completions"
 VISION_V1_PATH = "/v1/chat/completions"
 OPENAI_COMPAT_PATH = "/openai/v1/chat/completions"

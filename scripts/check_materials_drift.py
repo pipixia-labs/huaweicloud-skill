@@ -9,7 +9,6 @@ from typing import Any
 
 import hcloud_common
 
-
 ROOT = hcloud_common.ROOT
 DEFAULT_MAPPING = ROOT / "references" / "materials-sources.json"
 

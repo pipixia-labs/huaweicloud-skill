@@ -11,7 +11,6 @@ from typing import Any
 import hcloud_common
 import hcloud_resource_query
 
-
 RESERVED_CCI_SUBNET = ipaddress.ip_network("10.247.0.0/16")
 WORKLOAD_LIST_OPERATIONS = {
     "deployment": "listAppsV1NamespacedDeployment",

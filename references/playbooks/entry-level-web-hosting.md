@@ -115,11 +115,16 @@ python3 scripts/hcloud_scenario_router.py \
    - `eip-public-ip-readiness.md`
    - `coc-readiness.md`
 3. 部署服务时优先使用幂等脚本或 cloud-init。
-4. 验收必须包含：
+4. 如果采用 EIP 直连 ECS，并且用户已经查看并确认公网暴露方案：
+   - 安全组只为网站入口创建精确 TCP `80`、`443` 规则；不要直接暴露应用开发端口。
+   - 使用通用 VPC 变更计划或 guarded flow 时传 `--allow-public-web`；该参数只允许生成计划，不替代 `--confirm-submit` 和当前 plan token。
+   - SSH `22` 仍限制到管理员固定 IP、办公网或 VPN CIDR。
+   - 如果 ECS 位于 ELB/CDN/WAF 后面，后端规则限制到上游来源，不使用 `--allow-public-web`。
+5. 验收必须包含：
    - ECS `ACTIVE`。
    - SSH 或 COC/机内命令成功。
    - 服务进程和监听端口存在。
-   - 安全组来源收敛。
+   - 安全组规则已读回；公网只暴露确认过的精确 TCP `80/443`。
    - EIP 状态正常，并回读确认绑定到目标 ECS/port。
    - 公网 HTTP/HTTPS 协议探测成功。
    - 用户要求返回 IP 时，输出已验收的 EIP 公网地址；不能用私网 IP、OBS 域名或未绑定 EIP 代替。

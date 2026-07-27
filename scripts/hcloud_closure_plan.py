@@ -12,7 +12,6 @@ import hcloud_governance_closure_plan
 import hcloud_lifecycle_closure_plan
 import hcloud_p2_scenario_closure_plan
 
-
 TIER_ALIASES = {
     "p0": "lifecycle",
     "lifecycle": "lifecycle",
@@ -47,6 +46,7 @@ def namespace_for_lifecycle(args: argparse.Namespace) -> SimpleNamespace:
         json_input_file=args.json_input_file,
         arg=args.arg,
         no_dryrun=args.no_dryrun,
+        allow_public_web=bool(getattr(args, "allow_public_web", False)),
         allow_unregistered=args.allow_unregistered,
         limit=args.limit or 20,
         timeout=args.timeout,
@@ -125,6 +125,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-input-file", help="Optional JSON input file for P0 lower-level change planning.")
     parser.add_argument("--arg", action="append", default=[], help="Additional raw hcloud argument token for P0 planning.")
     parser.add_argument("--no-dryrun", action="store_true", help="Do not add --dryrun in P0 lower-level plans.")
+    parser.add_argument(
+        "--allow-public-web",
+        action="store_true",
+        help=(
+            "Allow exact TCP 80/443 ingress from 0.0.0.0/0 for a user-confirmed P0 public website plan. "
+            "This does not authorize submit."
+        ),
+    )
     parser.add_argument("--allow-unregistered", action="store_true", help="Pass through to P0 service change planning.")
     parser.add_argument("--limit", type=int, help="Optional read-only evidence/discovery limit.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout carried into generated command plans.")

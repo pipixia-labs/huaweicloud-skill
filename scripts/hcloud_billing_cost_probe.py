@@ -9,7 +9,6 @@ from typing import Any
 import hcloud_catalog
 import hcloud_common
 
-
 DEFAULT_SERVICE_TOKENS = ("BSS", "BSSINTL", "Billing", "Cost", "CBC", "BSSO")
 DEFAULT_OPERATION_KEYWORDS = (
     "bill",
@@ -169,7 +168,6 @@ def build_probe(args: argparse.Namespace) -> dict[str, Any]:
         "operation_keywords": args.operation_keyword,
         "direct_service_candidates": direct,
         "direct_service_count": len(direct),
-        "curated_registry_has_direct_service": any(item["service"].upper() in registry_services for item in direct),
         "operation_keyword_matches": matches,
         "operation_keyword_match_count": len(matches),
         "read_only_discovery_matches": read_only_matches,

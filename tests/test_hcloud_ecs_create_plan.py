@@ -9,7 +9,6 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "hcloud_ecs_create_plan.py"
 SPEC = importlib.util.spec_from_file_location("hcloud_ecs_create_plan", SCRIPT)
@@ -367,6 +366,32 @@ class EcsCreatePlanTest(unittest.TestCase):
 
         self.assertFalse(validation["valid"])
         self.assertEqual(validation["policy_violations"][0]["code"], "unrestricted_sensitive_ingress_port")
+
+    def test_validate_payload_allows_confirmed_public_web_rule_evidence(self) -> None:
+        validation = hcloud_ecs_create_plan.validate_payload(
+            minimal_payload(),
+            security_group_evidence=security_group_evidence(
+                remote_ip_prefix="0.0.0.0/0",
+                port=443,
+            ),
+            allow_public_web=True,
+        )
+
+        self.assertTrue(validation["valid"], validation)
+        self.assertEqual(validation["policy_violations"], [])
+
+    def test_validate_payload_public_web_allowance_does_not_allow_ssh(self) -> None:
+        validation = hcloud_ecs_create_plan.validate_payload(
+            minimal_payload(),
+            security_group_evidence=security_group_evidence(
+                remote_ip_prefix="0.0.0.0/0",
+                port=22,
+            ),
+            allow_public_web=True,
+        )
+
+        self.assertFalse(validation["valid"])
+        self.assertEqual(validation["policy_violations"][0]["ports"], [22])
 
 
 if __name__ == "__main__":
