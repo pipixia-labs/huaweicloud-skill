@@ -97,6 +97,22 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("`unstructured_v1`", skill_text)
         self.assertIn("不能让平台把退出码", skill_text)
 
+    def test_cloudclaw_ssh_contract_is_explicit_and_secret_safe(self) -> None:
+        playbook = (
+            ROOT / "references/playbooks/ecs-ssh-access-readiness.md"
+        ).read_text(encoding="utf-8")
+        boundaries = (
+            ROOT / "references/runtime-safety-boundaries.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("cloud_claw.online.ssh_command", playbook)
+        self.assertIn("--auth=key", playbook)
+        self.assertIn("--auth=password", playbook)
+        self.assertIn("result_contract=process_exit_v1", playbook)
+        self.assertIn("密码只通过文件描述符", playbook)
+        self.assertIn("字面量目标 IP", boundaries)
+        self.assertIn("精确 `IP:port`", boundaries)
+
     def test_scripts_do_not_auto_discover_sibling_source_repositories(self) -> None:
         forbidden_markers = (
             "ROOT.parent",
