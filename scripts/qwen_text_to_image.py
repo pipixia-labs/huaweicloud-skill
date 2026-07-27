@@ -60,7 +60,7 @@ def emit_action_progress(
     completed_count: int | None = None,
     failed_count: int | None = None,
 ) -> None:
-    """Emit a CloudClaw-compatible, non-secret item progress marker."""
+    """Emit a backward-compatible, non-secret item progress marker."""
 
     payload: dict[str, object] = {
         "phase": phase,

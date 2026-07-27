@@ -21,9 +21,9 @@
    - 如果目标 ECS 后续需要安装软件、挂载磁盘、启动服务或排障，优先创建任务专用 keypair 并保存私钥，不要引用没有本地私钥、也无法导出的旧 keypair。
 2. 密码方式。
    - `body.server.adminPass` 由 agent 在创建前生成。
-   - agent 必须先把密码保存到受限权限的本地 artifact。需要在 CloudClaw
-     中用于 SSH 时，同时保存一份只含密码的单行文件，例如
-     `credentials/ecs-password.txt`，权限必须为 `0600`。
+   - agent 必须先把密码保存到受限权限的本地 artifact。需要交给 SSH 客户端时，
+     使用只含密码的单行文件，例如 `credentials/ecs-password.txt`，权限必须为
+     `0600`。
    - 日志和最终回复不要明文打印密码，只说明保存位置和使用方式。
 
 `body.server.key_name` 和 `body.server.adminPass` 不要同时设置。二者同时存在时，应停止并让用户选择登录方式。
@@ -54,10 +54,10 @@ Linux ECS 的 root 初始密码不是创建后再从云侧查询的可靠信息�
 3. key 不可用时，使用 `ShowResetPasswordFlag` 判断是否支持在线重置密码。
 4. 生成一次性强密码并调用 `ResetServerPassword`；密码只保存在受限临时 artifact，不进入命令参数、环境变量、日志或最终回复。
 5. 只为受限来源 CIDR 临时开放 TCP 22，例如用户给定管理员 IP、当前执行环境 `/32`、VPN/办公网或跳板机来源；不要创建全网 SSH 规则。
-6. 在 CloudClaw 中使用平台提供的 SSH 封装；密码只通过文件描述符交给
-   `sshpass`，不得把密码放进命令参数或环境变量。其他运行环境使用同等秘密隔离
-   的 SSH 工具。若连续 `Permission denied`，且 sshd/user_data 显示禁用密码登录，
-   不要重复重置密码。
+6. 优先使用当前 runtime 实际提供的受控 SSH 工具。若只能使用 OpenSSH，密码内容
+   仍不得进入命令参数或环境变量；可以使用受限密码文件和支持文件输入的认证辅助
+   工具。若连续 `Permission denied`，且 sshd/user_data 显示禁用密码登录，不要
+   重复重置密码。
 7. 登录成功后立即执行目标幂等脚本和验收命令，并在完成后删除临时 SSH 入站规则。
 
 对本轮新建、演示、测试、部署类或可替换资源，如果 key/password 都不可用且 COC 不可用，可以改用 `ReinstallServerWithCloudInit`、`ChangeServerOsWithCloudInit` 或同名重建来注入可用 key、SSH 配置和目标初始化脚本。对明确已有且需保留数据或系统盘状态的生产资源，不要擅自重装；输出缺少的最小执行通道并等待授权。
@@ -80,10 +80,10 @@ python3 scripts/hcloud_resource_discovery.py \
 需要新建 keypair 时，优先用 `KPS CreateKeypair`，并立即把返回的 `private_key` 保存为受限权限文件：
 
 ```bash
-mkdir -p ~/.cloud-ppx/keys/huawei/<region>
+mkdir -p credentials/keys/huawei/<region>
 umask 077
 # 将 CreateKeypair 返回的 private_key 写入下面路径；不要写入日志或最终回复。
-chmod 600 ~/.cloud-ppx/keys/huawei/<region>/<keypair>.pem
+chmod 600 credentials/keys/huawei/<region>/<keypair>.pem
 ```
 
 确认 keypair 后，本地检查私钥：
@@ -97,7 +97,6 @@ stat -f '%Lp %N' <private-key-file>
 
 ```bash
 python3 - <<'PY'
-import json
 import secrets
 import string
 from pathlib import Path
@@ -114,16 +113,11 @@ while True:
     ):
         break
 
-json_path = Path('server_credentials.json')
-json_path.write_text(json.dumps({'user': 'root', 'password': password}, ensure_ascii=False, indent=2), encoding='utf-8')
-json_path.chmod(0o600)
-
-ssh_path = Path('credentials/ecs-password.txt')
-ssh_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-ssh_path.write_text(password, encoding='utf-8')
-ssh_path.chmod(0o600)
-print(json_path)
-print(ssh_path)
+path = Path('credentials/ecs-password.txt')
+path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+path.write_text(password, encoding='utf-8')
+path.chmod(0o600)
+print(path)
 PY
 ```
 
@@ -172,42 +166,44 @@ python3 scripts/hcloud_ecs_verify_active.py \
 
 ### 4. SSH 验收
 
-在 CloudClaw 中，SSH 命令必须使用任务工作区内的凭据文件、字面量目标 IP 和
-精确端口。Agent 自主决定何时 SSH、登录用户和远端命令；平台只校验并执行已批准
-的精确命令，不替 Agent 选择策略。把下面命令冻结为 proposal 时声明
-`result_contract=process_exit_v1`，因为该封装明确以 SSH/远端命令退出码表示结果。
+优先使用当前 Agent/runtime 提供的受控 SSH 能力，并按其真实参数、审批和凭据接口
+执行。不存在专用能力时，可以使用本地 OpenSSH；不要臆造某个平台的模块或 Tool
+名称。凭据文件保持 `0600`，为本任务使用独立 `known_hosts`，并明确目标、端口、
+登录用户和远端命令。
 
 密钥对路线：
 
 ```bash
-python3 -P -m cloud_claw.online.ssh_command \
-  --host=<public-ip> \
-  --port=22 \
-  --user=root \
-  --auth=key \
-  --key-file=<workspace-private-key-file> \
-  --remote-argv-json='["sh","-lc","echo SSH_OK && id && hostname"]'
+ssh \
+  -p 22 \
+  -i <private-key-file> \
+  -o IdentitiesOnly=yes \
+  -o StrictHostKeyChecking=accept-new \
+  -o UserKnownHostsFile=credentials/known_hosts \
+  root@<public-ip> \
+  'echo SSH_OK && id && hostname'
 ```
 
 密码路线：
 
 ```bash
-python3 -P -m cloud_claw.online.ssh_command \
-  --host=<public-ip> \
-  --port=22 \
-  --user=root \
-  --auth=password \
-  --password-file=credentials/ecs-password.txt \
-  --remote-argv-json='["sh","-lc","echo SSH_OK && id && hostname"]'
+sshpass -f credentials/ecs-password.txt \
+  ssh \
+  -p 22 \
+  -o PreferredAuthentications=password \
+  -o PubkeyAuthentication=no \
+  -o StrictHostKeyChecking=accept-new \
+  -o UserKnownHostsFile=credentials/known_hosts \
+  root@<public-ip> \
+  'echo SSH_OK && id && hostname'
 ```
 
-CloudClaw 生产部署必须让沙箱只能通过平台 SSH 出口连接本次批准的字面量
-`IP:port`；如果精确出口未就绪，平台应拒绝执行并忠实返回基础设施错误。不要通过
-改用裸 `ssh`、域名或另一个端口绕过。
+`sshpass -f` 只把密码文件路径放入 argv，不把密码内容放入 argv/env。当前环境没有
+`sshpass` 或等效安全输入方式时，不要退化为 `sshpass -p`、`SSHPASS` 环境变量或
+在 shell 中展开密码；改用密钥、runtime 原生秘密输入或说明最小阻塞条件。
 
-不提供 CloudClaw 封装的平台可以直接使用 OpenSSH，但仍须满足相同约束：凭据文件
-权限 `0600`、密码不进入 argv/env、目标和端口精确、主机密钥有独立
-`known_hosts` 记录、输出原样返回。
+如果 runtime 提供受控网络出口或 action approval，必须使用该边界并忠实处理其
+基础设施错误；不要通过换用裸 `ssh`、域名或另一个端口绕过。
 
 验收成功条件：
 

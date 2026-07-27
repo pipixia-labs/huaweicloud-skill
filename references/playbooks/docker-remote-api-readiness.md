@@ -21,8 +21,8 @@ Docker TCP 2375 是未加密管理端口，只有用户明确要求时才开放�
 set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-mkdir -p /etc/docker /etc/systemd/system/docker.service.d /var/lib/cloud-ppx
-exec > >(tee -a /var/log/cloud-ppx-docker-init.log) 2>&1
+mkdir -p /etc/docker /etc/systemd/system/docker.service.d /var/lib/huaweicloud-skill
+exec > >(tee -a /var/log/huaweicloud-skill-docker-init.log) 2>&1
 
 for i in 1 2 3; do
   apt-get update -y && break
@@ -55,9 +55,9 @@ for i in 1 2 3 4 5 6; do
   sleep 5
 done
 
-docker info >/var/lib/cloud-ppx/docker-info.txt
+docker info >/var/lib/huaweicloud-skill/docker-info.txt
 
-cat >/var/lib/cloud-ppx/readiness.json <<'JSON'
+cat >/var/lib/huaweicloud-skill/readiness.json <<'JSON'
 {"service":"docker","status":"ready","port":2375}
 JSON
 ```

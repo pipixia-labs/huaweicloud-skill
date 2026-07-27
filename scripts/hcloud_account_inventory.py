@@ -313,13 +313,14 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     """Build or run a read-only account inventory plan."""
     targets = selected_targets(args.service)
     if not targets:
-        return {
+        result = {
             "success": False,
-            "outcome_status": "failed",
             "mode": "execute" if args.execute else "plan",
             "error": "No inventory targets match the requested service filters.",
             "available_services": sorted({target["service"] for target in INVENTORY_TARGETS}),
         }
+        result["outcome_status" if args.execute else "planning_status"] = "failed"
+        return result
 
     regions = normalized_regions(args)
     checks = [
@@ -333,9 +334,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         failed_check_count=summary["failed_check_count"],
     )
     success = outcome_status == "succeeded" if args.strict else bool(checks)
-    return {
+    result = {
         "success": success,
-        "outcome_status": outcome_status,
         "mode": "execute" if args.execute else "plan",
         "planning_only": not args.execute,
         "region": regions[0] if len(regions) == 1 else None,
@@ -353,6 +353,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "Do not delete, release, or downsize resources from inventory data alone; confirm owner, tags, recent metrics, backups, and retention first.",
         ],
     }
+    result["outcome_status" if args.execute else "planning_status"] = outcome_status
+    return result
 
 
 def parse_args() -> argparse.Namespace:

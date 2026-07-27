@@ -79,10 +79,14 @@ hcloud_run_journal = load_module("hcloud_run_journal", SCRIPTS / "hcloud_run_jou
 class ArchitectureContractsTest(unittest.TestCase):
     """Validate docs, registry, and script contracts stay aligned."""
 
-    def test_platform_capability_manifest_is_skill_owned_and_read_only(self) -> None:
+    def test_portable_capability_manifest_is_skill_owned_and_read_only(self) -> None:
         manifest = json.loads((ROOT / "capabilities.json").read_text(encoding="utf-8"))
 
         self.assertEqual(manifest["schema_version"], 1)
+        self.assertEqual(
+            manifest["contract_namespace"],
+            "huaweicloud-skill.capabilities",
+        )
         capabilities = {item["id"]: item for item in manifest["capabilities"]}
         inventory = capabilities["huaweicloud.account_inventory.v1"]
         self.assertEqual(inventory["risk"], "read")
@@ -93,11 +97,18 @@ class ArchitectureContractsTest(unittest.TestCase):
         )
         self.assertEqual(inventory["result_contract"], "json_outcome_v1")
         self.assertTrue((ROOT / inventory["entrypoint"]).is_file())
-        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("`unstructured_v1`", skill_text)
-        self.assertIn("不能让平台把退出码", skill_text)
 
-    def test_cloudclaw_ssh_contract_is_explicit_and_secret_safe(self) -> None:
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        contract_text = (
+            ROOT / "references/capability-contracts.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("平台无关", contract_text)
+        self.assertIn("`planning_status`", contract_text)
+        self.assertIn("`outcome_status`", contract_text)
+        self.assertIn("不要臆造某个平台的 Tool 名称", skill_text)
+        self.assertNotIn("run_read_only_capability", skill_text)
+
+    def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:
         playbook = (
             ROOT / "references/playbooks/ecs-ssh-access-readiness.md"
         ).read_text(encoding="utf-8")
@@ -105,13 +116,23 @@ class ArchitectureContractsTest(unittest.TestCase):
             ROOT / "references/runtime-safety-boundaries.md"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("cloud_claw.online.ssh_command", playbook)
-        self.assertIn("--auth=key", playbook)
-        self.assertIn("--auth=password", playbook)
-        self.assertIn("result_contract=process_exit_v1", playbook)
-        self.assertIn("密码只通过文件描述符", playbook)
-        self.assertIn("字面量目标 IP", boundaries)
-        self.assertIn("精确 `IP:port`", boundaries)
+        self.assertIn("当前 Agent/runtime", playbook)
+        self.assertIn("sshpass -f credentials/ecs-password.txt", playbook)
+        self.assertIn("UserKnownHostsFile=credentials/known_hosts", playbook)
+        self.assertIn("不得进入命令参数、环境变量", boundaries)
+        for text in (playbook, boundaries):
+            self.assertNotIn("CloudClaw", text)
+            self.assertNotIn("cloud_claw.online", text)
+            self.assertNotIn("result_contract=process_exit_v1", text)
+
+    def test_core_instructions_do_not_name_host_agent_products(self) -> None:
+        instruction_paths = [ROOT / "SKILL.md", *sorted((ROOT / "references").rglob("*.md"))]
+
+        for path in instruction_paths:
+            text = path.read_text(encoding="utf-8")
+            for product_name in ("CloudClaw", "cloud_claw", "cloud-ppx", ".cloud-ppx"):
+                with self.subTest(path=path.relative_to(ROOT), product=product_name):
+                    self.assertNotIn(product_name, text)
 
     def test_scripts_do_not_auto_discover_sibling_source_repositories(self) -> None:
         forbidden_markers = (

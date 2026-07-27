@@ -16,7 +16,7 @@
 - 脚本必须幂等：重复执行不应破坏已有配置。
 - 写文件前先 `mkdir -p` 父目录。
 - 安装软件前设置非交互模式和必要的重试。
-- 最后写入 readiness 文件，例如 `/var/lib/cloud-ppx/readiness.json`。
+- 最后写入 readiness 文件，例如 `/var/lib/huaweicloud-skill/readiness.json`。
 - 对外服务必须 `enable` 并 `restart`。
 
 ## Bash 模板
@@ -28,8 +28,8 @@
 set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-mkdir -p /var/lib/cloud-ppx
-exec > >(tee -a /var/log/cloud-ppx-init.log) 2>&1
+mkdir -p /var/lib/huaweicloud-skill
+exec > >(tee -a /var/log/huaweicloud-skill-init.log) 2>&1
 
 apt_get_update() {
   for i in 1 2 3; do
@@ -43,15 +43,15 @@ apt_get_update
 apt-get install -y nginx curl
 
 cat >/var/www/html/index.html <<'HTML'
-cloud-ppx web ready
+huaweicloud-skill web ready
 HTML
 
 systemctl enable nginx
 systemctl restart nginx
 
-curl -fsS --max-time 10 http://127.0.0.1/ >/tmp/cloud-ppx-http-check.txt
+curl -fsS --max-time 10 http://127.0.0.1/ >/tmp/huaweicloud-skill-http-check.txt
 
-cat >/var/lib/cloud-ppx/readiness.json <<'JSON'
+cat >/var/lib/huaweicloud-skill/readiness.json <<'JSON'
 {"service":"nginx","status":"ready","port":80}
 JSON
 ```

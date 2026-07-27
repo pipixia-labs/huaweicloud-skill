@@ -109,9 +109,8 @@
 - 对新建 ECS，优先用任务专用 keypair 保存 private key 并在创建后立即 SSH 验证。
 - 对已有 ECS，先找本地已保存 private key；若 ECS 有 keypair name，再尝试可用的私钥导出路径；只有拿到私钥并验证成功才把 key 登录视为可用。
 - key 不可用时，用 `ShowResetPasswordFlag` 确认目标 ECS 支持在线重置密码，并只把一次性密码保存在受限临时 artifact 或当前会话中。
-- CloudClaw 同时支持 key 和 password SSH。key/password 文件必须位于任务工作区且权限为 `0600`；密码只通过文件描述符传给认证进程，不得进入命令参数或环境变量。
-- SSH proposal 必须冻结字面量目标 IP、精确端口、登录用户、认证模式、凭据文件路径和远端 argv，并声明 `result_contract=process_exit_v1`。平台机械执行和反馈，不替 Agent 选择 SSH 时机、用户或命令。
-- CloudClaw 生产沙箱只能经平台受控出口连接本次已批准的精确 `IP:port`；受控出口不可用时必须失败关闭，不得用裸 `ssh`、域名或变更端口绕过。
+- SSH key/password 文件必须位于当前任务可控的受限目录且权限为 `0600`；密码内容不得进入命令参数、环境变量、日志或最终回复。
+- 优先使用当前 runtime 提供的受控 SSH 能力；没有专用能力时才使用本地 OpenSSH。若 runtime 提供审批、网络出口或凭据投影边界，必须按其真实接口执行，不得通过更换工具、目标或端口绕过。
 - 只为受限来源 CIDR 创建临时 TCP 22 入站规则；不要为了省事开放全网。
 - 登录成功后执行幂等机内脚本，完成格式化挂载、服务启动、日志采集和验收。验收通过后删除临时 SSH 入站规则。
 - SSH/recreate fallback 不应用于删除、读取用户隐私数据、扩大业务端口暴露面，或用户明确要求只读的场景。

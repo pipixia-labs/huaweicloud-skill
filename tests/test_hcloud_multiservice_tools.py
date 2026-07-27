@@ -445,7 +445,8 @@ class MultiServiceToolsTest(unittest.TestCase):
         result = hcloud_account_inventory.build_plan(self.inventory_args())
 
         self.assertTrue(result["success"], result)
-        self.assertEqual(result["outcome_status"], "succeeded")
+        self.assertEqual(result["planning_status"], "succeeded")
+        self.assertNotIn("outcome_status", result)
         self.assertTrue(result["planning_only"])
         self.assertGreaterEqual(result["summary"]["check_count"], 10)
         operations = {(check["service"], check["operation"]) for check in result["checks"]}
@@ -515,6 +516,30 @@ class MultiServiceToolsTest(unittest.TestCase):
             ),
             "failed",
         )
+
+    def test_account_inventory_execute_returns_business_outcome_only(self) -> None:
+        successful_check = {
+            "service": "EIP",
+            "operation": "ListPublicips",
+            "category": "network",
+            "purpose": "Inventory public IPs.",
+            "scope": {"region": "cn-north-4"},
+            "success": True,
+            "plan": {"success": True, "commands": []},
+        }
+        args = self.inventory_args(service=["EIP"], execute=True)
+
+        with patch.object(
+            hcloud_account_inventory,
+            "build_target_plan_for_region",
+            return_value=successful_check,
+        ):
+            result = hcloud_account_inventory.build_plan(args)
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["outcome_status"], "succeeded")
+        self.assertNotIn("planning_status", result)
+        self.assertFalse(result["planning_only"])
 
     def test_observability_plan_builds_metric_and_state_checks(self) -> None:
         result = hcloud_observability_plan.build_plan(self.observability_args())

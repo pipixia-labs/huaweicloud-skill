@@ -30,7 +30,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 1. 先确认环境和上下文：
    - 首选 `python3 scripts/hcloud_environment_doctor.py --pretty` 或 `python3 scripts/hcloud_context_inspect.py --pretty`。
-   - doctor/context 只能观察当前进程环境和本地 profile；未观察到 AK/SK 或 MaaS API Key 只表示配置状态未知，不得断言用户未配置。CloudClaw 等凭据 broker 可能只在已批准 action 的子进程注入凭据。
+   - doctor/context 只能观察当前进程环境和本地 profile；未观察到 AK/SK 或 MaaS API Key 只表示配置状态未知，不得断言用户未配置。使用凭据 broker 的运行时可能只在受授权的执行子进程中注入凭据。
    - 需要项目级服务的 `project_id` 时，用 `python3 scripts/hcloud_project_resolve.py --region=<region> --pretty`，按显式值、环境变量、本地 profile 缓存、IAM `KeystoneListProjects` 的顺序解析；不要因为 IAM SDK 未安装而改写签名请求。
    - 若 `hcloud.found=false`，停止真实云查询和变更，只能给本地方案草稿和安装指引。
 2. 宽泛目标和网站部署先路由：
@@ -41,10 +41,10 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
-   - 在提供 `run_read_only_capability` 的平台中，账号级多服务盘点可以调用本 Skill 在
-     `capabilities.json` 声明的 `huaweicloud.account_inventory.v1`。是否调用由
-     Agent 根据当前任务自主决定；平台只按声明机械校验参数、投影最小凭据、执行并
-     原样返回结构化结果。其他运行环境继续直接使用本 Skill 脚本。
+   - 账号级多服务盘点优先使用 `hcloud_account_inventory.py`。支持 Skill
+     machine-readable contract 的运行时可以读取 `capabilities.json` 中的
+     `huaweicloud.account_inventory.v1`；不支持时直接调用同一脚本。先检查当前
+     runtime 实际提供的工具，不要臆造某个平台的 Tool 名称。
    - 调用优先级：专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
    - 以下 operation 均属于大输出；命中时禁止先执行裸 `hcloud` 试探响应大小，直接使用 `hcloud_safe_exec.py --output-mode=auto`：
@@ -58,12 +58,10 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
    - 先查现状证据，再生成 change plan / dry-run / guarded submit。
-   - 在 CloudClaw 中把命令冻结为 proposal 时，同时按实际 Tool 契约声明
-     `result_contract`：本 Skill 脚本完整 stdout 含 `outcome_status` JSON 时使用
-     `json_outcome_v1`；只有 Tool 文档明确保证退出码代表业务结果时才使用
-     `process_exit_v1`；裸 `hcloud`、帮助探测或其他输出不稳定命令使用
-     `unstructured_v1`，由 Agent 忠实读取 stdout/stderr 后判断，不能让平台把退出码
-     `0` 自动写成业务成功。
+   - 按所选工具的真实结果契约解释输出。本 Skill 的 execute 脚本如果返回
+     `outcome_status`，以该结构化字段为业务结果；裸 `hcloud`、帮助探测和其他
+     未声明结构化结果的命令必须同时保留 stdout、stderr 和退出码，不能只因进程
+     退出码为 `0` 就断言云操作成功。
    - 对可能产生费用或影响线上服务的云资源操作，先形成一套或多套候选方案。Agent 可以调用现有工具、专家能力或自行分析来制定方案；每套方案应说明目标资源、预期影响、持续费用（如适用）、主要风险和验证方式。
    - 将候选方案交由用户选择并明确确认后，才能执行对应操作；用户仅提出初始需求不构成执行授权。
    - 真实 submit，以及会产生计费或外部副作用的 MaaS 图片/视频生成，必须有用户在查看本次方案后作出的明确确认；初始任务请求、路由成功、dry-run 成功或 `change_execution_blocked=false` 都不是执行授权。安全、身份、密钥、治理类 mutation 默认 hard guard。
@@ -114,6 +112,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - 基础流程和安全：`references/workflow.md`、`references/runtime-safety-boundaries.md`、`references/auth-and-context.md`
 - 场景路由和服务资料：`references/scenario-router.json`、`references/guides/`、`references/playbooks/`
 - 命令构造和错误处理：`references/command-construction.md`、`references/error-playbook.md`、`references/output-and-query.md`、`references/hcloud-output-policies.json`
+- 可选机器契约：`references/capability-contracts.md`、`capabilities.json`
 - 脚本索引和受众边界：`references/scripts.md`、`references/script-audience-manifest.json`
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`

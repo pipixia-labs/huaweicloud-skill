@@ -41,7 +41,8 @@
 
 region 支持 `CLOUD_SDK_REGION`、`HW_REGION_NAME`、`HW_REGION`、`HUAWEICLOUD_REGION`、`HUAWEI_REGION`、`OS_REGION_NAME`；project/domain/security token 也支持对应的 `CLOUD_SDK_*`、`HUAWEICLOUD_SDK_*`、`HW_*`、`HUAWEICLOUD_*`、`HUAWEI_*`、`OS_*` 写法。MaaS API Key 支持 `MAAS_API_KEY` 和 `MODELARTS_MAAS_API_KEY`。
 
-环境检查只能说明“当前进程是否看得到”。在 CloudClaw 这类凭据 broker 中，普通 Agent 进程看不到已保存凭据是正常的；凭据可能仅在用户批准的 action 子进程中注入。因此：
+环境检查只能说明“当前进程是否看得到”。在使用凭据 broker 的运行时中，普通 Agent
+进程看不到已保存凭据是正常的；凭据可能仅在受授权的执行子进程中注入。因此：
 
 - 当前进程未发现凭据：配置状态是 `unknown`，不得告诉用户“未配置”。
 - action 子进程发现凭据：只报告来源变量和 presence，禁止输出值。
