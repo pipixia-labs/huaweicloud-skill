@@ -79,6 +79,24 @@ hcloud_run_journal = load_module("hcloud_run_journal", SCRIPTS / "hcloud_run_jou
 class ArchitectureContractsTest(unittest.TestCase):
     """Validate docs, registry, and script contracts stay aligned."""
 
+    def test_platform_capability_manifest_is_skill_owned_and_read_only(self) -> None:
+        manifest = json.loads((ROOT / "capabilities.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["schema_version"], 1)
+        capabilities = {item["id"]: item for item in manifest["capabilities"]}
+        inventory = capabilities["huaweicloud.account_inventory.v1"]
+        self.assertEqual(inventory["risk"], "read")
+        self.assertEqual(inventory["credential_scope"], "huaweicloud")
+        self.assertEqual(
+            inventory["entrypoint"],
+            "scripts/hcloud_account_inventory.py",
+        )
+        self.assertEqual(inventory["result_contract"], "json_outcome_v1")
+        self.assertTrue((ROOT / inventory["entrypoint"]).is_file())
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("`unstructured_v1`", skill_text)
+        self.assertIn("不能让平台把退出码", skill_text)
+
     def test_scripts_do_not_auto_discover_sibling_source_repositories(self) -> None:
         forbidden_markers = (
             "ROOT.parent",

@@ -296,12 +296,26 @@ def summarize_checks(checks: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def inventory_outcome_status(
+    *,
+    check_count: int,
+    failed_check_count: int,
+) -> str:
+    """Return the declared aggregate outcome for an inventory result."""
+    if check_count < 1 or failed_check_count >= check_count:
+        return "failed"
+    if failed_check_count:
+        return "partially_succeeded"
+    return "succeeded"
+
+
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     """Build or run a read-only account inventory plan."""
     targets = selected_targets(args.service)
     if not targets:
         return {
             "success": False,
+            "outcome_status": "failed",
             "mode": "execute" if args.execute else "plan",
             "error": "No inventory targets match the requested service filters.",
             "available_services": sorted({target["service"] for target in INVENTORY_TARGETS}),
@@ -314,9 +328,14 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         for target in targets
     ]
     summary = summarize_checks(checks)
-    success = summary["failed_check_count"] == 0 if args.strict else bool(checks)
+    outcome_status = inventory_outcome_status(
+        check_count=summary["check_count"],
+        failed_check_count=summary["failed_check_count"],
+    )
+    success = outcome_status == "succeeded" if args.strict else bool(checks)
     return {
         "success": success,
+        "outcome_status": outcome_status,
         "mode": "execute" if args.execute else "plan",
         "planning_only": not args.execute,
         "region": regions[0] if len(regions) == 1 else None,

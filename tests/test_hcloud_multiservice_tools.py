@@ -445,6 +445,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         result = hcloud_account_inventory.build_plan(self.inventory_args())
 
         self.assertTrue(result["success"], result)
+        self.assertEqual(result["outcome_status"], "succeeded")
         self.assertTrue(result["planning_only"])
         self.assertGreaterEqual(result["summary"]["check_count"], 10)
         operations = {(check["service"], check["operation"]) for check in result["checks"]}
@@ -491,6 +492,29 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["summary"]["check_count"], 1)
         self.assertEqual(result["checks"][0]["service"], "EIP")
         self.assertEqual(result["checks"][0]["operation"], "ListPublicips")
+
+    def test_account_inventory_outcome_covers_partial_and_total_failure(self) -> None:
+        self.assertEqual(
+            hcloud_account_inventory.inventory_outcome_status(
+                check_count=4,
+                failed_check_count=0,
+            ),
+            "succeeded",
+        )
+        self.assertEqual(
+            hcloud_account_inventory.inventory_outcome_status(
+                check_count=4,
+                failed_check_count=1,
+            ),
+            "partially_succeeded",
+        )
+        self.assertEqual(
+            hcloud_account_inventory.inventory_outcome_status(
+                check_count=4,
+                failed_check_count=4,
+            ),
+            "failed",
+        )
 
     def test_observability_plan_builds_metric_and_state_checks(self) -> None:
         result = hcloud_observability_plan.build_plan(self.observability_args())

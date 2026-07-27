@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "capabilities": [
+    {
+      "id": "huaweicloud.account_inventory.v1",
+      "version": 1,
+      "description": "按区域盘点华为云账号中的核心资源，并保留每个服务的成功、部分成功和失败结果。",
+      "risk": "read",
+      "credential_scope": "huaweicloud",
+      "runtime": "hcloud",
+      "entrypoint": "scripts/hcloud_account_inventory.py",
+      "fixed_args": [
+        "--execute",
+        "--strict"
+      ],
+      "timeout_seconds": 1800,
+      "arguments": {
+        "regions": {
+          "type": "string_list",
+          "flag": "--region",
+          "required": true,
+          "max_items": 8,
+          "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$"
+        },
+        "services": {
+          "type": "string_list",
+          "flag": "--service",
+          "max_items": 12,
+          "normalize": "upper",
+          "choices": [
+            "ECS",
+            "VPC",
+            "EIP",
+            "ELB",
+            "EVS",
+            "NAT",
+            "RDS",
+            "CCE",
+            "CDN",
+            "DNS",
+            "SCM",
+            "OBS"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "flag": "--limit",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "timeout": {
+          "type": "integer",
+          "flag": "--timeout",
+          "default": 120,
+          "minimum": 1,
+          "maximum": 120
+        },
+        "project_id": {
+          "type": "string",
+          "flag": "--project-id",
+          "max_length": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "enterprise_project_id": {
+          "type": "string",
+          "flag": "--enterprise-project-id",
+          "max_length": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "result_contract": "json_outcome_v1"
+    }
+  ]
+}
