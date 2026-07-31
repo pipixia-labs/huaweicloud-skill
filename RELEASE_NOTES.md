@@ -2,11 +2,25 @@
 
 ## Unreleased
 
+## v0.8.2 / 0.8.2 - 2026-07-31
+
+v0.8.2 是 v0.8 系列的兼容性与安全闭环补丁版本。它继续保持 hcloud-first 的执行链路和既有变更门禁，不增加默认资源创建、修改、删除、Terraform apply 或通用 SDK mutation 能力。
+
 - MaaS 批量图片入口现在接受每项稳定 `id` 并输出逐项进度检查点；图片文件必须非空且完整落盘后才报告成功，失败批次可由宿主平台识别已完成项，避免重复生成。
 - `SKILL.md` 直接列出大输出 operation 和命名规则，要求 Agent 在执行前命中策略并禁止先用裸 `hcloud` 试探响应大小；架构契约确保显式清单与机器可读策略保持同步。
 - 网站部署路由新增 `architecture_decision` 和 `change_execution_blocked`：明确要求机器、ECS 或公网 IP 时进入 ECS + EIP 路径，纯静态且接受对象存储时才进入 OBS；未明确托管方式、动态能力边界或约束冲突时，先向用户澄清且不得创建资源。
 - OBS 默认静态网站域名只作为临时源站验证结果，正式交付需要自定义域名和真实浏览器验收；不得用 OBS 地址代替用户要求的 ECS 公网 IP。
 - Billing planner 内置 operation-specific 语言 Header 能力：只对支持的 BSS operation 生成 `X-Language`，月度汇总、账户余额和定价等不支持接口不再被无效参数阻断；live-read 复用同一能力校验。
+- Skill 增加可选、运行时中立的账号盘点 capability 契约；支持声明式 capability 的运行时可安全调用，不支持的运行时仍可直接调用同一脚本。
+
+### 验证
+
+- 全量离线单元测试和 Python 编译检查：见本次发布提交中的实际执行结果。
+
+### 兼容性与安全说明
+
+- 仅在用户确认公网网站方案后，ECS 规划才允许精确 TCP `80/443` 公网入口；仍需现有 guarded submit 确认、规则回读和外网协议探测。
+- 保留 v0.8 中兼容入口的 deprecated 状态；主路径仍使用统一 closure 和 MaaS 入口。
 
 ## v0.8.1 / 0.8.1 - 2026-07-24
 
