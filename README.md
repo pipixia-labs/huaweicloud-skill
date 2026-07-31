@@ -15,7 +15,7 @@
 - **乱改** —— 没评估费用、网络暴露面和权限边界，就直接提交创建、绑定、删除；
 - **误判完成** —— API 返回成功、job 提交成功就宣布"部署完成"，业务实际不可用。
 
-`huaweicloud-skill` 把 Agent 从"凭记忆拼命令"升级为**"按证据、风险门禁和后置验证推进任务"**：以华为云 KooCLI（`hcloud`）为主执行链路，查询默认只读，变更默认先计划、先 dry-run、等确认，完成默认要证据。你只需要用自然语言说目标——路由、命令构造、风险判断和验收，都在这一个 Skill 内完成。
+`huaweicloud-skill` 把 Agent 从"凭记忆拼命令"升级为**"按证据、风险门禁和后置验证推进任务"**：以华为云 KooCLI（`hcloud`）为主查询链路，查询默认只读，变更先形成可核对计划，完成默认要证据。它是可被任意 Agent 直接加载的标准 Skill，不要求修改 Agent 代码；当前统一升级期间，尚未接入 Skill 内部服务专用受控入口的变更在运行时一律 `plan_only`，不会因确认或旧脚本参数直接提交。
 
 ## 30 秒看效果
 
@@ -33,7 +33,7 @@ Agent 会自动完成：检查 KooCLI/profile/region/project → 按本地 regis
 | 维度 | 裸 Agent | 使用 huaweicloud-skill |
 | --- | --- | --- |
 | API 发现 | 靠模型记忆猜 service/operation | 本地 catalog（199 服务 / 15,702 operation）+ registry + `--help` 实证 |
-| 变更控制 | 可能直接提交创建/删除/绑定 | 计划 → dry-run → 风险门禁 → 显式确认 → 执行 → 回读 |
+| 变更控制 | 可能直接提交创建/删除/绑定 | 计划 → 风险门禁 → 明确确认绑定 → **当前运行时 plan-only** → 后续 Skill 内部受控执行与回读 |
 | 完成判断 | API 成功即宣布完成 | job 终态 → 资源状态 → SSH/协议/机内 → 业务证据，层层验收 |
 | 错误处理 | 自然语言猜原因 | 结构化分桶：认证 / 权限 / region-project / 参数 / 配额 / 网络 |
 | 凭据安全 | AK/SK 可能进对话和日志 | 脱敏封装，密钥只走环境变量/profile，禁止回显 |
@@ -48,7 +48,7 @@ flowchart LR
   C --> D[服务与参数发现<br/>registry + catalog + help]
   D --> E[计划 / dry-run<br/>风险门禁]
   E --> F{用户确认}
-  F -->|确认| G[受控执行]
+  F -->|确认| G[受控提交准入<br/>当前为 plan-only]
   F -->|未确认| E
   G --> H[回读验证<br/>job 终态 / 状态 / 协议 / 业务证据]
 ```
@@ -57,11 +57,11 @@ flowchart LR
 
 - **CLI-first 执行面**：基于本机 `hcloud` 的真实 service、operation 和 help 工作；内置 catalog 覆盖 199 个公有云服务、15,702 个 operation，按服务懒加载，不炸上下文。
 - **场景路由**：自然语言目标直接映射到本地 playbook、服务指南和 planner，覆盖建站、监控排障、成本优化、权限诊断、容器部署等高频场景。
-- **变更门禁**：dry-run、风险识别、显式确认、执行记录、变更后验证一条链；安全、身份、密钥、治理类操作进入硬门禁。
+- **统一变更边界**：通用 hcloud mutation、旧 guarded submit、Terraform 状态变更和 MaaS 生成统一由代码收口为 `plan_only`；ECS/DNS 等后续只能经 Skill 内部的服务专用受控入口恢复提交，绝不要求某个 Agent 为本 Skill 增加代码。
 - **验收闭环**：内置 HTTP/TCP/DNS/TLS 验收探测和证据判定，把"资源 ACTIVE"和"业务可用"严格区分开。
 - **成本与治理**：账号盘点、闲置资源审计、回收前评审、账单语义纪律（事实 × 粒度 × 金额口径 × 账期，防止算错钱）。
-- **Terraform 受控 IaC**：73 个本地示例 + provider 参考，fmt/init/validate/plan 全流程；import、drift、remote state 均有确认门禁，不自动 apply。
-- **MaaS 模型能力**：华为云 MaaS 大模型对话、图像理解、图片生成/编辑、视频生成与用量治理，API Key 只走环境变量。
+- **Terraform 受控 IaC**：73 个本地示例 + provider 参考，fmt/init/validate/plan 全流程；当前 import 和状态变更为 plan-only，且不自动 apply。
+- **MaaS 模型能力**：支持大模型、图像/视频的请求规划和用量治理；当前计费型对话、图片/视频生成在运行时为 plan-only，API Key 只走环境变量。
 - **诚实分层**：curated / metadata-backed / evidence-gap 三层能力标注，配 300+ 离线测试和晋级审计——未实测的能力不会被包装成已验证。
 
 ## 快速开始
@@ -156,7 +156,7 @@ ELB、RDS 候选。只输出候选、证据、风险和回收前检查顺序，�
 
 ```text
 使用 huaweicloud-skill 调用华为云 MaaS 大模型。先列出可选文本模型和
-dry-run payload；确认后使用 MAAS_API_KEY 调用 V2 Chat 接口，不要记录密钥。
+dry-run payload；当前只输出受审核请求计划，不调用 V2 Chat 接口，也不要记录密钥。
 ```
 
 <details>

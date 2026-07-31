@@ -125,10 +125,10 @@ class QwenTextToImageTest(unittest.TestCase):
 
         self.assertEqual(completed, 0)
 
-    def test_missing_api_key_fails_before_network(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir, mock.patch.dict(os.environ, {}, clear=True):
-            with io.StringIO() as stdout, io.StringIO() as stderr:
-                with redirect_stdout(stdout), redirect_stderr(stderr):
+    def test_legacy_entrypoint_is_plan_only_before_key_or_network(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir, mock.patch.dict(os.environ, {"MAAS_API_KEY": "secret-key"}, clear=True):
+            with mock.patch.object(qwen_text_to_image.urllib.request, "urlopen") as urlopen_mock:
+                with io.StringIO() as stdout, redirect_stdout(stdout):
                     result = qwen_text_to_image.main(
                         [
                             "--prompt",
@@ -139,221 +139,14 @@ class QwenTextToImageTest(unittest.TestCase):
                             tmp_dir,
                         ]
                     )
-                error_output = stderr.getvalue()
+                    payload = json.loads(stdout.getvalue())
+
+            self.assertFalse((Path(tmp_dir) / "qwen_manifest.json").exists())
+            self.assertFalse((Path(tmp_dir) / "hero.webp").exists())
 
         self.assertEqual(result, 1)
-        self.assertIn("缺少华为云 ModelArts MaaS API Key", error_output)
-        self.assertIn("MAAS_API_KEY", error_output)
-
-    def test_huawei_maas_call_writes_manifest_without_key(self) -> None:
-        calls: list[dict[str, object]] = []
-        encoded = "data:image/png;base64," + __import__("base64").b64encode(png_bytes()).decode("ascii")
-        maas_response = {
-            "model": "qwen-image",
-            "created": 1780537419677,
-            "data": [{"url": None, "b64_json": encoded}],
-            "usage": {},
-            "error": None,
-        }
-
-        def fake_urlopen(request: object, timeout: int = 0, context: object | None = None) -> FakeHTTPResponse:
-            self.assertTrue(hasattr(request, "full_url"))
-            self.assertEqual(request.full_url, qwen_text_to_image.DEFAULT_ENDPOINT)
-            body = json.loads(request.data.decode("utf-8"))
-            calls.append({"url": request.full_url, "body": body, "headers": dict(request.header_items())})
-            return FakeHTTPResponse(json.dumps(maas_response).encode("utf-8"))
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            with mock.patch.dict(os.environ, {"MAAS_API_KEY": "secret-key"}, clear=True):
-                with mock.patch.object(qwen_text_to_image.urllib.request, "urlopen", side_effect=fake_urlopen):
-                    result = self.run_main_silenced(
-                        [
-                            "--prompt",
-                            "A toy store",
-                            "--file",
-                            "hero.webp",
-                            "--out-dir",
-                            tmp_dir,
-                            "--model",
-                            "qwen-image",
-                            "--size",
-                            "1024x1024",
-                            "--seed",
-                            "1",
-                        ]
-                    )
-
-            manifest = json.loads((Path(tmp_dir) / "qwen_manifest.json").read_text(encoding="utf-8"))
-            output = Path(tmp_dir) / "hero.webp"
-            self.assertTrue(output.exists())
-            with Image.open(output) as image:
-                generated_size = image.size
-
-        self.assertEqual(result, 0)
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(
-            calls[0]["body"],
-            {
-                "model": "qwen-image",
-                "prompt": "A toy store",
-                "size": "1024x1024",
-                "response_format": "b64_json",
-                "seed": 1,
-            },
-        )
-        self.assertEqual(manifest["provider"], "Huawei Cloud ModelArts MaaS image generation")
-        self.assertEqual(manifest["endpoint_host"], "api.modelarts-maas.com")
-        self.assertEqual(manifest["items"][0]["model"], "qwen-image")
-        self.assertNotIn("secret-key", json.dumps(manifest, ensure_ascii=False))
-        self.assertEqual(generated_size, (8, 6))
-
-    def test_batch_generation_emits_stable_output_checkpoints(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            prompt_file = Path(tmp_dir) / "prompts.json"
-            prompt_file.write_text(
-                json.dumps(
-                    {
-                        "items": [
-                            {
-                                "id": "hero",
-                                "file": "hero.webp",
-                                "prompt": "A toy store",
-                            },
-                            {
-                                "id": "mascot",
-                                "file": "mascot.webp",
-                                "prompt": "A toy mascot",
-                            },
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-            def fake_generate(**kwargs: object) -> dict[str, object]:
-                item = kwargs["item"]
-                out_dir = kwargs["out_dir"]
-                (out_dir / item.file).write_bytes(b"image")
-                return {"file": item.file, "status": "generated"}
-
-            with mock.patch.dict(os.environ, {"MAAS_API_KEY": "secret-key"}, clear=True):
-                with mock.patch.object(
-                    qwen_text_to_image,
-                    "generate_item",
-                    side_effect=fake_generate,
-                ):
-                    with io.StringIO() as stdout, redirect_stdout(stdout):
-                        result = qwen_text_to_image.main(
-                            [
-                                "--prompt-file",
-                                str(prompt_file),
-                                "--out-dir",
-                                str(Path(tmp_dir) / "assets"),
-                            ]
-                        )
-                        output = stdout.getvalue()
-
-        self.assertEqual(result, 0)
-        progress = [
-            parse_action_progress_line(line) for line in output.splitlines() if line.startswith(qwen_text_to_image.ACTION_PROGRESS_PREFIX)
-        ]
-        self.assertEqual(
-            progress,
-            [
-                {
-                    "phase": "item_started",
-                    "output_id": "hero",
-                    "item_label": "hero.webp",
-                    "current": 1,
-                    "total": 2,
-                    "attempt": 1,
-                    "max_attempts": 1,
-                },
-                {
-                    "phase": "item_succeeded",
-                    "output_id": "hero",
-                    "item_label": "hero.webp",
-                    "current": 1,
-                    "total": 2,
-                    "completed_count": 1,
-                },
-                {
-                    "phase": "item_started",
-                    "output_id": "mascot",
-                    "item_label": "mascot.webp",
-                    "current": 2,
-                    "total": 2,
-                    "attempt": 1,
-                    "max_attempts": 1,
-                },
-                {
-                    "phase": "item_succeeded",
-                    "output_id": "mascot",
-                    "item_label": "mascot.webp",
-                    "current": 2,
-                    "total": 2,
-                    "completed_count": 2,
-                },
-            ],
-        )
-
-    def test_batch_failure_emits_failed_checkpoint_after_completed_item(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            prompt_file = Path(tmp_dir) / "prompts.json"
-            prompt_file.write_text(
-                json.dumps(
-                    [
-                        {"id": "hero", "file": "hero.webp", "prompt": "hero"},
-                        {
-                            "id": "mascot",
-                            "file": "mascot.webp",
-                            "prompt": "mascot",
-                        },
-                    ]
-                ),
-                encoding="utf-8",
-            )
-            call_count = 0
-
-            def fake_generate(**kwargs: object) -> dict[str, object]:
-                nonlocal call_count
-                call_count += 1
-                item = kwargs["item"]
-                out_dir = kwargs["out_dir"]
-                if call_count == 2:
-                    raise qwen_text_to_image.QwenImageError("quota exceeded")
-                (out_dir / item.file).write_bytes(b"image")
-                return {"file": item.file, "status": "generated"}
-
-            with mock.patch.dict(os.environ, {"MAAS_API_KEY": "secret-key"}, clear=True):
-                with mock.patch.object(
-                    qwen_text_to_image,
-                    "generate_item",
-                    side_effect=fake_generate,
-                ):
-                    with (
-                        io.StringIO() as stdout,
-                        io.StringIO() as stderr,
-                        redirect_stdout(stdout),
-                        redirect_stderr(stderr),
-                    ):
-                        result = qwen_text_to_image.main(
-                            [
-                                "--prompt-file",
-                                str(prompt_file),
-                                "--out-dir",
-                                str(Path(tmp_dir) / "assets"),
-                            ]
-                        )
-                        output = stdout.getvalue()
-
-        self.assertEqual(result, 1)
-        progress = [
-            parse_action_progress_line(line) for line in output.splitlines() if line.startswith(qwen_text_to_image.ACTION_PROGRESS_PREFIX)
-        ]
-        self.assertEqual(progress[-1]["phase"], "item_failed")
-        self.assertEqual(progress[-1]["output_id"], "mascot")
-        self.assertEqual(progress[-1]["completed_count"], 1)
+        self.assertEqual(payload["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        urlopen_mock.assert_not_called()
 
     def test_prompt_file_rejects_nested_output_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

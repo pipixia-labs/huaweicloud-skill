@@ -1655,18 +1655,15 @@ class MultiServiceToolsTest(unittest.TestCase):
         result = hcloud_eip_change_flow.build_flow(self.eip_flow_args(execute_submit=True, execute_dryrun=True))
 
         self.assertFalse(result["success"])
-        self.assertEqual(result["submit_guard_failure"]["error"], "Submit execution requires --confirm-submit.")
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
 
     def test_eip_change_flow_requires_current_submit_token(self) -> None:
         result = hcloud_eip_change_flow.build_flow(self.eip_flow_args(execute_submit=True, execute_dryrun=True, confirm_submit=True))
 
         self.assertFalse(result["success"])
-        self.assertEqual(
-            result["submit_guard_failure"]["error"],
-            "Submit execution requires a valid --submit-token from the current plan.",
-        )
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
 
-    def test_eip_change_flow_executes_dryrun_and_verify_with_mocks(self) -> None:
+    def test_eip_change_flow_blocks_dryrun_before_legacy_executor(self) -> None:
         with (
             patch.object(
                 hcloud_eip_change_flow,
@@ -1681,14 +1678,12 @@ class MultiServiceToolsTest(unittest.TestCase):
         ):
             result = hcloud_eip_change_flow.build_flow(self.eip_flow_args(execute_dryrun=True, execute_verify=True))
 
-        self.assertTrue(result["success"], result)
-        self.assertTrue(result["dryrun"]["success"])
-        self.assertTrue(result["verification"]["success"])
-        self.assertEqual(result["verification"]["operation"], "ShowPublicip")
-        dryrun_mock.assert_called_once()
-        verify_mock.assert_called_once()
+        self.assertFalse(result["success"], result)
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        dryrun_mock.assert_not_called()
+        verify_mock.assert_not_called()
 
-    def test_eip_change_flow_writes_journal_for_executed_steps(self) -> None:
+    def test_eip_change_flow_does_not_write_an_execution_journal_when_frozen(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             journal = Path(tmp_dir) / "flow.jsonl"
             with (
@@ -1706,12 +1701,9 @@ class MultiServiceToolsTest(unittest.TestCase):
                 result = hcloud_eip_change_flow.build_flow(
                     self.eip_flow_args(execute_dryrun=True, execute_verify=True, journal=str(journal))
                 )
-            events = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
-
-        self.assertTrue(result["success"], result)
-        self.assertEqual([event["stage"] for event in events], ["dryrun", "verify"])
-        self.assertEqual(events[0]["type"], "command")
-        self.assertEqual(events[1]["type"], "verification")
+        self.assertFalse(result["success"], result)
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        self.assertFalse(journal.exists())
 
     def test_guarded_change_flow_builds_generic_plan(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args())
@@ -1734,7 +1726,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(execute_submit=True, execute_dryrun=True))
 
         self.assertFalse(result["success"])
-        self.assertEqual(result["submit_guard_failure"]["error"], "Submit execution requires --confirm-submit.")
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
         self.assertTrue(result["planning_only"])
 
     def test_guarded_change_flow_requires_current_submit_token(self) -> None:
@@ -1743,10 +1735,7 @@ class MultiServiceToolsTest(unittest.TestCase):
         )
 
         self.assertFalse(result["success"])
-        self.assertEqual(
-            result["submit_guard_failure"]["error"],
-            "Submit execution requires a valid --submit-token from the current plan.",
-        )
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
 
     def test_guarded_change_flow_blocks_metadata_hard_guard_submit(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(
@@ -1762,10 +1751,7 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertFalse(result["success"])
         self.assertTrue(result["service_plan"]["risk"]["hard_guard"])
-        self.assertEqual(
-            result["submit_guard_failure"]["error"],
-            "Submit execution is blocked by a hard manual gate.",
-        )
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
 
     def test_guarded_change_flow_blocks_unrestricted_sensitive_ingress_rule(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(
@@ -1806,12 +1792,9 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertFalse(result["success"], result)
         self.assertTrue(result["service_plan"]["success"], result)
         self.assertTrue(result["service_plan"]["public_web_exposure"]["enabled"])
-        self.assertEqual(
-            result["submit_guard_failure"]["error"],
-            "Submit execution requires --confirm-submit.",
-        )
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
 
-    def test_guarded_change_flow_executes_dryrun_and_readiness_with_mocks(self) -> None:
+    def test_guarded_change_flow_blocks_dryrun_before_legacy_executor(self) -> None:
         with (
             patch.object(
                 hcloud_guarded_change_flow,
@@ -1826,14 +1809,12 @@ class MultiServiceToolsTest(unittest.TestCase):
         ):
             result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(execute_dryrun=True, execute_readiness=True))
 
-        self.assertTrue(result["success"], result)
-        self.assertTrue(result["dryrun"]["success"])
-        self.assertTrue(result["post_change_verification"]["success"])
-        self.assertTrue(result["post_change_readiness"]["success"])
-        dryrun_mock.assert_called_once()
-        readiness_mock.assert_called_once()
+        self.assertFalse(result["success"], result)
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        dryrun_mock.assert_not_called()
+        readiness_mock.assert_not_called()
 
-    def test_guarded_change_flow_writes_journal_for_dryrun_verify_and_readiness(self) -> None:
+    def test_guarded_change_flow_does_not_write_execution_journal_when_frozen(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             journal = Path(tmp_dir) / "guarded.jsonl"
             with (
@@ -1861,15 +1842,11 @@ class MultiServiceToolsTest(unittest.TestCase):
                         journal=str(journal),
                     )
                 )
-            events = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
+        self.assertFalse(result["success"], result)
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        self.assertFalse(journal.exists())
 
-        self.assertTrue(result["success"], result)
-        self.assertEqual([event["stage"] for event in events], ["dryrun", "verify", "readiness"])
-        self.assertEqual(events[0]["type"], "command")
-        self.assertEqual(events[1]["type"], "verification")
-        self.assertEqual(events[2]["type"], "verification")
-
-    def test_guarded_change_flow_extracts_verify_id_from_submit_result(self) -> None:
+    def test_guarded_change_flow_blocks_submit_before_legacy_executor(self) -> None:
         with (
             patch.object(
                 hcloud_guarded_change_flow,
@@ -1895,12 +1872,11 @@ class MultiServiceToolsTest(unittest.TestCase):
             args.submit_token = self.current_guarded_submit_token(args)
             result = hcloud_guarded_change_flow.build_flow(args)
 
-        self.assertTrue(result["success"], result)
-        self.assertFalse(result["planning_only"])
-        self.assertEqual(result["post_change_verification"]["operation"], "ShowSecurityGroupRule")
-        self.assertIn("--arg=--security_group_rule_id=rule-2", result["post_change_verification"]["command"])
-        self.assertEqual(execute_mock.call_count, 2)
-        verify_mock.assert_called_once()
+        self.assertFalse(result["success"], result)
+        self.assertTrue(result["planning_only"])
+        self.assertEqual(result["runtime_execution_block"]["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        execute_mock.assert_not_called()
+        verify_mock.assert_not_called()
 
     def test_guarded_change_flow_reports_missing_verify_target(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(verify_param=[]))

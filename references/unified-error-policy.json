@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "huaweicloud-unified-error-policy",
+  "version": "v1",
+  "description": "统一 Operation Result 的错误分类与下一步原则。它不替代服务 API 的错误码文档，也不自动重试变更操作。",
+  "defaults": {
+    "category": "unknown",
+    "retry": "do_not_retry_automatically",
+    "next_action": "保留脱敏证据，补充上下文后再判断是否安全重试。"
+  },
+  "error_types": {
+    "USE_ERROR": {
+      "category": "usage",
+      "retry": "fix_input_then_retry",
+      "next_action": "核对服务、operation、版本与必填参数，不重复提交。"
+    },
+    "CLI_ERROR": {
+      "category": "local_cli",
+      "retry": "fix_local_environment_then_retry",
+      "next_action": "检查本地 hcloud 安装、配置文件和命令格式。"
+    },
+    "NETWORK_ERROR": {
+      "category": "network",
+      "retry": "read_or_dry_run_only_after_connectivity_check",
+      "next_action": "先验证网络、DNS 和代理；变更请求不得因网络错误盲目重放。"
+    },
+    "OPENAPI_ERROR": {
+      "category": "cloud_api",
+      "retry": "inspect_cloud_error_before_retry",
+      "next_action": "按云端错误码区分权限、配额、参数或资源状态，再决定下一步。"
+    },
+    "APIE_ERROR": {
+      "category": "metadata_or_api",
+      "retry": "refresh_metadata_or_inspect_cloud_error",
+      "next_action": "核对 API 元数据和版本；若已进入云端，先读回资源状态。"
+    },
+    "TIMEOUT": {
+      "category": "timeout",
+      "retry": "read_back_before_retry",
+      "next_action": "先查询 job 或资源终态，超时不等于未提交或未完成。"
+    }
+  },
+  "cloud_code_patterns": [
+    {
+      "pattern": "(unauthorized|forbidden|accessdenied|permission)",
+      "category": "permission",
+      "retry": "fix_authorization_then_retry",
+      "next_action": "核对最小权限、目标项目和区域；不要通过扩大权限绕过。"
+    },
+    {
+      "pattern": "(quota|limitexceeded|insufficient)",
+      "category": "quota_or_capacity",
+      "retry": "review_capacity_or_quota_then_retry",
+      "next_action": "核对配额、库存和成本影响；必要时请求人工审批。"
+    },
+    {
+      "pattern": "(notfound|not_found|404)",
+      "category": "not_found",
+      "retry": "refresh_discovery_then_retry",
+      "next_action": "重新发现资源、项目和区域，避免用猜测的标识符重试。"
+    },
+    {
+      "pattern": "(invalid|validation|badrequest|400)",
+      "category": "parameter",
+      "retry": "fix_input_then_retry",
+      "next_action": "修正参数或请求体，并重新生成计划指纹。"
+    }
+  ],
+  "stage_overrides": {
+    "submit": {
+      "timeout": {
+        "retry": "read_back_before_retry",
+        "next_action": "提交阶段超时必须先读回 job、资源或审计证据，再判断是否需要人工处置。"
+      }
+    }
+  }
+}

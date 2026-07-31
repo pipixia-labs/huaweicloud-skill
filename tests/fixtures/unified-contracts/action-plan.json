@@ -1,0 +1,15 @@
+{
+  "schema_version": "action-plan/v1",
+  "action_spec_ref": {
+    "id": "huaweicloud.ecs.create_server.v1",
+    "lifecycle": "curated",
+    "fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "context_fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "allowed_stage": "dry_run",
+  "risk_summary": [{"tag": "cost", "status": "needs_user_review"}],
+  "missing_inputs": ["subnet_id"],
+  "preflight": [{"id": "network_scope", "status": "pending"}],
+  "confirmation": {"required": true, "status": "not_requested"},
+  "verification": [{"id": "job_terminal", "required": true}]
+}

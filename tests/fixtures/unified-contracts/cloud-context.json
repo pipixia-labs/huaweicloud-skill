@@ -1,0 +1,14 @@
+{
+  "schema_version": "cloud-context/v1",
+  "intent": "Plan a controlled ECS web deployment.",
+  "scope": {
+    "region": "cn-north-4",
+    "project_id": "example-project",
+    "resource_refs": ["vpc:example-vpc"]
+  },
+  "constraints": {
+    "maintenance_window": "pending_confirmation",
+    "public_access_intent": "review_required"
+  },
+  "missing_inputs": ["subnet_id", "image_id"]
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "submission-authorization/v1",
+  "action_spec_ref": {
+    "id": "huaweicloud.ecs.create_server.v1",
+    "lifecycle": "curated",
+    "fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "action_plan_fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "execution_intent_fingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "confirmation": {
+    "status": "confirmed",
+    "approval_id": "example-user-approval",
+    "reviewed_action_plan_fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "reviewed_execution_intent_fingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "preflight_evidence_fingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "admission": {"status": "prepared_for_future_adapter"},
+  "execution_authority": {"submission_authority": "not_implemented"}
+}

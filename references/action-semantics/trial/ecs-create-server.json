@@ -1,0 +1,27 @@
+{
+  "schema_version": "action-spec/v1",
+  "id": "huaweicloud.ecs.create_server.v1",
+  "lifecycle": "curated",
+  "maturity": "curated",
+  "execution_family": "hcloud",
+  "catalog_ref": {
+    "catalog_fingerprint": "sha256:05ec1811851fdb6fda3fa1e0761caae34931a61d29e19a8becafb03da838478d",
+    "service": "ECS",
+    "operation": "CreateServers",
+    "version": "v2"
+  },
+  "effect": "create",
+  "risk_tags": ["cost", "network_public", "async"],
+  "tool_candidates": ["hcloud", "terraform"],
+  "preflight": {
+    "required_inputs": ["server_name", "availability_zone", "vpc_id", "subnet_id", "image_id", "flavor_id", "root_volume_type", "server_count", "key_name", "security_group_id", "security_group_rule_evidence"],
+    "required_facts": ["target_project_resolved", "network_scope_confirmed", "keypair_readback_confirmed", "security_group_rules_confirmed"],
+    "supports_dry_run": true
+  },
+  "execution": {
+    "adapter": "future_controlled_hcloud_entrypoint",
+    "legacy_path": "hcloud_guarded_change_flow.py"
+  },
+  "verification_profile": "ecs_job_then_resource_active",
+  "output_policy": "redacted_summary"
+}

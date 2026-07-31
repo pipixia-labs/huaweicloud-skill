@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huaweicloud-skill/contracts/submission-authorization/v1",
+  "title": "Submission Authorization v1",
+  "description": "Prepared binding between reviewed Action Plan, Execution Intent, and explicit user confirmation. It does not grant execution unless a future Skill-controlled entry verifies it.",
+  "type": "object",
+  "required": ["schema_version", "action_spec_ref", "action_plan_fingerprint", "execution_intent_fingerprint", "confirmation", "admission", "execution_authority"],
+  "properties": {
+    "schema_version": {"const": "submission-authorization/v1"},
+    "action_spec_ref": {
+      "type": "object",
+      "required": ["id", "lifecycle", "fingerprint"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "lifecycle": {"const": "curated"},
+        "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "action_plan_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "execution_intent_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "confirmation": {
+      "type": "object",
+      "required": ["status", "approval_id", "reviewed_action_plan_fingerprint", "reviewed_execution_intent_fingerprint", "preflight_evidence_fingerprint"],
+      "properties": {
+        "status": {"const": "confirmed"},
+        "approval_id": {"type": "string", "minLength": 1},
+        "reviewed_action_plan_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "reviewed_execution_intent_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "preflight_evidence_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": true
+    },
+    "admission": {"type": "object"},
+    "execution_authority": {"type": "object"},
+    "authorization_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

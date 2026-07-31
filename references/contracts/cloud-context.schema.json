@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huaweicloud-skill/contracts/cloud-context/v1",
+  "title": "Cloud Context v1",
+  "description": "Portable task context shared by discovery, planning, verification, and tool adapters. It must never contain secret values.",
+  "type": "object",
+  "required": ["schema_version", "intent", "scope"],
+  "properties": {
+    "schema_version": {"const": "cloud-context/v1"},
+    "intent": {"type": "string", "minLength": 1},
+    "scope": {
+      "type": "object",
+      "properties": {
+        "region": {"type": "string", "minLength": 1},
+        "project_id": {"type": "string", "minLength": 1},
+        "enterprise_project_id": {"type": "string", "minLength": 1},
+        "resource_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": true
+    },
+    "constraints": {"type": "object"},
+    "discovery_facts": {"type": "array", "items": {"type": "object"}},
+    "missing_inputs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "additionalProperties": true
+}

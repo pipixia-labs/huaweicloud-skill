@@ -1,0 +1,20 @@
+{
+  "schema_version": "metadata-read-plan/v1",
+  "action_spec_ref": {
+    "id": "huaweicloud.lts.list_logs.v1",
+    "lifecycle": "reviewed",
+    "fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "context_fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "catalog_ref": {
+    "catalog_fingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "service": "LTS",
+    "operation": "ListLogs",
+    "version": "v2"
+  },
+  "scope": {"region": "cn-north-4", "project_id": "example-project"},
+  "admission": {"status": "blocked", "reasons": ["Missing bounded query inputs."]},
+  "query_requirements": [{"id": "log_group_id", "status": "missing"}],
+  "output_policy": {"semantic_policy": "redacted_summary", "effective_mode": "summary"},
+  "execution_authority": {"mode": "plan_only", "metadata_read_authority": "not_implemented"}
+}

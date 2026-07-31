@@ -1,0 +1,11 @@
+{
+  "schema_version": "operation-result/v1",
+  "stage": "plan",
+  "outcome": "succeeded",
+  "facts": [{"kind": "plan_built", "value": true}],
+  "evidence": [{"kind": "local_validation", "status": "passed"}],
+  "risks": [{"tag": "cost", "status": "pending_confirmation"}],
+  "gaps": [{"field": "subnet_id", "status": "missing"}],
+  "next_actions": [{"action": "collect_missing_input"}],
+  "user_summary": "计划已生成，尚未执行云端提交。"
+}

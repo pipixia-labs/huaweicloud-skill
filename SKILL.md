@@ -1,6 +1,6 @@
 ---
 name: huaweicloud-skill
-description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更；也支持通过华为云 MaaS API 规划和调用大模型、图像理解、图片生成/编辑与视频生成任务。适用于 CLI/KooCLI 云资源操作、MaaS API 调用、认证排查、命令构造、执行验证和安全变更规划。
+description: 使用 hcloud 命令行工具执行华为云资源查询、分析和变更规划；也支持 MaaS 模型、图像和视频任务的计划与只读治理查询。它是可被任意 Agent 直接加载的标准 Skill；当前未接入 Skill 内部受控入口的变更一律为 plan-only，适用于 CLI/KooCLI 云资源操作、认证排查、命令构造、执行验证和安全变更规划。
 ---
 
 # Huawei CLI Skill
@@ -14,6 +14,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - Terraform 是辅助 IaC 面，只在用户明确需要可重复创建、环境复制、长期纳管、import 或 drift review 时进入；不能跳过 hcloud 发现和后置验证。
 - MaaS 是 API-first 能力面。模型调用使用 MaaS API Key；用量统计是治理查询，按本地 AK/SK 签名规划处理。不要让用户在对话里粘贴密钥。
 - 目标不是背命令，而是稳定完成：识别上下文 -> 发现资源/operation -> 构造安全命令 -> 查询或变更 -> 回读验证 -> 处理错误。
+- **M2.5 运行时边界**：通用 hcloud mutation、旧 guarded submit/dry-run、Terraform 状态变更和 MaaS 生成目前均由代码强制为 `plan_only`。用户对当前计划的明确确认是未来受控提交的必要条件，但当前不会触发真实提交；只有已证明只读的查询可执行。ECS 密钥对私网子集与 DNS A 记录已有本地请求映射准备；当前 handoff 试验产物不属于目标架构、也不能提升为提交权限。后续提交、回读和验证将由 Skill 内部入口完成，不要求任何 Agent 改造。
 
 ## 什么时候使用
 
@@ -38,7 +39,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - **任何网站部署任务**在决定架构、生成 MaaS 图片/视频、创建云资源、上传站点或暴露公网前，必须先运行路由；先读取顶层 `architecture_decision`，再看 `matches`。路由只约束对用户原话的忠实解释，不替 agent 预设 ECS、OBS、Flexus 或具体规格。
    - 网站部署任务先读取顶层 `architecture_decision`，再看 `matches`。`explicit_constraints` 是用户约束，不是成本优化提示；用户指定机器、ECS、公网 IP、SSH、Nginx 或 Docker 时，不得自动改成 OBS。
    - `change_execution_blocked=true` 时，原样围绕 `clarification_question` 澄清运行载体或动态能力；确认前禁止生成或执行创建、购买、上传、公开访问等变更。`change_execution_blocked=false` 只表示当前不需要架构澄清，**不表示用户已授权执行**。
-   - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
+   - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；即使用户确认，当前也只生成受审核计划，等待后续 Skill 内部服务专用受控入口。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
    - 账号级多服务盘点优先使用 `hcloud_account_inventory.py`。支持 Skill
@@ -56,15 +57,15 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 命中大输出策略后，Agent 只读取摘要、数量、字段结构、少量样本和落盘路径；不得把完整列表、完整文件或完整 `parsed_json` 再输出到对话。
    - `OUTPUT_POLICY_REQUIRED` 不是云 API 失败；按返回的 `corrected_command` 或补齐 `corrected_command_template` 中的时间/范围参数后再执行一次，不要原样重试。
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
-4. 变更类先计划再执行：
+4. 变更类先计划，当前不提交：
    - 先查现状证据，再生成 change plan / dry-run / guarded submit。
    - 按所选工具的真实结果契约解释输出。本 Skill 的 execute 脚本如果返回
      `outcome_status`，以该结构化字段为业务结果；裸 `hcloud`、帮助探测和其他
      未声明结构化结果的命令必须同时保留 stdout、stderr 和退出码，不能只因进程
      退出码为 `0` 就断言云操作成功。
    - 对可能产生费用或影响线上服务的云资源操作，先形成一套或多套候选方案。Agent 可以调用现有工具、专家能力或自行分析来制定方案；每套方案应说明目标资源、预期影响、持续费用（如适用）、主要风险和验证方式。
-   - 将候选方案交由用户选择并明确确认后，才能执行对应操作；用户仅提出初始需求不构成执行授权。
-   - 真实 submit，以及会产生计费或外部副作用的 MaaS 图片/视频生成，必须有用户在查看本次方案后作出的明确确认；初始任务请求、路由成功、dry-run 成功或 `change_execution_blocked=false` 都不是执行授权。安全、身份、密钥、治理类 mutation 默认 hard guard。
+   - 将候选方案交由用户选择并明确确认；确认会绑定未来的执行意图，但当前不会执行对应操作。
+   - 用户确认是未来真实 submit、Terraform 状态变更和计费型 MaaS 调用的必要条件，不是当前执行授权。M2.5 冻结期间，旧执行入口统一返回 `UNIFIED_RUNTIME_PLAN_ONLY`；安全、身份、密钥、治理类 mutation 另有 hard guard。
 5. P0 高频服务闭环：
    - 先运行 `hcloud_closure_plan.py --tier lifecycle` 生成 lifecycle plan 和 `acceptance_evidence_plan`。
    - 再用 `hcloud_acceptance_closure.py plan/run/evaluate/chain` 做采证计划、受支持探测和 evidence 结果判定。
@@ -82,8 +83,8 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | 凭据、AK/SK、API Key、私钥 | 不在对话、日志、manifest、站点代码中回显或保存；支持文档列出的同家族环境变量别名，不得跨家族拼接 AK/SK。命令/API 输出中的 `***`、`****` 或更多连续星号表示“值存在但已脱敏”，不表示缺失。 |
 | 安全组入口 | SSH `22` 和开发端口不得开放到 `0.0.0.0/0`。用户确认公网网站方案后，直连 ECS 的精确 TCP `80/443` 可使用 `--allow-public-web` 规划；该参数不替代 submit 确认，复用安全组仍要读回规则并做外网协议探测。 |
 | 异步云任务 | 跟到 job 终态，再做资源状态、协议或业务验收。 |
-| Terraform 状态 | import/state/remote state 是高影响操作；必须显式确认，不能自动 apply/destroy。 |
-| MaaS 视频和异步任务 | `task_id` 只是受理凭据，必须查询终态。 |
+| Terraform 状态 | import/state/remote state 是高影响操作；当前统一为 plan-only，不能自动 apply/destroy。 |
+| MaaS 视频和异步任务 | 生成目前为 plan-only；已存在的 `task_id` 只可查询终态，且不代表完成。 |
 | 账单/成本 | 不从资源清单推断费用；账单结果要脱敏、区分 fact/grain/money basis/scope。 |
 | 自动 live probe | 只执行 plan 派生的 HTTP/TCP/DNS/TLS；元数据/link-local 目标拒绝，内网/localhost 需显式确认。 |
 | 结果叙事 | 只描述真实发生的命令、输出和验证；不要编造失败-恢复过程或把计划态写成已执行。 |
@@ -98,11 +99,11 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | 自然语言场景路由 | `hcloud_scenario_router.py` |
 | hcloud 版本选择、真实查询或受控系统命令 | `hcloud_operation_resolver.py`、`hcloud_safe_exec.py` |
 | 多服务发现、目标查询、readiness/live validation（含 CCI 工作负载前检） | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py`、`hcloud_cci_workload_plan.py` |
-| 创建/变更计划和 guarded flow | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
+| 创建/变更计划和 guarded flow（当前 plan-only） | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
 | P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |
 | 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py`、`hcloud_billing_live_read.py` |
 | Terraform/IaC | `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`hcloud_terraform_operations_plan.py` |
-| MaaS 模型调用、图片/视频、用量治理 | `maas_models.py`、`maas_chat.py`、`maas_image_generation.py`、`maas_video_generation.py`、`maas_usage_request_plan.py` |
+| MaaS 计划、模型目录和用量治理 | `maas_models.py`、`maas_chat.py`、`maas_image_generation.py`、`maas_video_generation.py`、`maas_usage_request_plan.py`（生成/对话当前 plan-only） |
 | 脚本边界、维护分层、完整命令模板 | `references/scripts.md`、`references/script-audience-manifest.json` |
 
 ## 资料入口
@@ -113,7 +114,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - 场景路由和服务资料：`references/scenario-router.json`、`references/guides/`、`references/playbooks/`
 - 命令构造和错误处理：`references/command-construction.md`、`references/error-playbook.md`、`references/output-and-query.md`、`references/hcloud-output-policies.json`
 - 可选机器契约：`references/capability-contracts.md`、`capabilities.json`
-- 脚本索引和受众边界：`references/scripts.md`、`references/script-audience-manifest.json`
+- 脚本索引和受众边界：`references/scripts.md`、`references/script-audience-manifest.json`、`references/controlled-adapters.md`（其中记录已废弃的宿主交接试验及 Skill 内部闭环目标）
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`
 - 覆盖和晋级：`references/service-coverage.md`、`references/service-curation-profiles.json`、`references/live-validation-profiles.json`、`hcloud_closure_maturity_audit.py`

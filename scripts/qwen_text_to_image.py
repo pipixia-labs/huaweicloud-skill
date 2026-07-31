@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import hcloud_runtime_admission
+
 DEFAULT_MODEL = "qwen-image"
 DEFAULT_ENDPOINT = "https://api.modelarts-maas.com/v1/images/generations"
 DEFAULT_SIZE = "1024x1024"
@@ -202,22 +204,11 @@ def build_payload(model: str, item: PromptItem) -> dict[str, Any]:
 
 
 def call_huawei_maas(api_key: str, model: str, item: PromptItem, timeout: int) -> dict[str, Any]:
-    body = json.dumps(build_payload(model, item), ensure_ascii=False).encode("utf-8")
-    request = urllib.request.Request(
-        DEFAULT_ENDPOINT,
-        data=body,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    """Refuse the legacy direct POST helper during the runtime hard freeze."""
+    del api_key, model, item, timeout
+    raise QwenImageError(
+        "MaaS image generation is plan-only until a controlled external-effect adapter is available."
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        response_body = response.read().decode("utf-8")
-    try:
-        return json.loads(response_body)
-    except json.JSONDecodeError as exc:
-        raise QwenImageError("Huawei Cloud MaaS response was not JSON") from exc
 
 
 def extract_b64_json(response: dict[str, Any]) -> str:
@@ -320,7 +311,6 @@ def main(argv: list[str] | None = None) -> int:
         args = parse_args(argv)
         items = load_prompt_items(args)
         out_dir = Path(args.out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = Path(args.manifest) if args.manifest else out_dir / "qwen_manifest.json"
 
         plan = {
@@ -343,63 +333,18 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"success": True, "dry_run": True, "plan": plan}, ensure_ascii=False, indent=2))
             return 0
 
-        api_key = get_api_key()
-        manifest = {
-            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "provider": "Huawei Cloud ModelArts MaaS image generation",
-            "endpoint_host": urllib.parse.urlparse(DEFAULT_ENDPOINT).netloc,
-            "items": [],
-        }
-        for current, item in enumerate(items, start=1):
-            emit_action_progress(
-                phase="item_started",
-                output_id=item.output_id,
-                item_label=item.file,
-                current=current,
-                total=len(items),
-                attempt=1,
-                max_attempts=1,
-            )
-            try:
-                result = generate_item(
-                    api_key=api_key,
-                    model=args.model,
-                    item=item,
-                    out_dir=out_dir,
-                    image_format=args.format,
-                    overwrite=args.overwrite,
-                    timeout=args.timeout,
-                )
-                target = out_dir / item.file
-                if not target.is_file() or target.stat().st_size <= 0:
-                    raise QwenImageError(f"Generated output is missing or empty: {item.file}")
-            except Exception:
-                emit_action_progress(
-                    phase="item_failed",
-                    output_id=item.output_id,
-                    item_label=item.file,
-                    current=current,
-                    total=len(items),
-                    attempt=1,
-                    max_attempts=1,
-                    completed_count=current - 1,
-                    failed_count=1,
-                )
-                raise
-            manifest["items"].append(result)
-            emit_action_progress(
-                phase="item_succeeded",
-                output_id=item.output_id,
-                item_label=item.file,
-                current=current,
-                total=len(items),
-                completed_count=current,
-            )
-            print(f"{result['status']}: {result['file']}", flush=True)
-
-        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(json.dumps({"success": True, "manifest": str(manifest_path), "count": len(items)}, ensure_ascii=False))
-        return 0
+        blocked = hcloud_runtime_admission.block_result(
+            "maas_remote_generation",
+            "MaaS image generation compatibility entrypoint",
+            reason=(
+                "This compatibility image-generation entrypoint can consume billable MaaS capacity "
+                "and has not been bridged to the unified Submission Authorization contract."
+            ),
+            next_action="Use --dry-run to review the payload; wait for the controlled MaaS adapter before an online generation request.",
+        )
+        blocked["plan"] = plan
+        print(json.dumps(blocked, ensure_ascii=False))
+        return 1
     except Exception as exc:
         print(json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1

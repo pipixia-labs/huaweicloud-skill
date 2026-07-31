@@ -9,6 +9,7 @@ from typing import Any
 
 import hcloud_common
 import maas_common
+import hcloud_runtime_admission
 
 TEXT_V2_PATH = "/v2/chat/completions"
 VISION_V1_PATH = "/v1/chat/completions"
@@ -130,18 +131,17 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def execute(args: argparse.Namespace) -> dict[str, Any]:
-    """Execute a MaaS chat completion request."""
-    payload = build_payload(args)
-    if payload.get("stream"):
-        raise maas_common.MaasAPIError("This helper can plan stream=true payloads, but does not execute streaming responses yet.")
-    api_key = maas_common.get_api_key()
-    response = maas_common.request_json("POST", endpoint_path(args), api_key=api_key, body=payload, timeout=args.timeout, base_url=args.base_url)
-    return {
-        "success": True,
-        "dry_run": False,
-        **maas_common.response_metadata(response),
-        "chat": summarize_chat_response(response),
-    }
+    """Refuse remote MaaS inference until a controlled external-effect adapter exists."""
+    del args
+    return hcloud_runtime_admission.block_result(
+        "maas_remote_generation",
+        "MaaS chat completion",
+        reason=(
+            "Remote MaaS inference can consume billable capacity and has not been bridged "
+            "to the unified Submission Authorization contract."
+        ),
+        next_action="Use --dry-run to review the request; wait for the controlled MaaS adapter before an online inference request.",
+    )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -176,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         args = parse_args(argv)
         result = build_plan(args) if args.dry_run else execute(args)
         hcloud_common.emit_json(result, pretty=args.pretty)
-        return 0
+        return 0 if result.get("success") else 1
     except Exception as exc:
         hcloud_common.emit_json({"success": False, "error": str(exc)})
         return 1

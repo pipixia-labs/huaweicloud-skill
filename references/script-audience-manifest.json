@@ -89,10 +89,14 @@
     },
     {
       "id": "guarded_change",
-      "audience": "agent runtime for explicit change planning and guarded submit workflows",
-      "boundary": "Use only after context discovery and risk review. Submit still requires the exact command, fresh evidence, and explicit user confirmation.",
+      "audience": "agent runtime for explicit change planning, verification planning, and future Skill-internal controlled-submit preparation",
+      "boundary": "Use only after context discovery and risk review. During the M2.5 runtime freeze, legacy submit/dry-run and Terraform state-change flags are plan-only; no exact command, token, or user confirmation can bypass the policy.",
       "scripts": [
         "scripts/hcloud_change_plan.py",
+        "scripts/hcloud_action_plan.py",
+        "scripts/hcloud_controlled_admission.py",
+        "scripts/hcloud_metadata_read_plan.py",
+        "scripts/hcloud_operation_result.py",
         "scripts/hcloud_ecs_create_plan.py",
         "scripts/hcloud_ecs_verify_active.py",
         "scripts/hcloud_ecs_wait_job.py",
@@ -130,10 +134,17 @@
         "scripts/hcloud_catalog_smoke_candidates.py",
         "scripts/hcloud_curated_promotion_audit.py",
         "scripts/hcloud_live_regression_plan.py",
+        "scripts/hcloud_m2_5_closure_audit.py",
         "scripts/hcloud_readonly_smoke.py",
         "scripts/hcloud_sdk_supplement_audit.py",
         "scripts/hcloud_terraform_catalog.py",
-        "scripts/hcloud_terraform_provider_inventory.py"
+        "scripts/hcloud_terraform_provider_inventory.py",
+        "scripts/hcloud_entrypoint_shadow_audit.py",
+        "scripts/hcloud_invariant_coverage_audit.py",
+        "scripts/hcloud_unified_baseline_audit.py",
+        "scripts/hcloud_unified_contracts.py",
+        "scripts/hcloud_controlled_submit_handoff.py",
+        "scripts/hcloud_controlled_adapter_registry.py"
       ]
     },
     {
@@ -147,6 +158,10 @@
         "scripts/hcloud_output_policy.py",
         "scripts/hcloud_run_journal.py",
         "scripts/hcloud_security_policy.py",
+        "scripts/hcloud_unified_policy.py",
+        "scripts/hcloud_runtime_admission.py",
+        "scripts/hcloud_dns_record_set_request.py",
+        "scripts/hcloud_ecs_create_request.py",
         "scripts/maas_common.py"
       ]
     },

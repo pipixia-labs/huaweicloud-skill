@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huaweicloud-skill/contracts/action-plan/v1",
+  "title": "Action Plan v1",
+  "description": "Task-specific plan derived from an Action Spec and Cloud Context. A plan is not a submission authorization by itself.",
+  "type": "object",
+  "required": ["schema_version", "action_spec_ref", "context_fingerprint", "allowed_stage", "risk_summary", "missing_inputs", "preflight", "verification"],
+  "properties": {
+    "schema_version": {"const": "action-plan/v1"},
+    "action_spec_ref": {
+      "type": "object",
+      "required": ["id", "lifecycle", "fingerprint"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "lifecycle": {"enum": ["generated", "reviewed", "curated", "deprecated"]},
+        "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "context_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "allowed_stage": {"enum": ["discover", "plan", "dry_run", "submit", "verify"]},
+    "risk_summary": {"type": "array", "items": {"type": "object"}},
+    "missing_inputs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "preflight": {"type": "array", "items": {"type": "object"}},
+    "confirmation": {"type": "object"},
+    "verification": {"type": "array", "items": {"type": "object"}},
+    "output": {"type": "array", "items": {"type": "object"}},
+    "policy": {"type": "object"},
+    "execution_authority": {"type": "object"},
+    "plan_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

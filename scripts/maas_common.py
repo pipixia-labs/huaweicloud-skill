@@ -157,10 +157,21 @@ def request_json(
     timeout: int = 120,
     base_url: str = DEFAULT_MAAS_BASE_URL,
 ) -> dict[str, Any]:
-    """Call a MaaS JSON API endpoint and return a structured response."""
+    """Call a read-only MaaS JSON API endpoint and return a structured response.
+
+    MaaS requests that can produce output or consume billable inference capacity
+    are frozen at their user-facing entrypoints during M2.5.  Keeping this
+    shared transport read-only also prevents an imported helper from becoming
+    a hidden POST bypass while no controlled MaaS adapter exists.
+    """
+    normalized_method = method.upper()
+    if normalized_method not in {"GET", "HEAD"}:
+        raise MaasAPIError(
+            "MaaS non-read request is plan-only until a controlled external-effect adapter is available."
+        )
     url = endpoint_url(path, base_url)
     payload = None if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8")
-    request = urllib.request.Request(url, data=payload, headers=build_headers(api_key), method=method.upper())
+    request = urllib.request.Request(url, data=payload, headers=build_headers(api_key), method=normalized_method)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw_body = response.read().decode("utf-8", errors="replace")

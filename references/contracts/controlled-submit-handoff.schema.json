@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huaweicloud-skill/contracts/controlled-submit-handoff/v1",
+  "title": "Controlled Submit Handoff v1",
+  "description": "A secret-free, fingerprint-bound handoff candidate for a host-controlled adapter. It is not an execution permit and the Skill never authenticates host approval or sends a cloud request.",
+  "type": "object",
+  "required": ["schema_version", "adapter_ref", "action_spec_ref", "catalog_ref", "submission_authorization_fingerprint", "execution_intent_fingerprint", "request_preparation", "host_authority_requirements", "execution_authority"],
+  "properties": {
+    "schema_version": {"const": "controlled-submit-handoff/v1"},
+    "adapter_ref": {
+      "type": "object",
+      "required": ["id", "registry_fingerprint"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "registry_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "action_spec_ref": {
+      "type": "object",
+      "required": ["id", "lifecycle", "fingerprint"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "lifecycle": {"const": "curated"},
+        "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "catalog_ref": {
+      "type": "object",
+      "required": ["catalog_fingerprint", "service", "operation", "version"],
+      "properties": {
+        "catalog_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "service": {"type": "string", "minLength": 1},
+        "operation": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "submission_authorization_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "execution_intent_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "request_preparation": {
+      "type": "object",
+      "required": ["mapping_id", "request_fingerprint", "payload_delivery"],
+      "properties": {
+        "mapping_id": {"type": "string", "minLength": 1},
+        "request_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "payload_delivery": {"const": "host_rederives_from_fingerprint_bound_execution_intent"}
+      },
+      "additionalProperties": false
+    },
+    "host_authority_requirements": {
+      "type": "object",
+      "required": ["verification_location", "requirements"],
+      "properties": {
+        "verification_location": {"const": "host_adapter"},
+        "requirements": {
+          "type": "array",
+          "minItems": 4,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution_authority": {
+      "type": "object",
+      "required": ["mode", "submission_authority"],
+      "properties": {
+        "mode": {"const": "plan_only"},
+        "submission_authority": {"const": "host_adapter_required"}
+      },
+      "additionalProperties": true
+    },
+    "handoff_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

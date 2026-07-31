@@ -533,8 +533,8 @@ class SafeExecRedactionTest(unittest.TestCase):
         self.assertIn("permission_hint", result["error_details"])
         self.assertIn("vpc:securityGroupRules:list", result["error_details"]["permission_hint"]["required_actions"])
 
-    def test_cli_supplies_user_and_home_defaults_to_hcloud_subprocess(self) -> None:
-        """KooCLI receives shell defaults even when the sandbox omits them."""
+    def test_cli_rejects_raw_command_part_before_hcloud_subprocess(self) -> None:
+        """Raw command parts are not a compatibility bypass during the freeze."""
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -568,9 +568,10 @@ class SafeExecRedactionTest(unittest.TestCase):
 
         result = json.loads(completed.stdout)
 
-        self.assertEqual(completed.returncode, 0)
-        self.assertTrue(result["success"])
-        self.assertEqual(result["stdout"], "USER=hcloud;HOME=/tmp\n")
+        self.assertEqual(completed.returncode, 1)
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        self.assertEqual(result["command"], [])
 
     def test_hcloud_subprocess_env_preserves_runtime_values(self) -> None:
         """A credential runtime's own home and user values are never replaced."""
@@ -653,7 +654,7 @@ class SafeExecRedactionTest(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertNotEqual(completed.returncode, 0)
         self.assertFalse(marker_path.exists())
-        self.assertEqual(result["error_type"], "VERSION_RESOLUTION_ERROR")
+        self.assertEqual(result["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
         self.assertEqual(result["corrected_operation"], "ListSecurityGroups/v2")
         self.assertEqual(result["corrected_command"][2], "ListSecurityGroups/v2")
 
@@ -700,7 +701,7 @@ class SafeExecRedactionTest(unittest.TestCase):
             "read_only_version_usage_error",
         )
 
-    def test_mutation_usage_error_is_never_retried_with_another_version(self) -> None:
+    def test_mutation_never_reaches_hcloud_or_version_retry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
             hcloud_path = tmp_path / "hcloud"
@@ -731,7 +732,8 @@ class SafeExecRedactionTest(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertFalse(result["success"])
         self.assertEqual(result["resolved_operation"], "CreateSecurityGroup/v3")
-        self.assertEqual(len(result["attempts"]), 1)
+        self.assertEqual(result["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        self.assertEqual(len(result["attempts"]), 0)
         self.assertNotIn("version_correction", result)
 
 

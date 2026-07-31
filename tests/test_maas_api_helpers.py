@@ -137,8 +137,28 @@ class MaasAPIHelpersTest(unittest.TestCase):
         args = maas_chat.parse_args(["--prompt", "你好", "--stream"])
 
         with mock.patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(maas_common.MaasAPIError):
-                maas_chat.execute(args)
+            result = maas_chat.execute(args)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+
+    def test_image_generation_execute_is_blocked_before_key_or_network(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            args = maas_image_generation.parse_args(
+                ["--prompt", "生成一张云产品插图", "--file", "hero.webp", "--out-dir", tmp_dir]
+            )
+            result = maas_image_generation.execute(args)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+
+    def test_video_create_is_blocked_before_key_or_network(self) -> None:
+        args = maas_video_generation.parse_args(["--prompt", "云服务器控制台动画", "--size", "720x1280"])
+
+        result = maas_video_generation.create_task(args)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
 
     def test_image_generation_plan_includes_edit_image_and_watermark(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

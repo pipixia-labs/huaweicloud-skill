@@ -1,0 +1,8 @@
+{
+  "schema_version": "cloud-context/v1",
+  "intent": "规划 MaaS 图像生成请求，不发起远程调用。",
+  "scope": {
+    "region": "cn-southwest-2"
+  },
+  "missing_inputs": ["model", "prompt"]
+}

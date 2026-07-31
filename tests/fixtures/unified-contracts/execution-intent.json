@@ -1,0 +1,18 @@
+{
+  "schema_version": "execution-intent/v1",
+  "execution_family": "hcloud",
+  "action_spec_ref": {
+    "id": "huaweicloud.ecs.create_server.v1",
+    "lifecycle": "curated",
+    "fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "catalog_ref": {
+    "catalog_fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "service": "ECS",
+    "operation": "CreateServers",
+    "version": "v2"
+  },
+  "scope": {"region": "cn-north-4", "project_id": "example-project"},
+  "parameters": {"server_count": 1, "flavor_id": "c6.large.2"},
+  "idempotency": {"required": true}
+}

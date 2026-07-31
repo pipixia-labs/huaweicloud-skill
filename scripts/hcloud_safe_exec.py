@@ -21,6 +21,7 @@ from typing import Any
 import hcloud_catalog
 import hcloud_operation_resolver
 import hcloud_output_policy
+import hcloud_runtime_admission
 from hcloud_common import (
     coerce_output_text,
     collect_inline_secrets,
@@ -147,6 +148,10 @@ VERSION_USAGE_ERROR_PATTERNS = (
 )
 REFERENCES_DIR = Path(__file__).resolve().parents[1] / "references"
 IAM_ACTIONS_PATH = REFERENCES_DIR / "iam-actions-catalog.json"
+SAFE_HCLOUD_INFORMATION_COMMANDS = {
+    ("version",),
+    ("help",),
+}
 
 
 def normalize_bool_text(value: Any) -> Any:
@@ -788,6 +793,85 @@ def build_hcloud_subprocess_env(
     return command_env
 
 
+def generic_dispatch_block_reason(
+    args: argparse.Namespace,
+    version_resolution: dict[str, Any] | None,
+) -> str | None:
+    """Return why a generic hcloud invocation must remain plan-only.
+
+    Generic dispatch can execute only operations that the local resolver has
+    explicitly classified as read-only.  Raw command parts and skipped/failed
+    resolution stay blocked because they cannot prove that a cloud mutation is
+    absent.  This is the M2.5 runtime freeze, not a documentation warning.
+    """
+    if args.command_part:
+        if tuple(args.command_part) in SAFE_HCLOUD_INFORMATION_COMMANDS:
+            return None
+        return "Generic --command-part is not in the narrow local information allowlist."
+    if not isinstance(version_resolution, dict) or not version_resolution.get("success"):
+        return "The operation has no successful catalog-backed read-only resolution."
+    if version_resolution.get("read_only") is not True:
+        return "The operation is mutating or its effect cannot be proven read-only."
+    return None
+
+
+def build_runtime_plan_only_result(
+    args: argparse.Namespace,
+    *,
+    reason: str,
+    version_resolution: dict[str, Any] | None,
+    resolved_operation: str | None,
+    started_at: float,
+    temp_json_file: Path | None,
+) -> dict[str, Any]:
+    """Return a no-subprocess generic-dispatch rejection for M2.5 hard freeze."""
+    admission = hcloud_runtime_admission.block_result(
+        "generic_hcloud_dispatch",
+        "hcloud command dispatch",
+        reason=reason,
+        next_action=(
+            "Generate an Action Plan and use a future curated Skill-controlled entry; "
+            "generic hcloud dispatch has no mutation compatibility mode."
+        ),
+    )
+    return {
+        "success": False,
+        "return_code": None,
+        "duration_seconds": round(time.time() - started_at, 3),
+        "service": args.service,
+        "operation": args.operation,
+        "resolved_operation": resolved_operation,
+        "command": [],
+        "stdout": "",
+        "stderr": "",
+        "stdout_truncated": False,
+        "stderr_truncated": False,
+        "error_type": admission["error_type"],
+        "error_details": {
+            "category": "unified_runtime_admission",
+            "error_type": admission["error_type"],
+            "cloud_error_code": None,
+            "cloud_error_message": reason,
+            "source": "hcloud_runtime_admission",
+            "signals": ["generic_hcloud_dispatch", "plan_only"],
+            "advice": admission["next_action"],
+        },
+        "advice": admission["next_action"],
+        "parsed_json": None,
+        "parsed_json_error": None,
+        "version_resolution": version_resolution,
+        "attempts": [],
+        "planning_only": True,
+        "execution_authority": admission["execution_authority"],
+        "config_context": {
+            "cwd": args.cwd,
+            "timeout": args.timeout,
+            "expect_json": args.expect_json,
+            "used_temp_json_input": bool(temp_json_file),
+        },
+    }
+
+
 def ensure_json_input_args(args: argparse.Namespace) -> None:
     """Validate JSON input arguments."""
     if args.json_input_file and args.json_input_text:
@@ -1043,53 +1127,38 @@ def main() -> int:
                 provided_params,
             )
             if not version_resolution.get("success"):
-                corrected_operation = version_resolution.get("corrected_operation")
-                corrected_command = None
-                if corrected_operation:
-                    corrected_command = [
-                        "hcloud",
-                        args.service,
-                        str(corrected_operation),
-                        *args.arg,
-                    ]
-                result = {
-                    "success": False,
-                    "return_code": None,
-                    "duration_seconds": round(time.time() - started_at, 3),
-                    "service": args.service,
-                    "operation": args.operation,
-                    "resolved_operation": None,
-                    "command": [],
-                    "stdout": "",
-                    "stderr": "",
-                    "stdout_truncated": False,
-                    "stderr_truncated": False,
-                    "error_type": "VERSION_RESOLUTION_ERROR",
-                    "error_details": {
-                        "category": "operation_version",
-                        "error_type": "VERSION_RESOLUTION_ERROR",
-                        "cloud_error_code": None,
-                        "cloud_error_message": version_resolution.get("reason"),
-                        "source": "local_catalog",
-                        "signals": [version_resolution.get("confidence")],
-                        "advice": "Use corrected_operation/corrected_command or revise the supplied API parameters.",
-                    },
-                    "advice": "Use corrected_operation/corrected_command or revise the supplied API parameters.",
-                    "parsed_json": None,
-                    "parsed_json_error": None,
-                    "version_resolution": version_resolution,
-                    "corrected_operation": corrected_operation,
-                    "corrected_command": redact_command(corrected_command or [], known_secrets),
-                    "attempts": [],
-                    "config_context": {
-                        "cwd": args.cwd,
-                        "timeout": args.timeout,
-                        "expect_json": args.expect_json,
-                        "used_temp_json_input": bool(temp_json_file),
-                    },
-                }
+                result = build_runtime_plan_only_result(
+                    args,
+                    reason="The operation has no successful catalog-backed read-only resolution.",
+                    version_resolution=version_resolution,
+                    resolved_operation=None,
+                    started_at=started_at,
+                    temp_json_file=temp_json_file,
+                )
+                result["corrected_operation"] = version_resolution.get("corrected_operation")
+                corrected_operation = result["corrected_operation"]
+                result["corrected_command"] = redact_command(
+                    ["hcloud", args.service, str(corrected_operation), *args.arg]
+                    if corrected_operation
+                    else [],
+                    known_secrets,
+                )
+                result["error_details"]["signals"].append(version_resolution.get("confidence"))
+                result["error_details"]["catalog_reason"] = version_resolution.get("reason")
             else:
                 resolved_operation = str(version_resolution.get("resolved_operation") or args.operation)
+
+        if result is None:
+            block_reason = generic_dispatch_block_reason(args, version_resolution)
+            if block_reason:
+                result = build_runtime_plan_only_result(
+                    args,
+                    reason=block_reason,
+                    version_resolution=version_resolution,
+                    resolved_operation=resolved_operation,
+                    started_at=started_at,
+                    temp_json_file=temp_json_file,
+                )
 
         if result is None:
             attempts: list[dict[str, Any]] = []

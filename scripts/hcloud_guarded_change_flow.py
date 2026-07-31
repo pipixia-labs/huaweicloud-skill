@@ -16,6 +16,7 @@ import hcloud_resource_discovery
 import hcloud_resource_query
 import hcloud_run_journal
 import hcloud_service_change_plan
+import hcloud_runtime_admission
 
 VERIFY_PROFILES = {
     "VPC": [
@@ -181,6 +182,25 @@ def submit_guard_failure(
             "next_action": "Rebuild the plan, review it, then pass submit_guard.submit_token with --submit-token.",
         }
     return None
+
+
+def runtime_mutation_freeze(args: argparse.Namespace) -> dict[str, Any] | None:
+    """Block legacy dry-run and submit calls before they reach a subprocess."""
+    if not (args.execute_dryrun or args.execute_submit):
+        return None
+    requested_action = "guarded submit" if args.execute_submit else "guarded dry-run"
+    return hcloud_runtime_admission.block_result(
+        "guarded_hcloud_change_submit",
+        requested_action,
+        reason=(
+            "Legacy guarded change flow is not a Skill-controlled entry and cannot execute "
+            "a cloud mutation during the M2.5 hard freeze."
+        ),
+        next_action=(
+            "Keep this flow in plan mode. A future curated Skill-controlled entry must revalidate "
+            "Submission Authorization immediately before a cloud request."
+        ),
+    )
 
 
 def operation_resource_name(operation: str) -> str:
@@ -420,6 +440,13 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     if service_plan.get("delegated_planner"):
         result["success"] = False
         result["error"] = "This service uses a dedicated planner; use delegated_planner instead of the generic guarded flow."
+        return result
+
+    runtime_freeze = runtime_mutation_freeze(args)
+    if runtime_freeze:
+        result["success"] = False
+        result["runtime_execution_block"] = runtime_freeze
+        result["next_steps"] = [runtime_freeze["next_action"]]
         return result
 
     commands = service_plan.get("commands", {})

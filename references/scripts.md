@@ -233,6 +233,152 @@ python3 scripts/build_hcloud_catalog.py \
 
 Add `--output <temporary-full-catalog-json>` only when you need a local full catalog for operation-level diff review. `hcloud-service-catalog.fingerprint.json` is the committed review aid. `hcloud-service-confidence.json` stores human/live evidence such as smoke confidence, dry-run support, and operation-level CLI shape exceptions such as unsupported optional args.
 
+## 统一操作基线审计
+
+```bash
+python3 scripts/hcloud_unified_baseline_audit.py --pretty
+```
+
+在统一操作安全升级的阶段 0 使用此命令。它只读取本 Skill 内的资产登记、执行入口登记和不变式登记，输出可复跑的基线：资产事实源是否存在、已审查的入口组、当前提交准入形态，以及 `doc_only`、`script_enforced`、`code_enforced` 的实际分布。
+
+该工具**不会**调用 hcloud、MaaS、Terraform 或网络探测，也不会把文档规则误报为代码级保证。当前报告中的 `mutation_paths_closed_plan_only_controlled_submit_not_ready` 表示四类已审查 mutation 路径已由运行时代码收口为 `plan_only`，但服务专用受控提交尚未实现。`--fail-on-gaps` 只会在出现未受通用门禁约束的 mutation 路径时返回非零；它通过不等于可以提交。
+
+加 `--include-service-matrix` 可输出由既有服务注册、curation profile、live validation profile 和场景路由汇总的服务成熟度矩阵。该矩阵只说明当前服务级资料和验证证据所在位置；它不会复制生成 catalog，也不把服务级 `curated` 误报为 operation 级 Action Spec 或真实提交授权。
+
+同一份基线还校验 `unified-operation-migration-map.json`：它把现有字段映射到未来的全局 Context、Result 和 Action Spec，并列出通用 hcloud 分发、局部确认、只读推断、异步完成和 MaaS 外部副作用等规则冲突及其后续验收条件。
+
+## 统一操作契约校验
+
+```bash
+python3 scripts/hcloud_unified_contracts.py \
+  --contract action-spec \
+  --input <action-spec.json> \
+  --pretty
+```
+
+该工具只校验 `references/contracts/` 中定义的 Cloud Context、Action Spec、Action Plan、Execution Intent、Submission Authorization、Metadata Read Plan 和 Operation Result。`Controlled Submit Handoff` 是已废弃的宿主交接试验格式，仅为兼容当前本地试验保留，不得用于新工作流。校验输出 canonical fingerprint，拒绝秘密字段、复制 API HTTP/参数事实的 hcloud Action Spec，以及缺少 catalog reference 的 hcloud Action Spec。校验成功不构成 submit 授权，后续仍需经过策略、明确确认和 Skill 内部受控入口。
+
+## 统一 Action Plan 生成
+
+```bash
+python3 scripts/hcloud_action_plan.py \
+  --action-spec references/action-semantics/trial/ecs-create-server.json \
+  --cloud-context tests/fixtures/unified-action-plan/ecs-context.json \
+  --pretty
+```
+
+该工具在本地将 Action Spec、无秘密 Cloud Context 和全局风险策略组合成统一 Action Plan。对于 hcloud Spec，它会核验 catalog 的服务文档指纹、operation 和版本，避免语义层脱离生成事实。输出会统一列出风险、前置、确认、验证、输出限制和稳定 plan fingerprint。
+
+这仍是**非执行**工具：输出中的 `allowed_stage` 仅表示列出的前置完成后可规划到的最高阶段；`execution_authority.submission_authority=not_implemented` 表示它不能授权或触发 hcloud、SDK、Terraform 或 MaaS 请求。M2.5 已把现有提交入口收口为运行时 `plan_only`，不能将本工具生成的计划、旧 `--submit-token` 或确认标记当作兼容提交凭据。
+
+## 受控提交准入准备
+
+```bash
+python3 scripts/hcloud_controlled_admission.py \
+  --action-spec <curated-action-spec.json> \
+  --cloud-context <cloud-context.json> \
+  --execution-intent <execution-intent.json> \
+  --confirmation <confirmation.json> \
+  --pretty
+```
+
+此脚本是 M2.5 的纯本地提交准入准备器。仅当 Action Spec 为 `curated` 且不是读取操作时，
+它才会将当前 Action Plan、任务级 Execution Intent 和确认材料绑定为
+`submission-authorization/v1`：会重新核验 catalog、Action Spec、区域/项目范围、计划、
+输入和预检证据指纹，确认语义 required input 已提供，并要求每项 preflight 都有一次 `passed` 确认证据。输入或目标改变后，旧确认
+不能继续使用。
+
+## 已废弃：宿主交接试验
+
+```bash
+python3 scripts/hcloud_controlled_submit_handoff.py --audit-adapters --pretty
+```
+
+此维护入口读取历史 `references/controlled-adapter-registry.json`，将试点 Action Spec、生成
+catalog、语义输入绑定和验证 profile 做本地一致性检查。它不是运行入口，也不是未来目标架构：
+其中要求宿主 adapter 的路线已被否决，因为标准 Skill 不得要求任何 Agent 增加专用代码。
+
+ECS 的密钥对私网子集已复用 `hcloud_ecs_create_plan.py` 的 body/安全组规则验证；DNS 的窄 A 记录
+mapper 已核验 `ttl` 位于 catalog 的 optional 参数中。这些可复用映射将迁移到 Skill 内部受控入口；
+当前试验只会生成 `plan_only` 记录，不具备提交权限。ECS 的密码登录、默认安全组、公网 IP 和任意
+body 片段，以及其他 DNS 记录类型仍保持计划态。下面命令仅用于维护者检查历史试验，不能交给 Agent
+作为操作路径：
+
+```bash
+python3 scripts/hcloud_controlled_submit_handoff.py \
+  --action-spec <curated-action-spec.json> \
+  --cloud-context <cloud-context.json> \
+  --execution-intent <execution-intent.json> \
+  --confirmation <confirmation.json> \
+  --pretty
+```
+
+DNS 当前只支持 A 记录的窄映射；其他记录类型仍保持计划态。当前试点边界、历史试验的退役原因和
+Skill 内部闭环目标见 `references/controlled-adapters.md`。
+
+它不接受 `--execute`、裸命令片段或秘密字段，也不会 import 旧入口。输出的
+`prepared_for_future_adapter` 不是 submit token；当前 `submission_authority=not_implemented`，
+因此不能调用 hcloud、SDK、Terraform、MaaS、子进程或网络。后续真实入口由 Skill 自己在调用前
+复验当前计划、明确确认、预检和事实刷新，并完成提交后读回；不要求宿主提供专用认证、审批或审计接口。
+
+## 统一 Operation Result 归一化
+
+```bash
+python3 scripts/hcloud_operation_result.py \
+  --input <redacted-local-result.json> \
+  --stage submit \
+  --pretty
+```
+
+该工具只接收已经脱敏的本地脚本结果，生成 `operation-result/v1` 的事实、证据、风险、缺口和下一步。它不复制原始命令、请求体、stdout/stderr 或响应体，也不会重放请求。提交阶段发生 `TIMEOUT` 时，统一错误策略要求先读回 job 或资源终态，禁止自动重试。当前它是结果适配器，不会修改 `hcloud_safe_exec.py` 或已有 guarded flow 的输出。
+
+## 受限 Metadata Read 计划
+
+```bash
+python3 scripts/hcloud_metadata_read_plan.py \
+  --action-spec references/action-semantics/trial/cts-list-traces.json \
+  --cloud-context tests/fixtures/unified-action-plan/cts-ready-context.json \
+  --pretty
+```
+
+此工具是统一 `metadata_read` 的计划期适配器，而不是通用 hcloud wrapper。它只接受 reviewed/curated 的 `effect=read` hcloud Action Spec，重新核对精确 catalog 引用和 `read_only` 元数据，并要求区域、项目、已声明查询输入和 summary/file-only 输出策略。
+
+它没有 `--execute`、`--arg`、`--command-part`、跳过版本解析或大输出覆盖参数。`eligible_for_future_adapter` 仅说明未来的受控读取入口可以在重新核对计划指纹后绑定输入；当前 `metadata_read_authority=not_implemented`，因此不会发送 API 请求。未满足范围或输入条件时返回 `blocked`。
+
+## 旧入口影子比较
+
+```bash
+python3 scripts/hcloud_entrypoint_shadow_audit.py \
+  --source-path scripts/hcloud_safe_exec.py \
+  --action-spec references/action-semantics/trial/ecs-create-server.json \
+  --cloud-context tests/fixtures/unified-action-plan/ecs-context.json \
+  --pretty
+```
+
+使用此维护工具比较一个已登记的旧入口与同一 Action Spec/Cloud Context 生成的统一计划。它报告旧入口当前准入、统一授权状态和明确的迁移差异；运行时已收口的 mutation 路径会标为 `legacy_mutation_path_closed_plan_only`。未出现在执行入口登记中的 source path 会被拒绝；工具不 import、不调用、不修改旧入口，也不发送云请求。
+
+## 不变式覆盖审计
+
+```bash
+python3 scripts/hcloud_invariant_coverage_audit.py --pretty
+```
+
+该维护工具将每条全局不变式显式关联到已审查的执行入口组，输出“声明的不变式 × 入口组”对数、每个入口组适用的不变式、强制层级分布和未声明覆盖的入口组。它不能从文件名或文档猜测覆盖，也不会把 `script_enforced` 包装为全局保证。
+
+报告中的 `code_enforced_invariant_count` 是当前真实代码级不变式数量；它为零时是一个待收口缺口，而不是需要隐藏的指标。入口组没有关联不变式同样会被列出，供后续注册或明确排除。
+
+## M2.5 Mutation 收口审计
+
+```bash
+python3 scripts/hcloud_m2_5_closure_audit.py --pretty
+```
+
+该维护工具将阶段 0 审查到的每个真实 mutation 能力组，与
+`references/unified-m2-5-closure-ledger.json` 的桥接/降级状态逐条对齐。它把“已有
+Action Plan 或确认合同”与“运行时路径已经关闭”严格区分；只有经验证的受控桥接或明确的
+`plan_only` 降级才可以标记为收口。`--fail-on-open` 可用于后续 CI，在任一路径仍未收口时
+返回非零。当前预期状态为 `ready`：四条已审查 mutation 路径均已有运行时 plan-only 证据和负向测试；这不等于 Skill 内部受控提交入口已经实现。
+
 ## Safe Execution
 
 ### Safe hcloud Wrapper
@@ -246,7 +392,7 @@ python3 scripts/hcloud_safe_exec.py \
   --expect-json
 ```
 
-Use this for real `hcloud` calls instead of raw shell execution when possible. It resolves OpenAPI-style operations to explicit `/vN`, redacts sensitive command/stdout/stderr/JSON fields, parses JSON, classifies common errors, and returns `error_details` for auth, region/project, permission, quota, parameter, not found, and network failures. For an unversioned read-only request, a clear operation/parameter/version usage failure can trigger one bounded retry with another compatible version. Mutations and unrelated error categories are never replayed by this correction path.
+Use this for real **read-only** `hcloud` calls instead of raw shell execution when possible. It resolves only catalog-proven read-only OpenAPI-style operations to explicit `/vN`, redacts sensitive command/stdout/stderr/JSON fields, parses JSON, classifies common errors, and returns `error_details` for auth, region/project, permission, quota, parameter, not found, and network failures. For an unversioned read-only request, a clear operation/parameter/version usage failure can trigger one bounded retry with another compatible version. Mutation, unknown/failed resolution, skipped resolution, and unclassified `--command-part` inputs return `UNIFIED_RUNTIME_PLAN_ONLY` before any subprocess.
 
 The default `--output-mode=auto` loads `references/hcloud-output-policies.json`. Known catalog/log/time-series/account-wide operations receive summary or file-only handling and policy pagination defaults; unclassified JSON switches to a summary when it exceeds `--max-parsed-json-chars` (default 12000). Successful parsed JSON suppresses duplicate raw stdout. Summary output contains schema, array counts, a bounded sample, artifact state, and policy evidence instead of the complete payload.
 
@@ -900,9 +1046,9 @@ python3 scripts/hcloud_guarded_change_flow.py \
   --pretty
 ```
 
-Use for non-ECS ordinary services with service-aware risk planning, optional dry-run execution, guarded submit, resource-level verification, and post-change read-only readiness. `--execute-submit` must be paired with `--confirm-submit`; medium/high risk also requires a successful dry-run or explicit `--skip-dryrun`. If `risk.hard_guard=true`, submit execution is blocked even with confirmation.
+Use for non-ECS ordinary services to generate service-aware risk plans, resource-level verification plans, and post-change read-only readiness plans. During the M2.5 runtime freeze, `--execute-dryrun` and `--execute-submit` both return `UNIFIED_RUNTIME_PLAN_ONLY` before any legacy executor runs; confirmation and old submit tokens do not bypass this rule. A future Skill-internal controlled entry must revalidate the unified Submission Authorization immediately before a real request.
 
-Only add `--allow-public-web` after the user has reviewed and confirmed an EIP-direct public website plan. The generated submit token binds this exposure context to the exact plan; submit still requires `--execute-submit --confirm-submit --submit-token <current-token>`.
+Only add `--allow-public-web` after the user has reviewed and confirmed an EIP-direct public website plan. The generated submit token is planning evidence only; it cannot activate the frozen legacy submit path.
 
 This does not replace dedicated planners. EIP uses `hcloud_eip_change_flow.py`, OBS uses `hcloud_obs_change_plan.py`, and ECS creation uses ECS-specific scripts.
 
@@ -918,7 +1064,7 @@ python3 scripts/hcloud_eip_change_flow.py \
   --pretty
 ```
 
-Use for EIP Plan -> dry-run -> guarded submit -> ShowPublicip verification. Default mode only builds the plan and verification plan. Real submit requires explicit confirmation for the exact operation.
+Use for EIP plan and `ShowPublicip` verification planning. Default mode builds the plan and verification plan; `--execute-dryrun` and `--execute-submit` are currently runtime plan-only and cannot submit a real change.
 
 ### OBS Change Plan
 
@@ -945,9 +1091,9 @@ python3 scripts/hcloud_ecs_create_plan.py \
   --pretty
 ```
 
-Use before ECS creation. It blocks placeholders, missing required fields, unsafe security-group ingress, missing security group rule evidence, and missing login credential choices. When `body.server.security_groups[*].id` references an existing security group, pass readback JSON from VPC `ListSecurityGroupRules` or `ShowSecurityGroup` through `--security-group-evidence-file`; otherwise the plan is not ready to run. Default mode generates a dry-run safe-exec command. To generate a non-dry-run submit command, require:
+Use before ECS creation. It blocks placeholders, missing required fields, unsafe security-group ingress, missing security group rule evidence, and missing login credential choices. When `body.server.security_groups[*].id` references an existing security group, pass readback JSON from VPC `ListSecurityGroupRules` or `ShowSecurityGroup` through `--security-group-evidence-file`; otherwise the plan is not ready to run. It can generate dry-run and submit-shaped plans, but `hcloud_safe_exec.py` currently rejects their mutation execution at runtime. No command in this section creates an ECS instance during M2.5.
 
-If the readback evidence intentionally contains exact TCP 80/443 from `0.0.0.0/0` for a user-confirmed EIP-direct public website, add `--allow-public-web`. This does not permit SSH/development ports and does not replace `--confirm-submit`.
+If the readback evidence intentionally contains exact TCP 80/443 from `0.0.0.0/0` for a user-confirmed EIP-direct public website, add `--allow-public-web`. This does not permit SSH/development ports and remains planning evidence only while the runtime freeze is active.
 
 ```bash
 python3 scripts/hcloud_ecs_create_plan.py \
@@ -1022,7 +1168,7 @@ python3 scripts/maas_models.py --capability image_generation --pretty
 python3 scripts/maas_models.py --online --pretty
 ```
 
-The first two commands read the local curated catalog. The online form only plans `GET /v2/models`; add `--execute` only after API Key readiness and user confirmation.
+The first two commands read the local curated catalog. The online form only plans `GET /v2/models`; its explicit `--execute` remains a read-only query and requires API Key readiness, not mutation approval.
 
 ### Text Generation And Image Understanding
 

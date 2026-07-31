@@ -1,0 +1,13 @@
+{
+  "schema_version": "cloud-context/v1",
+  "intent": "规划一台受控的 ECS Web 实例，不执行创建。",
+  "scope": {
+    "region": "cn-north-4",
+    "project_id": "example-project",
+    "resource_refs": ["vpc:example-vpc"]
+  },
+  "constraints": {
+    "public_access_intent": "review_required"
+  },
+  "missing_inputs": []
+}

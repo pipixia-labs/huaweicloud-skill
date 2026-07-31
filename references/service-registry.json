@@ -263,7 +263,7 @@
       ],
       "known_limits": [
         "EIP metadata in KooCLI may not include operation detail files, so generated discovery commands omit optional parameters unless metadata confirms support.",
-        "Generic service changes remain planner-first. Use scripts/hcloud_eip_change_flow.py for guarded dry-run/submit/ShowPublicip verification, and execute submit only after explicit confirmation."
+        "Generic service changes remain planner-first. scripts/hcloud_eip_change_flow.py can generate EIP change and ShowPublicip verification plans; legacy dry-run/submit is runtime plan-only until a Skill-controlled entry is available."
       ]
     },
     "ELB": {

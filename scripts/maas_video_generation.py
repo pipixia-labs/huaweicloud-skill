@@ -10,6 +10,7 @@ from typing import Any
 
 import hcloud_common
 import maas_common
+import hcloud_runtime_admission
 
 VIDEO_GENERATIONS_PATH = "/v1/video/generations"
 DEFAULT_TEXT_TO_VIDEO_MODEL = "Wan2.2-T2V-A14B"
@@ -139,19 +140,17 @@ def query_path(task_id: str) -> str:
 
 
 def create_task(args: argparse.Namespace) -> dict[str, Any]:
-    """Create a MaaS video generation task."""
-    payload = build_create_payload(args)
-    api_key = maas_common.get_api_key()
-    response = maas_common.request_json("POST", VIDEO_GENERATIONS_PATH, api_key=api_key, body=payload, timeout=args.timeout, base_url=args.base_url)
-    body = response["body"]
-    return {
-        "success": True,
-        "action": "create",
-        **maas_common.response_metadata(response),
-        "task_id": body.get("task_id") if isinstance(body, dict) else None,
-        "response": body,
-        "next_step": "Use --action query --task-id <task_id> or --action wait --task-id <task_id>.",
-    }
+    """Refuse MaaS video creation until a controlled external-effect adapter exists."""
+    del args
+    return hcloud_runtime_admission.block_result(
+        "maas_remote_generation",
+        "MaaS video creation",
+        reason=(
+            "Video creation can consume billable MaaS capacity and has not been bridged "
+            "to the unified Submission Authorization contract."
+        ),
+        next_action="Use --dry-run to review the video request; only read existing task status until the controlled MaaS adapter is available.",
+    )
 
 
 def query_task(args: argparse.Namespace) -> dict[str, Any]:

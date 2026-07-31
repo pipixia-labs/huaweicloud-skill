@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huaweicloud-skill/contracts/execution-intent/v1",
+  "title": "Execution Intent v1",
+  "description": "Secret-free, task-specific execution input bound to one reviewed Action Spec. It is an input to admission, not a command or authorization.",
+  "type": "object",
+  "required": ["schema_version", "execution_family", "action_spec_ref", "scope", "parameters"],
+  "properties": {
+    "schema_version": {"const": "execution-intent/v1"},
+    "execution_family": {"enum": ["hcloud", "sdk", "terraform", "maas", "local"]},
+    "action_spec_ref": {
+      "type": "object",
+      "required": ["id", "lifecycle", "fingerprint"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "lifecycle": {"enum": ["generated", "reviewed", "curated", "deprecated"]},
+        "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "catalog_ref": {
+      "type": "object",
+      "required": ["catalog_fingerprint", "service", "operation", "version"],
+      "properties": {
+        "catalog_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "service": {"type": "string", "minLength": 1},
+        "operation": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "scope": {"type": "object"},
+    "parameters": {"type": "object"},
+    "idempotency": {"type": "object"}
+  },
+  "additionalProperties": true
+}

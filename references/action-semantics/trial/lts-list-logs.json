@@ -1,0 +1,26 @@
+{
+  "schema_version": "action-spec/v1",
+  "id": "huaweicloud.lts.list_logs.v1",
+  "lifecycle": "reviewed",
+  "maturity": "reviewed",
+  "execution_family": "hcloud",
+  "catalog_ref": {
+    "catalog_fingerprint": "sha256:16bd5d57b15a340aff592b6aa5b4032bec18e2212f413adff7c3d7acc4114712",
+    "service": "LTS",
+    "operation": "ListLogs",
+    "version": "v2"
+  },
+  "effect": "read",
+  "risk_tags": ["sensitive_read"],
+  "tool_candidates": ["hcloud"],
+  "preflight": {
+    "required_inputs": ["log_group_id", "log_stream_id", "time_range"],
+    "required_facts": ["bounded_query_scope_confirmed"],
+    "supports_dry_run": false
+  },
+  "execution": {
+    "adapter": "future_restricted_metadata_read_entrypoint"
+  },
+  "verification_profile": "bounded_log_query_evidence",
+  "output_policy": "redacted_summary"
+}

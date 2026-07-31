@@ -13,6 +13,7 @@ from typing import Any
 
 import hcloud_common
 import hcloud_resource_query
+import hcloud_runtime_admission
 
 OPERATIONS = ("import", "drift", "remote-state", "full")
 
@@ -149,12 +150,18 @@ def execute_drift(commands: list[dict[str, Any]], args: argparse.Namespace) -> l
 
 
 def execute_imports(commands: list[dict[str, Any]], args: argparse.Namespace, expected_token: str) -> list[dict[str, Any]]:
-    """Execute gated Terraform import commands."""
-    if not args.allow_state_change:
-        raise TerraformOperationsError("Import execution requires --allow-state-change.")
-    if args.confirm_token != expected_token:
-        raise TerraformOperationsError("Import execution requires the exact --confirm-token from the plan.")
-    return [execute_command(item["command"], Path(args.workdir), args.timeout) for item in commands]
+    """Reject Terraform state changes until a Skill-controlled entry is available."""
+    del commands, expected_token
+    blocked = hcloud_runtime_admission.block_result(
+        "terraform_state_change",
+        "terraform import",
+        reason=(
+            "Terraform import changes state and has not been bridged to the unified "
+            "Action Plan and Submission Authorization contract."
+        ),
+        next_action="Keep Terraform import in plan mode until its Skill-controlled entry and resource mapping are implemented.",
+    )
+    return [blocked]
 
 
 def build_readback_plans(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -211,6 +218,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         result["drift_execution"] = execute_drift(drift_plan, args)
     if args.execute_import:
         result["import_execution"] = execute_imports(import_plan, args, expected_token)
+        result["success"] = False
     return result
 
 

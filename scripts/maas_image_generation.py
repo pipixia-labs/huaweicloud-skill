@@ -13,6 +13,7 @@ from typing import Any
 
 import hcloud_common
 import maas_common
+import hcloud_runtime_admission
 
 IMAGE_GENERATIONS_PATH = "/v1/images/generations"
 DEFAULT_MODEL = "qwen-image"
@@ -230,34 +231,17 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def execute(args: argparse.Namespace) -> dict[str, Any]:
-    """Execute MaaS image generation requests."""
-    items = load_items(args)
-    out_dir = args.out_dir
-    out_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = args.manifest or out_dir / "maas_image_manifest.json"
-    api_key = maas_common.get_api_key()
-    manifest = {
-        "generated_at": maas_common.now_utc_iso(),
-        "provider": "Huawei Cloud MaaS image generation",
-        "endpoint_host": maas_common.endpoint_url(IMAGE_GENERATIONS_PATH, args.base_url).split("/", 3)[2],
-        "model": args.model,
-        "items": [],
-    }
-    for item in items:
-        manifest["items"].append(
-            generate_item(
-                api_key=api_key,
-                model=args.model,
-                item=item,
-                out_dir=out_dir,
-                image_format=args.format,
-                overwrite=args.overwrite,
-                timeout=args.timeout,
-                base_url=args.base_url,
-            )
-        )
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"success": True, "manifest": str(manifest_path), "count": len(items), "items": manifest["items"]}
+    """Refuse MaaS image generation until a controlled external-effect adapter exists."""
+    del args
+    return hcloud_runtime_admission.block_result(
+        "maas_remote_generation",
+        "MaaS image generation",
+        reason=(
+            "Image generation can consume billable MaaS capacity and has not been bridged "
+            "to the unified Submission Authorization contract."
+        ),
+        next_action="Use --dry-run to review the payload; wait for the controlled MaaS adapter before an online generation request.",
+    )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -289,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         args = parse_args(argv)
         result = build_plan(args) if args.dry_run else execute(args)
         hcloud_common.emit_json(result, pretty=args.pretty)
-        return 0
+        return 0 if result.get("success") else 1
     except Exception as exc:
         hcloud_common.emit_json({"success": False, "error": str(exc)})
         return 1

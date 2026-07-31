@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "id": "huaweicloud-unified-risk-policy",
+  "version": "v1",
+  "description": "统一 Action Plan 的全局风险策略。它只给出计划和后续受控入口的准入建议，不直接授权任何云端提交。",
+  "current_execution_boundary": {
+    "mode": "plan_only",
+    "submission_authority": "not_implemented",
+    "message": "v0.8.2 升级期间，策略结果只能生成或审阅 Action Plan；真实提交仍未接入本策略。"
+  },
+  "maturity_stage_ceiling": {
+    "generated": "plan",
+    "reviewed": "dry_run",
+    "curated": "dry_run",
+    "deprecated": "plan"
+  },
+  "effect_defaults": {
+    "read": {
+      "stage": "discover",
+      "verification_required": false
+    },
+    "create": {
+      "stage": "dry_run",
+      "verification_required": true
+    },
+    "update": {
+      "stage": "dry_run",
+      "verification_required": true
+    },
+    "attach": {
+      "stage": "dry_run",
+      "verification_required": true
+    },
+    "detach": {
+      "stage": "dry_run",
+      "verification_required": true
+    },
+    "delete": {
+      "stage": "dry_run",
+      "verification_required": true
+    },
+    "remote_execute": {
+      "stage": "dry_run",
+      "verification_required": true
+    },
+    "external_generation": {
+      "stage": "dry_run",
+      "verification_required": true
+    }
+  },
+  "risk_tags": {
+    "cost": {
+      "severity": "high",
+      "confirmation": "required_before_submit",
+      "preflight": ["cost_scope_review"],
+      "verification": ["billing_or_usage_readback"]
+    },
+    "network_public": {
+      "severity": "high",
+      "confirmation": "required_before_submit",
+      "preflight": ["network_scope_review", "public_exposure_review"],
+      "verification": ["network_rule_readback", "external_reachability_check"]
+    },
+    "network_change": {
+      "severity": "medium",
+      "confirmation": "required_before_submit",
+      "preflight": ["network_scope_review"],
+      "verification": ["network_rule_readback"]
+    },
+    "destructive": {
+      "severity": "high",
+      "confirmation": "required_before_submit",
+      "preflight": ["target_and_rollback_review"],
+      "verification": ["resource_absence_or_replacement_readback"]
+    },
+    "identity": {
+      "severity": "critical",
+      "manual_gate": true,
+      "confirmation": "human_runbook_required",
+      "preflight": ["least_privilege_review", "target_and_rollback_review"],
+      "verification": ["permission_readback"]
+    },
+    "security_policy": {
+      "severity": "critical",
+      "manual_gate": true,
+      "confirmation": "human_runbook_required",
+      "preflight": ["security_policy_review", "target_and_rollback_review"],
+      "verification": ["policy_readback"]
+    },
+    "secret": {
+      "severity": "critical",
+      "manual_gate": true,
+      "confirmation": "human_runbook_required",
+      "preflight": ["secret_handling_review"],
+      "verification": ["redacted_evidence_only"]
+    },
+    "async": {
+      "severity": "medium",
+      "preflight": ["async_completion_plan"],
+      "verification": ["job_terminal_state", "resource_state_readback"]
+    },
+    "sensitive_read": {
+      "severity": "high",
+      "confirmation": "scope_review_before_read",
+      "output": ["redacted_summary_only", "no_raw_secret_emission"]
+    },
+    "external_generation": {
+      "severity": "medium",
+      "confirmation": "required_before_submit",
+      "preflight": ["usage_scope_review", "content_safety_review"],
+      "verification": ["usage_or_task_status_readback"]
+    }
+  },
+  "unknown_tag_policy": {
+    "severity": "medium",
+    "stage_cap": "plan",
+    "reason": "未登记风险标签不自动放宽准入；需在策略评审中显式建模后才可提升阶段。"
+  }
+}

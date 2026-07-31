@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huaweicloud-skill/contracts/metadata-read-plan/v1",
+  "title": "Metadata Read Plan v1",
+  "description": "A restricted, non-executing read plan derived from a reviewed hcloud Action Spec. It is not a generic command permit or a cloud execution authorization.",
+  "type": "object",
+  "required": ["schema_version", "action_spec_ref", "context_fingerprint", "catalog_ref", "admission", "query_requirements", "output_policy", "execution_authority"],
+  "properties": {
+    "schema_version": {"const": "metadata-read-plan/v1"},
+    "action_spec_ref": {
+      "type": "object",
+      "required": ["id", "lifecycle", "fingerprint"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "lifecycle": {"enum": ["reviewed", "curated"]},
+        "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "context_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "catalog_ref": {
+      "type": "object",
+      "required": ["catalog_fingerprint", "service", "operation", "version"],
+      "properties": {
+        "catalog_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "service": {"type": "string", "minLength": 1},
+        "operation": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "scope": {"type": "object"},
+    "admission": {
+      "type": "object",
+      "required": ["status", "reasons"],
+      "properties": {
+        "status": {"enum": ["blocked", "eligible_for_future_adapter"]},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": true
+    },
+    "query_requirements": {"type": "array", "items": {"type": "object"}},
+    "output_policy": {"type": "object"},
+    "execution_authority": {"type": "object"},
+    "plan_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

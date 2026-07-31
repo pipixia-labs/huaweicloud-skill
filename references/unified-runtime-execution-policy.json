@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "id": "huaweicloud-unified-runtime-execution-policy",
+  "version": "v1",
+  "mode": "hard_freeze_unbridged_mutations",
+  "description": "统一运行时执行边界。未接入 Skill 内部受控入口的 mutation、Terraform 状态变更和 MaaS 外部副作用必须在脚本入口被代码拒绝，不能依赖文档或模型自觉；任何 Agent 无需为本 Skill 增加专用代码。",
+  "path_groups": {
+    "generic_hcloud_dispatch": {
+      "unresolved_or_non_read_operation": "plan_only",
+      "unclassified_command_part": "plan_only",
+      "permitted": "只有 catalog/version resolver 明确为 read_only 的 service operation，以及受限本地 hcloud 信息命令可执行。"
+    },
+    "guarded_hcloud_change_submit": {
+      "submit": "plan_only",
+      "permitted": "本地规划以及不产生云端变更的已受限读取/验证准备。"
+    },
+    "terraform_state_change": {
+      "state_change": "plan_only",
+      "permitted": "只读 drift plan 可继续由其专用入口执行；import 和状态迁移不得执行。"
+    },
+    "maas_remote_generation": {
+      "external_effect": "plan_only",
+      "permitted": "本地计划，以及已单独建模的只读状态/用量查询。"
+    }
+  },
+  "controlled_submit": {
+    "status": "not_implemented",
+    "required_before_enable": ["curated_action_spec", "execution_intent", "submission_authorization", "explicit_plan_bound_confirmation", "skill_specific_request_mapping", "fresh_pre_submit_readback", "post_submit_readback"],
+    "boundary": "本策略要求 Skill 在提交前复验明确确认与当前计划、范围和输入的绑定；它不会把本地 confirmation JSON 或 approval_id 误报为已认证身份、一次性审批或不可篡改审计。"
+  }
+}

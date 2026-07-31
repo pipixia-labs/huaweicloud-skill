@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "huaweicloud-skill/contracts/operation-result/v1",
+  "title": "Operation Result v1",
+  "description": "Portable result envelope for discovery, planning, execution, verification, and governance reporting.",
+  "type": "object",
+  "required": ["schema_version", "stage", "outcome", "facts", "evidence", "risks", "gaps", "next_actions", "user_summary"],
+  "properties": {
+    "schema_version": {"const": "operation-result/v1"},
+    "stage": {"enum": ["discover", "plan", "dry_run", "submit", "verify", "govern"]},
+    "outcome": {"enum": ["succeeded", "partially_succeeded", "blocked", "failed", "unknown"]},
+    "facts": {"type": "array", "items": {"type": "object"}},
+    "evidence": {"type": "array", "items": {"type": "object"}},
+    "risks": {"type": "array", "items": {"type": "object"}},
+    "gaps": {"type": "array", "items": {"type": "object"}},
+    "next_actions": {"type": "array", "items": {"type": "object"}},
+    "user_summary": {"type": "string"}
+  },
+  "additionalProperties": true
+}

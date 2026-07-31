@@ -28,7 +28,7 @@
 | `VPC` | Medium | 有 workflow、playbook、list-only discovery 和第一层 show 查询 | 本地可发现 VPC list/count 型 operation；`ShowVpc`、`ShowSubnet`、`ShowSecurityGroup` 等详情查询需要显式目标 ID |
 | `IMS` | Medium | 有 workflow、playbook、list-only discovery 和镜像详情查询 | 本地可发现镜像 list 型 operation；`GlanceShowImage` 等资源级操作需要目标 ID，不作为通用 discovery 入口 |
 | `KPS` | Medium | 有 workflow、playbook、list-only discovery 和 keypair 详情查询 | 本地已验证 `ListKeypairs` / `ListKeypairDetail` operation 名称；密钥创建和私钥处理需要专门风险 gate |
-| `EIP` | Medium | 有 list/count 型 discovery、`ShowPublicip` 和守护式变更 flow | 本地可发现 EIP、带宽、公网 IP 池、配额等查询 operation；generated catalog 可补充识别 `ListPublicips` 的 `limit` 参数；真实 submit 仍需显式确认 |
+| `EIP` | Medium | 有 list/count 型 discovery、`ShowPublicip` 和守护式变更计划 flow | 本地可发现 EIP、带宽、公网 IP 池、配额等查询 operation；generated catalog 可补充识别 `ListPublicips` 的 `limit` 参数；当前 mutation 为运行时 plan-only |
 | `ELB` | Low | 已登记常用查询入口、第一层 show 查询和 planner-only 变更入口 | service 可见但本地没有 operation detail；用于负载均衡验证和离线问题集覆盖，不等同于完整 ELB 执行能力 |
 | `EVS` | Low | 已登记常用查询入口、volume/snapshot 详情和 planner-only 变更入口 | service 可见但本地没有 operation detail；云硬盘挂载、扩容、格式化仍需云侧和 ECS 内双重验收 |
 | `NAT` | Low | 已登记常用查询入口、NAT/DNAT/SNAT 详情查询和 playbook | service 可见但本地没有 operation detail；NAT 创建、绑定和删除仍未开放通用变更 |
@@ -67,8 +67,8 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 
 - `hcloud_resource_discovery.py` 只自动选择无必填业务参数的 read-only discovery 操作，并限制默认数量。
 - `hcloud_resource_query.py` 可以为 read-only operation 生成命令，但必填参数必须由用户或上游工具显式提供。
-- `hcloud_service_change_plan.py` 可以为 mutating operation 生成 planner-only 风险计划；真实 submit 仍需要单独确认，不会自动执行。metadata-backed mutation 的 dry-run 支持默认为 `unknown`，不会自动假设支持 dry-run。
-- metadata-backed planner 会读取 catalog service `category` 作为风险下限；安全合规、身份、密钥和治理类 mutation 会标记 `risk.hard_guard=true`，通用 guarded flow 不得自动执行 submit。
+- `hcloud_service_change_plan.py` 可以为 mutating operation 生成 planner-only 风险计划；当前所有未接入 Skill 内部受控入口的 submit 与 dry-run 均在运行时拒绝。metadata-backed mutation 的 dry-run 支持默认为 `unknown`，不会自动假设支持 dry-run。
+- metadata-backed planner 会读取 catalog service `category` 作为风险下限；安全合规、身份、密钥和治理类 mutation 会标记 `risk.hard_guard=true`，且所有 generic guarded mutation 当前均不能提交。
 - `hcloud_catalog_audit.py --fail-on-drift` 用于确认 curated registry 没有引用 catalog 中已消失的 operation。
 - `hcloud_catalog_readonly_smoke.py` 用于小批只读实测，并把失败归因到命令形态、账号权限、服务开通、region/project、参数或网络等桶。
 - `hcloud-service-catalog.index.json` 是运行时轻量索引；`hcloud-service-catalog/` 保存 per-service payload；`hcloud-service-catalog.fingerprint.json` 是 review 用小体积指纹；`hcloud-service-confidence.json` 是 live smoke/confidence/dry-run 支持性的 sidecar。
@@ -129,8 +129,8 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - `hcloud_closure_plan.py --tier lifecycle` 可以为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成六阶段任务闭环计划，组合 change plan、readiness、OBS/LTS 专用适配器和本地风险策略，但不会执行真实云变更
 - `hcloud_closure_plan.py --tier governance` 可以为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成五阶段治理闭环计划，组合 curation profile、promotion audit、read-only evidence command plan、Billing request spec 和风险/隐私门禁，但不会执行治理写操作、签名请求或访问真实账单；Billing/BSS 不生成 live query 命令
 - `hcloud_closure_plan.py --tier scenario` 可以为 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族生成四阶段场景闭环计划，组合 curation profile、metadata catalog、read-only discovery、resource query 和风险边界；安全姿态和数据库族当前输出 `metadata_evidence_gap`，不会执行集群、NAT、缓存、IaC、多集群、安全、密钥、IAM 或数据库写操作
-- `hcloud_eip_change_flow.py` 可以把 EIP 变更串成 Plan -> dry-run -> guarded submit -> ShowPublicip verify；默认不执行 submit，且 submit 必须显式确认
-- `hcloud_guarded_change_flow.py` 可以为 VPC、ELB、EVS、NAT、RDS、CDN、DNS、SCM 等普通服务提供通用 Plan -> dry-run -> guarded submit -> resource Show* verify -> read-only smoke 的 P0 门禁；默认不执行 submit
+- `hcloud_eip_change_flow.py` 可以生成 EIP Plan 与 `ShowPublicip` 后置验证计划；`--execute-dryrun` 与 `--execute-submit` 当前都会在运行时返回 `plan_only`
+- `hcloud_guarded_change_flow.py` 可以为 VPC、ELB、EVS、NAT、RDS、CDN、DNS、SCM 等普通服务生成通用风险计划、resource Show* 验证计划和 read-only smoke 计划；所有旧执行标记当前均为 `plan_only`
 - `hcloud_resource_verify.py` 可以基于 JSON 查询结果验证 EIP、VPC、ELB、EVS、NAT、RDS、CCE、CDN、DNS、SCM 等资源状态
 - `check_question_coverage.py` 可用外部 `generated_questions` 和 `data-by-changping/data.xlsx` 回归验证 schema、CRUD type、风险分类、registry 覆盖、人工验证步骤风险线索和已注册验证 operation 的执行路径
 
@@ -141,10 +141,10 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 可以较积极地：
 
 - 做 command discovery
-- 做 dry-run
+- 做 dry-run 计划和本地参数校验
 - 做查询链路验证
 - 对创建 JSON 做占位符和关键字段本地校验
-- 真实创建返回 `job_id` 后轮询到终态
+- 为未来受控提交准备 job 终态轮询和验收计划；当前不会创建实例
 
 ### 当用户任务在 VPC / IMS / KPS / IAM / EIP 范围内
 
@@ -153,9 +153,9 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - 先做上下文确认
 - 先用 service 级 discovery 和 playbook 梳理动作
 - 已知资源 ID 时，可用 `hcloud_resource_query.py` 做第一层详情查询
-- EIP 变更优先用 `hcloud_eip_change_flow.py` 生成计划、dry-run 和 `ShowPublicip` 后置验证；真实 submit 需要单独确认
-- VPC 变更可用 `hcloud_guarded_change_flow.py` 生成通用门禁计划和只读 smoke 后验计划；真实 submit 需要单独确认
-- 把真实变更执行建立在进一步元数据可用之后
+- EIP 变更优先用 `hcloud_eip_change_flow.py` 生成计划和 `ShowPublicip` 后置验证；旧执行标记当前为 `plan_only`
+- VPC 变更可用 `hcloud_guarded_change_flow.py` 生成通用门禁计划和只读 smoke 后验计划；旧执行标记当前为 `plan_only`
+- 把真实变更执行建立在 Skill 内部服务专用受控入口完成计划复验、明确确认、提交前事实刷新和提交后回读之后；不得要求宿主增加专用代码
 
 ### 当用户任务在 ELB / EVS / NAT / RDS / CCE / CDN / DNS / SCM / CES 范围内
 
@@ -164,7 +164,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - 先确认本地 `hcloud <service> --help` 是否能拿到 operation 帮助
 - 优先执行 list/count 类低风险查询；已知目标 ID 时可用 `hcloud_resource_query.py` 执行目标型 show/list 查询
 - 多服务现状检查优先用 `hcloud_service_readiness.py`，目标型检查缺参数时应明确 skipped，而不是猜测资源 ID
-- 涉及创建、绑定、扩容、停用、删除、证书部署等动作时，先用 `hcloud_guarded_change_flow.py` 走通用风险门禁；集群变更等未登记 change operation 仍需要先补专门 planner 和验证器
+- 涉及创建、绑定、扩容、停用、删除、证书部署等动作时，先用 `hcloud_guarded_change_flow.py` 生成通用风险门禁计划；当前不提交，集群变更等未登记 change operation 仍需要先补专门 planner、验证器和 Skill 内部受控入口
 
 不要伪装成已经有了和 ECS 一样完整的操作细节。
 

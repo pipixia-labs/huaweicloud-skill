@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "huaweicloud-controlled-adapter-registry",
+  "version": "v1",
+  "description": "已废弃的宿主交接试验登记。它只关联 Action Spec 与生成 catalog，不复制 HTTP 方法、路径、完整参数或凭据；其 ready_for_handoff 仅表示历史试验可以生成 plan-only 交接候选，绝不表示真实提交可用。后续将迁移可复用映射证据到 Skill 内部受控操作登记。",
+  "lifecycle": "deprecated_experimental",
+  "host_authority_requirements": [
+    "verified_host_identity",
+    "one_time_approval_bound_to_handoff",
+    "approval_expiry",
+    "durable_host_audit_record",
+    "fresh_pre_submit_readback",
+    "post_submit_readback"
+  ],
+  "adapters": [
+    {
+      "id": "ecs-create-server-controlled-hcloud-v1",
+      "action_spec_path": "references/action-semantics/trial/ecs-create-server.json",
+      "status": "ready_for_handoff",
+      "request_mapping": {
+        "status": "ready_for_handoff",
+        "request_mapper": "ecs_create_keypair_v1",
+        "candidate_bindings": [
+          {"semantic_input": "server_name", "catalog_parameter": "server"},
+          {"semantic_input": "availability_zone", "catalog_parameter": "server"},
+          {"semantic_input": "vpc_id", "catalog_parameter": "server"},
+          {"semantic_input": "subnet_id", "catalog_parameter": "server"},
+          {"semantic_input": "image_id", "catalog_parameter": "server"},
+          {"semantic_input": "flavor_id", "catalog_parameter": "server"},
+          {"semantic_input": "root_volume_type", "catalog_parameter": "server"},
+          {"semantic_input": "server_count", "catalog_parameter": "server"},
+          {"semantic_input": "key_name", "catalog_parameter": "server"},
+          {"semantic_input": "security_group_id", "catalog_parameter": "server"},
+          {"semantic_input": "security_group_rule_evidence", "catalog_parameter": "server"}
+        ],
+        "blocking_reasons": [],
+        "review_evidence": [
+          {
+            "source": "official_api_reference",
+            "url": "https://support.huaweicloud.com/eu/api-ecs/en-us_topic_0020212668.html",
+            "checked_on": "2026-07-31",
+            "scope": "pay-per-use ECS server body, dry-run semantics, keypair, VPC/NIC/root-volume fields"
+          },
+          {
+            "source": "local_planner_validation",
+            "path": "scripts/hcloud_ecs_create_plan.py",
+            "scope": "payload, keypair-only and existing-security-group rule-evidence validation"
+          }
+        ]
+      },
+      "verification_profile": "ecs_job_then_resource_active"
+    },
+    {
+      "id": "dns-create-record-set-controlled-hcloud-v1",
+      "action_spec_path": "references/action-semantics/trial/dns-create-record-set.json",
+      "status": "ready_for_handoff",
+      "request_mapping": {
+        "status": "ready_for_handoff",
+        "request_mapper": "dns_record_set_a_v1",
+        "candidate_bindings": [
+          {"semantic_input": "zone_id", "catalog_parameter": "zone_id"},
+          {"semantic_input": "record_name", "catalog_parameter": "name"},
+          {"semantic_input": "record_type", "catalog_parameter": "type"},
+          {"semantic_input": "record_values", "catalog_parameter": "records"},
+          {"semantic_input": "ttl", "catalog_parameter": "ttl"}
+        ],
+        "blocking_reasons": [],
+        "review_evidence": [
+          {
+            "source": "official_api_reference",
+            "url": "https://support.huaweicloud.com/eu/api-dns/CreateRecordSet.html",
+            "checked_on": "2026-07-31",
+            "scope": "v2 DNS record-set request/response fields and accepted-response semantics"
+          }
+        ]
+      },
+      "verification_profile": "dns_record_readback_and_resolution"
+    }
+  ]
+}

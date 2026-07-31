@@ -1,0 +1,21 @@
+{
+  "schema_version": "action-spec/v1",
+  "id": "huaweicloud.maas.image_generation.v1",
+  "lifecycle": "reviewed",
+  "maturity": "reviewed",
+  "execution_family": "maas",
+  "effect": "external_generation",
+  "risk_tags": ["cost", "external_generation"],
+  "tool_candidates": ["maas"],
+  "preflight": {
+    "required_inputs": ["model", "prompt"],
+    "required_facts": ["model_availability_checked", "usage_scope_confirmed"],
+    "supports_dry_run": false
+  },
+  "execution": {
+    "adapter": "future_controlled_maas_entrypoint",
+    "legacy_path": "maas_image_generation.py"
+  },
+  "verification_profile": "maas_usage_or_task_status_readback",
+  "output_policy": "maas_redacted_summary"
+}

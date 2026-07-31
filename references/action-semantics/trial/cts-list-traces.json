@@ -1,0 +1,26 @@
+{
+  "schema_version": "action-spec/v1",
+  "id": "huaweicloud.cts.list_traces.v1",
+  "lifecycle": "reviewed",
+  "maturity": "reviewed",
+  "execution_family": "hcloud",
+  "catalog_ref": {
+    "catalog_fingerprint": "sha256:438b33d1736da2968e38809a725f3a0ef5f539a708cc6c3ed1cb2169f8407e29",
+    "service": "CTS",
+    "operation": "ListTraces",
+    "version": "v3"
+  },
+  "effect": "read",
+  "risk_tags": ["sensitive_read"],
+  "tool_candidates": ["hcloud"],
+  "preflight": {
+    "required_inputs": ["trace_type", "time_range"],
+    "required_facts": ["audit_query_scope_confirmed"],
+    "supports_dry_run": false
+  },
+  "execution": {
+    "adapter": "future_restricted_metadata_read_entrypoint"
+  },
+  "verification_profile": "bounded_trace_query_evidence",
+  "output_policy": "redacted_summary"
+}

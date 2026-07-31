@@ -1,0 +1,20 @@
+{
+  "schema_version": "action-spec/v1",
+  "id": "huaweicloud.ecs.create_server.v1",
+  "lifecycle": "curated",
+  "execution_family": "hcloud",
+  "catalog_ref": {
+    "catalog_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "service": "ECS",
+    "operation": "CreateServers",
+    "version": "v1"
+  },
+  "effect": "create",
+  "risk_tags": ["cost", "network_public", "async"],
+  "maturity": "curated",
+  "tool_candidates": ["hcloud", "terraform"],
+  "preflight": {"mode": "dry_run_required"},
+  "execution": {"mode": "guarded_submit", "idempotency": "required"},
+  "verification_profile": "ecs_active_and_http_probe",
+  "output_policy": "redacted_summary"
+}

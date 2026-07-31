@@ -1,0 +1,14 @@
+{
+  "schema_version": "cloud-context/v1",
+  "intent": "规划受限范围的 CTS 审计轨迹读取，不执行查询。",
+  "scope": {
+    "region": "cn-north-4",
+    "project_id": "example-project",
+    "resource_refs": ["cts-tracker:example-tracker"]
+  },
+  "constraints": {
+    "redaction": "required",
+    "bounded_time_range": "required"
+  },
+  "missing_inputs": []
+}

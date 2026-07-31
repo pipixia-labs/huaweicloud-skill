@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "description": "阶段 0 的全局不变式基线。强制层级描述当前已验证的范围，不是安全营销等级。",
+  "invariants": [
+    {
+      "id": "safe_exec_redacts_known_secrets",
+      "statement": "通过 hcloud_safe_exec 返回的命令与结构化输出必须脱敏已知秘密。",
+      "level": "script_enforced",
+      "scope": "scripts/hcloud_safe_exec.py 的输出路径",
+      "applicable_path_groups": ["generic_hcloud_dispatch"],
+      "evidence": ["scripts/hcloud_safe_exec.py", "tests/test_hcloud_safe_exec.py"],
+      "gap": "不代表所有脚本、宿主日志或外部工具路径均已统一脱敏。",
+      "target": "由全局结果协议和受控入口统一执行。"
+    },
+    {
+      "id": "large_read_output_is_bounded",
+      "statement": "命中本地大输出策略的 hcloud 查询应经过分页、摘要或受控落盘。",
+      "level": "script_enforced",
+      "scope": "hcloud_safe_exec 与 hcloud-output-policies 覆盖的查询",
+      "applicable_path_groups": ["generic_hcloud_dispatch", "hcloud_and_obs_read_wrappers"],
+      "evidence": ["scripts/hcloud_safe_exec.py", "references/hcloud-output-policies.json"],
+      "gap": "未分类 operation 与不经过该入口的读取路径不在此保证内。",
+      "target": "由 metadata_read 和全局结果协议统一执行。"
+    },
+    {
+      "id": "guarded_hcloud_submit_requires_review_token",
+      "statement": "现有 guarded change flow 的 submit 必须携带确认标记和当前计划 token。",
+      "level": "script_enforced",
+      "scope": "scripts/hcloud_guarded_change_flow.py 与 scripts/hcloud_eip_change_flow.py",
+      "applicable_path_groups": ["guarded_hcloud_change_submit"],
+      "evidence": ["scripts/hcloud_guarded_change_flow.py", "scripts/hcloud_eip_change_flow.py"],
+      "gap": "通用 hcloud 执行器和其他外部执行入口不受该局部门禁控制。",
+      "target": "仅由受控提交入口接受已审核 Action Plan。"
+    },
+    {
+      "id": "terraform_import_requires_local_token",
+      "statement": "Terraform import 必须显式允许状态变更并匹配当前本地计划 token。",
+      "level": "script_enforced",
+      "scope": "scripts/hcloud_terraform_operations_plan.py 的 import 路径",
+      "applicable_path_groups": ["terraform_state_change"],
+      "evidence": ["scripts/hcloud_terraform_operations_plan.py"],
+      "gap": "该 token 尚未与全局 Action Plan、风险标签或统一确认语义关联。",
+      "target": "作为 Terraform 适配器接入统一计划与确认协议。"
+    },
+    {
+      "id": "accepted_is_not_completed",
+      "statement": "job_id、accepted、task_id 或资源创建受理不等于资源和业务验收完成。",
+      "level": "doc_only",
+      "scope": "全局操作说明；部分 ECS 和 MaaS 脚本提供局部轮询。",
+      "applicable_path_groups": ["guarded_hcloud_change_submit", "hcloud_and_obs_read_wrappers", "maas_remote_generation"],
+      "evidence": ["references/runtime-safety-boundaries.md", "scripts/hcloud_ecs_wait_job.py", "scripts/maas_video_generation.py"],
+      "gap": "尚无覆盖所有异步服务和提交入口的代码级完成态门禁。",
+      "target": "由 Action Spec verification profile 与结果状态机统一执行。"
+    },
+    {
+      "id": "unknown_mutations_are_plan_only",
+      "statement": "未知、未审核或无法解析的 mutation 不得获得真实提交权限。",
+      "level": "code_enforced",
+      "scope": "已审查的 generic hcloud、legacy guarded、Terraform state change 与 MaaS generation 入口",
+      "applicable_path_groups": ["generic_hcloud_dispatch", "guarded_hcloud_change_submit", "terraform_state_change", "maas_remote_generation"],
+      "evidence": ["references/unified-runtime-execution-policy.json", "scripts/hcloud_runtime_admission.py", "scripts/hcloud_safe_exec.py", "scripts/hcloud_guarded_change_flow.py", "scripts/hcloud_eip_change_flow.py", "scripts/hcloud_terraform_operations_plan.py", "scripts/maas_common.py", "scripts/maas_image_generation.py", "scripts/maas_chat.py", "scripts/maas_video_generation.py", "scripts/qwen_text_to_image.py", "tests/test_hcloud_runtime_admission.py"],
+      "gap": "该保证仅覆盖已审查入口，且当前是 plan_only 收口；真实提交仍需要 Skill 内部服务专用受控入口、明确确认绑定、提交前事实刷新和提交后读回。",
+      "target": "在 ECS/DNS 等 Skill 内部受控入口复验 catalog reference、Action Plan、Submission Authorization、明确确认与当前事实后，才按服务恢复真实提交。"
+    },
+    {
+      "id": "maas_billable_effect_requires_plan_confirmation",
+      "statement": "可能计费或产生外部副作用的 MaaS 生成必须在本次计划审阅后得到明确确认。",
+      "level": "doc_only",
+      "scope": "MaaS 图片和视频生成等远程调用",
+      "applicable_path_groups": ["maas_remote_generation"],
+      "evidence": ["SKILL.md", "scripts/maas_image_generation.py", "scripts/maas_video_generation.py"],
+      "gap": "现有 MaaS CLI 以 --dry-run 控制执行，但没有统一 Action Plan 确认准入。",
+      "target": "以 MaaS Action Spec 接入受控外部副作用入口。"
+    }
+  ]
+}

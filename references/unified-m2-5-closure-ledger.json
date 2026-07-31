@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "description": "M2.5 的真实 mutation 路径收口台账。它把阶段 0 已审查的提交能力组与后续 Skill 内部受控入口/降级验收关联起来；本文件不授予执行权限。",
+  "milestone": "M2.5",
+  "entries": [
+    {
+      "path_group_id": "generic_hcloud_dispatch",
+      "closure_status": "closed_via_plan_only",
+      "intended_disposition": "plan_only_until_curated_skill_controlled_entry",
+      "preparation_status": "runtime_freeze_code_enforced",
+      "required_prerequisites": ["curated_action_spec", "skill_controlled_entry", "explicit_plan_bound_confirmation", "skill_specific_request_mapping", "fresh_pre_submit_readback", "post_submit_readback", "negative_bypass_tests"],
+      "required_negative_test_ids": ["generic_hcloud_dispatch_rejects_unbound_mutation", "generic_hcloud_dispatch_rejects_command_part_mutation", "generic_hcloud_dispatch_rejects_catalog_bypass"],
+      "compatibility_impact": "通用 mutation 将不能继续经安全执行器直接提交；只读兼容路径需单独保留或桥接。",
+      "closure_acceptance": "每个 mutation 要么由 Skill 内部受控入口在调用前重验 Submission Authorization、明确确认和当前事实，要么在该通用入口返回 plan_only。",
+      "current_blocker": "真实提交仍缺服务专用 Skill 内部受控入口、提交前事实刷新和提交后回读；ECS 密钥对私网子集和 DNS A 记录当前只有计划态映射。",
+      "runtime_evidence": ["references/unified-runtime-execution-policy.json", "scripts/hcloud_runtime_admission.py", "scripts/hcloud_safe_exec.py"],
+      "negative_test_evidence": ["tests/test_hcloud_runtime_admission.py", "tests/test_hcloud_safe_exec.py"]
+    },
+    {
+      "path_group_id": "guarded_hcloud_change_submit",
+      "closure_status": "closed_via_plan_only",
+      "intended_disposition": "plan_only_until_curated_skill_controlled_entry",
+      "preparation_status": "runtime_freeze_code_enforced",
+      "required_prerequisites": ["curated_action_spec", "skill_controlled_entry", "explicit_plan_bound_confirmation", "skill_specific_request_mapping", "fresh_pre_submit_readback", "post_submit_readback", "legacy_token_compatibility_decision", "negative_bypass_tests"],
+      "required_negative_test_ids": ["guarded_flow_rejects_missing_submission_authorization", "guarded_flow_rejects_stale_plan_or_intent", "guarded_flow_rejects_missing_preflight_evidence"],
+      "compatibility_impact": "现有 plan token 和确认标记不能自动视为全局确认；桥接时需要明确迁移或 plan_only 的兼容策略。",
+      "closure_acceptance": "每个保留的 guarded submit 都由 Skill 内部受控入口在真正调用前复验统一合同、明确确认和当前事实，且旧 token 单独不能触发提交。",
+      "current_blocker": "真实提交仍缺服务专用 Skill 内部受控入口、提交前事实刷新和提交后回读；ECS 密钥对私网子集和 DNS A 记录当前只有计划态映射。",
+      "runtime_evidence": ["references/unified-runtime-execution-policy.json", "scripts/hcloud_runtime_admission.py", "scripts/hcloud_guarded_change_flow.py", "scripts/hcloud_eip_change_flow.py"],
+      "negative_test_evidence": ["tests/test_hcloud_multiservice_tools.py"]
+    },
+    {
+      "path_group_id": "terraform_state_change",
+      "closure_status": "closed_via_plan_only",
+      "intended_disposition": "plan_only_until_terraform_skill_controlled_entry",
+      "preparation_status": "runtime_freeze_code_enforced",
+      "required_prerequisites": ["terraform_action_spec", "reviewed_terraform_plan", "terraform_skill_controlled_entry", "explicit_plan_bound_confirmation", "fresh_pre_submit_readback", "post_submit_readback", "negative_bypass_tests"],
+      "required_negative_test_ids": ["terraform_state_change_rejects_missing_submission_authorization", "terraform_state_change_rejects_stale_plan", "terraform_state_change_rejects_unreviewed_resource_mapping"],
+      "compatibility_impact": "import 和远程状态变更要从本地 token 迁移到统一计划、资源映射和确认语义。",
+      "closure_acceptance": "状态变更只能在资源映射、Terraform plan、统一确认和 hcloud 回读要求均满足时由 Skill 内部受控入口调用。",
+      "current_blocker": "真实状态变更仍缺 Terraform 资源映射、审核 Terraform plan、Skill 内部受控入口和提交后读回。",
+      "runtime_evidence": ["references/unified-runtime-execution-policy.json", "scripts/hcloud_runtime_admission.py", "scripts/hcloud_terraform_operations_plan.py"],
+      "negative_test_evidence": ["tests/test_hcloud_completion_gap_tools.py"]
+    },
+    {
+      "path_group_id": "maas_remote_generation",
+      "closure_status": "closed_via_plan_only",
+      "intended_disposition": "plan_only_until_maas_skill_controlled_entry",
+      "preparation_status": "runtime_freeze_code_enforced",
+      "required_prerequisites": ["curated_action_spec", "skill_controlled_external_effect_entry", "explicit_plan_bound_confirmation", "fresh_pre_submit_readback", "usage_or_task_readback", "negative_bypass_tests"],
+      "required_negative_test_ids": ["maas_generation_rejects_missing_submission_authorization", "maas_generation_rejects_stale_intent", "maas_generation_rejects_missing_cost_or_content_preflight"],
+      "compatibility_impact": "图片、视频和兼容模型入口需要共用同一确认绑定，不能因 API 形态不同绕过计费/内容预检。",
+      "closure_acceptance": "每个可能计费或产生外部副作用的生成调用均在 Skill 内部受控入口重验统一合同，并把 task/usage 读回交给统一结果协议。",
+      "current_blocker": "真实 MaaS 调用仍缺成本/内容预检、Skill 内部受控入口和 task/usage 回读。",
+      "runtime_evidence": ["references/unified-runtime-execution-policy.json", "scripts/hcloud_runtime_admission.py", "scripts/maas_common.py", "scripts/maas_image_generation.py", "scripts/maas_chat.py", "scripts/maas_video_generation.py", "scripts/qwen_text_to_image.py"],
+      "negative_test_evidence": ["tests/test_hcloud_runtime_admission.py", "tests/test_maas_api_helpers.py", "tests/test_qwen_text_to_image.py"]
+    }
+  ]
+}

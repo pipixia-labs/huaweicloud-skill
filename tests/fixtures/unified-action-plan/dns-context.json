@@ -1,0 +1,10 @@
+{
+  "schema_version": "cloud-context/v1",
+  "intent": "规划 DNS 记录集创建，不执行变更。",
+  "scope": {
+    "region": "cn-north-4",
+    "project_id": "example-project",
+    "resource_refs": ["dns-zone:example-zone"]
+  },
+  "missing_inputs": ["record_values"]
+}

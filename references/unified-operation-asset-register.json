@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "description": "阶段 0 的既有资产事实源登记。该登记说明当前职责与统一架构归宿，不替代运行时策略或 API catalog。",
+  "assets": [
+    {
+      "id": "hcloud_service_catalog",
+      "path": "references/hcloud-service-catalog",
+      "path_kind": "directory",
+      "classification": "facts",
+      "current_responsibility": "保存按服务拆分的 KooCLI/OpenAPI 生成 operation 事实。",
+      "consumers": ["hcloud_catalog.py", "hcloud_operation_resolver.py", "hcloud_safe_exec.py"],
+      "refresh_source": "scripts/build_hcloud_catalog.py",
+      "target_disposition": "retain",
+      "target_layer": "fact_catalog"
+    },
+    {
+      "id": "hcloud_catalog_index",
+      "path": "references/hcloud-service-catalog.index.json",
+      "path_kind": "file",
+      "classification": "facts",
+      "current_responsibility": "提供服务和 operation 的紧凑索引。",
+      "consumers": ["hcloud_catalog.py", "hcloud_catalog_audit.py"],
+      "refresh_source": "scripts/build_hcloud_catalog.py",
+      "target_disposition": "retain",
+      "target_layer": "fact_catalog"
+    },
+    {
+      "id": "hcloud_catalog_fingerprint",
+      "path": "references/hcloud-service-catalog.fingerprint.json",
+      "path_kind": "file",
+      "classification": "facts",
+      "current_responsibility": "记录 catalog 的可比较指纹和服务级变更依据。",
+      "consumers": ["hcloud_catalog_diff.py", "hcloud_catalog_audit.py"],
+      "refresh_source": "scripts/build_hcloud_catalog.py",
+      "target_disposition": "retain",
+      "target_layer": "fact_catalog"
+    },
+    {
+      "id": "service_registry",
+      "path": "references/service-registry.json",
+      "path_kind": "file",
+      "classification": "semantic",
+      "current_responsibility": "维护人工注册服务和 operation 的当前覆盖边界。",
+      "consumers": ["hcloud_service_change_plan.py", "hcloud_curated_promotion_audit.py"],
+      "refresh_source": "maintainer review",
+      "target_disposition": "bridge",
+      "target_layer": "reviewed_action_semantics"
+    },
+    {
+      "id": "service_curation_profiles",
+      "path": "references/service-curation-profiles.json",
+      "path_kind": "file",
+      "classification": "semantic",
+      "current_responsibility": "维护服务级成熟度、风险和晋级资料。",
+      "consumers": ["hcloud_curated_promotion_audit.py", "hcloud_closure_maturity_audit.py"],
+      "refresh_source": "maintainer review and live validation evidence",
+      "target_disposition": "bridge",
+      "target_layer": "service_to_operation_semantic_mapping"
+    },
+    {
+      "id": "live_validation_profiles",
+      "path": "references/live-validation-profiles.json",
+      "path_kind": "file",
+      "classification": "validation",
+      "current_responsibility": "定义服务读回、探测和晋级证据要求。",
+      "consumers": ["hcloud_live_validation_plan.py", "hcloud_curated_promotion_audit.py"],
+      "refresh_source": "maintainer review and live validation evidence",
+      "target_disposition": "bridge",
+      "target_layer": "verification_profiles"
+    },
+    {
+      "id": "scenario_router",
+      "path": "references/scenario-router.json",
+      "path_kind": "file",
+      "classification": "policy",
+      "current_responsibility": "维护自然语言场景到本地服务与资料候选的路由规则。",
+      "consumers": ["hcloud_scenario_router.py"],
+      "refresh_source": "maintainer review",
+      "target_disposition": "bridge",
+      "target_layer": "global_scenario_catalog"
+    },
+    {
+      "id": "scenario_contracts",
+      "path": "references/scenario-contracts.json",
+      "path_kind": "file",
+      "classification": "semantic",
+      "current_responsibility": "维护部分场景的输入、证据、风险和输出契约。",
+      "consumers": ["hcloud_scenario_router.py", "hcloud_closure_plan.py"],
+      "refresh_source": "maintainer review",
+      "target_disposition": "bridge",
+      "target_layer": "global_scenario_contracts"
+    },
+    {
+      "id": "output_policies",
+      "path": "references/hcloud-output-policies.json",
+      "path_kind": "file",
+      "classification": "policy",
+      "current_responsibility": "维护大输出、分页、摘要和落盘策略。",
+      "consumers": ["hcloud_output_policy.py", "hcloud_safe_exec.py", "hcloud_metadata_read_plan.py"],
+      "refresh_source": "maintainer review with catalog evidence",
+      "target_disposition": "retain",
+      "target_layer": "result_and_output_policy"
+    },
+    {
+      "id": "sdk_supplement_registry",
+      "path": "references/sdk-supplement-registry.json",
+      "path_kind": "file",
+      "classification": "policy",
+      "current_responsibility": "限制 SDK 仅作为 hcloud 的窄范围补充。",
+      "consumers": ["hcloud_sdk_readonly.py", "hcloud_sdk_supplement_audit.py"],
+      "refresh_source": "maintainer review with SDK metadata evidence",
+      "target_disposition": "retain",
+      "target_layer": "tool_selection_policy"
+    },
+    {
+      "id": "capabilities",
+      "path": "capabilities.json",
+      "path_kind": "file",
+      "classification": "semantic",
+      "current_responsibility": "提供运行时可选的机器能力与结果契约。",
+      "consumers": ["supporting agent runtimes", "capability-contracts.md"],
+      "refresh_source": "maintainer review",
+      "target_disposition": "bridge",
+      "target_layer": "portable_capabilities"
+    },
+    {
+      "id": "runtime_safety_boundaries",
+      "path": "references/runtime-safety-boundaries.md",
+      "path_kind": "file",
+      "classification": "policy",
+      "current_responsibility": "记录跨场景安全、完成态和诚实汇报边界。",
+      "consumers": ["SKILL.md", "service playbooks", "agent runtimes"],
+      "refresh_source": "maintainer review",
+      "target_disposition": "bridge",
+      "target_layer": "global_invariants"
+    },
+    {
+      "id": "playbooks",
+      "path": "references/playbooks",
+      "path_kind": "directory",
+      "classification": "semantic",
+      "current_responsibility": "保存服务和场景的可复用操作说明及证据要求。",
+      "consumers": ["SKILL.md", "hcloud_scenario_router.py"],
+      "refresh_source": "maintainer review with official documentation evidence",
+      "target_disposition": "retain",
+      "target_layer": "service_modules"
+    },
+    {
+      "id": "script_audience_manifest",
+      "path": "references/script-audience-manifest.json",
+      "path_kind": "file",
+      "classification": "governance",
+      "current_responsibility": "声明脚本受众、兼容期和合并边界。",
+      "consumers": ["architecture reviews", "maintainers"],
+      "refresh_source": "maintainer review",
+      "target_disposition": "retain",
+      "target_layer": "entrypoint_governance"
+    },
+    {
+      "id": "unified_operation_migration_map",
+      "path": "references/unified-operation-migration-map.json",
+      "path_kind": "file",
+      "classification": "governance",
+      "current_responsibility": "记录既有字段和规则向全局 Context、Result 与 Action Spec 的迁移关系。",
+      "consumers": ["hcloud_unified_baseline_audit.py", "phase 0 implementation reviews"],
+      "refresh_source": "phase 0 architecture review",
+      "target_disposition": "retain",
+      "target_layer": "migration_governance"
+    },
+    {
+      "id": "unified_operation_invariants",
+      "path": "references/unified-operation-invariants.json",
+      "path_kind": "file",
+      "classification": "governance",
+      "current_responsibility": "登记全局不变式、当前强制层级、明确入口适用范围、证据和未收口缺口。",
+      "consumers": ["hcloud_unified_baseline_audit.py", "hcloud_invariant_coverage_audit.py", "M2.5 closure review"],
+      "refresh_source": "invariant review and negative-test evidence",
+      "target_disposition": "retain",
+      "target_layer": "global_invariants"
+    },
+    {
+      "id": "unified_execution_path_inventory",
+      "path": "references/unified-operation-execution-paths.json",
+      "path_kind": "file",
+      "classification": "governance",
+      "current_responsibility": "登记经审查的旧执行入口、当前准入形态和统一迁移归宿，供基线与影子比较使用。",
+      "consumers": ["hcloud_unified_baseline_audit.py", "hcloud_entrypoint_shadow_audit.py", "hcloud_m2_5_closure_audit.py", "M2.5 closure review"],
+      "refresh_source": "execution-path audit and bridge review",
+      "target_disposition": "retain",
+      "target_layer": "entrypoint_governance"
+    },
+    {
+      "id": "unified_m2_5_closure_ledger",
+      "path": "references/unified-m2-5-closure-ledger.json",
+      "path_kind": "file",
+      "classification": "governance",
+      "current_responsibility": "逐条登记已审查 mutation 路径的桥接/降级状态、前置、兼容影响和负向测试验收。",
+      "consumers": ["hcloud_m2_5_closure_audit.py", "M2.5 closure review"],
+      "refresh_source": "Skill 内部受控入口实现和负向测试复核",
+      "target_disposition": "retain",
+      "target_layer": "entrypoint_governance"
+    },
+    {
+      "id": "unified_contract_schemas",
+      "path": "references/contracts",
+      "path_kind": "directory",
+      "classification": "semantic",
+      "current_responsibility": "定义 Cloud Context、Action Spec、Action Plan、Execution Intent、Submission Authorization 和 Operation Result 的可移植 schema；Controlled Submit Handoff 仅作为已废弃试验格式保留，不能成为目标架构依赖。",
+      "consumers": ["hcloud_unified_contracts.py", "hcloud_controlled_admission.py", "future Skill-controlled entries", "contract tests"],
+      "refresh_source": "M1 contract review",
+      "target_disposition": "retain",
+      "target_layer": "portable_contracts"
+    },
+    {
+      "id": "controlled_adapter_registry",
+      "path": "references/controlled-adapter-registry.json",
+      "path_kind": "file",
+      "classification": "governance",
+      "current_responsibility": "已废弃的宿主交接试验登记：保留可迁移的服务请求映射审计证据，但不再把宿主前置作为真实提交条件；不保存云请求事实、凭据或审批 token。",
+      "consumers": ["hcloud_controlled_adapter_registry.py", "hcloud_controlled_submit_handoff.py", "controlled-adapter tests"],
+      "refresh_source": "catalog/Action Spec review and Skill-controlled-entry migration evidence",
+      "target_disposition": "retire_or_migrate_to_skill_controlled_operation_registry",
+      "target_layer": "deprecated_host_handoff_experiment"
+    },
+    {
+      "id": "unified_risk_policy",
+      "path": "references/unified-risk-policy.json",
+      "path_kind": "file",
+      "classification": "policy",
+      "current_responsibility": "定义跨工具 Action Plan 的风险标签、前置、确认、验证和计划期执行边界。",
+      "consumers": ["hcloud_unified_policy.py", "hcloud_action_plan.py", "policy tests"],
+      "refresh_source": "M2 policy review with invariant and pilot evidence",
+      "target_disposition": "retain",
+      "target_layer": "global_risk_policy"
+    },
+    {
+      "id": "unified_error_policy",
+      "path": "references/unified-error-policy.json",
+      "path_kind": "file",
+      "classification": "policy",
+      "current_responsibility": "定义跨入口错误分类、禁止盲目重试和下一步处置原则。",
+      "consumers": ["hcloud_unified_policy.py", "hcloud_operation_result.py", "policy tests"],
+      "refresh_source": "M2 policy review with existing error handling evidence",
+      "target_disposition": "retain",
+      "target_layer": "global_error_policy"
+    },
+    {
+      "id": "unified_runtime_execution_policy",
+      "path": "references/unified-runtime-execution-policy.json",
+      "path_kind": "file",
+      "classification": "policy",
+      "current_responsibility": "冻结未接入 Skill 内部受控入口的真实 mutation、Terraform 状态变更和 MaaS 外部副作用；仅允许已证明只读的路径执行。",
+      "consumers": ["hcloud_runtime_admission.py", "hcloud_safe_exec.py", "legacy guarded flows", "MaaS helpers", "M2.5 closure audit"],
+      "refresh_source": "Skill 内部受控入口复核和负向旁路测试",
+      "target_disposition": "retain",
+      "target_layer": "runtime_admission_policy"
+    },
+    {
+      "id": "trial_action_semantics",
+      "path": "references/action-semantics/trial",
+      "path_kind": "directory",
+      "classification": "semantic",
+      "current_responsibility": "保存 ECS、DNS、MaaS、LTS/CTS 的非执行试点 Action Spec。",
+      "consumers": ["hcloud_action_plan.py", "hcloud_controlled_admission.py", "hcloud_metadata_read_plan.py", "policy tests", "M2.5 pilot review"],
+      "refresh_source": "pilot semantic review and generated catalog fingerprint check",
+      "target_disposition": "bridge",
+      "target_layer": "reviewed_action_semantics"
+    },
+    {
+      "id": "scripts_and_runners",
+      "path": "scripts",
+      "path_kind": "directory",
+      "classification": "execution",
+      "current_responsibility": "承载 planner、查询、验证、局部 guarded flow 和维护脚本。",
+      "consumers": ["agents", "users", "CI-style tests"],
+      "refresh_source": "source changes and test review",
+      "target_disposition": "bridge",
+      "target_layer": "controlled_entrypoints"
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "description": "阶段 0 的现有字段和规则迁移图。它规定后续全局契约从哪些既有资产桥接而来，不是第二份 API 参数 catalog。",
+  "context_fields": [
+    {
+      "target_field": "cloud_context.identity_and_profile",
+      "source_assets": ["capabilities", "runtime_safety_boundaries", "scripts_and_runners"],
+      "migration_rule": "保留 profile、凭据类别和身份边界；禁止把秘密值写入 Context、结果或计划。"
+    },
+    {
+      "target_field": "cloud_context.scope",
+      "source_assets": ["service_registry", "scenario_contracts", "scripts_and_runners"],
+      "migration_rule": "统一 region、project、企业项目、资源 ID、网络边界和时间范围的显式缺失输入表示。"
+    },
+    {
+      "target_field": "cloud_context.intent_and_constraints",
+      "source_assets": ["scenario_router", "scenario_contracts", "playbooks"],
+      "migration_rule": "将用户目标、风险偏好、预算、停机窗口和人工流程作为场景输入，而不是由底层工具反推流程。"
+    }
+  ],
+  "result_fields": [
+    {
+      "target_field": "operation_result.stage_and_outcome",
+      "source_assets": ["runtime_safety_boundaries", "scripts_and_runners", "capabilities"],
+      "migration_rule": "区分发现、计划、dry-run、已受理、异步终态、资源读回和业务验收；退出码或 job_id 不得直接等同完成。"
+    },
+    {
+      "target_field": "operation_result.facts_evidence_and_gaps",
+      "source_assets": ["live_validation_profiles", "scenario_contracts", "playbooks"],
+      "migration_rule": "把读回、探测、证据缺口、阻塞和下一步最小动作结构化；未执行时只能报告计划态。"
+    },
+    {
+      "target_field": "operation_result.output_and_redaction",
+      "source_assets": ["output_policies", "runtime_safety_boundaries", "scripts_and_runners"],
+      "migration_rule": "统一输出范围、摘要、落盘和脱敏；不把局部脚本输出形态当作全部路径的保证。"
+    }
+  ],
+  "action_spec_fields": [
+    {
+      "target_field": "action_spec.catalog_ref",
+      "source_assets": ["hcloud_service_catalog", "hcloud_catalog_index", "hcloud_catalog_fingerprint"],
+      "migration_rule": "引用精确 service、operation、version 和 catalog fingerprint；不复制 HTTP 方法、路径或请求参数。"
+    },
+    {
+      "target_field": "action_spec.effect_risk_and_maturity",
+      "source_assets": ["service_registry", "service_curation_profiles", "runtime_safety_boundaries"],
+      "migration_rule": "服务级风险和成熟度必须标明桥接证据，后续才能人工审核为 operation 级语义。"
+    },
+    {
+      "target_field": "action_spec.tool_and_preflight",
+      "source_assets": ["sdk_supplement_registry", "scenario_contracts", "scripts_and_runners"],
+      "migration_rule": "默认 hcloud；SDK 仅补充；Terraform 仅在 IaC 意图下进入，三者都写明前检和工具选择理由。"
+    },
+    {
+      "target_field": "action_spec.confirmation_and_verification",
+      "source_assets": ["live_validation_profiles", "runtime_safety_boundaries", "scripts_and_runners"],
+      "migration_rule": "局部 plan token、dry-run、读回和探测资料统一编译为确认与验证要求，不能由命令文本自行提升权限。"
+    },
+    {
+      "target_field": "action_spec.output_policy",
+      "source_assets": ["output_policies", "sdk_supplement_registry"],
+      "migration_rule": "读操作按结构化输出/敏感边界处理；名称推断的 read_only 只能成为受限 metadata_read 候选。"
+    }
+  ],
+  "rule_conflicts": [
+    {
+      "id": "generic_hcloud_dispatch_bypasses_global_mutation_admission",
+      "source_assets": ["scripts_and_runners", "runtime_safety_boundaries"],
+      "current_difference": "通用 safe_exec 提供版本、输出和脱敏控制，但可以构造任意 service/operation 或 command-part 的真实 hcloud 调用。",
+      "resolution": "M2.5 前将其 mutation 使用桥接到受控提交入口或降为 plan_only；不得保留 generic command-part 提交旁路。",
+      "acceptance": "每条审计到的 mutation 路径有受控入口或 plan_only 的负向测试。"
+    },
+    {
+      "id": "local_confirmation_semantics_are_not_global_confirmation",
+      "source_assets": ["scripts_and_runners", "service_curation_profiles"],
+      "current_difference": "guarded hcloud flow、EIP flow 和 Terraform import 各自使用不同 token、确认和 dry-run 语义。",
+      "resolution": "M1/M2 以 Action Plan 指纹、风险标签和预检结果定义统一确认协议，并保留旧入口作为桥接适配器。",
+      "acceptance": "同一 Action Spec 用 hcloud、SDK 或 Terraform 时输出一致的确认需求和拒绝原因。"
+    },
+    {
+      "id": "read_name_inference_is_not_read_authorization",
+      "source_assets": ["hcloud_service_catalog", "output_policies", "sdk_supplement_registry"],
+      "current_difference": "catalog 的 read_only 主要来自名称/动作初分，部分脚本另有只读 allowlist。",
+      "resolution": "只允许精确 catalog 引用、版本解析、范围和输出策略均满足的 metadata_read；不因 List/Show 名称通用放行。",
+      "acceptance": "metadata_read 拒绝 command fragment、版本跳过和 mutation 尝试。"
+    },
+    {
+      "id": "completion_semantics_are_partly_documented",
+      "source_assets": ["runtime_safety_boundaries", "live_validation_profiles", "scripts_and_runners"],
+      "current_difference": "ECS 和部分 MaaS 有局部轮询/读回，但其他异步路径主要依赖文档约束。",
+      "resolution": "将 verification profile 编译为 Action Spec 的异步终态、资源读回和业务验收要求。",
+      "acceptance": "模拟器和负向回归证明 job_id、accepted、ACTIVE 或 task_id 不会被误报为业务完成。"
+    },
+    {
+      "id": "maas_external_effect_is_outside_hcloud_submit_gate",
+      "source_assets": ["scripts_and_runners", "runtime_safety_boundaries", "scenario_router"],
+      "current_difference": "MaaS 图片/视频等远程调用以 --dry-run 控制执行，尚未与统一计划和确认绑定。",
+      "resolution": "把可能计费或产生外部副作用的 MaaS 调用接入同一 Action Plan/confirmation 语义。",
+      "acceptance": "无已审核计划和确认的 MaaS 生成请求被拒绝，并保留只读查询路径。"
+    }
+  ]
+}

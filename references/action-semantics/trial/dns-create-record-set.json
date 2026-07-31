@@ -1,0 +1,27 @@
+{
+  "schema_version": "action-spec/v1",
+  "id": "huaweicloud.dns.create_record_set.v1",
+  "lifecycle": "curated",
+  "maturity": "curated",
+  "execution_family": "hcloud",
+  "catalog_ref": {
+    "catalog_fingerprint": "sha256:7359156dc62bda651e60f7c404ab7d9754ff7f3993c61bba967d67dc224cdab2",
+    "service": "DNS",
+    "operation": "CreateRecordSet",
+    "version": "v2"
+  },
+  "effect": "create",
+  "risk_tags": ["network_change"],
+  "tool_candidates": ["hcloud", "terraform"],
+  "preflight": {
+    "required_inputs": ["zone_id", "record_name", "record_type", "record_values", "ttl"],
+    "required_facts": ["zone_ownership_confirmed", "record_conflict_checked"],
+    "supports_dry_run": false
+  },
+  "execution": {
+    "adapter": "future_controlled_hcloud_entrypoint",
+    "legacy_path": "hcloud_guarded_change_flow.py"
+  },
+  "verification_profile": "dns_record_readback_and_resolution",
+  "output_policy": "redacted_summary"
+}

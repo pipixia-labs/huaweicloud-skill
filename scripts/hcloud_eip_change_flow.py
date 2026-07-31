@@ -15,6 +15,7 @@ import hcloud_common
 import hcloud_resource_query
 import hcloud_run_journal
 import hcloud_service_change_plan
+import hcloud_runtime_admission
 
 
 def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
@@ -177,6 +178,25 @@ def submit_guard_failure(
     return None
 
 
+def runtime_mutation_freeze(args: argparse.Namespace) -> dict[str, Any] | None:
+    """Block legacy EIP dry-run and submit calls before they reach a subprocess."""
+    if not (args.execute_dryrun or args.execute_submit):
+        return None
+    requested_action = "EIP submit" if args.execute_submit else "EIP dry-run"
+    return hcloud_runtime_admission.block_result(
+        "guarded_hcloud_change_submit",
+        requested_action,
+        reason=(
+            "Legacy EIP change flow is not a Skill-controlled entry and cannot execute "
+            "a cloud mutation during the M2.5 hard freeze."
+        ),
+        next_action=(
+            "Keep this flow in plan mode. A future curated Skill-controlled entry must revalidate "
+            "Submission Authorization immediately before a cloud request."
+        ),
+    )
+
+
 def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     """Build and optionally execute a guarded EIP Plan -> Apply -> Verify flow."""
     service_plan = hcloud_service_change_plan.build_service_plan(service_plan_args(args))
@@ -200,6 +220,13 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         ],
     }
     if not service_plan.get("success"):
+        return result
+
+    runtime_freeze = runtime_mutation_freeze(args)
+    if runtime_freeze:
+        result["success"] = False
+        result["runtime_execution_block"] = runtime_freeze
+        result["next_steps"] = [runtime_freeze["next_action"]]
         return result
 
     submit_token = expected_submit_token(args, service_plan)

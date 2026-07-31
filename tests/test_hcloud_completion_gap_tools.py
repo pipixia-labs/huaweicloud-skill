@@ -281,6 +281,21 @@ class CompletionGapToolsTest(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertIn("--import-target", result["error"])
 
+    def test_terraform_import_execution_is_plan_only_before_subprocess(self) -> None:
+        result = hcloud_terraform_operations_plan.build_plan(
+            self.terraform_args(
+                operation="import",
+                execute_import=True,
+                allow_state_change=True,
+                confirm_token="legacy-token",
+            )
+        )
+
+        self.assertFalse(result["success"])
+        blocked = result["import_execution"][0]
+        self.assertEqual(blocked["error_type"], "UNIFIED_RUNTIME_PLAN_ONLY")
+        self.assertEqual(blocked["execution_authority"]["mode"], "plan_only")
+
 
 if __name__ == "__main__":
     unittest.main()

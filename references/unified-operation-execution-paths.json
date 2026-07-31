@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "description": "阶段 0 的执行入口审计基线。它记录已人工核验的入口组、当前边界和后续归宿；不是运行时授权清单。",
+  "scope": {
+    "included": "当前 scripts/ 下可能直接发起云 API、外部 HTTP、Terraform 状态操作、通用 hcloud 命令或对应规划的入口组。",
+    "excluded": "纯库模块、测试代码和未在 script-audience-manifest 中声明的临时文件。",
+    "limitation": "该基线不证明每条入口已受统一门禁控制；它的首要作用是让未收口路径可见。"
+  },
+  "path_groups": [
+    {
+      "id": "generic_hcloud_dispatch",
+      "source_paths": ["scripts/hcloud_safe_exec.py"],
+      "path_kind": "generic_hcloud_dispatch",
+      "effect": "cloud_mutation_possible",
+      "current_admission": "catalog_read_only_or_runtime_plan_only",
+      "current_enforcement": "代码仅允许 resolver 明确 read_only 的 service/operation 与窄信息命令执行；mutation、未知 operation、跳过解析和未分类 command-part 在创建 subprocess 前统一返回 plan_only。",
+      "target_disposition": "closed_via_plan_only_pending_skill_controlled_entry",
+      "review_status": "reviewed",
+      "notes": "后续受控提交入口不得复用其通用 command-part 作为提交旁路；当前没有 generic mutation 兼容模式。"
+    },
+    {
+      "id": "guarded_hcloud_change_submit",
+      "source_paths": ["scripts/hcloud_guarded_change_flow.py", "scripts/hcloud_eip_change_flow.py"],
+      "path_kind": "guarded_cloud_mutation",
+      "effect": "cloud_mutation",
+      "current_admission": "runtime_plan_only",
+      "current_enforcement": "旧有局部确认和 plan token 保留为计划证据；--execute-dryrun 与 --execute-submit 在任何 subprocess 前由统一运行时策略拒绝。",
+      "target_disposition": "closed_via_plan_only_pending_skill_controlled_entry",
+      "review_status": "reviewed",
+      "notes": "已有局部门禁是后续桥接证据，不能自动等同于全局 Action Plan；旧 token 不能触发提交。"
+    },
+    {
+      "id": "terraform_state_change",
+      "source_paths": ["scripts/hcloud_terraform_operations_plan.py"],
+      "path_kind": "terraform_state_change",
+      "effect": "terraform_state_change",
+      "current_admission": "runtime_plan_only",
+      "current_enforcement": "只读 drift plan 可继续执行；import 即使提供旧 allow/token 也在 Terraform subprocess 前返回 plan_only。",
+      "target_disposition": "closed_via_plan_only_pending_skill_controlled_entry",
+      "review_status": "reviewed",
+      "notes": "drift plan 是只读检查；import 和远程状态迁移仍需统一风险、确认语义和 Skill 内部受控入口。"
+    },
+    {
+      "id": "maas_remote_generation",
+      "source_paths": ["scripts/maas_chat.py", "scripts/maas_image_generation.py", "scripts/maas_text_to_image.py", "scripts/maas_video_generation.py", "scripts/qwen_text_to_image.py", "scripts/maas_common.py"],
+      "path_kind": "external_api_invocation",
+      "effect": "external_cost_or_side_effect",
+      "current_admission": "runtime_plan_only",
+      "current_enforcement": "图片、聊天、视频和兼容图片入口在读取 API Key 或发起 HTTP 请求前统一返回 plan_only；共享 MaaS JSON transport 同时拒绝非只读 HTTP 方法。",
+      "target_disposition": "closed_via_plan_only_pending_skill_controlled_entry",
+      "review_status": "reviewed",
+      "notes": "图片、聊天和视频生成可能计费；兼容 Qwen 入口与共享 transport 均已纳入运行时拒绝。"
+    },
+    {
+      "id": "maas_usage_live_read",
+      "source_paths": ["scripts/maas_usage_request_plan.py"],
+      "path_kind": "external_api_read",
+      "effect": "cloud_read",
+      "current_admission": "explicit_execute_mode",
+      "current_enforcement": "请求规划与发送分离；调用范围由脚本参数限制。",
+      "target_disposition": "bridge_to_metadata_read",
+      "review_status": "reviewed",
+      "notes": "只读取证不是 mutation，但可能包含敏感用量或账单信息。"
+    },
+    {
+      "id": "hcloud_and_obs_read_wrappers",
+      "source_paths": ["scripts/hcloud_billing_live_read.py", "scripts/hcloud_ces_datapoint_plan.py", "scripts/hcloud_ecs_verify_active.py", "scripts/hcloud_ecs_wait_job.py", "scripts/hcloud_lts_readonly.py", "scripts/hcloud_obs_readonly.py", "scripts/hcloud_readonly_smoke.py", "scripts/hcloud_resource_discovery.py", "scripts/hcloud_resource_query.py", "scripts/hcloud_resource_verify.py", "scripts/hcloud_service_readiness.py"],
+      "path_kind": "declared_cloud_read",
+      "effect": "cloud_read",
+      "current_admission": "script_specific_read_scope",
+      "current_enforcement": "各脚本的 operation allowlist、输入校验和 safe_exec 输出边界。",
+      "target_disposition": "bridge_to_metadata_read_or_curated_read",
+      "review_status": "reviewed",
+      "notes": "此组为受限只读桥接候选，不代表任意 List/Show operation 已获准执行。"
+    },
+    {
+      "id": "sdk_readonly_supplement",
+      "source_paths": ["scripts/hcloud_sdk_readonly.py"],
+      "path_kind": "sdk_readonly_supplement",
+      "effect": "cloud_read",
+      "current_admission": "sdk_registry_allowlist",
+      "current_enforcement": "SDK operation 必须位于 supplement registry 且元数据判定为只读。",
+      "target_disposition": "bridge_to_metadata_read",
+      "review_status": "reviewed",
+      "notes": "SDK 仍是 hcloud 的窄补充，不能形成第二个通用执行面。"
+    },
+    {
+      "id": "external_acceptance_probe",
+      "source_paths": ["scripts/hcloud_acceptance_probe_run.py"],
+      "path_kind": "external_probe",
+      "effect": "external_network_probe",
+      "current_admission": "explicit_probe_execution",
+      "current_enforcement": "探测命令由验收计划生成，结果与云资源 mutation 分离。",
+      "target_disposition": "bridge_to_verification_adapter",
+      "review_status": "reviewed",
+      "notes": "外部探测可产生网络访问，但不是云资源提交。"
+    },
+    {
+      "id": "local_diagnostics_and_metadata",
+      "source_paths": ["scripts/hcloud_context_inspect.py", "scripts/hcloud_entrypoint_shadow_audit.py", "scripts/hcloud_environment_doctor.py", "scripts/hcloud_invariant_coverage_audit.py", "scripts/hcloud_m2_5_closure_audit.py", "scripts/hcloud_meta_lookup.py", "scripts/hcloud_operation_resolver.py", "scripts/hcloud_prewarm_cache.py", "scripts/hcloud_project_resolve.py", "scripts/hcloud_terraform_context_inspect.py"],
+      "path_kind": "local_diagnostic_or_metadata",
+      "effect": "local_or_metadata_read",
+      "current_admission": "not_cloud_submit",
+      "current_enforcement": "本地命令和 metadata 查询各自受参数边界约束。",
+      "target_disposition": "retain_with_explicit_allowlists",
+      "review_status": "reviewed",
+      "notes": "本地诊断若保留，必须与裸云 API 命令明确区分；影子审计、不变式覆盖审计和 M2.5 收口审计只读取登记数据，不能调用任一路径。"
+    },
+    {
+      "id": "planner_only_change_paths",
+      "source_paths": ["scripts/hcloud_change_plan.py", "scripts/hcloud_action_plan.py", "scripts/hcloud_controlled_admission.py", "scripts/hcloud_controlled_submit_handoff.py", "scripts/hcloud_metadata_read_plan.py", "scripts/hcloud_operation_result.py", "scripts/hcloud_ecs_create_plan.py", "scripts/hcloud_obs_change_plan.py", "scripts/hcloud_service_change_plan.py", "scripts/hcloud_teardown_plan.py", "scripts/hcloud_cci_workload_plan.py", "scripts/hcloud_closure_plan.py", "scripts/hcloud_terraform_router.py"],
+      "path_kind": "planner_only",
+      "effect": "no_live_execution",
+      "current_admission": "plan_only",
+      "current_enforcement": "脚本只生成计划、候选或说明，不应调用真实 submit。",
+      "target_disposition": "retain_as_action_plan_inputs",
+      "review_status": "reviewed",
+      "notes": "M2 的 hcloud_action_plan.py、hcloud_metadata_read_plan.py，以及 M2.5 的 hcloud_controlled_admission.py 只生成非执行计划或确认绑定。hcloud_controlled_submit_handoff.py 是已废弃的宿主交接试验，固定为 plan_only，不得作为运行路径。当前 ECS 密钥对私网子集与 DNS A 记录具备可迁移的本地映射，其他变体继续保持计划态；后续由 Skill 内部受控入口接入。"
+    }
+  ]
+}

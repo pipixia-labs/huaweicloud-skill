@@ -1,0 +1,9 @@
+{
+  "source": "hcloud_safe_exec",
+  "success": false,
+  "error_type": "TIMEOUT",
+  "error_details": {
+    "cloud_error_code": null,
+    "cloud_error_message": "The command timed out."
+  }
+}
