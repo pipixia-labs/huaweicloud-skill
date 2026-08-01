@@ -36,6 +36,11 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("不算完成记录", skill)
         self.assertIn("task 级独立 workspace", skill)
         self.assertIn("多个 task 共用一个 workspace", skill)
+        self.assertIn("同一 task", skill)
+        self.assertIn("必须立即重新分类", skill)
+        self.assertIn("下一项实质规划或执行前", skill)
+        self.assertIn("进入付费、真实变更或异步等待前", skill)
+        self.assertIn("可信摘要", skill)
         self.assertIn("必须更新", skill)
         self.assertIn("恢复任务时先读取", skill)
 
@@ -65,6 +70,12 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "不依赖 PID",
             "必须持久化",
             "首次实质规划或执行前",
+            "每轮收到用户",
+            "立即重新分类",
+            "下一项实质规划或执行前",
+            "轻量恢复检查",
+            "付费调用、真实云变更或异步等待前",
+            "可信摘要",
             "当前目标",
             "关键约束",
             "最近重要进展",
@@ -79,6 +90,8 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("可以增加", guide)
         self.assertNotIn("不可变 TaskContract", guide)
         self.assertNotIn("固定状态机", guide)
+        self.assertNotIn("每查看两次", guide)
+        self.assertNotIn("PreToolUse", guide)
 
     def test_templates_define_minimum_semantics_without_fixed_execution(self) -> None:
         task_template = read_text("templates/task.md")
@@ -88,10 +101,13 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "task_id",
             "goal",
             "important_constraints",
+            "authorization_boundary",
             "expected_outcome",
             "status",
             "current_approach",
             "recent_progress",
+            "important_changes_or_failures",
+            "evidence_and_artifacts",
             "open_questions",
             "next_step",
             "last_updated",
@@ -165,6 +181,9 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "结论依据",
             "简单任务负担",
             "上下文清空",
+            "同一 task 从简单查询升级",
+            "下一项实质规划或执行前",
+            "任务升级识别",
         ):
             self.assertIn(phrase, scenarios)
 
@@ -180,6 +199,8 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "task 级 workspace",
             "多个 task 共用 workspace",
             "不要求固定 Schema",
+            "创建偏晚",
+            "升级时创建、变化时更新、恢复时读取",
             "plus 版",
         ):
             self.assertIn(phrase, implementation)
