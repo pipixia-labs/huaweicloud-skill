@@ -16,7 +16,7 @@ def read_text(relative_path: str) -> str:
 class UnifiedMechanismContractsTest(unittest.TestCase):
     """Keep the first unified mechanism small, portable, and agent-owned."""
 
-    def test_skill_routes_multiturn_tasks_to_optional_shared_guidance(self) -> None:
+    def test_skill_requires_durable_memory_for_complex_tasks(self) -> None:
         skill = read_text("SKILL.md")
 
         for reference in (
@@ -30,6 +30,11 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("自己的 workspace", skill)
         self.assertIn("简单查询", skill)
         self.assertIn("不要求创建 task 记录", skill)
+        self.assertIn("必须在首次实质规划或执行前", skill)
+        self.assertIn("task 级独立 workspace", skill)
+        self.assertIn("多个 task 共用一个 workspace", skill)
+        self.assertIn("必须更新", skill)
+        self.assertIn("恢复任务时先读取", skill)
 
     def test_required_assets_exist(self) -> None:
         for relative_path in (
@@ -48,13 +53,21 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
 
         for phrase in (
             "Agent 自己的 workspace",
+            "task 级 workspace",
+            "共享 workspace",
+            "优先复用运行时",
+            "当前 workspace",
             "tasks/<task_id>/",
             "不依赖 PID",
+            "必须持久化",
+            "首次实质规划或执行前",
             "当前目标",
             "关键约束",
             "最近重要进展",
             "下一步",
             "AK/SK",
+            "写入失败",
+            "不能声称已经落盘",
         ):
             self.assertIn(phrase, guide)
 
@@ -72,8 +85,11 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "goal",
             "important_constraints",
             "expected_outcome",
+            "status",
             "current_approach",
+            "recent_progress",
             "open_questions",
+            "next_step",
             "last_updated",
         ):
             self.assertIn(field, task_template)
@@ -135,6 +151,10 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
 
         for phrase in (
             "v0.8.2 基线",
+            "task 级 workspace",
+            "共享 workspace",
+            "运行时 task ID",
+            "必须落盘",
             "目标保留",
             "任务隔离",
             "未知场景适应",

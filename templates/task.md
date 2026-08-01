@@ -7,6 +7,9 @@
 - goal:
 - important_constraints:
 - expected_outcome:
+- status:
 - current_approach:
+- recent_progress:
 - open_questions:
+- next_step:
 - last_updated:
