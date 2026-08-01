@@ -20,6 +20,7 @@
 
 ```text
 意图分类
+-> 复杂任务建立或恢复 workspace 任务记忆
 -> hcloud / SDK / Terraform 执行面选择
 -> profile / region / project / 认证上下文检查
 -> service / operation / 参数发现
@@ -32,6 +33,7 @@
 | 维度 | 不使用 `huaweicloud-skill` | 使用 `huaweicloud-skill` |
 | --- | --- | --- |
 | 任务理解 | 直接把自然语言目标转成建议或命令。 | 先判断是查询、规划、治理、变更，必要时走场景路由。 |
+| 多轮连续性 | 主要依赖当前对话 context，目标修改或中断后容易丢失关键状态。 | 复杂任务在 Agent workspace 中按 task 保留目标、约束、进展、缺口和下一步。 |
 | 执行面选择 | 可能混用 CLI、SDK、Terraform，边界不清。 | hcloud 是主链路；SDK 只补证据和少量 allowlist 只读；Terraform 只用于 IaC、import、drift、长期纳管。 |
 | 上下文检查 | 容易忽略 profile、region、project、domain、OBS endpoint。 | 先用上下文检查确认本机 KooCLI、profile、region、project、认证和 cache。 |
 | API 发现 | 依赖模型记忆猜 service / operation。 | 先查 registry、generated catalog、本地 meta cache 和 `hcloud --help`。 |
@@ -255,6 +257,19 @@ skill 把治理任务约束为 evidence-first：
 
 收益是：治理建议变成可审计候选清单，而不是自动化破坏性操作。
 
+### 11. 跨服务、多轮任务保留同一目标和完成口径
+
+一个网站、迁移、排障或治理目标经常涉及多个服务，并在多轮对话中不断增加或修改要求。只依赖模型当前 context 时，Agent 容易继续使用已经失效的旧方案，或把另一个任务的资源范围混入当前任务。
+
+v0.9.0 增加两项轻量机制：
+
+- 所有服务共享少量目标、事实来源、时效、完成和证据语义；
+- 复杂任务由 Agent 使用自身文件工具，在自己的 workspace 中维护每 task 的最小可恢复记忆。
+
+这不会替 Agent 选择服务、参数、工具和调用顺序。它要验证的收益是：用户修改要求、中断恢复或跨服务推进时，Agent 仍能找到当前目标、关键约束、最近进展和下一步，并对重要完成结论给出一致依据。
+
+该收益仍需通过 `tests/unified-mechanism-scenarios.md` 和真实 Agent 运行持续验证。完整实现见 `docs/unified-task-mechanism-implementation.md`。
+
 ## 按“上好云、用好云、管好云”拆解
 
 ### 上好云：创建和变更前先把依赖、参数和风险弄清楚
@@ -423,7 +438,9 @@ python3 -m unittest discover tests
 | registry 查询能力 | 157 个 query operation，72 个 resource query operation | 区分通用发现和目标型详情查询。 |
 | registry 变更规划能力 | 82 个 change operation | 表示可被 planner 识别，不等于可以自动 submit。 |
 | metadata-backed 服务 | 181 个 registry 外服务 | 默认只开放保守兜底能力，不包装成 curated 闭环。 |
-| 自动化测试 | 219 个单元测试通过 | 约束脚本、registry、Terraform/SDK 补充和安全边界。 |
+| 自动化测试 | 426 个单元测试通过 | 约束脚本、registry、Terraform/SDK 补充、统一任务机制和安全边界。 |
+
+v0.9.0 还增加了统一机制契约和行为场景，用于观察目标保留、任务隔离、上下文恢复、未知场景适应、结论依据和简单任务负担。
 
 这些数字的意义不是“Agent 可以自动执行 15,702 个操作”。正确理解是：
 
@@ -698,6 +715,7 @@ Terraform 的价值在于：
 - 任务涉及公网入口、费用、删除、数据状态、证书、DNS、CDN、数据库、安全策略。
 - 用户说“部署”“搭建”“创建”“绑定”“开通”“上线”“排障”“盘点”“回收”“治理”。
 - 需要把结果解释成可核验证据，而不是只给命令。
+- 任务会跨服务、多轮追加或修改，并可能中断后继续。
 - 需要 IaC、import、drift 或长期纳管。
 
 收益较小的场景：
@@ -721,6 +739,7 @@ Terraform 的价值在于：
 - 执行证据：dry-run、submit、job、resource verify 或 read-only query 的结构化结果。
 - 业务证据：SSH、HTTP、ELB backend、EVS filesystem、CES metric、LTS log 等验收结果。
 - 治理证据：owner、tag、backup、trace、compliance、billing request spec 或 teardown precheck。
+- 任务记忆证据：复杂任务已在 Agent workspace 中记录当前目标、约束、最近进展、缺口和下一步。
 
 可以用下面的问题检查一次输出质量：
 
@@ -731,16 +750,18 @@ Terraform 的价值在于：
 5. 是否识别了费用、公网暴露、数据、权限和回滚风险？
 6. API 成功后是否继续验证 job、资源状态和业务状态？
 7. 治理类结论是否区分候选、证据、缺口和执行授权？
+8. 复杂、多轮任务是否实际写入并更新了 workspace 任务记忆？
 
 如果这些问题多数答案是否定的，说明 Agent 只是“用了华为云知识”，还没有真正使用 `huaweicloud-skill` 的执行框架。
 
 ## 结论
 
-`huaweicloud-skill` 的收益可以概括为四句话：
+`huaweicloud-skill` 的收益可以概括为五句话：
 
 1. 让 Agent 少猜：上下文、API、参数和依赖都有证据来源。
 2. 让 Agent 少乱改：真实变更默认走计划、dry-run、确认和风险门禁。
 3. 让 Agent 少误判：API 成功后继续做 job、资源、机内、业务、指标和日志验证。
 4. 让 Agent 可治理：盘点、闲置、回收、账单、审计、备份、安全和合规都有 evidence-first 的边界。
+5. 让 Agent 跨轮保持一致：复杂任务用共享语义和每 task 的 workspace 记忆保留目标、约束、进展和依据。
 
 因此，这个 skill 的产品价值不是“更会回答华为云问题”，而是“更适合在真实华为云环境里安全、可审计、可复现地推进任务”。

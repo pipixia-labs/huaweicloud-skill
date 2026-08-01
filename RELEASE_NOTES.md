@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+## v0.9.0 / 0.9.0 - 2026-08-01
+
+v0.9.0 是基于 v0.8.2 的轻量大一统机制验证版本。它不建设新的任务控制器，而是在保留 Agent 自主规划能力和现有云操作安全边界的前提下，增加少量跨服务共享语义与每 task 的 workspace 任务记忆，验证完整用户目标在跨服务、多轮和可中断场景中的一致性。
+
+### 主要变化
+
+- **跨服务共享原则**
+  - 新增 `references/unified-principles.md`，统一目标变化、用户声明、Agent 推断、工具观测、信息时效、作用域、事实冲突和结论依据。
+  - 使用共同但非状态机式的完成语义，区分 `planned`、`submitted`、`resource_ready`、`business_verified`、`partially_succeeded` 和 `outcome_unknown`。
+  - 安全、授权、错误处理和大输出继续引用既有权威资料，不复制第二套规则。
+
+- **Agent workspace 任务记忆**
+  - 新增 `references/task-workspace-guide.md`、`templates/task.md` 和 `templates/progress.md`。
+  - 复杂、多轮、跨服务、有副作用、异步或可能中断的任务，必须在首次实质规划或执行前，由 Agent 使用自身文件读写工具把最小任务记忆实际写入 workspace。
+  - 运行时已提供 task 级独立 workspace 时直接使用当前目录；多个 task 共用 workspace 时使用 `tasks/<task_id>/` 隔离。
+  - 用户追加或修改要求、关键结果或错误、方案变化、中断和完成判断发生时，只更新重要状态，不要求记录每句对话或每次工具调用。
+  - 对话 context、运行时待办和平台自动日志不能替代正式任务记录；写入失败必须如实说明。
+
+- **目标—能力组织样例**
+  - 新增企业网站上云样例，从用户目标组织计算、网络、域名、HTTPS、数据、监控、日志、备份和成本候选。
+  - 样例保留替代路径、动态事实和澄清空间，不定义唯一架构、固定服务组合或调用顺序。
+
+- **验证与开发者资料**
+  - 新增统一机制契约测试和多轮行为场景，覆盖目标修改、未知变化、上下文清空恢复、任务切换、任务隔离、结论依据和简单查询负担。
+  - 新增 `docs/unified-task-mechanism-implementation.md`，并同步架构、技术概览、实现细节、收益分析和开发者文档索引。
+  - CloudClaw 本地验证暴露了“使用运行时待办但未实际落盘”的失败模式，因此 `SKILL.md` 进一步强调文件写入要求。
+
+### 验证
+
+- 统一机制契约测试：8 项通过。
+- 全量离线单元测试：426 项通过。
+- Ruff 0.16.1、Python `compileall` 和 `git diff --check` 通过。
+- materials drift 检查通过；catalog 审计保持 199 个公有云服务、15,702 个 operation，curated registry 保持 19 个服务、311 个 registered operation。
+
+### 兼容性与安全说明
+
+- v0.9.0 不固定 `TaskContract`、`TaskPlan`、JSON Schema、API、参数、工具或调用顺序，也不建设 Policy Engine、Execution Gateway、授权账本或系统级防旁路机制。
+- 简单的一次性只读查询可以不创建 task 记录；复杂任务的记录格式和文件数量可由 Agent 按需要调整。
+- task 文件不是用户授权、可信审计日志或云侧实时状态库，不能替代实时查询、变更前确认和平台权限控制。
+- 现有 hcloud-first 执行链路、大输出收敛、凭据脱敏、付费/公网/真实变更确认、异步终态跟踪和业务验收边界保持不变。
+- 本版本面向具备多轮对话和 workspace 文件读写能力的常见 Agent；纯 Skill 指令不能保证所有模型或运行时一定遵守，后续仍需继续收集真实运行证据。
+
 ## v0.8.2 / 0.8.2 - 2026-07-31
 
 v0.8.2 是 v0.8 系列的兼容性与安全闭环补丁版本。它继续保持 hcloud-first 的执行链路和既有变更门禁，不增加默认资源创建、修改、删除、Terraform apply 或通用 SDK mutation 能力。

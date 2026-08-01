@@ -31,11 +31,12 @@ flowchart LR
     SDKRegistry --> Tests
 ```
 
-开发者看这个项目时，可以先把它理解成六个模块：
+开发者看这个项目时，可以先把它理解成七个模块：
 
 | 模块 | 代表文件 | 作用 |
 | --- | --- | --- |
 | 运行时入口 | `SKILL.md`、`references/workflow.md` | 告诉 agent 什么时候触发、按什么顺序工作。 |
+| 跨服务共享与任务记忆 | `references/unified-principles.md`、`references/task-workspace-guide.md`、`templates/` | 统一跨服务语义，并让复杂、多轮任务在 Agent workspace 中保留最小可恢复记忆。 |
 | 场景路由 | `hcloud_scenario_router.py`、`references/scenario-router.json` | 把自然语言目标映射到 playbook、planner、SDK 补充点和 Terraform 候选。 |
 | hcloud 执行框架 | `service-registry.json`、`hcloud_safe_exec.py`、查询/变更/验证脚本 | 负责发现、计划、执行、脱敏、错误诊断和后置验证。 |
 | SDK 补充层 | `sdk-supplement-registry.json`、`hcloud_sdk_catalog.py`、`hcloud_sdk_readonly.py` | 使用已安装 SDK package 补参数、endpoint、错误结构和少量 allowlist 只读查询。 |
@@ -49,19 +50,22 @@ flowchart LR
 1. [technical-overview.md](technical-overview.md)
    - 快速了解这个 skill 的技术定位、架构平面、核心优势和当前能力边界。
    - 适合第一次接手实现、评审架构或规划扩展路线时阅读。
-2. [skill-value-analysis.md](skill-value-analysis.md)
+2. [unified-task-mechanism-implementation.md](unified-task-mechanism-implementation.md)
+   - 了解 v0.9.0 已实施的跨服务共享原则、Agent workspace 任务记忆、运行边界和验证方法。
+   - 适合评审本轮轻量大一统机制、排查 Agent 未落盘问题或规划后续 plus 版时阅读。
+3. [skill-value-analysis.md](skill-value-analysis.md)
    - 详细说明 Agent 使用 `huaweicloud-skill` 和不使用它时，在上下文发现、API 选择、风险门禁、后置验证和治理沉淀上的差异，并给出测评集构造方法。
    - 适合评审产品价值、设计演示案例或向外部解释收益时阅读。
-3. [architecture.md](architecture.md)
+4. [architecture.md](architecture.md)
    - 了解整体分层、执行链路、模块边界。
    - 适合第一次接手本项目时阅读。
-4. [cloud-lifecycle-scenarios.md](cloud-lifecycle-scenarios.md)
+5. [cloud-lifecycle-scenarios.md](cloud-lifecycle-scenarios.md)
    - 了解执行“上云、用云、管云”任务时，用 `huaweicloud-skill` 和不用的差别。
    - 适合评审产品价值、设计演示案例或扩展典型服务能力时阅读。
-5. [implementation-details.md](implementation-details.md)
+6. [implementation-details.md](implementation-details.md)
    - 了解关键脚本如何工作。
    - 重点包括场景路由、安全执行、元数据发现、registry 驱动、SDK 补充、Terraform 资产路由、ECS/EIP/OBS 特殊流程、通用 guarded flow 和验证器。
-6. [data-and-coverage.md](data-and-coverage.md)
+7. [data-and-coverage.md](data-and-coverage.md)
    - 了解 `references/`、`materials/`、`service-registry.json`、SDK supplement registry、Terraform catalog、coverage 脚本和测试之间的关系。
    - 适合扩展服务覆盖或调整质量门禁时阅读。
 
@@ -71,7 +75,7 @@ flowchart LR
 
 1. 这不是普通 prompt，而是一个围绕华为云 KooCLI 的可执行云操作框架。
 2. 核心架构是场景路由、registry 控制面、safe exec 执行面、SDK 补充面、Terraform 资产面、verifier 验证面和 quality gate 回归面。
-3. v0.3 系列把 ECS 单点闭环扩展到 P0/P1/P2 的生命周期、治理和场景闭环 planner；v0.4 增加 SDK 补充层，但只做 hcloud 的补证和少量 allowlist 只读桥；v0.5 增加 Terraform 资产面，完整吸收 IaC 示例和 reference，但通过 router 渐进读取，不让 agent 在资产里迷路。准确 registry 服务数、operation 计数和 Terraform catalog 数量以对应 audit/catalog 脚本输出为准。
+3. v0.3 系列把 ECS 单点闭环扩展到 P0/P1/P2 的生命周期、治理和场景闭环 planner；v0.4 增加 SDK 补充层；v0.5 增加 Terraform 资产面；v0.8 系列进一步收敛独立分发、API 版本解析和大输出安全；v0.9.0 增加轻量跨服务共享原则和 Agent workspace 任务记忆。准确 registry 服务数、operation 计数和 Terraform catalog 数量以对应 audit/catalog 脚本输出为准。
 4. 写类操作默认不自动提交，而是走 plan、dry-run、显式确认和后置验证，适合真实云资源场景的风险控制。
 5. 单测、架构契约、materials drift 和 coverage 脚本是回归门禁，用来持续防止 coverage 和安全边界退化。
 

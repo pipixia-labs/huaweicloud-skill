@@ -38,6 +38,7 @@ Agent 会自动完成：检查 KooCLI/profile/region/project → 按本地 regis
 | 错误处理 | 自然语言猜原因 | 结构化分桶：认证 / 权限 / region-project / 参数 / 配额 / 网络 |
 | 凭据安全 | AK/SK 可能进对话和日志 | 脱敏封装，密钥只走环境变量/profile，禁止回显 |
 | 高危端口 | 可能放行 `0.0.0.0/0` | SSH/常见 Web 端口入方向硬门禁 |
+| 多轮任务 | 主要依赖当前对话 context | 复杂任务按 task 在 Agent workspace 中保留目标、约束、进展和下一步 |
 
 一次典型任务的执行链路：
 
@@ -63,6 +64,7 @@ flowchart LR
 - **Terraform 受控 IaC**：73 个本地示例 + provider 参考，fmt/init/validate/plan 全流程；import、drift、remote state 均有确认门禁，不自动 apply。
 - **MaaS 模型能力**：华为云 MaaS 大模型对话、图像理解、图片生成/编辑、视频生成与用量治理，API Key 只走环境变量。
 - **诚实分层**：curated / metadata-backed / evidence-gap 三层能力标注，配 300+ 离线测试和晋级审计——未实测的能力不会被包装成已验证。
+- **跨服务任务记忆**：复杂、多轮或可中断任务由 Agent 使用自身文件工具把最小任务记忆写入 workspace；共享目标、事实来源和完成语义，但不锁定 Agent 的服务、参数和调用顺序。
 
 ## 快速开始
 
@@ -309,6 +311,7 @@ flowchart LR
 架构、脚本契约、服务覆盖策略和本地验证方法：
 
 - [`docs/technical-overview.md`](docs/technical-overview.md) — 技术总览
+- [`docs/unified-task-mechanism-implementation.md`](docs/unified-task-mechanism-implementation.md) — v0.9.0 轻量大一统机制实施说明
 - [`docs/architecture.md`](docs/architecture.md) — 架构设计
 - [`docs/implementation-details.md`](docs/implementation-details.md) — 实现细节
 - [`docs/data-and-coverage.md`](docs/data-and-coverage.md) — 数据与覆盖

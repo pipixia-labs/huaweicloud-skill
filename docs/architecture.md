@@ -10,9 +10,10 @@
 4. 通过统一包装器执行命令。
 5. 对返回结果做结构化错误诊断、资源状态验证和后续检查。
 
-当前架构重点是十个平面：
+当前架构重点是十一个平面：
 
 - **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json`、`references/scenario-contracts.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点、Terraform 候选，以及重点场景的输入/证据/输出契约。
+- **跨服务共享与任务记忆面**：`references/unified-principles.md` 统一目标、事实来源和完成语义；`references/task-workspace-guide.md` 与 `templates/` 指导 Agent 为复杂、多轮任务在自己的 workspace 中维护最小可恢复记忆。该平面不控制 Agent 的工具、参数或调用顺序。
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
 - **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 默认只使用已安装的 `huaweicloudsdk*` package，也允许维护者显式传入源码目录，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。
@@ -34,6 +35,7 @@ huaweicloud-skill/
 ├── SKILL.md
 ├── README.md
 ├── references/
+├── templates/
 ├── scripts/
 ├── examples/
 ├── materials/
@@ -47,6 +49,7 @@ huaweicloud-skill/
 | --- | --- |
 | `SKILL.md` | 面向 agent 的入口，定义触发场景、质量规则和默认工作流。 |
 | `references/` | 清洗后的操作资料，包括 workflow、playbook、错误手册、服务覆盖矩阵和 service registry。 |
+| `templates/` | Agent workspace 的可选轻量任务记录模板；不是运行时任务实例目录。 |
 | `scripts/` | 可执行 Python 脚本，负责上下文探查、命令生成、安全执行、规划、验证和 coverage 检查。 |
 | `examples/` | 可复用的输入模板和示例，例如 ECS 创建 JSON。 |
 | `materials/` | 原始 KooCLI 文档材料，只作为资料源，不直接作为运行时规则。 |
@@ -58,6 +61,10 @@ huaweicloud-skill/
 ```mermaid
 flowchart TD
     UserTask["User cloud task"] --> Skill["SKILL.md"]
+    Skill --> SharedPrinciples["unified-principles.md"]
+    Skill --> WorkspaceGuide["task-workspace-guide.md"]
+    SharedPrinciples --> AgentWorkspace["Agent-owned task workspace"]
+    WorkspaceGuide --> AgentWorkspace
     UserTask --> Router["hcloud_scenario_router.py"]
     Router --> ScenarioMap["references/scenario-router.json"]
     ScenarioMap --> Guides["references/guides/*.md"]
@@ -97,6 +104,7 @@ flowchart TD
     Readiness --> SafeExec
     SafeExec --> HCloud["hcloud / hcloud obs"]
     HCloud --> Result["Structured JSON result"]
+    Result --> AgentWorkspace
     Result --> Verify["Show* query / resource verifier / ECS waiters"]
     Verify --> Report["Auditable final state"]
     Materials["materials/ raw docs"] --> References["references/ curated docs"]
@@ -170,6 +178,12 @@ flowchart TD
 - 已知限制和 playbook。
 
 通用脚本通过 registry 决定如何构造命令，而不是在脚本里散落大量服务判断。
+
+### 5. 统一共享信息，不统一 Agent 的具体执行
+
+跨服务任务共享少量长期稳定的目标、事实来源、完成和证据语义。预计多轮、跨服务、有副作用、异步或可能中断的任务，还要由 Agent 使用自身文件工具把最小任务记忆实际写入 workspace。
+
+这层只约束任务需要保留什么，不规定必须选择哪个服务、使用哪种文件格式、传什么参数或按什么顺序调用工具。简单的一次性查询不要求创建 task 记录。完整实现见 `docs/unified-task-mechanism-implementation.md`。
 
 ## 执行链路
 
@@ -319,5 +333,7 @@ hcloud obs <command> ...
 - 通用 guarded flow 缺少目标 ID 时必须返回 `missing_params`，不得猜测资源。
 - 异步 job 成功不等于资源可用，必须继续做资源状态验证。
 - 敏感读取默认阻断，例如密码、私钥、token。
+- 复杂任务的最小记忆必须由 Agent 实际写入自己的 workspace；对话 context、运行时待办和平台自动日志不能替代正式任务记录。
+- task 文件不是用户授权、可信审计日志或云侧实时状态库，也不能限制 Agent 根据现场改变服务、参数和调用顺序。
 - registry 中配置的 runner、planner、playbook 路径必须存在或有明确 known limit。
 - docs、references、tests 和 registry 要保持同步。

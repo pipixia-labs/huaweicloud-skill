@@ -31,6 +31,9 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("简单查询", skill)
         self.assertIn("不要求创建 task 记录", skill)
         self.assertIn("必须在首次实质规划或执行前", skill)
+        self.assertIn("文件读写工具", skill)
+        self.assertIn("运行时待办", skill)
+        self.assertIn("不算完成记录", skill)
         self.assertIn("task 级独立 workspace", skill)
         self.assertIn("多个 task 共用一个 workspace", skill)
         self.assertIn("必须更新", skill)
@@ -44,6 +47,7 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "templates/task.md",
             "templates/progress.md",
             "tests/unified-mechanism-scenarios.md",
+            "docs/unified-task-mechanism-implementation.md",
         ):
             with self.subTest(path=relative_path):
                 self.assertTrue((ROOT / relative_path).is_file())
@@ -163,6 +167,25 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "上下文清空",
         ):
             self.assertIn(phrase, scenarios)
+
+    def test_implementation_doc_describes_current_scope(self) -> None:
+        implementation = read_text("docs/unified-task-mechanism-implementation.md")
+
+        for phrase in (
+            "v0.9.0",
+            "反推目标",
+            "Agent 必须使用",
+            "运行时待办",
+            "平台自动日志",
+            "task 级 workspace",
+            "多个 task 共用 workspace",
+            "不要求固定 Schema",
+            "plus 版",
+        ):
+            self.assertIn(phrase, implementation)
+
+        self.assertIn("unified-task-mechanism-implementation.md", read_text("docs/README.md"))
+        self.assertIn("docs/unified-task-mechanism-implementation.md", read_text("README.md"))
 
 
 if __name__ == "__main__":

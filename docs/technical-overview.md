@@ -25,7 +25,7 @@
 
 ## 当前能力概览
 
-v0.5 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架、生命周期治理工具、SDK 补充层和 Terraform 资产面：
+截至 v0.9.0，本项目已经从 v0.1 的 ECS/基础工具能力扩展为多服务执行框架、生命周期治理工具、SDK 补充层、Terraform 资产面，以及轻量的跨服务共享与 Agent workspace 任务记忆机制：
 
 | 指标 | 当前状态 |
 | --- | --- |
@@ -33,15 +33,18 @@ v0.5 已经从 v0.1 的 ECS/基础工具能力，扩展为多服务执行框架�
 | metadata-backed catalog | 服务数、operation 数和 registry 外服务清单以 `hcloud_catalog_audit.py --pretty` 的 `catalog` / `metadata_backed` 字段为准 |
 | SDK supplement | allowlist 以 `references/sdk-supplement-registry.json` 为准；运行时优先使用已安装 `huaweicloudsdk*` package |
 | Terraform assets | 示例和 reference 以 `references/terraform/catalog/*.json`、`examples/terraform/` 和 `references/terraform/` 为准 |
+| 统一任务机制 | `references/unified-principles.md`、`references/task-workspace-guide.md`、`templates/` 和统一机制契约测试 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.5` |
+| 发布版本 | `v0.9.0` |
 
 ## 核心架构
 
 ```mermaid
 flowchart TD
     Intent["User intent"] --> Skill["SKILL.md workflow"]
+    Skill --> Shared["Shared principles and task workspace guidance"]
+    Shared --> TaskMemory["Agent-owned task memory"]
     Intent --> Router["hcloud_scenario_router.py"]
     Router --> Guides["playbooks and guides"]
     Router --> HCloudPath["hcloud execution path"]
@@ -59,7 +62,9 @@ flowchart TD
     SafeExec --> HCloud["hcloud / hcloud obs"]
     HCloud --> Diagnosis["Structured result and error_details"]
     Diagnosis --> Verify["Resource/job/readiness verification"]
+    Diagnosis --> TaskMemory
     Verify --> Result["Auditable result"]
+    Result --> TaskMemory
 
     SDKPath --> SDKRegistry["sdk-supplement-registry.json"]
     SDKRegistry --> SDKCatalog["hcloud_sdk_catalog.py"]
@@ -229,6 +234,20 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 - 当前 provider reference 快照是 `1.93.0`，inventory 覆盖 1684 个 resource 和 2239 个 data source；这些只是覆盖索引，不代表默认可路由或可执行。
 - shared hcloud config 对 Terraform 有加密限制。若 `hcloud_terraform_context_inspect.py` 报告 `hcloud_shared_config_encrypted`，需要先解释 `--cli-auth-encrypt=false` 的凭证风险，再考虑替代认证方式。
 
+### 4.6 跨服务共享与 Agent workspace 任务记忆
+
+v0.9.0 增加一套轻量机制，解决跨服务、多轮和可中断任务只依赖模型当前 context 的问题：
+
+- `references/unified-principles.md` 统一目标变化、信息来源、事实冲突、完成和证据语义；
+- `references/task-workspace-guide.md` 规定复杂任务应在 Agent 自己的 workspace 中保留哪些最小信息；
+- `templates/task.md` 和 `templates/progress.md` 提供可选起点；
+- `references/goal-capability-guide.md` 用企业网站样例演示如何从用户目标组织跨服务候选和缺口；
+- 契约测试和行为场景同时检查目标保留、任务隔离、恢复能力、自主性和简单任务负担。
+
+Agent 必须使用自身文件工具把复杂任务记录实际写入 workspace；运行时待办和平台自动日志不能替代正式任务记忆。但 Skill 不规定固定 Schema、API、参数、工具和调用顺序，也不把 task 文件当作执行授权或可信状态库。
+
+完整实施边界见 `docs/unified-task-mechanism-implementation.md`。
+
 ### 5. 质量回归面
 
 质量门禁把 registry、风险分类、执行路径和资料漂移纳入可重复检查：
@@ -252,6 +271,7 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 | OBS 被误当成普通 OpenAPI 服务 | OBS 走 `hcloud obs`/obsutil 专用路径 |
 | hcloud metadata 不完整时容易卡住 | SDK supplement 补参数、endpoint 和少量稳定只读查询，并保留 hcloud fallback |
 | IaC 示例太多导致 agent 迷路 | Terraform catalog/router 只选择少量命中资产，仍要求 hcloud 发现和验证 |
+| 多轮、跨服务任务容易丢失目标和进展 | 共享少量跨服务语义，并由 Agent 在 workspace 中维护每 task 的最小可恢复记忆 |
 
 ## 典型开发入口
 
@@ -261,6 +281,7 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 - 新增后置验证：优先补 Show* resource query 和 verifier 规则。
 - 新增 SDK 补充：先证明 hcloud 主链路有明确痛点，再登记 `sdk-supplement-registry.json`、补 audit/test，不做 generic mutation runner。
 - 新增 Terraform 示例：先放入 `examples/terraform/` 或 `references/terraform/`，再重建 catalog、验证 router 命中和资产卫生。
+- 调整统一任务机制：同步检查共享原则、workspace 指南、模板、行为场景和统一机制契约测试。
 - 调整安全边界：同步修改风险分类、架构契约测试和覆盖检查。
 
 ## 当前边界
@@ -271,6 +292,7 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 - SDK 是补充证据源和窄 allowlist 只读桥，不是默认执行面；用户机器没有安装对应 `huaweicloudsdk*` package 时应自动降级回 hcloud 主流程。
 - Terraform 是 IaC 资产面，不是排障查询入口；没有 Terraform CLI 或 provider cache 时可以生成草案，但不能宣称已经 validate/plan/apply。
 - 通用 Show* 后置验证确认基础资源状态，不等同于完整业务验收。
+- workspace 任务记忆依赖 Agent 具备文件读写能力并遵守 Skill 指令；它不是系统级强制控制，也不替代实时云查询、用户授权和平台日志。
 - 所有真实写操作仍需要用户按具体资源、region、project、风险和回滚方式确认。
 
 ## 后续技术路线

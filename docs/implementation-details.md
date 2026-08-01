@@ -12,9 +12,24 @@
 | `RiskAssessment` | 描述风险等级、原因、是否需要确认、是否需要 dry-run 和验证。 |
 | `ExecutionResult` | 规范化命令执行结果。当前更多作为共享语义，而不是所有脚本都强制使用。 |
 | `VerificationResult` | 规范化验证结果。 |
-| `TaskState` | 多步任务的审计和恢复状态模型。 |
+| `TaskState` | 单个脚本流程内部的多步执行状态模型；不等同于 Agent workspace 中的跨轮任务记忆。 |
 
 这些结构保持简单，便于 JSON 序列化，也便于脚本通过 stdout 传递结构化结果。
+
+## Agent workspace 任务记忆
+
+v0.9.0 的轻量大一统机制没有把 Agent 的跨轮任务状态塞进 `scripts/hcloud_core.py`，也没有要求所有脚本采用 `TaskState`。两者职责不同：
+
+| 状态 | 所属位置 | 作用 |
+| --- | --- | --- |
+| 脚本 `TaskState` | Skill 脚本进程和结构化输出 | 描述某个执行流程的命令、dry-run、submit、job、资源和验证结果。 |
+| Agent 任务记忆 | Agent 自己的 workspace | 跨多轮保留当前目标、约束、重要进展、缺口、下一步和 artifact 位置。 |
+
+复杂、多轮、跨服务、有副作用、异步或可能中断的任务，由 Agent 使用自身文件读写工具实际建立和更新 workspace 记录。运行时 Todo、对话 context 和平台自动日志不自动满足该要求。简单的一次性查询可以不建档。
+
+运行时已提供 task 级独立 workspace 时直接使用当前目录；多个 task 共用 workspace 时使用 `tasks/<task_id>/` 隔离。文件名、Markdown/JSON 格式和文件数量可以调整，Skill 不固定 Agent 的具体执行方案、参数和工具顺序。
+
+详细实施、数据边界和验证方式见 `docs/unified-task-mechanism-implementation.md`；面向 Agent 的权威规则见 `references/task-workspace-guide.md`。
 
 ## 场景路由和执行面分流
 

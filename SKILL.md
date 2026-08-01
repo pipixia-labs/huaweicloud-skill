@@ -30,7 +30,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 本 skill 用少量共享语义帮助不同服务场景保持目标、事实来源和完成口径一致，但它不是任务执行控制器。Agent 仍然负责理解现场情况，并自主选择或调整服务、工具、参数和操作次序。
 
-- 简单查询不要求创建 task 记录；预计多轮、跨服务、有副作用、异步或可能中断的任务，必须在首次实质规划或执行前，在 Agent 自己的 workspace 持久化 task ID、当前目标、关键约束、重要进展和下一步。
+- 简单查询不要求创建 task 记录；预计多轮、跨服务、有副作用、异步或可能中断的任务，必须在首次实质规划或执行前，在 Agent 自己的 workspace 持久化 task ID、当前目标、关键约束、重要进展和下一步。Agent 必须使用自身的文件读写工具，将上述信息实际写入 workspace；只保存在对话 context、运行时待办或平台自动日志中不算完成记录。
 - 优先复用运行时 task ID；运行时已提供 task 级独立 workspace 时直接记录在当前目录，多个 task 共用一个 workspace 时使用 `tasks/<task_id>/` 隔离。目标、约束、方案、结果或缺口发生重要变化时必须更新，恢复任务时先读取；写入失败要明确说明，不能声称已经落盘。具体见 `references/task-workspace-guide.md`，可选用 `templates/task.md` 和 `templates/progress.md`。
 - 需要统一事实来源、时效范围和完成语义时读取 `references/unified-principles.md`；企业网站等宽泛目标可参考 `references/goal-capability-guide.md`，再运行现有 router 并读取命中的 playbook。持久化只约束最小任务记忆，不锁定架构、工具、参数或操作次序。
 
