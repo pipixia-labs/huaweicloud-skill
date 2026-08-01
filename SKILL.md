@@ -26,6 +26,14 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 不要把本 skill 当成通用云知识问答、通用 SDK 执行器、通用 Terraform apply 器，或非华为模型服务兜底。
 
+## 跨服务和多轮任务
+
+本 skill 用少量共享语义帮助不同服务场景保持目标、事实来源和完成口径一致，但它不是任务执行控制器。Agent 仍然负责理解现场情况，并自主选择或调整服务、工具、参数和操作次序。
+
+- 简单查询不要求创建 task 记录；多轮、跨服务、有副作用、异步或可能中断的任务，建议在 Agent 自己的 workspace 确定稳定 `task_id`，按需记录目标、约束、重要进展和下一步，具体见 `references/task-workspace-guide.md`。
+- 需要统一事实来源、时效范围和完成语义时读取 `references/unified-principles.md`；企业网站等宽泛目标可参考 `references/goal-capability-guide.md`，再运行现有 router 并读取命中的 playbook。
+- `templates/task.md` 和 `templates/progress.md` 只是可删减、合并的起点。任务实例不写入 skill 源码目录，不保存凭据。
+
 ## 默认工作流
 
 1. 先确认环境和上下文：
