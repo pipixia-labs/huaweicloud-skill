@@ -246,6 +246,31 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("不是唯一方案", guide)
         self.assertNotIn("固定调用顺序", guide)
 
+    def test_goal_capability_guide_covers_three_targets_without_copying_facts(self) -> None:
+        skill = read_text("SKILL.md")
+        guide = read_text("references/goal-capability-guide.md")
+        source_map = read_text("references/source-map.md")
+
+        for phrase in (
+            "跨服务资源盘点",
+            "enterprise project",
+            "覆盖、失败、部分结果和未查询项",
+            "不能从资源清单推断账单金额",
+            "成本治理",
+            "fact × grain × money_basis × scope × billing_period",
+            "历史账单金额不是未来节省承诺",
+            "优化候选不是执行授权",
+            "scripts/hcloud_account_inventory.py",
+            "references/playbooks/billing-cost-governance.md",
+        ):
+            self.assertIn(phrase, guide)
+
+        self.assertIn("跨服务资源盘点", skill)
+        self.assertIn("成本治理", skill)
+        self.assertIn("references/goal-capability-guide.md", source_map)
+        self.assertIn("目标解释", source_map)
+        self.assertIn("Agent 可以调整服务、工具、参数和顺序", guide)
+
     def test_behavior_scenarios_measure_benefit_and_cost(self) -> None:
         scenarios = read_text("tests/unified-mechanism-scenarios.md")
 
