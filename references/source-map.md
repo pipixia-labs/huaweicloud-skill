@@ -77,7 +77,7 @@
 - 回到 `materials/` 时，使用保留的 `hcloud-docs-md/`
 - 回到 SDK 时，优先使用已安装 package；源码目录只做维护期 fallback
 
-## 目标解释与派生视图
+## 目标解释、交互知识与派生视图
 
 - `references/goal-capability-guide.md`
   - 属于面向 Agent 的目标解释，不是服务/API 事实源；
@@ -87,3 +87,12 @@
 
 目标样本中的服务事实仍在原 registry、catalog、guide 和 playbook 维护。引用失效时修正目标视图，
 不在目标指南中另建一份事实副本。
+
+- `references/interaction-guidance.md`
+  - 属于跨服务编写知识，组织 Goal、Option、Progress、Recovery 和 Completion 的用户视图；
+  - 读取用户当前要求、Agent workspace 的 task 记忆、已核验证据和运行时事实；
+  - 不保存运行时 task 数据，不复制服务事实，也不充当授权账本或执行状态机；
+  - 统一信息来源、完成口径和表达维度，具体方案、工具、参数、顺序和回复形式仍由 Agent 决定。
+
+交互指南与目标指南都属于按需加载的编写知识。云资源状态、job 状态、价格、权限和可用性仍以
+当前工具观测为准；任务恢复或高影响操作前需要重新查询易变化事实。

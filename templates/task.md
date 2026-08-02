@@ -9,11 +9,13 @@
 - important_constraints:
 - authorization_boundary:
 - expected_outcome:
+- completion_conditions: # optional; only conditions that matter to the current goal
 - status:
 - current_approach:
 - recent_progress:
 - important_changes_or_failures:
-- evidence_and_artifacts:
+- evidence_and_artifacts: # optionally note status/source/time/scope when they affect the conclusion
+- unknown_or_remaining:
 - open_questions:
 - next_step:
 - last_updated:
