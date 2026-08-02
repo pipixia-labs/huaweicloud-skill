@@ -52,6 +52,7 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "templates/task.md",
             "templates/progress.md",
             "tests/unified-mechanism-scenarios.md",
+            "tests/unified-mechanism-evaluation.md",
             "docs/unified-task-mechanism-implementation.md",
         ):
             with self.subTest(path=relative_path):
@@ -226,6 +227,10 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
 
         for phrase in (
             "v0.8.2 基线",
+            "v0.9.1 直接基线",
+            "Plus 候选",
+            "消融条件",
+            "至少重复三次",
             "task 级 workspace",
             "共享 workspace",
             "运行时 task ID",
@@ -245,6 +250,44 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "敏感输出边界",
         ):
             self.assertIn(phrase, scenarios)
+
+    def test_plus_evaluation_protocol_is_reproducible_and_non_executing(self) -> None:
+        evaluation = read_text("tests/unified-mechanism-evaluation.md")
+
+        for phrase in (
+            "v0.9.1 直接基线",
+            "Plus 候选",
+            "消融条件",
+            "至少重复三次",
+            "运行标识",
+            "Agent 和模型",
+            "工具权限",
+            "workspace 拓扑",
+            "真实云变更",
+            "分子",
+            "分母",
+            "task 落盘采用率",
+            "重要变化更新率",
+            "恢复成功率",
+            "目标能力完整率",
+            "完成准确率",
+            "副作用收敛率",
+            "自主调整成功率",
+            "简单任务负担",
+            "没有读取 Skill",
+            "读取但没有采用",
+            "采用后仍然失败",
+            "安全硬失败",
+            "失败样例",
+            "不自动执行 Agent",
+        ):
+            self.assertIn(phrase, evaluation)
+
+        scenarios = read_text("tests/unified-mechanism-scenarios.md")
+        implementation = read_text("docs/unified-task-mechanism-implementation.md")
+        self.assertIn("tests/unified-mechanism-evaluation.md", scenarios)
+        self.assertIn("tests/unified-mechanism-evaluation.md", implementation)
+        self.assertIn("行为证据尚未完成", implementation)
 
     def test_implementation_doc_describes_current_scope(self) -> None:
         implementation = read_text("docs/unified-task-mechanism-implementation.md")
