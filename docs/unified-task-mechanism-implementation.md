@@ -292,6 +292,10 @@ Plus 切片 0 新增 `tests/unified-mechanism-evaluation.md`，在不增加执�
 
 本切片因此保留候选 2，并停止继续扩展身份结构。该结论只证明当前 CloudClaw、模型、task workspace 和 L0 场景中机制可行；它不代表任何 Agent 都必然遵守，也没有覆盖运行时 ID 可见分支、共享 workspace 隔离或真正清空 context 的 A4 恢复测试。
 
+### 9.7 Plus 切片 1：目标能力候选停止
+
+资源盘点和成本治理直接基线表明，现有 router、inventory、治理 guide 和账单 playbook 已覆盖大部分目标能力。把两个目标继续加入同一目标指南后，E1 的 enterprise project 作用域缺口仍为 0/3，新增指南读取为 0/3，且 task 落盘从 3/3 降为 2/3。因此撤回无收益目标内容，保留评测场景和失败证据，不继续加强制措辞。详细结果见 `docs/unified-plus-implementation.md`。
+
 ## 10. 后续演进边界
 
 plus 版可以在真实运行数据支持后继续研究更完整的共享对象、能力视图、证据索引、恢复体验和量化评测。v0.9.1 不提前实现这些内容，也不因为未来可能扩展而增加当前记录负担。

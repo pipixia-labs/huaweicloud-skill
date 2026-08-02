@@ -53,6 +53,7 @@ flowchart LR
 2. [unified-task-mechanism-implementation.md](unified-task-mechanism-implementation.md)
    - 了解 v0.9.1 已实施的跨服务共享原则、Agent workspace 任务记忆、逻辑资源收敛、运行边界和验证方法。
    - 适合评审本轮轻量大一统机制、排查 Agent 未落盘问题或规划后续 plus 版时阅读。
+   - Plus 的实际行为证据、保留/停止决定和未实施项见 [unified-plus-implementation.md](unified-plus-implementation.md)。
 3. [skill-value-analysis.md](skill-value-analysis.md)
    - 详细说明 Agent 使用 `huaweicloud-skill` 和不使用它时，在上下文发现、API 选择、风险门禁、后置验证和治理沉淀上的差异，并给出测评集构造方法。
    - 适合评审产品价值、设计演示案例或向外部解释收益时阅读。
