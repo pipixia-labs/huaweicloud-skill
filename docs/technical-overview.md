@@ -25,7 +25,7 @@
 
 ## 当前能力概览
 
-以 v0.9.1 为发布基线，当前 `main` 已从 v0.1 的 ECS/基础工具能力扩展为多服务执行框架、生命周期治理工具、SDK 补充层、Terraform 资产面，以及跨服务共享、Agent workspace 任务记忆、用户状态投影和知识渐进加载机制：
+在 v0.9.1 统一任务机制基线之上，当前能力已从 v0.1 的 ECS/基础工具扩展为多服务执行框架、生命周期治理工具、SDK 补充层、Terraform 资产面，以及跨服务共享、Agent workspace 任务记忆、用户状态投影和知识渐进加载机制：
 
 | 指标 | 当前状态 |
 | --- | --- |
@@ -37,7 +37,6 @@
 | Plus 共享组织 | `references/goal-capability-guide.md`、`references/interaction-guidance.md`、`references/source-map.md`；新增行为收益待用户验证 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.9.1` |
 
 ## 核心架构
 

@@ -2,6 +2,68 @@
 
 ## Unreleased
 
+## v0.9.2 / 0.9.2 - 2026-08-02
+
+v0.9.2 是大一统 Plus 的范围收口版本。它在 v0.9.1 的共享原则和 task workspace 基础上，补充
+可移植任务身份、目标组织、用户状态投影和知识渐进加载，并把目标明确限定为一个对话/task 内的
+跨服务、跨场景和多轮一致性。Skill 继续只辅助 Agent，不控制服务、工具、参数或执行顺序。
+
+### 主要变化
+
+- **可移植 task 身份**
+  - 复杂任务入口必须包含非空 `task_id` 和 `task_id_source`；简单一次性查询继续豁免建档。
+  - 运行时 ID 对 Agent 可见时原样复用；不可见时首次建档生成稳定描述符，后续轮次从同一
+    workspace 读取并复用。
+  - Agent 生成的描述符不冒充平台 ID，不绑定 CloudClaw 环境变量，也不用于平台 task API。
+
+- **Plus 行为证据和目标资料**
+  - 新增固定条件、重复运行、分子/分母、失败样例、工具轨迹和正式 workspace 文件清单的评测协议。
+  - 历史固定条件中，任务身份候选的描述符采用和跨轮复用均为 3/3，简单查询仍保持零正式任务
+    文件；该结论只覆盖当时的 Agent、模型、workspace 和离线场景。
+  - 企业网站、跨服务资源盘点和成本治理指南作为可选目标组织参考保留。此前目标指南独立加载为
+    0/3、未证明改善 Agent 行为，因此本版本不把它宣称为已验证优势，也不强制 Agent 读取。
+
+- **用户状态投影**
+  - 新增 `references/interaction-guidance.md`，让 Agent 从同一份 task 记忆按需生成 Goal、
+    Option、Progress、Recovery 和 Completion。
+  - task/progress 模板可选记录完成条件、证据来源和时效、未知、阻塞、用户影响与下一步。
+  - 五种投影不是五个固定文件、Schema 或运行时状态对象；简单任务只使用必要部分。
+
+- **知识所有权和渐进加载**
+  - `references/source-map.md` 区分权威事实、编写知识、派生视图和运行时事实，明确各自维护位置。
+  - 形成 Metadata、`SKILL.md`、Shared Core、Goal/Scenario、Service Module、Materials 六层加载路径，
+    并定义何时停止扩大上下文、何时继续寻找证据。
+  - 大输出继续保存为独立 artifact，不因加载更多知识重新塞入对话；目标视图不复制 registry、
+    catalog、价格、配额、参数或实时云状态。
+
+- **单 task 范围和架构表达**
+  - 一个对话对应一个 task；同一对话中的追加、修改、撤销和恢复继续更新同一 task。
+  - task 内部统一使用 `task -> phase -> step -> operation`；subtask 是 Agent 自主拆解时的可选概念，
+    不要求独立 task ID、文件、Schema 或固定状态机。
+  - 不建设跨 task workload、长期偏好、跨 Agent 交接、机器交换格式、常见 Agent 适配，也不继续
+    扩展现有 P2 能力。CCI、CCE 和 Kubernetes 中的 workload 技术术语及既有 P2 planner 保持不变。
+  - 主架构文档新增共享机制因果矩阵，集中解释大 Skill 相对服务分散组织的跨场景一致性优势。
+
+### 验证
+
+- v0.9.2 包含的历史 Plus 基线、任务身份和目标指南候选保留了 36 份逐次运行记录及对应静态契约。
+- 恢复目标资料后的历史门禁为：聚焦 13 项通过；全量 431 项通过、10 项按条件跳过；Ruff、
+  Python `compileall` 和 `git diff --check` 通过。
+- 按用户要求，交互投影、知识管线和本次架构收口没有由 Codex 新运行单元测试或行为评测，当前
+  状态明确为“已实现、待用户验证”。发布前只复核版本差异、whitespace、路径和 Git 边界。
+- `SKILL.md` 保持 140 行，v0.8.2 延续的大输出 operation 清单和执行前保护未修改。
+
+### 兼容性与安全说明
+
+- v0.9.2 不建设 Policy Engine、Execution Gateway、授权账本、固定 TaskContract、固定状态机或
+  Agent 框架适配层。
+- 使用本 Skill 的 Agent 假定具备 Skill 使用、代码执行、云工具调用和 workspace 文件读写能力；
+  Skill 不为缺少这些能力的 Agent 提供降级运行时。
+- task 文件仍不是用户授权、可信审计日志或云侧实时状态库。继续高影响操作前必须实时回读，
+  付费、公网、破坏性和秘密相关边界保持不变。
+- 现有 hcloud-first、SDK 窄补充、Terraform 辅助面、MaaS API、变更确认、脱敏、异步收敛、
+  后置验证和业务验收行为保持兼容。
+
 ## v0.9.1 / 0.9.1 - 2026-08-02
 
 v0.9.1 是轻量大一统机制的稳定化版本，也是后续 Plus 架构实施的基线。它根据真实多轮建站任务暴露的问题，补齐任务升级、重要变化更新、逻辑资源身份、异步结果收敛、受控替换和秘密输出边界；不增加任务控制器，也不限制 Agent 根据现场改变服务、工具、参数和执行顺序。
