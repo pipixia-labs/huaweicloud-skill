@@ -8,6 +8,27 @@
 
 任务实例属于 Agent 的运行时数据，不应写进 `huaweicloud-skill` 源码目录，也不应提交到 Skill 仓库。
 
+## task 边界和内部层级
+
+本机制只关注一个对话/运行时 task 内的连续执行。同一对话中用户追加、修改或撤销要求，或者
+Agent 中断后继续，仍然更新同一个 task；新对话/task 不继承旧 task 的资源范围、授权或事实。
+
+复杂任务可以按以下轻量层级理解：
+
+```text
+task -> phase -> step -> operation
+```
+
+- `task`：当前对话要完成的整体用户目标，也是 workspace 记录和 `task_id` 的边界；
+- `phase`：具有业务意义的阶段，例如方案、创建、部署和验证；
+- `step`：当前阶段中的下一项可执行动作；
+- `operation`：具体 CLI、API 或工具调用，结果未知时可记录为 `pending_operation`；
+- `subtask`：Agent 自主拆解复杂目标时的可选工作单元，可以跨多个 step，但不要求独立 task ID、
+  文件、Schema 或固定执行顺序。
+
+Skill 只要求任务入口能恢复当前目标、阶段、关键变化、证据和下一步，不要求 Agent 预先写出完整
+phase、subtask 或 step 清单。现场事实变化后，Agent 可以增删、重排或替换它们。
+
 ## 先识别 workspace 隔离方式
 
 不要假设所有 Agent 都用同一种目录结构。优先复用运行时提供的 task ID、任务边界和持久化位置，但只有通过 Agent 上下文或可用工具直接观察到的 ID 才算“已提供”；不能把平台内部存在但 Agent 不可见的 ID 当成已知事实。

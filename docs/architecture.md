@@ -13,7 +13,7 @@
 当前架构重点是十一个平面：
 
 - **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json`、`references/scenario-contracts.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点、Terraform 候选，以及重点场景的输入/证据/输出契约。
-- **跨服务共享与任务记忆面**：`references/unified-principles.md` 统一目标、事实来源和完成语义；`references/task-workspace-guide.md` 与 `templates/` 指导 Agent 为复杂、多轮任务在自己的 workspace 中维护最小可恢复记忆。该平面不控制 Agent 的工具、参数或调用顺序。
+- **跨服务共享与任务记忆面**：`references/unified-principles.md` 统一目标、事实来源和完成语义；`references/goal-capability-guide.md` 组织跨服务目标；`references/interaction-guidance.md` 统一用户状态投影；`references/source-map.md` 管理知识所有权和渐进加载；`references/task-workspace-guide.md` 与 `templates/` 指导 Agent 为复杂、多轮任务在自己的 workspace 中维护最小可恢复记忆。该平面不控制 Agent 的工具、参数或调用顺序。
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
 - **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 默认只使用已安装的 `huaweicloudsdk*` package，也允许维护者显式传入源码目录，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。
@@ -63,8 +63,14 @@ flowchart TD
     UserTask["User cloud task"] --> Skill["SKILL.md"]
     Skill --> SharedPrinciples["unified-principles.md"]
     Skill --> WorkspaceGuide["task-workspace-guide.md"]
+    Skill --> GoalGuide["goal-capability-guide.md"]
+    Skill --> InteractionGuide["interaction-guidance.md"]
+    Skill --> SourceMap["source-map.md"]
     SharedPrinciples --> AgentWorkspace["Agent-owned task workspace"]
     WorkspaceGuide --> AgentWorkspace
+    GoalGuide --> Router
+    InteractionGuide --> AgentWorkspace
+    SourceMap --> Guides
     UserTask --> Router["hcloud_scenario_router.py"]
     Router --> ScenarioMap["references/scenario-router.json"]
     ScenarioMap --> Guides["references/guides/*.md"]
@@ -186,6 +192,25 @@ flowchart TD
 如果同一 task 从简单查询升级为复杂任务，Agent 在下一项实质规划或执行前重新分类并建立记录；之后只在目标、约束、授权、方案、关键结果或缺口变化时更新，恢复任务时先读取。任务入口保存可信摘要和 artifact 路径，不复制云/API 大输出。
 
 这层只约束任务需要保留什么，不规定必须选择哪个服务、使用哪种文件格式、传什么参数或按什么顺序调用工具。简单的一次性查询不要求创建 task 记录。完整实现见 `docs/unified-task-mechanism-implementation.md`。
+
+本架构只处理一个对话/task 内的连续执行。task 内部可以按 `task -> phase -> step -> operation`
+组织；`subtask` 是 Agent 自主拆解复杂目标时的可选概念，不要求独立文件、Schema 或固定状态机。
+新对话/task 不继承旧 task 的资源范围、授权或事实，本架构也不建设跨 task workload。
+
+大一统优势来自以下共享机制共同作用，而不是来自把服务资料物理合并到一个目录：
+
+| 共享机制 | 保持一致的内容 | 为什么能提高一致性 | 用户收益 | 相对服务分散组织的架构优势 |
+| --- | --- | --- | --- | --- |
+| `unified-principles.md` | 事实来源、作用域、新鲜度、结果未知和完成语义 | 所有服务复用同一判断基础，不必各自重新解释“成功”和“完成” | 跨服务结论更一致，减少虚假完成 | 公共语义单点维护，不随服务模块复制和分叉 |
+| task workspace | 当前目标、约束、授权边界、阶段、进展、证据和下一步 | 多轮变化写回同一 task，Agent 不只依赖当前 context | 追加要求或中断恢复时少重复说明、少丢目标 | 服务切换时仍共享同一份任务记忆 |
+| 逻辑资源与 pending operation | 逻辑角色、期望数量、canonical 资源和未决副作用 | 结果未知时先收敛真实状态，再决定是否重放 | 减少重复付费资源、遗留资源和意外影响 | 跨 ECS、EIP、EVS 等服务使用同一恢复边界 |
+| 目标与场景组织 | 用户目标、候选能力、依赖、替代和缺口 | 先从完整目标组合能力，再由 router/playbook 保留服务专业深度 | 用户不必先知道产品名，关键依赖更早暴露 | 对外统一目标入口，对内仍按服务模块化 |
+| 用户状态投影 | Goal、Option、Progress、Recovery、Completion | 从同一 task 信息按需生成表达，避免各场景自创完成口径 | 方案、进度、异常和交付更容易理解 | 跨场景形成一致体验，不增加五套状态对象 |
+| 单一事实来源与渐进加载 | registry、catalog、guide、playbook、task/artifact 的所有权和加载边界 | 派生视图引用权威来源，简单任务停止扩展上下文 | 减少过期资料和无关上下文干扰 | 既统一治理，又保留分散模块按需加载的成本优势 |
+
+因果链可以概括为：共享机制改善 Agent 可获得的信息环境；Agent 仍自主决策，但在不同服务和
+阶段复用同一事实、任务记忆和完成口径；因此同一 task 内的跨服务、跨场景和多轮行为更一致。
+这是辅助性、概率性的质量提升，不是 Skill 对 Agent 的强制执行保证。
 
 ## 执行链路
 

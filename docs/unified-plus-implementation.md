@@ -3,6 +3,10 @@
 本文记录基于 v0.9.1 开始的 Plus 实际实施、历史行为证据、当前待验证内容和后续建设项。它不是
 未来规划的重复说明，也不把架构完成或静态契约写成 Agent 已经采用机制的证据。
 
+当前范围限定为一个对话/task 内的多轮、跨服务和跨场景一致性。task 内部可由 Agent 自主组织为
+`phase -> step -> operation`，subtask 可选；不建设跨 task workload、长期偏好、跨 Agent
+交接、常见 Agent 适配或 P2 扩展。
+
 ## 1. 实施方法和边界
 
 切片 0、任务描述符和目标能力候选曾使用固定条件的重复行为评测。自 Plus 切片 2 起，按用户要求
@@ -13,6 +17,7 @@ Stop/Go 或小样本结果裁剪模块。未经用户测试的新增内容明确
 当前仍坚持：
 
 - Skill 提供知识、共享语义和任务记忆方法，不控制 Agent 的服务、工具、参数或调用顺序；
+- 使用本 Skill 的 Agent 假定具备 Skill 使用、代码执行、云工具调用和 workspace 文件读写能力；
 - CloudClaw 只作为行为评测器，不为评测修改平台代码；
 - 评测用户没有华为云凭证，不调用真实云或网络工具；
 - 简单任务保持轻量，大输出保护和 v0.8.2 操作清单保持不变；
@@ -114,17 +119,21 @@ Agent 的固定执行流程；Agent 可以根据现场选择其他合理资料�
 所有评测都保留 run metadata、最终回复、工具轨迹和正式 workspace 文件清单。A4 的真正
 context 清空恢复仍为 `not_observable`，不能用普通下一轮对话冒充。
 
-## 7. 当前切片之外的建设项
+## 7. 明确不实施的能力
 
-以下内容未在切片 2 中建设，继续保留在后续规划或单独架构评审中；本轮不根据 Codex 评测决定
-永久取消：
+以下内容不属于当前跨场景一致性目标，也不作为条件性后续 TODO：
 
 - 全量 CapabilityGraph 或第二套服务事实源；
 - 固定 TaskContract/TaskPlan/TaskEvent/EvidenceRecord 对象；
 - Goal、Option、Progress、Recovery、Completion 五个强制文件；
 - Policy Engine、Execution Gateway 或固定状态机；
-- workload、长期偏好和跨 Agent 机器交换格式；
+- 跨 task workload、长期偏好和隐式画像；
+- 跨 Agent 交接和机器交换格式；
+- 常见 Agent 或特定框架适配层；
+- P2 能力扩展；
 - 针对 CloudClaw 的环境变量或平台代码绑定。
+
+CCI、CCE 和 Kubernetes 资料中的 workload 是容器工作负载技术术语，不受上述范围收口影响。
 
 ## 8. 验证状态
 
@@ -147,6 +156,6 @@ Ruff、compileall 和 `git diff --check` 全部通过。`SKILL.md` 保持 140 �
 
 ## 9. 下一步
 
-继续按 Plus 规划准备切片 4 的常见 Agent 适配：整理适用前提、按能力降级方式和跨运行时共享的
-最小契约；实际 Agent 运行、比较和优化由用户主导。workload、长期偏好和跨 Agent 交接等条件性
-能力继续保留在后续规划，不因当前缺少测试结果被永久取消。
+Plus 当前范围内的核心机制已经实施。下一步由用户在实际 Agent 和任务中验证 task 落盘、多轮
+更新、逻辑资源收敛、用户投影和渐进加载；后续修改只根据用户观察到的真实问题进行小步优化。
+不再继续建设 workload、长期偏好、跨 Agent 交接、Agent 适配或 P2。

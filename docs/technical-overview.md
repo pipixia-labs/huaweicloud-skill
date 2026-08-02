@@ -25,7 +25,7 @@
 
 ## 当前能力概览
 
-截至 v0.9.1，本项目已经从 v0.1 的 ECS/基础工具能力扩展为多服务执行框架、生命周期治理工具、SDK 补充层、Terraform 资产面，以及轻量的跨服务共享与 Agent workspace 任务记忆机制：
+以 v0.9.1 为发布基线，当前 `main` 已从 v0.1 的 ECS/基础工具能力扩展为多服务执行框架、生命周期治理工具、SDK 补充层、Terraform 资产面，以及跨服务共享、Agent workspace 任务记忆、用户状态投影和知识渐进加载机制：
 
 | 指标 | 当前状态 |
 | --- | --- |
@@ -34,6 +34,7 @@
 | SDK supplement | allowlist 以 `references/sdk-supplement-registry.json` 为准；运行时优先使用已安装 `huaweicloudsdk*` package |
 | Terraform assets | 示例和 reference 以 `references/terraform/catalog/*.json`、`examples/terraform/` 和 `references/terraform/` 为准 |
 | 统一任务机制 | `references/unified-principles.md`、`references/task-workspace-guide.md`、`templates/` 和统一机制契约测试 |
+| Plus 共享组织 | `references/goal-capability-guide.md`、`references/interaction-guidance.md`、`references/source-map.md`；新增行为收益待用户验证 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
 | 发布版本 | `v0.9.1` |
@@ -236,17 +237,23 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 
 ### 4.6 跨服务共享与 Agent workspace 任务记忆
 
-v0.9.0 首次增加轻量机制，解决跨服务、多轮和可中断任务只依赖模型当前 context 的问题；v0.9.1 继续补齐任务升级、逻辑资源收敛和受控替换：
+v0.9.0 首次增加轻量机制，解决跨服务、多轮和可中断任务只依赖模型当前 context 的问题；v0.9.1 继续补齐任务升级、逻辑资源收敛和受控替换；当前 Plus 实现继续补充目标组织、用户投影和知识管线：
 
 - `references/unified-principles.md` 统一目标变化、信息来源、事实冲突、完成和证据语义；
 - `references/task-workspace-guide.md` 规定复杂任务应在 Agent 自己的 workspace 中保留哪些最小信息；
 - `templates/task.md` 和 `templates/progress.md` 提供可选起点；
-- `references/goal-capability-guide.md` 用企业网站样例演示如何从用户目标组织跨服务候选和缺口；
+- `references/goal-capability-guide.md` 用企业网站、跨服务资源盘点和成本治理演示如何从用户目标组织候选能力和缺口；
+- `references/interaction-guidance.md` 从同一份 task 记忆按需生成 Goal、Option、Progress、Recovery 和 Completion；
+- `references/source-map.md` 规定权威事实、编写知识、派生视图和运行时事实的所有权，以及六层渐进加载路径；
 - 契约测试和行为场景同时检查目标保留、任务隔离、恢复能力、自主性和简单任务负担。
 
 Agent 必须使用自身文件工具把复杂任务记录实际写入 workspace；运行时待办和平台自动日志不能替代正式任务记忆。但 Skill 不规定固定 Schema、API、参数、工具和调用顺序，也不把 task 文件当作执行授权或可信状态库。
 
 同一 task 从简单查询升级为复杂任务时，需要在下一项实质规划或执行前重新分类并建立记录；重要变化及时更新，恢复时先读取。默认保持单一轻量入口，未经处理的大输出仍放在独立 artifact，不进入反复读取的任务摘要。
+
+一个对话对应一个 task；task 内部可以由 Agent 自主组织为 `phase -> step -> operation`，并按需
+使用 subtask。Skill 不要求 SubTask Schema、独立文件或固定状态机，也不建设跨 task workload、
+长期偏好或跨 Agent 交接。
 
 完整实施边界见 `docs/unified-task-mechanism-implementation.md`。
 
@@ -274,6 +281,8 @@ Agent 必须使用自身文件工具把复杂任务记录实际写入 workspace�
 | hcloud metadata 不完整时容易卡住 | SDK supplement 补参数、endpoint 和少量稳定只读查询，并保留 hcloud fallback |
 | IaC 示例太多导致 agent 迷路 | Terraform catalog/router 只选择少量命中资产，仍要求 hcloud 发现和验证 |
 | 多轮、跨服务任务容易丢失目标和进展 | 共享少量跨服务语义，并由 Agent 在 workspace 中维护每 task 的最小可恢复记忆 |
+| 不同场景对“完成、部分成功、结果未知”的说法不一致 | 从同一 task 记忆按需投影 Goal、Option、Progress、Recovery 和 Completion |
+| 大 Skill 容易变成大上下文或第二套事实源 | 用 source map 管理知识所有权，按目标、场景和服务渐进加载 |
 
 ## 典型开发入口
 

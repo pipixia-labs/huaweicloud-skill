@@ -33,6 +33,33 @@ v0.9.0 的轻量大一统机制没有把 Agent 的跨轮任务状态塞进 `scri
 
 详细实施、数据边界和验证方式见 `docs/unified-task-mechanism-implementation.md`；面向 Agent 的权威规则见 `references/task-workspace-guide.md`。
 
+### task 内部术语
+
+当前机制把一次对话/运行时 task 作为持久化边界，内部层级为：
+
+```text
+task -> phase -> step -> operation
+```
+
+`subtask` 只是 Agent 自主拆解复杂目标的可选工作单元，不映射为 `hcloud_core.py` 的新 dataclass，
+也不要求独立文件或 task ID。模板中的“当前阶段”“下一步”和 `pending_operation` 已分别覆盖
+phase、step 和未决云操作所需的最小语义。
+
+### Plus 共享信息的实现位置
+
+Plus 没有新增统一状态对象或执行控制器，而是复用现有文件所有权：
+
+| 信息 | 权威位置 | Agent 如何使用 |
+| --- | --- | --- |
+| 跨服务事实与完成语义 | `references/unified-principles.md` | 在复杂、跨服务或结果未知时按需读取 |
+| 当前 task 记忆 | Agent workspace、`templates/` | Agent 使用自身文件工具建立、更新和恢复 |
+| 目标能力组织 | `references/goal-capability-guide.md` | 宽泛目标命中时参考，不固定服务组合 |
+| 用户状态表达 | `references/interaction-guidance.md` | 从现有 task 信息生成按需视图，不创建五个对象 |
+| 知识所有权和加载边界 | `references/source-map.md` | 从入口逐层加载到目标、场景、服务和必要材料 |
+
+这些文件共享的是少量语义和来源关系。服务/API 参数仍由 registry、catalog、guide 和 playbook
+维护，云侧实时状态仍由 Agent 通过工具查询；因此没有形成第二套事实数据库。
+
 ## 场景路由和执行面分流
 
 `hcloud_scenario_router.py` 是自然语言目标进入本 skill 后的轻量路由层。它读取 `references/scenario-router.json`，把用户目标映射到本地 playbook、guide、planner、SDK supplement 和 Terraform candidate。
