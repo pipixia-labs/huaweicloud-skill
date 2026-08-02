@@ -94,8 +94,9 @@ python -m compileall -q scripts tests
 git diff --check
 ```
 
-最近一次候选静态门禁为 431 tests passed、10 skipped；撤回无收益目标内容后需要再次运行最终
-门禁，以最终工作树结果为准。
+撤回无收益目标内容后的最终门禁为：聚焦 12 tests passed；全量 430 tests passed、10 skipped；
+Ruff、compileall 和 `git diff --check` 全部通过。`SKILL.md` 保持 140 行，v0.8.2 大输出保护
+未改变。
 
 ## 7. 下一步
 
