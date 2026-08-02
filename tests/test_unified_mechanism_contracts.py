@@ -246,6 +246,31 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("不是唯一方案", guide)
         self.assertNotIn("固定调用顺序", guide)
 
+    def test_goal_capability_guide_covers_three_targets_without_copying_facts(self) -> None:
+        skill = read_text("SKILL.md")
+        guide = read_text("references/goal-capability-guide.md")
+        source_map = read_text("references/source-map.md")
+
+        for phrase in (
+            "跨服务资源盘点",
+            "enterprise project",
+            "覆盖、失败、部分结果和未查询项",
+            "不能从资源清单推断账单金额",
+            "成本治理",
+            "fact × grain × money_basis × scope × billing_period",
+            "历史账单金额不是未来节省承诺",
+            "优化候选不是执行授权",
+            "scripts/hcloud_account_inventory.py",
+            "references/playbooks/billing-cost-governance.md",
+        ):
+            self.assertIn(phrase, guide)
+
+        self.assertIn("跨服务资源盘点", skill)
+        self.assertIn("成本治理", skill)
+        self.assertIn("references/goal-capability-guide.md", source_map)
+        self.assertIn("目标解释", source_map)
+        self.assertIn("Agent 可以调整服务、工具、参数和顺序", guide)
+
     def test_behavior_scenarios_measure_benefit_and_cost(self) -> None:
         scenarios = read_text("tests/unified-mechanism-scenarios.md")
 
@@ -314,6 +339,29 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("v0.9.1 直接行为基线", implementation)
         self.assertIn("18 次正式运行", implementation)
         self.assertIn("不外推", implementation)
+
+    def test_plus_target_expansion_has_distinct_behavior_cases(self) -> None:
+        scenarios = read_text("tests/unified-mechanism-scenarios.md")
+        evaluation = read_text("tests/unified-mechanism-evaluation.md")
+
+        for phrase in (
+            "E1：跨服务资源盘点",
+            "account、project、region",
+            "覆盖、失败、部分结果和未查询项",
+            "不能从资源清单推断账单金额",
+            "E2：成本治理",
+            "fact × grain × money_basis × scope × billing_period",
+            "优化候选不等于执行授权",
+            "不能把历史账单直接写成未来节省承诺",
+        ):
+            self.assertIn(phrase, scenarios)
+
+        for phrase in (
+            "UM-E1-CROSS-SERVICE-INVENTORY",
+            "UM-E2-COST-GOVERNANCE",
+            "现有切片 0 场景不能衡量",
+        ):
+            self.assertIn(phrase, evaluation)
 
     def test_implementation_doc_describes_current_scope(self) -> None:
         implementation = read_text("docs/unified-task-mechanism-implementation.md")
