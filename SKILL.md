@@ -32,6 +32,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 - 简单查询不要求创建 task 记录；预计多轮、跨服务、有副作用、异步或可能中断的任务，必须在首次实质规划或执行前，在 Agent 自己的 workspace 持久化 task ID、当前目标、关键约束与授权边界、重要进展和下一步。每轮收到用户新增或修改要求后重新判断复杂度；任务最初简单、但同一 task 后续升级为上述复杂任务时，必须立即重新分类，并在下一项实质规划或执行前建立或更新任务记忆入口，默认使用 `task.md`。
 - Agent 必须使用自身的文件读写工具将上述信息实际写入 workspace；只保存在对话 context、运行时待办或平台自动日志中不算完成记录。优先复用运行时 task ID；task 级独立 workspace 直接使用当前目录，多个 task 共用一个 workspace 时使用 `tasks/<task_id>/` 隔离。目标、约束、授权、方案、结果或缺口发生重要变化时必须更新，等待确认、结束本轮或可能中断前补齐，恢复任务时先读取；进入付费、真实变更或异步等待前再确认记录存在且仍有效。写入失败要明确说明，不能声称已经落盘；这套记录不限制 Agent 调整方案、工具、参数或顺序。具体见 `references/task-workspace-guide.md`，可选用 `templates/task.md` 和 `templates/progress.md`。
+- 对创建、删除、替换或绑定付费/有副作用资源的任务，还要在任务记忆中保留逻辑角色、预期数量、canonical 资源和待决操作。待决操作尚未确认终态或结果未知时，必须先回读收敛，禁止再次创建同一角色的替代资源；具体恢复方式仍由 Agent 自主判断。
 - 任务入口只保存经过 Agent 判断的可信摘要和 artifact 相对路径；未经处理的云 API、网页或工具大输出保存在独立 artifact，并继续遵守大输出策略。需要统一事实来源、时效范围和完成语义时读取 `references/unified-principles.md`；企业网站等宽泛目标可参考 `references/goal-capability-guide.md`，再运行现有 router 并读取命中的 playbook。持久化只约束最小任务记忆，不锁定架构、工具、参数或操作次序。
 
 ## 默认工作流
@@ -49,8 +50,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
-   - 账号级多服务盘点优先使用 `hcloud_account_inventory.py`。支持 Skill
-     machine-readable contract 的运行时可以读取 `capabilities.json` 中的
+   - 账号级多服务盘点优先使用 `hcloud_account_inventory.py`。支持 Skill machine-readable contract 的运行时可以读取 `capabilities.json` 中的
      `huaweicloud.account_inventory.v1`；不支持时直接调用同一脚本。先检查当前
      runtime 实际提供的工具，不要臆造某个平台的 Tool 名称。
    - 调用优先级：专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。

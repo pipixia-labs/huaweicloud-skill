@@ -94,6 +94,22 @@ tasks/<task_id>/
 
 Agent 可以合并两个模板，可以增加适合自身运行时的 JSON、数据库索引或其他文件，也不需要填满所有空字段。模板不要求生成 TaskContract 或 TaskPlan 数据结构。
 
+### 资源生命周期摘要（按需）
+
+当任务涉及付费或有副作用资源的创建、删除、替换、绑定，或需要从异步/结果未知状态恢复时，在任务入口中增加最少量的资源生命周期摘要。简单查询、无副作用分析和不涉及资源身份的任务不需要这张表。
+
+| logical_role | expected_count | canonical_resource | state | pending_operation | last_verified_at |
+| --- | ---: | --- | --- | --- | --- |
+| 个人站点主机 | 1 | `ECS/<resource-id>` | `ACTIVE` / `deleting` / `unknown` | job、动作与当前结果；没有则写 `none` | 最近一次云侧回读时间 |
+
+- `logical_role` 描述资源为当前目标承担的用途，不以名称是否相同代替用途判断。
+- `expected_count` 保存用户目标和已确认方案中的预期数量；故障重试不会自动把它增加。
+- `canonical_resource` 只指当前选定的操作对象；待决或结果未知时可以暂记候选，不要猜测成功。
+- `pending_operation` 只保留恢复所需的动作、job/资源引用和已知状态，不复制完整 API 输出。
+- `last_verified_at` 表示摘要的时效；恢复或继续副作用操作前必须实时回读，不能把 task 文件当作最新云状态。
+
+字段名、表格或 JSON 形式都可以调整，也可以只在现有 task 状态文件中增加等价信息。该摘要用于帮助 Agent 避免重复副作用，不固定诊断方法、API、参数或调用顺序。
+
 ## 必须更新的时点
 
 仅在重要状态发生变化时更新，不要求把每句对话或每次工具调用都写入文件：

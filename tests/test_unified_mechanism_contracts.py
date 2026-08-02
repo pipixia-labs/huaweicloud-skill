@@ -127,6 +127,61 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         for forbidden in ("api_sequence", "fixed_parameters", "immutable_plan"):
             self.assertNotIn(forbidden, combined)
 
+    def test_side_effect_recovery_tracks_logical_resources_without_fixed_execution(self) -> None:
+        skill = read_text("SKILL.md")
+        safety = read_text("references/runtime-safety-boundaries.md")
+        workspace_guide = read_text("references/task-workspace-guide.md")
+        reconcile = read_text("references/playbooks/resource-idempotency-reconcile.md")
+        task_template = read_text("templates/task.md")
+
+        for phrase in (
+            "逻辑角色",
+            "预期数量",
+            "canonical 资源",
+            "待决操作",
+            "结果未知",
+            "先回读收敛",
+        ):
+            self.assertIn(phrase, skill)
+
+        for phrase in (
+            "同一逻辑角色",
+            "一换一替换",
+            "旧资源已不存在",
+            "重新说明并取得确认",
+            "不是连续重建授权",
+            "cloud-init",
+            "普通 stdout/stderr",
+            "不固定具体 API、参数或完整调用顺序",
+        ):
+            self.assertIn(phrase, safety)
+
+        for phrase in (
+            "资源生命周期摘要",
+            "expected_count",
+            "canonical_resource",
+            "pending_operation",
+            "last_verified_at",
+            "实时回读",
+        ):
+            self.assertIn(phrase, workspace_guide)
+            self.assertIn(phrase, task_template)
+
+        for phrase in (
+            "名称不同",
+            "逻辑角色",
+            "待决 create/delete",
+            "没有待决动作",
+            "删除终态",
+            "旧资源已不存在",
+            "连续替换",
+        ):
+            self.assertIn(phrase, reconcile)
+
+        combined = "\n".join((skill, safety, workspace_guide, reconcile, task_template))
+        for forbidden in ("fixed_api_sequence", "mandatory_runtime_controller"):
+            self.assertNotIn(forbidden, combined)
+
     def test_shared_principles_cover_scope_freshness_and_completion(self) -> None:
         principles = read_text("references/unified-principles.md")
 
@@ -184,6 +239,10 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "同一 task 从简单查询升级",
             "下一项实质规划或执行前",
             "任务升级识别",
+            "逻辑资源收敛",
+            "删除 job 仍未确认终态",
+            "禁止创建第二台同角色 ECS",
+            "敏感输出边界",
         ):
             self.assertIn(phrase, scenarios)
 
@@ -202,6 +261,12 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "创建偏晚",
             "升级时创建、变化时更新、恢复时读取",
             "plus 版",
+            "逻辑资源",
+            "预期数量",
+            "待决操作",
+            "一换一替换",
+            "三台同角色 ECS",
+            "不固定具体 API、参数和完整调用顺序",
         ):
             self.assertIn(phrase, implementation)
 
