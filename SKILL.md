@@ -126,7 +126,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`
 - 覆盖和晋级：`references/service-coverage.md`、`references/service-curation-profiles.json`、`references/live-validation-profiles.json`、`hcloud_closure_maturity_audit.py`
 - 版本事实：`references/versioning-policy.md`、`CHANGELOG.md`、`RELEASE_NOTES.md`
-- 溯源和材料：`references/source-map.md`、`references/materials-sources.json`
+- 知识所有权、渐进加载和材料溯源：`references/source-map.md`、`references/materials-sources.json`
 
 原始 KooCLI 材料在 `materials/` 下，仅作为资料源，不直接当最终指令集使用。涉及 API 字段语义时，以华为云官方文档和实际 `hcloud --dryrun`/查询结果为准。
 
