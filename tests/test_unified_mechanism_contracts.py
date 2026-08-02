@@ -146,6 +146,7 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("agent-generated", task_template)
         self.assertIn("不可见", skill)
         self.assertIn("稳定任务描述符", skill)
+        self.assertIn("缺少任一项不算完成建档", skill)
 
         combined = f"{skill}\n{guide}\n{task_template}"
         self.assertNotIn("CLOUD_CLAW_ACTION_TASK_RUN_ID", combined)
