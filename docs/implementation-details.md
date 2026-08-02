@@ -29,7 +29,7 @@ v0.9.0 的轻量大一统机制没有把 Agent 的跨轮任务状态塞进 `scri
 
 同一 task 最初是简单查询、后续升级为复杂任务时，Agent 要立即重新分类并在下一项实质规划或执行前建立记录。默认优先使用一个 `task.md` 入口；付费、真实变更或异步等待前确认记录仍有效，重要变化及时写回，恢复任务时先读取。
 
-运行时已提供 task 级独立 workspace 时直接使用当前目录；多个 task 共用 workspace 时使用 `tasks/<task_id>/` 隔离。文件名、Markdown/JSON 格式和文件数量可以调整，Skill 不固定 Agent 的具体执行方案、参数和工具顺序。
+运行时已提供 task 级独立 workspace 时直接使用当前目录；多个 task 共用 workspace 时使用 `tasks/<task_id>/` 隔离。运行时 task ID 对 Agent 可见时原样记录；不可见时首次建档生成稳定的 Skill 级任务描述符并标记来源，后续从同一 workspace 复用。该描述符不冒充平台 ID，也不绑定某个 Agent 的环境变量。文件名、Markdown/JSON 格式和文件数量可以调整，Skill 不固定 Agent 的具体执行方案、参数和工具顺序。
 
 详细实施、数据边界和验证方式见 `docs/unified-task-mechanism-implementation.md`；面向 Agent 的权威规则见 `references/task-workspace-guide.md`。
 

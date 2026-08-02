@@ -128,6 +128,29 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         for forbidden in ("api_sequence", "fixed_parameters", "immutable_plan"):
             self.assertNotIn(forbidden, combined)
 
+    def test_task_identity_has_portable_runtime_fallback(self) -> None:
+        skill = read_text("SKILL.md")
+        guide = read_text("references/task-workspace-guide.md")
+        task_template = read_text("templates/task.md")
+
+        for phrase in (
+            "运行时 task ID 对 Agent 可见",
+            "Agent 生成",
+            "后续轮次",
+            "不得冒充平台 ID",
+        ):
+            self.assertIn(phrase, guide)
+
+        self.assertIn("task_id_source", task_template)
+        self.assertIn("runtime", task_template)
+        self.assertIn("agent-generated", task_template)
+        self.assertIn("不可见", skill)
+        self.assertIn("稳定任务描述符", skill)
+
+        combined = f"{skill}\n{guide}\n{task_template}"
+        self.assertNotIn("CLOUD_CLAW_ACTION_TASK_RUN_ID", combined)
+        self.assertNotIn("current-workspace 作为 task ID", combined)
+
     def test_side_effect_recovery_tracks_logical_resources_without_fixed_execution(self) -> None:
         skill = read_text("SKILL.md")
         safety = read_text("references/runtime-safety-boundaries.md")
@@ -287,7 +310,9 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         implementation = read_text("docs/unified-task-mechanism-implementation.md")
         self.assertIn("tests/unified-mechanism-evaluation.md", scenarios)
         self.assertIn("tests/unified-mechanism-evaluation.md", implementation)
-        self.assertIn("行为证据尚未完成", implementation)
+        self.assertIn("v0.9.1 直接行为基线", implementation)
+        self.assertIn("18 次正式运行", implementation)
+        self.assertIn("不外推", implementation)
 
     def test_implementation_doc_describes_current_scope(self) -> None:
         implementation = read_text("docs/unified-task-mechanism-implementation.md")

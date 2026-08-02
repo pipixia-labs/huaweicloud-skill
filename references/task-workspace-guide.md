@@ -10,14 +10,15 @@
 
 ## 先识别 workspace 隔离方式
 
-不要假设所有 Agent 都用同一种目录结构。优先复用运行时提供的 task ID、任务边界和持久化位置。
+不要假设所有 Agent 都用同一种目录结构。优先复用运行时提供的 task ID、任务边界和持久化位置，但只有通过 Agent 上下文或可用工具直接观察到的 ID 才算“已提供”；不能把平台内部存在但 Agent 不可见的 ID 当成已知事实。
 
 ### 运行时提供 task 级 workspace
 
 如果运行时已经为每个 task 创建独立 workspace，并保证同一任务的多轮对话复用该目录：
 
 - 直接在当前 workspace 保存任务记录和产物；
-- 使用运行时 task ID，不再生成第二个 ID；
+- 运行时 task ID 对 Agent 可见时原样记录，不再生成第二个 ID；
+- 运行时 task ID 不可见时，首次建档由 Agent 生成一个稳定任务描述符并写入任务入口，后续轮次读取并复用该值；
 - 不需要再嵌套 `tasks/<task_id>/`。
 
 推荐的轻量布局是：
@@ -33,7 +34,7 @@
 
 ### 多个 task 使用共享 workspace
 
-如果多个 task 共用一个共享 workspace，则必须隔离任务目录。优先使用运行时 task ID；运行时没有提供时，再由 Agent 确定稳定且唯一的 `task_id`：
+如果多个 task 共用一个共享 workspace，则必须隔离任务目录。优先使用 Agent 可见的运行时 task ID；运行时没有提供或对 Agent 不可见时，再由 Agent 生成稳定且唯一的任务描述符作为 `task_id`：
 
 ```text
 tasks/<task_id>/
@@ -42,7 +43,17 @@ tasks/<task_id>/
 └── artifacts/
 ```
 
-自行确定的 `task_id` 应在同一任务的后续对话中保持不变，不依赖易变化的标题，不依赖 PID，不包含 AK/SK、账号或手机号，并避免 `/`、`..` 等改变目录语义的字符。
+### 任务描述符来源
+
+任务入口用一个轻量来源标识区分两种身份，例如 `task_id_source: runtime` 或 `task_id_source: agent-generated`。字段名和 Markdown/JSON 形式可以调整，但语义应明确：
+
+- `runtime`：只记录 Agent 实际观察到的运行时 task ID，原样保存，不猜测、不改写；
+- `agent-generated`：只在运行时 ID 不可见时首次生成，用于 Skill 任务记忆和目录隔离，不得冒充平台 ID，也不得拿它调用平台 task API；
+- Agent 生成的描述符应在同一任务的后续轮次保持不变，从已有任务入口读取，不要每轮重建；
+- 描述符应稳定且唯一，不依赖易变化的标题，不依赖 PID，不包含 AK/SK、账号或手机号，并避免 `/`、`..` 等改变目录语义的字符；
+- `current-workspace`、`unknown`、空值等占位词不能作为稳定任务描述符。
+
+这项来源信息只解决跨轮定位和恢复，不要求 Agent 搜索特定平台的环境变量，也不限制服务、工具、参数或调用顺序。
 
 无法确认 workspace 是否按 task 隔离时，先检查运行时提供的 task/workspace 信息；仍不明确时，使用独立 task 子目录，避免不同任务静默混在一起。
 

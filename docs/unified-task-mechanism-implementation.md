@@ -110,7 +110,7 @@ Skill 不要求创建 `TaskContract`、`TaskPlan` 等固定对象，也不要求
 
 ### 5.1 运行时已经提供 task 级 workspace
 
-如果 Agent 运行时已经为每个任务提供独立 workspace，并保证同一任务的多轮对话复用该目录，直接使用当前目录和运行时 task ID：
+如果 Agent 运行时已经为每个任务提供独立 workspace，并保证同一任务的多轮对话复用该目录，直接使用当前目录。运行时 task ID 对 Agent 可见时原样记录；不可见时由 Agent 在首次建档时生成稳定的 Skill 级任务描述符并标记来源，后续轮次从任务入口复用：
 
 ```text
 <current-workspace>/
@@ -119,11 +119,11 @@ Skill 不要求创建 `TaskContract`、`TaskPlan` 等固定对象，也不要求
 └── artifacts/        # 可选
 ```
 
-不要再嵌套第二层 `tasks/<task_id>/`，也不要生成第二个 task ID。
+不要再嵌套第二层 `tasks/<task_id>/`。只有运行时 ID 对 Agent 不可见时才生成 Skill 级描述符；该值用于任务记忆恢复，不冒充平台 ID，也不用于调用平台 task API。
 
 ### 5.2 多个 task 共用 workspace
 
-如果多个任务共享同一个 workspace，使用稳定 task ID 隔离：
+如果多个任务共享同一个 workspace，优先用 Agent 可见的运行时 task ID 隔离；不可见时先生成稳定的 Skill 级任务描述符，再用它隔离：
 
 ```text
 tasks/<task_id>/
@@ -132,7 +132,7 @@ tasks/<task_id>/
 └── artifacts/
 ```
 
-自行生成的 task ID 不应包含秘密、手机号、账号、路径分隔符、`..` 或依赖进程 PID。
+任务入口应以 `task_id_source: runtime` 或等价信息区分运行时 ID，以 `task_id_source: agent-generated` 或等价信息区分 Skill 级描述符。自行生成的描述符只生成一次并在后续轮次复用，不使用 `current-workspace`、`unknown` 等占位词，不应包含秘密、手机号、账号、路径分隔符、`..` 或依赖进程 PID。
 
 ## 6. Agent 必须执行的最小动作
 
@@ -270,9 +270,15 @@ Plus 切片 0 新增 `tests/unified-mechanism-evaluation.md`，在不增加执�
 
 ### 9.4 Plus 切片 0 状态
 
-切片 0 已完成评测协议和离线契约建设，但 **行为证据尚未完成**。下一步需要在固定 Agent、模型、工具权限和 workspace 条件下，以 v0.9.1 为直接基线运行最小场景集，每个条件至少三次，并保留失败样例。
+切片 0 已完成评测协议、离线契约和 v0.9.1 直接行为基线。在固定 CloudClaw、模型、工具权限、task 级 workspace 和 L0 合成 fixture 下，6 组场景各重复 3 次，共 18 次正式运行：15 次通过，3 次因评测器无法真实清空 context 而记为 `not_observable`，安全硬失败为 0。
 
-在真实重复运行完成前，不能声称 Plus 已经提高了采用率、恢复成功率或副作用收敛率，也不能把上述三个 CloudClaw 个案直接外推到其他 Agent。
+基线观察到复杂任务落盘 15/15、重要变化更新 18/18、副作用收敛 3/3、task 切换隔离 6/6；简单 B1 始终为 0 个正式文件和 3 次工具调用。以上只是该 Agent、模型和离线条件下的小样本证据，不外推到其他 Agent，也不等于 Plus 候选已经优于 v0.9.1。
+
+### 9.5 Plus 候选 1：可移植任务描述符
+
+基线的 15 个复杂运行均未把实际平台 conversation/task_run ID 写入任务文件。归因审计发现，CloudClaw 平台内部持有这些 ID，但当前 Agent prompt 和文件工具没有把 ID 暴露为 Agent 可见事实。因此不能把 0/15 判成 Agent 不遵守 Skill；真正问题是 v0.9.1 假定所有 runtime 都会直接公开平台 ID。
+
+候选 1 只修正这一假设：可见时记录运行时 ID；不可见时首次生成并持久化稳定的 Skill 级描述符，同时标记 `runtime` 或 `agent-generated` 来源。它不增加执行控制组件，不要求 CloudClaw 专属环境变量，也不改变服务、工具、参数和调用顺序。候选效果仍须在与直接基线相同条件下重复验证后再作版本间结论。
 
 ## 10. 后续演进边界
 

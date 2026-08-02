@@ -3,6 +3,7 @@
 > 默认优先只使用这个轻量入口。Agent 可按任务复杂度删除、合并或增加字段。
 
 - task_id:
+- task_id_source: runtime | agent-generated
 - summary:
 - goal:
 - important_constraints:
