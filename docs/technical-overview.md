@@ -25,7 +25,7 @@
 
 ## 当前能力概览
 
-截至 v0.9.0，本项目已经从 v0.1 的 ECS/基础工具能力扩展为多服务执行框架、生命周期治理工具、SDK 补充层、Terraform 资产面，以及轻量的跨服务共享与 Agent workspace 任务记忆机制：
+截至 v0.9.1，本项目已经从 v0.1 的 ECS/基础工具能力扩展为多服务执行框架、生命周期治理工具、SDK 补充层、Terraform 资产面，以及轻量的跨服务共享与 Agent workspace 任务记忆机制：
 
 | 指标 | 当前状态 |
 | --- | --- |
@@ -36,7 +36,7 @@
 | 统一任务机制 | `references/unified-principles.md`、`references/task-workspace-guide.md`、`templates/` 和统一机制契约测试 |
 | 自动化测试 | 以 `python3 -m unittest discover tests` 的当前结果为准 |
 | 质量门禁 | 单测、架构契约、materials drift、registry/coverage 检查 |
-| 发布版本 | `v0.9.0` |
+| 发布版本 | `v0.9.1` |
 
 ## 核心架构
 
@@ -236,7 +236,7 @@ Terraform 进入条件不是“也能创建资源”，而是任务天然需要 
 
 ### 4.6 跨服务共享与 Agent workspace 任务记忆
 
-v0.9.0 增加一套轻量机制，解决跨服务、多轮和可中断任务只依赖模型当前 context 的问题：
+v0.9.0 首次增加轻量机制，解决跨服务、多轮和可中断任务只依赖模型当前 context 的问题；v0.9.1 继续补齐任务升级、逻辑资源收敛和受控替换：
 
 - `references/unified-principles.md` 统一目标变化、信息来源、事实冲突、完成和证据语义；
 - `references/task-workspace-guide.md` 规定复杂任务应在 Agent 自己的 workspace 中保留哪些最小信息；

@@ -51,7 +51,7 @@ flowchart LR
    - 快速了解这个 skill 的技术定位、架构平面、核心优势和当前能力边界。
    - 适合第一次接手实现、评审架构或规划扩展路线时阅读。
 2. [unified-task-mechanism-implementation.md](unified-task-mechanism-implementation.md)
-   - 了解 v0.9.0 已实施的跨服务共享原则、Agent workspace 任务记忆、运行边界和验证方法。
+   - 了解 v0.9.1 已实施的跨服务共享原则、Agent workspace 任务记忆、逻辑资源收敛、运行边界和验证方法。
    - 适合评审本轮轻量大一统机制、排查 Agent 未落盘问题或规划后续 plus 版时阅读。
 3. [skill-value-analysis.md](skill-value-analysis.md)
    - 详细说明 Agent 使用 `huaweicloud-skill` 和不使用它时，在上下文发现、API 选择、风险门禁、后置验证和治理沉淀上的差异，并给出测评集构造方法。
@@ -75,7 +75,7 @@ flowchart LR
 
 1. 这不是普通 prompt，而是一个围绕华为云 KooCLI 的可执行云操作框架。
 2. 核心架构是场景路由、registry 控制面、safe exec 执行面、SDK 补充面、Terraform 资产面、verifier 验证面和 quality gate 回归面。
-3. v0.3 系列把 ECS 单点闭环扩展到 P0/P1/P2 的生命周期、治理和场景闭环 planner；v0.4 增加 SDK 补充层；v0.5 增加 Terraform 资产面；v0.8 系列进一步收敛独立分发、API 版本解析和大输出安全；v0.9.0 增加轻量跨服务共享原则和 Agent workspace 任务记忆。准确 registry 服务数、operation 计数和 Terraform catalog 数量以对应 audit/catalog 脚本输出为准。
+3. v0.3 系列把 ECS 单点闭环扩展到 P0/P1/P2 的生命周期、治理和场景闭环 planner；v0.4 增加 SDK 补充层；v0.5 增加 Terraform 资产面；v0.8 系列进一步收敛独立分发、API 版本解析和大输出安全；v0.9.0 增加轻量跨服务共享原则和 Agent workspace 任务记忆，v0.9.1 补齐多轮更新、逻辑资源收敛和受控替换。准确 registry 服务数、operation 计数和 Terraform catalog 数量以对应 audit/catalog 脚本输出为准。
 4. 写类操作默认不自动提交，而是走 plan、dry-run、显式确认和后置验证，适合真实云资源场景的风险控制。
 5. 单测、架构契约、materials drift 和 coverage 脚本是回归门禁，用来持续防止 coverage 和安全边界退化。
 

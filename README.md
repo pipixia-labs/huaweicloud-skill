@@ -311,7 +311,7 @@ flowchart LR
 架构、脚本契约、服务覆盖策略和本地验证方法：
 
 - [`docs/technical-overview.md`](docs/technical-overview.md) — 技术总览
-- [`docs/unified-task-mechanism-implementation.md`](docs/unified-task-mechanism-implementation.md) — v0.9.0 轻量大一统机制实施说明
+- [`docs/unified-task-mechanism-implementation.md`](docs/unified-task-mechanism-implementation.md) — v0.9.1 轻量大一统机制实施说明
 - [`docs/architecture.md`](docs/architecture.md) — 架构设计
 - [`docs/implementation-details.md`](docs/implementation-details.md) — 实现细节
 - [`docs/data-and-coverage.md`](docs/data-and-coverage.md) — 数据与覆盖
