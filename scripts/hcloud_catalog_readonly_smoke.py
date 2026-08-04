@@ -5,16 +5,31 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
+import re
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import hcloud_common
+import hcloud_context_inspect
 import hcloud_resource_discovery
 
 DEFAULT_SERVICES = ("UCS", "RFS", "WAF", "DCS")
 SMOKE_RECORD_SCHEMA_VERSION = 1
+SMOKE_TOOL = "scripts/hcloud_catalog_readonly_smoke.py"
+HCLOUD_VERSION_PATTERN = re.compile(r"\b\d+\.\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.-]+)?\b")
+EVIDENCE_SOURCE_KEYS = ("tool", "skill_commit", "worktree_state")
+EVIDENCE_ENVIRONMENT_KEYS = (
+    "region",
+    "python_version",
+    "platform",
+    "architecture",
+    "hcloud_cli_version",
+    "hcloud_version_command_succeeded",
+)
 
 
 def utc_now() -> str:
@@ -235,12 +250,121 @@ def operation_filters(args: argparse.Namespace, services: list[str]) -> list[str
     return [str(operation) for operation in operations]
 
 
-def build_smoke_record(args: argparse.Namespace, result: dict[str, Any]) -> dict[str, Any]:
+def local_source_provenance(root: Path = hcloud_common.ROOT) -> dict[str, Any]:
+    """Return bounded source identity without borrowing a parent repository."""
+    source: dict[str, Any] = {
+        "tool": SMOKE_TOOL,
+        "skill_commit": None,
+        "worktree_state": "unknown_no_local_git",
+    }
+    if not (root / ".git").exists():
+        return source
+
+    run_options = {
+        "capture_output": True,
+        "text": True,
+        "check": False,
+        "timeout": 5,
+    }
+    try:
+        revision = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            **run_options,
+        )
+        status = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
+            **run_options,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        source["worktree_state"] = "unknown_git_error"
+        return source
+
+    commit = revision.stdout.strip()
+    if revision.returncode != 0 or not re.fullmatch(r"[0-9a-fA-F]{40}", commit):
+        source["worktree_state"] = "unknown_git_error"
+        return source
+    if status.returncode != 0:
+        source["worktree_state"] = "unknown_git_error"
+        return source
+
+    source["skill_commit"] = commit.lower()
+    source["worktree_state"] = "dirty" if status.stdout.strip() else "clean"
+    return source
+
+
+def hcloud_version_metadata() -> dict[str, Any]:
+    """Return a bounded hcloud version summary without paths or raw output."""
+    inspection = hcloud_context_inspect.inspect_hcloud_binary()
+    command = inspection.get("version_command")
+    command = command if isinstance(command, dict) else {}
+    succeeded = bool(inspection.get("found")) and command.get("return_code") == 0
+    metadata: dict[str, Any] = {"hcloud_version_command_succeeded": succeeded}
+    if not succeeded:
+        return metadata
+
+    match = HCLOUD_VERSION_PATTERN.search(str(command.get("stdout") or ""))
+    if match:
+        metadata["hcloud_cli_version"] = match.group(0)
+    return metadata
+
+
+def build_evidence_metadata(
+    args: argparse.Namespace,
+    result: dict[str, Any],
+    *,
+    observed_at: str | None = None,
+) -> dict[str, Any]:
+    """Build reproducibility metadata without account or credential values."""
+    environment: dict[str, Any] = {
+        "region": getattr(args, "region", None),
+        "python_version": platform.python_version(),
+        "platform": platform.system() or "unknown",
+        "architecture": platform.machine() or "unknown",
+    }
+    if result.get("mode") == "execute":
+        environment.update(hcloud_version_metadata())
+    return {
+        "observed_at": observed_at or utc_now(),
+        "evidence_source": local_source_provenance(),
+        "environment": environment,
+    }
+
+
+def normalize_evidence_metadata(evidence: dict[str, Any], observed_at: str) -> dict[str, Any]:
+    """Keep only the documented non-sensitive evidence fields."""
+    raw_source = evidence.get("evidence_source")
+    raw_source = raw_source if isinstance(raw_source, dict) else {}
+    raw_environment = evidence.get("environment")
+    raw_environment = raw_environment if isinstance(raw_environment, dict) else {}
+    return {
+        "observed_at": observed_at,
+        "evidence_source": {
+            key: raw_source[key]
+            for key in EVIDENCE_SOURCE_KEYS
+            if key in raw_source
+        },
+        "environment": {
+            key: raw_environment[key]
+            for key in EVIDENCE_ENVIRONMENT_KEYS
+            if key in raw_environment
+        },
+    }
+
+
+def build_smoke_record(
+    args: argparse.Namespace,
+    result: dict[str, Any],
+    *,
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build a sanitized smoke evidence record safe to persist."""
+    raw_evidence = evidence if evidence is not None else build_evidence_metadata(args, result)
+    observed_at = str(raw_evidence.get("observed_at") or utc_now())
+    normalized_evidence = normalize_evidence_metadata(raw_evidence, observed_at)
     return {
         "schema_version": SMOKE_RECORD_SCHEMA_VERSION,
-        "generated_at": utc_now(),
-        "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+        "generated_at": observed_at,
+        "tool": SMOKE_TOOL,
         "mode": result.get("mode"),
         "success": result.get("success"),
         "service_count": result.get("service_count"),
@@ -257,7 +381,11 @@ def build_smoke_record(args: argparse.Namespace, result: dict[str, Any]) -> dict
         },
         "services": args.service or list(DEFAULT_SERVICES),
         "matrix": sanitize_matrix(result.get("matrix", [])),
-        "confidence_suggestions": build_confidence_suggestions(result),
+        "evidence": normalized_evidence,
+        "confidence_suggestions": build_confidence_suggestions(
+            result,
+            evidence=normalized_evidence,
+        ),
         "notes": [
             "This record intentionally omits raw stdout, stderr, and parsed response bodies.",
             "A command_shape_ok bucket means the read-only command executed successfully; it does not promote a service to curated coverage by itself.",
@@ -290,7 +418,11 @@ def sanitize_matrix(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sanitized
 
 
-def build_confidence_suggestions(result: dict[str, Any]) -> dict[str, Any]:
+def build_confidence_suggestions(
+    result: dict[str, Any],
+    *,
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Return a confidence sidecar patch for successful live read-only smoke rows."""
     services: dict[str, Any] = {}
     for row in result.get("matrix", []):
@@ -301,12 +433,21 @@ def build_confidence_suggestions(result: dict[str, Any]) -> dict[str, Any]:
         if not service or not operation:
             continue
         service_entry = services.setdefault(service, {"confidence": "catalog-derived", "operations": {}})
+        last_smoke = {
+            "result_bucket": row.get("result_bucket"),
+            "evidence_summary": row.get("evidence_summary"),
+        }
+        if evidence is not None:
+            last_smoke.update(
+                {
+                    key: evidence[key]
+                    for key in ("observed_at", "evidence_source", "environment")
+                    if key in evidence
+                }
+            )
         service_entry["operations"][operation] = {
             "confidence": "live-read-smoked",
-            "last_smoke": {
-                "result_bucket": row.get("result_bucket"),
-                "evidence_summary": row.get("evidence_summary"),
-            },
+            "last_smoke": last_smoke,
         }
     return {"schema_version": 1, "services": services}
 

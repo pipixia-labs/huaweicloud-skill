@@ -59,7 +59,7 @@ flowchart TD
 | `hcloud-service-catalog/` | 每服务 generated catalog payload，脚本按需读取。 |
 | `hcloud-service-catalog.generated.json` | 可选本地临时 full catalog，仅用于维护期完整 diff；不提交到仓库，不作为 agent 直接资料入口。 |
 | `hcloud-service-catalog.fingerprint.json` | generated catalog 的小体积升级审查事实源。 |
-| `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar。 |
+| `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar；新实测建议应携带观测时间、具体 Skill revision 和非敏感环境，缺失项保持 unknown。 |
 | `terraform-workflow.md` | Terraform/IaC 与 hcloud 协同的运行时流程。 |
 | `terraform/` | Terraform provider、认证、发现、互操作、troubleshooting 和 catalog 说明。 |
 | `maas-model-calls.md` | MaaS 模型 API 调用工作流，覆盖文本、图像理解、图片生成/编辑和视频异步任务。 |

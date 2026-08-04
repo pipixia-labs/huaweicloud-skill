@@ -21,7 +21,7 @@
 
 服务维护档案见 `references/service-curation-profiles.json`。它记录已有 curated 服务和下一批晋级候选的 readiness operation、resource query operation、playbook 和 risk profile。用 `scripts/hcloud_curated_promotion_audit.py --include-curated --pretty` 检查现有 curated 健康状态和候选缺口。
 
-不要把三类数据混为同一个成熟度结论：curation profile 表示当前设计和维护边界，`live-validation-profiles.json` 表示希望采集的闭环证据契约，`hcloud-service-confidence.json` 中标为 `live-read-smoked` 的 operation 才表示曾有真实只读 smoke 证据。没有观测时间、环境和来源时，只能说明“存在过能力证据”，不能声称最近版本、当前账号或所有场景已经验证。运行 `scripts/hcloud_closure_maturity_audit.py --pretty` 可查看 `evidence_provenance` 摘要；该审计不会把目标档案冒充运行历史。
+不要把三类数据混为同一个成熟度结论：curation profile 表示当前设计和维护边界，`live-validation-profiles.json` 表示希望采集的闭环证据契约，`hcloud-service-confidence.json` 中标为 `live-read-smoked` 的 operation 才表示曾有真实只读 smoke 证据。没有观测时间、环境和来源时，只能说明“存在过能力证据”，不能声称最近版本、当前账号或所有场景已经验证；只有来源还不够，完整可复现 provenance 还要求具体源码 revision。运行 `scripts/hcloud_closure_maturity_audit.py --pretty` 可查看 `evidence_provenance` 摘要；该审计不会把目标档案冒充运行历史。
 
 | Service | Coverage | 当前状态 | 说明 |
 |---------|----------|----------|------|
@@ -72,7 +72,7 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - `hcloud_service_change_plan.py` 可以为 mutating operation 生成 planner-only 风险计划；真实 submit 仍需要单独确认，不会自动执行。metadata-backed mutation 的 dry-run 支持默认为 `unknown`，不会自动假设支持 dry-run。
 - metadata-backed planner 会读取 catalog service `category` 作为风险下限；安全合规、身份、密钥和治理类 mutation 会标记 `risk.hard_guard=true`，通用 guarded flow 不得自动执行 submit。
 - `hcloud_catalog_audit.py --fail-on-drift` 用于确认 curated registry 没有引用 catalog 中已消失的 operation。
-- `hcloud_catalog_readonly_smoke.py` 用于小批只读实测，并把失败归因到命令形态、账号权限、服务开通、region/project、参数或网络等桶。
+- `hcloud_catalog_readonly_smoke.py` 用于小批只读实测，并把失败归因到命令形态、账号权限、服务开通、region/project、参数或网络等桶；新生成的 record 和 confidence suggestion 共用观测时间，并携带受限、非敏感的来源与环境信息。
 - `hcloud-service-catalog.index.json` 是运行时轻量索引；`hcloud-service-catalog/` 保存 per-service payload；`hcloud-service-catalog.fingerprint.json` 是 review 用小体积指纹；`hcloud-service-confidence.json` 是 live smoke/confidence/dry-run 支持性的 sidecar。
 
 当前 metadata-backed operation 级 live smoke 证据见 `references/hcloud-service-confidence.json` 和 `tests/manual-validation-2026-06-05.md`。已通过只读 smoke 的 operation 可以标为 `live-read-smoked`；只有服务写入 `references/service-registry.json` 后才算 curated registry 覆盖。

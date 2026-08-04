@@ -1577,6 +1577,131 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(suggestions["services"]["UCS"]["operations"]["ListClusters"]["confidence"], "live-read-smoked")
         self.assertNotIn("WAF", suggestions["services"])
 
+    def test_catalog_readonly_smoke_propagates_reproducible_evidence_without_secrets(self) -> None:
+        args = SimpleNamespace(
+            service=["UCS"],
+            operation=["ListClusters"],
+            region="cn-north-4",
+            project_id="project-secret-value",
+            profile="profile-secret-value",
+            limit=5,
+            catalog_max_operations=1,
+            execute=True,
+            strict=True,
+            timeout=1,
+        )
+        result = {
+            "mode": "execute",
+            "success": True,
+            "service_count": 1,
+            "operation_count": 1,
+            "bucket_counts": {"command_shape_ok": 1},
+            "matrix": [
+                {
+                    "service": "UCS",
+                    "operation": "ListClusters",
+                    "mode": "execute",
+                    "result_bucket": "command_shape_ok",
+                    "evidence_summary": "Read-only command executed successfully through hcloud_safe_exec.",
+                    "command": [
+                        "python3",
+                        "scripts/hcloud_safe_exec.py",
+                        "--arg=--project_id=project-secret-value",
+                        "--arg=--cli-profile=profile-secret-value",
+                    ],
+                }
+            ],
+        }
+        evidence = {
+            "observed_at": "2026-08-04T08:00:00Z",
+            "evidence_source": {
+                "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+                "skill_commit": "a" * 40,
+                "worktree_state": "clean",
+            },
+            "environment": {
+                "region": "cn-north-4",
+                "python_version": "3.14.0",
+                "platform": "Darwin",
+                "architecture": "arm64",
+                "hcloud_cli_version": "7.2.12",
+            },
+        }
+
+        record = hcloud_catalog_readonly_smoke.build_smoke_record(
+            args,
+            result,
+            evidence=evidence,
+        )
+        last_smoke = record["confidence_suggestions"]["services"]["UCS"]["operations"]["ListClusters"]["last_smoke"]
+        serialized = json.dumps(record, ensure_ascii=False)
+
+        self.assertEqual(record["generated_at"], evidence["observed_at"])
+        self.assertEqual(record["evidence"], evidence)
+        self.assertEqual(last_smoke["observed_at"], evidence["observed_at"])
+        self.assertEqual(last_smoke["evidence_source"], evidence["evidence_source"])
+        self.assertEqual(last_smoke["environment"], evidence["environment"])
+        self.assertNotIn("project-secret-value", serialized)
+        self.assertNotIn("profile-secret-value", serialized)
+
+    def test_catalog_readonly_smoke_collects_bounded_environment_only_for_execute(self) -> None:
+        args = SimpleNamespace(region="cn-north-4")
+        source = {
+            "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+            "skill_commit": None,
+            "worktree_state": "unknown_no_local_git",
+        }
+        inspector_result = {
+            "found": True,
+            "path": "/private/sensitive/path/hcloud",
+            "version_command": {
+                "return_code": 0,
+                "stdout": "Current KooCLI version is 7.2.12\nshould-not-persist",
+                "stderr": "private-diagnostic",
+            },
+        }
+
+        with patch.object(
+            hcloud_catalog_readonly_smoke,
+            "local_source_provenance",
+            return_value=source,
+        ):
+            with patch.object(
+                hcloud_catalog_readonly_smoke.hcloud_context_inspect,
+                "inspect_hcloud_binary",
+                return_value=inspector_result,
+            ) as inspect:
+                plan_evidence = hcloud_catalog_readonly_smoke.build_evidence_metadata(
+                    args,
+                    {"mode": "plan"},
+                    observed_at="2026-08-04T08:00:00Z",
+                )
+                inspect.assert_not_called()
+                execute_evidence = hcloud_catalog_readonly_smoke.build_evidence_metadata(
+                    args,
+                    {"mode": "execute"},
+                    observed_at="2026-08-04T08:00:01Z",
+                )
+
+        serialized = json.dumps(execute_evidence, ensure_ascii=False)
+        self.assertNotIn("hcloud_cli_version", plan_evidence["environment"])
+        self.assertEqual(execute_evidence["environment"]["hcloud_cli_version"], "7.2.12")
+        self.assertTrue(execute_evidence["environment"]["hcloud_version_command_succeeded"])
+        self.assertNotIn("/private/sensitive/path", serialized)
+        self.assertNotIn("should-not-persist", serialized)
+        self.assertNotIn("private-diagnostic", serialized)
+
+    def test_catalog_readonly_smoke_does_not_borrow_parent_git_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "installed-skill"
+            root.mkdir()
+            with patch.object(hcloud_catalog_readonly_smoke.subprocess, "run") as run:
+                source = hcloud_catalog_readonly_smoke.local_source_provenance(root)
+
+        run.assert_not_called()
+        self.assertEqual(source["skill_commit"], None)
+        self.assertEqual(source["worktree_state"], "unknown_no_local_git")
+
     def test_catalog_readonly_smoke_summarizes_execution_without_raw_output(self) -> None:
         plan = {
             "commands": [
@@ -3436,8 +3561,53 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertGreater(evidence["live_smoke_evidence"]["operation_count"], 0)
         self.assertEqual(evidence["live_smoke_evidence"]["timestamped_operation_count"], 0)
         self.assertEqual(evidence["live_smoke_evidence"]["environment_described_operation_count"], 0)
+        self.assertEqual(evidence["live_smoke_evidence"]["source_revision_described_operation_count"], 0)
         self.assertEqual(evidence["live_smoke_evidence"]["freshness_status"], "unknown_missing_observed_at")
         self.assertFalse(evidence["recent_live_validation_claimed"])
+
+    def test_closure_maturity_requires_source_revision_for_complete_provenance(self) -> None:
+        confidence = {
+            "services": {
+                "UCS": {
+                    "operations": {
+                        "ListClusters": {
+                            "confidence": "live-read-smoked",
+                            "last_smoke": {
+                                "observed_at": "2026-08-04T08:00:00Z",
+                                "evidence_source": {"tool": "scripts/hcloud_catalog_readonly_smoke.py"},
+                                "environment": {"region": "cn-north-4"},
+                            },
+                        }
+                    }
+                },
+                "RFS": {
+                    "operations": {
+                        "ListStacks": {
+                            "confidence": "live-read-smoked",
+                            "last_smoke": {
+                                "observed_at": "2026-08-04T08:00:01Z",
+                                "evidence_source": {
+                                    "tool": "scripts/hcloud_catalog_readonly_smoke.py",
+                                    "skill_commit": "a" * 40,
+                                },
+                                "environment": {"region": "cn-north-4"},
+                            },
+                        }
+                    }
+                },
+            }
+        }
+        with patch.object(
+            hcloud_closure_maturity_audit.hcloud_common,
+            "load_json",
+            side_effect=[{"services": {}}, {"services": {}}, confidence],
+        ):
+            summary = hcloud_closure_maturity_audit.evidence_provenance_summary()
+
+        evidence = summary["live_smoke_evidence"]
+        self.assertEqual(evidence["sourced_operation_count"], 2)
+        self.assertEqual(evidence["source_revision_described_operation_count"], 1)
+        self.assertEqual(evidence["provenance_complete_operation_count"], 1)
 
     def test_acceptance_evidence_result_evaluates_local_statuses(self) -> None:
         plan = hcloud_lifecycle_closure_plan.build_lifecycle_plan(

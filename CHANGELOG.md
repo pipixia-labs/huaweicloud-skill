@@ -7,6 +7,9 @@
 - 将业务 API 默认经 safe_exec、代码直调仅限版本/帮助/元数据预热的边界写入 machine-readable audience manifest；仍保留有证据的窄范围 Agent fallback，不新增服务/API/参数顺序白名单。
 - 澄清普通 task/证据 artifact 与 `0600` 受限 credential artifact 的边界；修复旧 Qwen MaaS 兼容入口可能从 HTTP 错误正文泄露 API Key 的问题。
 - 成熟度审计新增 curation、目标闭环档案和 live-smoke 证据来源摘要；缺时间和来源时明确 freshness unknown，不把规划档案描述成最近实测。
+- 修复 Progress 模板与统一契约的字段词面漂移，保留“阻塞、未知或遗留”的细分语义，同时恢复统一“当前缺口”标签。
+- metadata-backed 只读 smoke 的 record 与 confidence suggestion 现在共用观测时间，并自动携带受限的 Skill revision、工作树状态和非敏感运行环境；无独立 Git 身份时保持 unknown，不借用父仓库 commit，也不保存 profile、project ID、binary path 或原始版本输出。
+- 成熟度审计把普通 evidence source 与具体 source revision 分开计数；只有时间、来源、源码 revision 和环境均存在时才计为完整 provenance。
 
 ## 0.9.2 - 2026-08-02
 

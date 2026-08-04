@@ -40,6 +40,16 @@ CLOSURE_TARGET_PROFILES_PATH = hcloud_common.REFERENCES_DIR / "live-validation-p
 CONFIDENCE_PATH = hcloud_common.REFERENCES_DIR / "hcloud-service-confidence.json"
 
 
+def has_source_revision(last_smoke: dict[str, Any]) -> bool:
+    """Return whether smoke evidence identifies a concrete source revision."""
+    if last_smoke.get("commit") or last_smoke.get("source_ref"):
+        return True
+    evidence_source = last_smoke.get("evidence_source")
+    if not isinstance(evidence_source, dict):
+        return False
+    return any(evidence_source.get(key) for key in ("skill_commit", "commit", "source_ref"))
+
+
 def evidence_provenance_summary() -> dict[str, Any]:
     """Summarize maturity facts without treating target profiles as run history."""
     curation = hcloud_common.load_json(CURATION_PROFILES_PATH)
@@ -86,6 +96,10 @@ def evidence_provenance_summary() -> dict[str, Any]:
         any(entry["last_smoke"].get(key) for key in source_keys)
         for entry in live_smoke_entries
     )
+    source_revision_count = sum(
+        has_source_revision(entry["last_smoke"])
+        for entry in live_smoke_entries
+    )
     environment_count = sum(
         any(entry["last_smoke"].get(key) for key in environment_keys)
         for entry in live_smoke_entries
@@ -93,6 +107,7 @@ def evidence_provenance_summary() -> dict[str, Any]:
     provenance_complete_count = sum(
         any(entry["last_smoke"].get(key) for key in timestamp_keys)
         and any(entry["last_smoke"].get(key) for key in source_keys)
+        and has_source_revision(entry["last_smoke"])
         and any(entry["last_smoke"].get(key) for key in environment_keys)
         for entry in live_smoke_entries
     )
@@ -125,6 +140,7 @@ def evidence_provenance_summary() -> dict[str, Any]:
             "operation_count": len(live_smoke_entries),
             "timestamped_operation_count": timestamped_count,
             "sourced_operation_count": sourced_count,
+            "source_revision_described_operation_count": source_revision_count,
             "environment_described_operation_count": environment_count,
             "provenance_complete_operation_count": provenance_complete_count,
             "freshness_status": freshness_status,
