@@ -27,6 +27,135 @@ SPEC.loader.exec_module(hcloud_safe_exec)
 class SafeExecRedactionTest(unittest.TestCase):
     """Validate redaction without calling hcloud."""
 
+    def test_normalize_hcloud_args_adds_only_missing_long_option_prefixes(self) -> None:
+        """Normalize direct CLI input without changing already valid option tokens."""
+
+        normalized = hcloud_safe_exec.normalize_hcloud_args(
+            ["server_id=server-1", "--limit=5", "-h"]
+        )
+
+        self.assertEqual(normalized, ["--server_id=server-1", "--limit=5", "-h"])
+
+    def test_normalize_hcloud_args_rejects_empty_or_multiline_tokens(self) -> None:
+        """Reject malformed tokens before they reach hcloud or output-policy logic."""
+
+        for raw in ("", "   ", "server_id=one\n--limit=5", "name=value\rnext"):
+            with self.subTest(raw=raw):
+                with self.assertRaises(ValueError):
+                    hcloud_safe_exec.normalize_hcloud_args([raw])
+
+    def test_cli_normalizes_bare_arg_and_preserves_prefixed_arg(self) -> None:
+        """Fix direct --arg usage while preserving the established internal call format."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, sys\n"
+                "print(json.dumps(sys.argv[1:]))\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "ECS",
+                    "--operation",
+                    "ShowServer",
+                    "--arg=server_id=server-1",
+                    "--arg=--cli-region=cn-north-4",
+                    "--skip-version-resolve",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(
+            result["parsed_json"],
+            ["ECS", "ShowServer", "--server_id=server-1", "--cli-region=cn-north-4"],
+        )
+
+    def test_cli_preserves_command_part_positionals_and_prefixed_options(self) -> None:
+        """Keep generic hcloud subcommands and positional arguments unchanged."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, sys\n"
+                "print(json.dumps(sys.argv[1:]))\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--command-part=obs",
+                    "--command-part=ls",
+                    "--arg=obs://example-bucket",
+                    "--arg=--limit=5",
+                    "--expect-json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(
+            result["parsed_json"],
+            ["obs", "ls", "obs://example-bucket", "--limit=5"],
+        )
+
+    def test_cli_rejects_empty_arg_before_hcloud_execution(self) -> None:
+        """Fail malformed direct input before any cloud command can run."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            marker_path = tmp_path / "executed"
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "from pathlib import Path\n"
+                f"Path({str(marker_path)!r}).write_text('executed', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "ECS",
+                    "--operation",
+                    "ShowServer",
+                    "--arg=",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertFalse(marker_path.exists())
+        self.assertIn("--arg values must not be empty", completed.stderr)
+
     def test_collect_inline_secrets_handles_equals_and_two_token_forms(self) -> None:
         secrets = hcloud_safe_exec.collect_inline_secrets(
             [

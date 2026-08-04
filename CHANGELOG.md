@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 修复 `hcloud_safe_exec.py` 直接 CLI 的裸 `--arg` 参数：service/operation 模式自动补齐缺失的 `--`，已有长/短选项保持不变；generic command-part 继续保留 `obs://` 等位置参数，空值、首尾空白和多行 token 在启动 hcloud 前拒绝。
+- 新增外部执行层回归清单，将参数、脱敏、错误、输出、版本、变更门禁、受控 live、MaaS 兼容性和性能观察分层记录，并要求精确 commit、环境、分子/分母和责任归因，不沿用不可复算的单一总分。
+
 ## 0.9.2 - 2026-08-02
 
 - 为复杂任务增加可移植 task 身份：运行时 task ID 对 Agent 可见时原样记录，不可见时首次建档生成稳定描述符并标记 `task_id_source`，后续轮次从 workspace 复用；描述符不冒充平台 ID，也不用于平台 API。

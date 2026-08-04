@@ -633,6 +633,32 @@ def maybe_parse_json(stdout: str | bytes | None) -> tuple[Any | None, str | None
         return None, str(exc)
 
 
+def normalize_hcloud_args(
+    raw_args: list[str],
+    *,
+    add_missing_prefix: bool = True,
+) -> list[str]:
+    """Normalize direct ``--arg`` values into hcloud option tokens.
+
+    Internal callers already pass long options such as ``--limit=20``. Direct
+    service/operation users may omit the leading dashes, so add them without
+    changing existing long or short options. Generic command-part mode can
+    contain positional tokens and therefore disables prefix insertion. Reject
+    malformed tokens before version resolution and subprocess execution.
+    """
+
+    normalized: list[str] = []
+    for raw in raw_args:
+        if not raw or not raw.strip():
+            raise ValueError("--arg values must not be empty")
+        if raw != raw.strip() or any(control in raw for control in ("\x00", "\r", "\n")):
+            raise ValueError("--arg values must be single tokens without surrounding whitespace")
+        normalized.append(
+            raw if raw.startswith("-") or not add_missing_prefix else f"--{raw}"
+        )
+    return normalized
+
+
 def build_command(
     args: argparse.Namespace,
     temp_json_file: Path | None,
@@ -809,7 +835,10 @@ def parse_args() -> argparse.Namespace:
         "--arg",
         action="append",
         default=[],
-        help="A raw hcloud argument token. Use the = form, for example --arg=--cli-region=cn-north-4.",
+        help=(
+            "An hcloud argument token. Service/operation mode adds a missing -- prefix; "
+            "command-part mode preserves positional tokens."
+        ),
     )
     parser.add_argument("--json-input-file", help="Existing JSON file path to pass via --cli-jsonInput.")
     parser.add_argument("--json-input-text", help="Inline JSON text to write to a temporary file for --cli-jsonInput.")
@@ -864,6 +893,13 @@ def parse_args() -> argparse.Namespace:
         parser.error("--max-parsed-json-chars must be greater than 0.")
     if args.sample_items < 0:
         parser.error("--sample-items must be 0 or greater.")
+    try:
+        args.arg = normalize_hcloud_args(
+            args.arg,
+            add_missing_prefix=not bool(args.command_part),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     return args
 
