@@ -4,6 +4,9 @@
 
 - 修复 `hcloud_safe_exec.py` 直接 CLI 的裸 `--arg` 参数：service/operation 模式自动补齐缺失的 `--`，已有长/短选项保持不变；generic command-part 继续保留 `obs://` 等位置参数，空值、首尾空白和多行 token 在启动 hcloud 前拒绝。
 - 新增外部执行层回归清单，将参数、脱敏、错误、输出、版本、变更门禁、受控 live、MaaS 兼容性和性能观察分层记录，并要求精确 commit、环境、分子/分母和责任归因，不沿用不可复算的单一总分。
+- 将业务 API 默认经 safe_exec、代码直调仅限版本/帮助/元数据预热的边界写入 machine-readable audience manifest；仍保留有证据的窄范围 Agent fallback，不新增服务/API/参数顺序白名单。
+- 澄清普通 task/证据 artifact 与 `0600` 受限 credential artifact 的边界；修复旧 Qwen MaaS 兼容入口可能从 HTTP 错误正文泄露 API Key 的问题。
+- 成熟度审计新增 curation、目标闭环档案和 live-smoke 证据来源摘要；缺时间和来源时明确 freshness unknown，不把规划档案描述成最近实测。
 
 ## 0.9.2 - 2026-08-02
 

@@ -21,6 +21,8 @@
 
 服务维护档案见 `references/service-curation-profiles.json`。它记录已有 curated 服务和下一批晋级候选的 readiness operation、resource query operation、playbook 和 risk profile。用 `scripts/hcloud_curated_promotion_audit.py --include-curated --pretty` 检查现有 curated 健康状态和候选缺口。
 
+不要把三类数据混为同一个成熟度结论：curation profile 表示当前设计和维护边界，`live-validation-profiles.json` 表示希望采集的闭环证据契约，`hcloud-service-confidence.json` 中标为 `live-read-smoked` 的 operation 才表示曾有真实只读 smoke 证据。没有观测时间、环境和来源时，只能说明“存在过能力证据”，不能声称最近版本、当前账号或所有场景已经验证。运行 `scripts/hcloud_closure_maturity_audit.py --pretty` 可查看 `evidence_provenance` 摘要；该审计不会把目标档案冒充运行历史。
+
 | Service | Coverage | 当前状态 | 说明 |
 |---------|----------|----------|------|
 | `ECS` | High | 最完整 | 本地有 `apis_en.json`、部分 operation detail cache，已验证 `ListFlavors` 的 meta lookup、dry-run、本地参数校验；已有创建 JSON 校验、ShowJob 轮询和 ACTIVE 资源验证脚本 |

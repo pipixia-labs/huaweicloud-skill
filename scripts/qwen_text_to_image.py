@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import maas_common
+
 DEFAULT_MODEL = "qwen-image"
 DEFAULT_ENDPOINT = "https://api.modelarts-maas.com/v1/images/generations"
 DEFAULT_SIZE = "1024x1024"
@@ -298,7 +300,10 @@ def generate_item(
             "created": response.get("created"),
         }
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
+        body = maas_common.redact_maas_text(
+            exc.read().decode("utf-8", errors="replace"),
+            api_key,
+        )
         raise QwenImageError(f"Could not generate {item.file}: HTTP {exc.code}: {body[:300]}") from exc
     except Exception as exc:
         raise QwenImageError(f"Could not generate {item.file}: {exc}") from exc
@@ -401,7 +406,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"success": True, "manifest": str(manifest_path), "count": len(items)}, ensure_ascii=False))
         return 0
     except Exception as exc:
-        print(json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        error = maas_common.redact_maas_text(str(exc))
+        print(json.dumps({"success": False, "error": error}, ensure_ascii=False), file=sys.stderr)
         return 1
 
 

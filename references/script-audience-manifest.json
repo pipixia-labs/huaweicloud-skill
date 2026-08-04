@@ -42,6 +42,41 @@
       "source": "references/versioning-policy.md"
     }
   },
+  "hcloud_execution_boundary": {
+    "business_api_policy": "safe_exec_by_default_with_evidenced_fallback",
+    "agent_fallback_boundary": "Use hcloud_safe_exec for normal business API reads and changes. A bare hcloud fallback remains available only for help, diagnostics, or a narrow operation that bundled scripts cannot express; resolve the exact service, operation version, parameters, output size, risk, and verification evidence before use.",
+    "purpose": "Make the shared execution boundary reviewable without creating a service, operation, parameter, or call-order whitelist for the Agent.",
+    "direct_invocation_categories": [
+      {
+        "id": "safe_business_api_executor",
+        "boundary": "The single bundled executor that may launch resolved hcloud business API and OBS argv after shared redaction, output, timeout, version, and risk handling.",
+        "allowed_command_shapes": [
+          "resolved <service> <operation/version> argv",
+          "hcloud obs argv"
+        ],
+        "scripts": [
+          "scripts/hcloud_safe_exec.py"
+        ]
+      },
+      {
+        "id": "metadata_and_diagnostics",
+        "boundary": "Code-owned direct hcloud calls are limited to non-resource metadata, help, version, and cache bootstrap. They do not submit or read a tenant business resource API.",
+        "allowed_command_shapes": [
+          "version",
+          "<service> --help",
+          "<service> <operation> --help",
+          "meta download"
+        ],
+        "scripts": [
+          "scripts/hcloud_context_inspect.py",
+          "scripts/hcloud_meta_lookup.py",
+          "scripts/hcloud_operation_resolver.py",
+          "scripts/hcloud_prewarm_cache.py",
+          "scripts/hcloud_terraform_context_inspect.py"
+        ]
+      }
+    ]
+  },
   "script_groups": [
     {
       "id": "default_runtime",

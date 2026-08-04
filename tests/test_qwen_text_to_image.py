@@ -23,6 +23,9 @@ else:
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 SCRIPT = ROOT / "scripts" / "qwen_text_to_image.py"
 SPEC = importlib.util.spec_from_file_location("qwen_text_to_image", SCRIPT)
 assert SPEC and SPEC.loader
@@ -366,6 +369,50 @@ class QwenTextToImageTest(unittest.TestCase):
 
     def test_size_accepts_star_but_normalizes_to_huawei_x_format(self) -> None:
         self.assertEqual(qwen_text_to_image.normalize_size("1024*1024"), "1024x1024")
+
+
+class QwenTextToImageSecurityTest(unittest.TestCase):
+    def test_http_error_redacts_api_key_from_compatibility_output(self) -> None:
+        api_key = "secret-key-that-must-not-leak"
+        error = qwen_text_to_image.urllib.error.HTTPError(
+            qwen_text_to_image.DEFAULT_ENDPOINT,
+            400,
+            "Bad Request",
+            hdrs=None,
+            fp=io.BytesIO(
+                json.dumps(
+                    {
+                        "error": "invalid request",
+                        "echoed_authorization": f"Bearer {api_key}",
+                    }
+                ).encode("utf-8")
+            ),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with mock.patch.dict(os.environ, {"MAAS_API_KEY": api_key}, clear=True):
+                with mock.patch.object(
+                    qwen_text_to_image.urllib.request,
+                    "urlopen",
+                    side_effect=error,
+                ):
+                    with io.StringIO() as stdout, io.StringIO() as stderr:
+                        with redirect_stdout(stdout), redirect_stderr(stderr):
+                            result = qwen_text_to_image.main(
+                                [
+                                    "--prompt",
+                                    "A toy store",
+                                    "--file",
+                                    "hero.webp",
+                                    "--out-dir",
+                                    tmp_dir,
+                                ]
+                            )
+                        error_output = stderr.getvalue()
+
+        self.assertEqual(result, 1)
+        self.assertNotIn(api_key, error_output)
+        self.assertIn("***", error_output)
 
 
 if __name__ == "__main__":

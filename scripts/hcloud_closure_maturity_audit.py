@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from typing import Any
 
 import hcloud_common
@@ -34,6 +35,108 @@ METADATA_EVIDENCE_GAP_EXAMPLES = [
     "DDM",
     "DWS",
 ]
+CURATION_PROFILES_PATH = hcloud_common.REFERENCES_DIR / "service-curation-profiles.json"
+CLOSURE_TARGET_PROFILES_PATH = hcloud_common.REFERENCES_DIR / "live-validation-profiles.json"
+CONFIDENCE_PATH = hcloud_common.REFERENCES_DIR / "hcloud-service-confidence.json"
+
+
+def evidence_provenance_summary() -> dict[str, Any]:
+    """Summarize maturity facts without treating target profiles as run history."""
+    curation = hcloud_common.load_json(CURATION_PROFILES_PATH)
+    closure_targets = hcloud_common.load_json(CLOSURE_TARGET_PROFILES_PATH)
+    confidence = hcloud_common.load_json(CONFIDENCE_PATH)
+
+    curation_services = curation.get("services", {})
+    closure_services = closure_targets.get("services", {})
+    status_counts = Counter(
+        str(profile.get("status") or "unknown")
+        for profile in curation_services.values()
+        if isinstance(profile, dict)
+    )
+
+    live_smoke_entries: list[dict[str, Any]] = []
+    live_smoke_services: set[str] = set()
+    for service_name, service in confidence.get("services", {}).items():
+        if not isinstance(service, dict):
+            continue
+        operations = service.get("operations", {})
+        if not isinstance(operations, dict):
+            continue
+        for operation_name, operation in operations.items():
+            if not isinstance(operation, dict) or operation.get("confidence") != "live-read-smoked":
+                continue
+            last_smoke = operation.get("last_smoke")
+            live_smoke_services.add(str(service_name))
+            live_smoke_entries.append(
+                {
+                    "service": str(service_name),
+                    "operation": str(operation_name),
+                    "last_smoke": last_smoke if isinstance(last_smoke, dict) else {},
+                }
+            )
+
+    timestamp_keys = {"observed_at", "validated_at", "timestamp"}
+    source_keys = {"evidence_source", "source", "report", "commit"}
+    environment_keys = {"environment", "region", "cli_version", "runtime"}
+    timestamped_count = sum(
+        any(entry["last_smoke"].get(key) for key in timestamp_keys)
+        for entry in live_smoke_entries
+    )
+    sourced_count = sum(
+        any(entry["last_smoke"].get(key) for key in source_keys)
+        for entry in live_smoke_entries
+    )
+    environment_count = sum(
+        any(entry["last_smoke"].get(key) for key in environment_keys)
+        for entry in live_smoke_entries
+    )
+    provenance_complete_count = sum(
+        any(entry["last_smoke"].get(key) for key in timestamp_keys)
+        and any(entry["last_smoke"].get(key) for key in source_keys)
+        and any(entry["last_smoke"].get(key) for key in environment_keys)
+        for entry in live_smoke_entries
+    )
+    if not live_smoke_entries:
+        freshness_status = "not_available"
+    elif timestamped_count == 0:
+        freshness_status = "unknown_missing_observed_at"
+    elif timestamped_count < len(live_smoke_entries):
+        freshness_status = "partial_timestamps_age_not_evaluated"
+    else:
+        freshness_status = "timestamps_present_age_not_evaluated"
+
+    return {
+        "source_files": [
+            "references/service-curation-profiles.json",
+            "references/live-validation-profiles.json",
+            "references/hcloud-service-confidence.json",
+        ],
+        "curation_profiles": {
+            "service_count": len(curation_services),
+            "status_counts": dict(sorted(status_counts.items())),
+            "semantics": "current_design_and_maintenance_profiles",
+        },
+        "closure_target_profiles": {
+            "service_count": len(closure_services),
+            "semantics": "target_evidence_contract_not_run_history",
+        },
+        "live_smoke_evidence": {
+            "service_count": len(live_smoke_services),
+            "operation_count": len(live_smoke_entries),
+            "timestamped_operation_count": timestamped_count,
+            "sourced_operation_count": sourced_count,
+            "environment_described_operation_count": environment_count,
+            "provenance_complete_operation_count": provenance_complete_count,
+            "freshness_status": freshness_status,
+        },
+        "recent_live_validation_claimed": False,
+        "interpretation": [
+            "Curation profiles describe the current design and maintenance boundary.",
+            "Closure target profiles describe evidence contracts; they are not execution history.",
+            "Only confidence entries marked live-read-smoked are counted as live operation evidence.",
+            "This audit does not claim recent validation unless an external run record establishes age and environment.",
+        ],
+    }
 
 
 def tier(
@@ -194,6 +297,7 @@ def build_audit() -> dict[str, Any]:
             "highest_maturity": "ecs_end_to_end_sample",
             "current_focus": "Strengthen P0 acceptance evidence and keep P1/P2 boundaries explicit.",
         },
+        "evidence_provenance": evidence_provenance_summary(),
         "tiers": tiers,
         "audit_boundary": "This audit reports local planner maturity only; it does not execute hcloud, SDK, or Terraform.",
     }

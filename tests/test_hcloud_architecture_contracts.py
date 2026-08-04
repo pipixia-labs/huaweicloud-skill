@@ -866,6 +866,49 @@ class ArchitectureContractsTest(unittest.TestCase):
             "references/versioning-policy.md",
         )
 
+        execution_boundary = manifest["hcloud_execution_boundary"]
+        self.assertEqual(
+            execution_boundary["business_api_policy"],
+            "safe_exec_by_default_with_evidenced_fallback",
+        )
+        direct_groups = execution_boundary["direct_invocation_categories"]
+        classified_direct_scripts = {
+            script
+            for group in direct_groups
+            for script in group["scripts"]
+        }
+        detected_direct_scripts = set()
+        for path in SCRIPTS.glob("*.py"):
+            source = path.read_text(encoding="utf-8")
+            resolves_hcloud = (
+                'shutil.which("hcloud")' in source
+                or "shutil.which('hcloud')" in source
+                or "resolve_hcloud_binary" in source
+            )
+            if "subprocess.run" in source and resolves_hcloud:
+                detected_direct_scripts.add(f"scripts/{path.name}")
+
+        self.assertEqual(classified_direct_scripts, detected_direct_scripts)
+        safe_executor = next(
+            group for group in direct_groups if group["id"] == "safe_business_api_executor"
+        )
+        self.assertEqual(safe_executor["scripts"], ["scripts/hcloud_safe_exec.py"])
+        metadata_only = next(
+            group for group in direct_groups if group["id"] == "metadata_and_diagnostics"
+        )
+        self.assertIn("version", metadata_only["allowed_command_shapes"])
+        self.assertIn("meta download", metadata_only["allowed_command_shapes"])
+
+    def test_task_records_exclude_secrets_but_may_reference_restricted_credentials(self) -> None:
+        guide = (ROOT / "references" / "task-workspace-guide.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("普通 task 记录、证据、manifest 和业务产物", guide)
+        self.assertIn("受限 credential artifact", guide)
+        self.assertIn("`0600`", guide)
+        self.assertIn("只记录相对路径、用途和可用状态", guide)
+
     def test_large_output_policy_is_machine_readable_and_visible_at_entry(self) -> None:
         import hcloud_catalog
 

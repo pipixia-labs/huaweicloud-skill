@@ -3428,6 +3428,16 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(tiers["p2_scenario_planner_only"]["execution_boundary"], "planner_only_no_submit")
         self.assertEqual(tiers["metadata_backed_evidence_gap"]["status"], "evidence_gap_until_promoted")
         self.assertEqual(result["summary"]["p0_service_count"], len(hcloud_lifecycle_closure_plan.CLOSURE_SERVICES))
+        evidence = result["evidence_provenance"]
+        self.assertEqual(evidence["curation_profiles"]["service_count"], 30)
+        self.assertEqual(evidence["curation_profiles"]["status_counts"], {"candidate": 11, "curated": 19})
+        self.assertEqual(evidence["closure_target_profiles"]["service_count"], 6)
+        self.assertEqual(evidence["closure_target_profiles"]["semantics"], "target_evidence_contract_not_run_history")
+        self.assertGreater(evidence["live_smoke_evidence"]["operation_count"], 0)
+        self.assertEqual(evidence["live_smoke_evidence"]["timestamped_operation_count"], 0)
+        self.assertEqual(evidence["live_smoke_evidence"]["environment_described_operation_count"], 0)
+        self.assertEqual(evidence["live_smoke_evidence"]["freshness_status"], "unknown_missing_observed_at")
+        self.assertFalse(evidence["recent_live_validation_claimed"])
 
     def test_acceptance_evidence_result_evaluates_local_statuses(self) -> None:
         plan = hcloud_lifecycle_closure_plan.build_lifecycle_plan(
