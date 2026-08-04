@@ -2,6 +2,59 @@
 
 ## Unreleased
 
+## v0.9.3 / 0.9.3 - 2026-08-04
+
+v0.9.3 是大一统 Skill 的执行边界和证据可信度增强版本。它吸收外部执行层评测中可复现、且与
+统一大 Skill 路线一致的问题：修复 safe_exec 参数兼容，明确共享执行与秘密边界，并让未来的
+只读实测从产生时携带可审计 provenance。Skill 继续统一跨服务原则、事实和安全口径，不限制
+Agent 根据现场自主选择服务、工具、参数和调用顺序。
+
+### 主要变化
+
+- **safe_exec 参数兼容与外部回归基线**
+  - service/operation 模式下，直接 CLI 的裸 `--arg=server_id=...` 会规范化为 hcloud 所需的
+    `--server_id=...`；已经带长/短选项前缀的参数保持不变。
+  - generic command-part 继续保留 `obs://` 等位置参数；空值、首尾空白和多行 token 会在启动
+    hcloud 前拒绝。
+  - 新增分层外部执行回归清单，要求精确 commit、环境、分子/分母、硬失败和责任归因，不沿用
+    无法复算的单一总分。
+
+- **共享执行与秘密边界**
+  - machine-readable audience manifest 明确：普通业务 API 默认经 safe_exec；版本、帮助和元数据
+    预热允许受限代码直调；仍保留有证据的窄范围 Agent fallback。
+  - 普通 task/证据 artifact 与 `0600` credential artifact 分开处理，凭据不得先经过普通日志或
+    workspace 记录。
+  - 修复旧 Qwen MaaS 兼容入口可能把 HTTP 错误正文中的 API Key 带入异常信息的问题。
+
+- **诚实成熟度与可复现 smoke evidence**
+  - 成熟度审计区分 curation 设计档案、目标闭环契约和真实 `live-read-smoked` 证据；缺时间、来源
+    或环境时继续报告 unknown，不把规划档案描述成最近实测。
+  - metadata-backed 只读 smoke 的 record 与 confidence suggestion 共用一个 `observed_at`，并记录
+    受限的 Skill revision、工作树状态、region、Python/platform 和 hcloud 版本 token。
+  - 没有独立 `.git` 的复制或 vendored Skill 不借用父仓库 commit；profile、project ID、binary path、
+    原始 stdout/stderr 和版本诊断不会进入证据记录。
+  - 成熟度完整 provenance 要求观测时间、来源、具体 source revision 和非敏感环境同时存在。
+
+- **统一任务语义兼容**
+  - Progress 模板恢复统一“当前缺口”标签，同时保留“阻塞、未知或遗留”的细分语义。
+  - 本版本不新增固定 TaskContract、状态机、Policy Engine、服务/API 白名单或 Agent 适配层。
+  - v0.8.2 延续的大输出保护、变更确认、脱敏、异步收敛和业务验收边界保持不变。
+
+### 验证
+
+- 全量离线回归：432 项通过，10 项按条件跳过，另有 1904 个 subtests 通过。
+- smoke/成熟度工具扩大回归：159 项通过，另有 16 个 subtests 通过。
+- 统一机制契约：13 项通过，另有 8 个 subtests 通过。
+- Ruff、Python `compileall`、234 个 JSON 文档和 `git diff --check` 通过。
+- `SKILL.md` 保持 140 行且无差异；本版本没有运行真实云变更或伪造历史 smoke provenance。
+
+### 兼容性与安全说明
+
+- safe_exec 只规范化它收到的 argv，不替 Agent 决定服务、operation、参数值、重试或调用顺序。
+- smoke provenance 是维护期证据元数据，不是账号授权、云侧状态库或强制运行时控制器。
+- 历史 confidence 条目不会被自动补写时间、commit 或环境；需要后续真实只读验证产生新证据。
+- Plugin 内置 Skill 快照不属于本版本发布范围，继续保持原状态。
+
 ## v0.9.2 / 0.9.2 - 2026-08-02
 
 v0.9.2 是大一统 Plus 的范围收口版本。它在 v0.9.1 的共享原则和 task workspace 基础上，补充

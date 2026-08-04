@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.3 - 2026-08-04
+
 - 修复 `hcloud_safe_exec.py` 直接 CLI 的裸 `--arg` 参数：service/operation 模式自动补齐缺失的 `--`，已有长/短选项保持不变；generic command-part 继续保留 `obs://` 等位置参数，空值、首尾空白和多行 token 在启动 hcloud 前拒绝。
 - 新增外部执行层回归清单，将参数、脱敏、错误、输出、版本、变更门禁、受控 live、MaaS 兼容性和性能观察分层记录，并要求精确 commit、环境、分子/分母和责任归因，不沿用不可复算的单一总分。
 - 将业务 API 默认经 safe_exec、代码直调仅限版本/帮助/元数据预热的边界写入 machine-readable audience manifest；仍保留有证据的窄范围 Agent fallback，不新增服务/API/参数顺序白名单。
