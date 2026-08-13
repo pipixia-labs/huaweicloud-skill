@@ -50,8 +50,20 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
-   - Agent 仍自主决定使用哪个业务能力。选中的能力如果已在 `capabilities.json` 声明，且当前 runtime 提供 `run_read_only_capability`，必须调用该入口；只有 capability 不存在或当前运行时不支持机器契约/该工具时，才可直接调用同一脚本 fallback。账号级多服务盘点对应 `huaweicloud.account_inventory.v1`，账单只读对应 `huaweicloud.billing.read.v1`。先检查当前 runtime 实际提供的工具，不要臆造某个平台的 Tool 名称；也不要调用并不存在的名称。
-   - 调用优先级：专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
+   - Agent 自主决定查什么和传什么业务参数；执行真实华为云查询前，先检查本 Skill 是否已在 `capabilities.json` 登记对应查询，以及当前 runtime 是否提供 `run_read_only_capability`。不要臆造某个平台的 Tool 名称，也不要调用并不存在的名称。
+   - 已登记的标准查询如下：
+
+     | 用户目标 | capability ID |
+     | --- | --- |
+     | 账号级多服务资源盘点 | `huaweicloud.account_inventory.v1` |
+     | 账单、成本或费用记录查询 | `huaweicloud.billing.read.v1` |
+
+   - 查询已登记且工具存在时，必须调用 `run_read_only_capability`；不得通过 `exec` / `process` 直接运行对应脚本，不得改用裸 `hcloud`、临时 SDK，也不得包装成通用命令提案。
+   - 只有以下三种情况允许按同一 Skill 的脚本流程 fallback：没有登记对应查询；当前 runtime 没有 `run_read_only_capability`；该工具明确返回 `READ_ONLY_CAPABILITY_NOT_REGISTERED`。参数错误、凭据错误、超时、部分成功、查询失败或输出错误都不属于 fallback 条件，应修正参数或如实处理结构化结果。
+   - 正例（北京4资源盘点）：调用 `run_read_only_capability(capability_id="huaweicloud.account_inventory.v1", arguments_json='{"regions":["cn-north-4"]}')`。
+   - 正例（北京4区域成本）：调用账单能力并把 `operation` 设为 `cost-data`，使用 `region_code=cn-north-4` 和准确时间范围；`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
+   - 反例：盘点能力已登记却先用 `exec` 运行 `hcloud_account_inventory.py`；标准查询超时后改用裸 hcloud/临时 SDK；或把已登记查询交给 `propose_command_execution`。这些路径都绕过了标准查询入口。
+   - 调用优先级“专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`”只适用于查询未登记、当前 runtime 没有标准查询工具，或工具明确返回未登记。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
    - 以下 operation 均属于大输出；命中时禁止先执行裸 `hcloud` 试探响应大小，直接使用 `hcloud_safe_exec.py --output-mode=auto`：
      - 镜像、规格和资源列表：`IMS:ListImages`、`IMS:GlanceListImages`、`ECS:ListFlavors`、`ECS:ListFlavorSellPolicies`、`ECS:ListServersDetails`、`DNS:ListRecordSets`。
