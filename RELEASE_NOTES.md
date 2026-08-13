@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 新增 `huaweicloud.billing.read.v1` 机器能力契约，覆盖月度汇总、成本数据和资源账单明细的受限只读入口；固定参数内置账单读取确认，结果遵循 `json_outcome_v1`，原始账单仍默认不返回。
+- Agent 继续自主决定业务能力；一旦选中的能力已声明 capability 且 runtime 支持，必须使用 capability 入口，只有 capability 不存在或运行时不支持时才回退到同一脚本。
+- 本次只补 Skill 的执行契约和结构化 outcome。KooCLI 固定版本、中文 BSS 离线元数据种子、临时 profile 与断网验收由宿主 runtime 负责；Skill 不携带平台路径、镜像元数据或凭据。
+
 ## v0.9.3 / 0.9.3 - 2026-08-04
 
 v0.9.3 是大一统 Skill 的执行边界和证据可信度增强版本。它吸收外部执行层评测中可复现、且与

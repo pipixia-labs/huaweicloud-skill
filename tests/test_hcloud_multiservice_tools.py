@@ -1026,6 +1026,39 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("--arg=--X-Language=zh_CN", command)
         self.assertNotIn("--arg=--cli-lang=cn", command)
 
+    def test_billing_live_read_declares_json_outcome_in_execute_mode(self) -> None:
+        safe_exec_result = {
+            "success": True,
+            "return_code": 0,
+            "duration_seconds": 0.1,
+            "service": "BSS",
+            "operation": "ShowCustomerMonthlySum",
+            "command": ["hcloud", "BSS", "ShowCustomerMonthlySum"],
+            "parsed_json": {"total_count": 0, "bill_sums": []},
+        }
+        completed = subprocess.CompletedProcess(
+            args=["python3", "hcloud_safe_exec.py"],
+            returncode=0,
+            stdout=json.dumps(safe_exec_result),
+            stderr="",
+        )
+
+        with patch.object(
+            hcloud_billing_live_read.subprocess,
+            "run",
+            return_value=completed,
+        ):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["outcome_status"], "succeeded")
+        self.assertNotIn("planning_status", result)
+
     def test_billing_live_read_keeps_supported_x_language_header(self) -> None:
         result = hcloud_billing_live_read.build_live_read(
             self.billing_live_read_args(

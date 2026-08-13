@@ -50,9 +50,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
-   - 账号级多服务盘点优先使用 `hcloud_account_inventory.py`。支持 Skill machine-readable contract 的运行时可以读取 `capabilities.json` 中的
-     `huaweicloud.account_inventory.v1`；不支持时直接调用同一脚本。先检查当前
-     runtime 实际提供的工具，不要臆造某个平台的 Tool 名称。
+   - Agent 仍自主决定使用哪个业务能力。选中的能力如果已在 `capabilities.json` 声明，且当前 runtime 提供 `run_read_only_capability`，必须调用该入口；只有 capability 不存在或当前运行时不支持机器契约/该工具时，才可直接调用同一脚本 fallback。账号级多服务盘点对应 `huaweicloud.account_inventory.v1`，账单只读对应 `huaweicloud.billing.read.v1`。先检查当前 runtime 实际提供的工具，不要臆造某个平台的 Tool 名称；也不要调用并不存在的名称。
    - 调用优先级：专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
    - 以下 operation 均属于大输出；命中时禁止先执行裸 `hcloud` 试探响应大小，直接使用 `hcloud_safe_exec.py --output-mode=auto`：

@@ -71,6 +71,152 @@
         }
       },
       "result_contract": "json_outcome_v1"
+    },
+    {
+      "id": "huaweicloud.billing.read.v1",
+      "version": 1,
+      "description": "读取经过明确确认的华为云 BSS 账单或成本数据，并默认只返回脱敏摘要。",
+      "risk": "read",
+      "credential_scope": "huaweicloud",
+      "runtime": "hcloud",
+      "entrypoint": "scripts/hcloud_billing_live_read.py",
+      "fixed_args": [
+        "--execute",
+        "--confirm-live-billing-read",
+        "READ_BILLING_DATA"
+      ],
+      "timeout_seconds": 1800,
+      "arguments": {
+        "operation": {
+          "type": "string",
+          "flag": "--operation",
+          "default": "monthly-sum",
+          "choices": [
+            "monthly-sum",
+            "cost-data",
+            "resource-records",
+            "resource-fee-records"
+          ]
+        },
+        "language": {
+          "type": "string",
+          "flag": "--language",
+          "default": "zh_CN",
+          "choices": [
+            "zh_CN",
+            "en_US"
+          ]
+        },
+        "bill_cycle": {
+          "type": "string",
+          "flag": "--bill-cycle",
+          "max_length": 7,
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+        },
+        "begin_time": {
+          "type": "string",
+          "flag": "--begin-time",
+          "max_length": 32,
+          "pattern": "^[0-9:TZ+._ -]+$"
+        },
+        "end_time": {
+          "type": "string",
+          "flag": "--end-time",
+          "max_length": 32,
+          "pattern": "^[0-9:TZ+._ -]+$"
+        },
+        "group_by": {
+          "type": "string_list",
+          "flag": "--group-by",
+          "max_items": 8,
+          "normalize": "upper",
+          "choices": [
+            "CLOUD_SERVICE_TYPE",
+            "RESOURCE_TYPE",
+            "RESOURCE_SPEC_CODE",
+            "REGION_CODE",
+            "ENTERPRISE_PROJECT_ID",
+            "RESOURCE_ID"
+          ]
+        },
+        "filter": {
+          "type": "string_list",
+          "flag": "--filter",
+          "max_items": 16,
+          "max_length": 512
+        },
+        "cost_type": {
+          "type": "string",
+          "flag": "--cost-type",
+          "default": "ORIGINAL_COST",
+          "choices": [
+            "ORIGINAL_COST",
+            "AMORTIZED_COST"
+          ]
+        },
+        "amount_type": {
+          "type": "string",
+          "flag": "--amount-type",
+          "default": "PAYMENT_AMOUNT",
+          "choices": [
+            "PAYMENT_AMOUNT",
+            "NET_AMOUNT"
+          ]
+        },
+        "service_type_code": {
+          "type": "string",
+          "flag": "--service-type-code",
+          "max_length": 256,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "resource_type": {
+          "type": "string",
+          "flag": "--resource-type",
+          "max_length": 256,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "resource_spec": {
+          "type": "string_list",
+          "flag": "--resource-spec",
+          "max_items": 16,
+          "max_length": 256,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "region_code": {
+          "type": "string",
+          "flag": "--region-code",
+          "max_length": 64,
+          "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$"
+        },
+        "enterprise_project_id": {
+          "type": "string",
+          "flag": "--enterprise-project-id",
+          "max_length": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "offset": {
+          "type": "integer",
+          "flag": "--offset",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "limit": {
+          "type": "integer",
+          "flag": "--limit",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50
+        },
+        "timeout": {
+          "type": "integer",
+          "flag": "--timeout",
+          "default": 120,
+          "minimum": 1,
+          "maximum": 120
+        }
+      },
+      "result_contract": "json_outcome_v1"
     }
   ]
 }

@@ -240,6 +240,9 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
             "result": None,
         },
     }
+    result["outcome_status" if args.execute else "planning_status"] = (
+        "succeeded" if result["success"] else "failed"
+    )
 
     if not args.execute:
         return result
@@ -262,6 +265,7 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
         "result": execution_result,
     }
     result["success"] = bool(execution_result.get("success"))
+    result["outcome_status"] = "succeeded" if result["success"] else "failed"
     return result
 
 

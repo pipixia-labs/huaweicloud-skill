@@ -9,8 +9,9 @@ capability 的 Agent runtime 在不解析自然语言指令的情况下了解固
 
 - Skill 拥有 capability ID、只读/变更风险、业务参数、固定脚本入口和输出语义。
 - Runtime 拥有工具注册、审批、进程隔离、网络、凭据投影、日志和审计实现。
-- Agent 根据当前任务和实际可用工具决定是否使用 capability；不得假设某个特定
-  平台 Tool 名称存在。
+- Agent 仍根据当前任务自主决定使用哪个业务能力；一旦选中的能力已声明 capability，
+  且 runtime 支持该机器契约，就必须调用 runtime 的 capability 入口。只有 capability
+  不存在或 runtime 不支持时，才允许直接脚本 fallback；不得假设不存在的平台 Tool 名称。
 - Runtime 可以机械校验契约，但不得根据命令文本替 Agent 选择业务工具、解释业务
   结果或制定业务重试策略。
 

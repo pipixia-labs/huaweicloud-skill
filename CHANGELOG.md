@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 为账单只读路径增加 `huaweicloud.billing.read.v1` capability，固定使用已确认的 live-read 入口、受限参数和 `json_outcome_v1`，让支持机器契约的 runtime 在精确凭据/profile 边界内执行 BSS 查询。
+- 明确 capability-first 运行规则：Agent 仍自主选择业务能力；选中已声明 capability 且 runtime 支持时必须调用 capability 入口，只有契约不存在或运行时不支持时才允许脚本 fallback。
+- Billing live-read 的 execute 结果新增与 `success` 一致的 `outcome_status`，可由 runtime 区分业务成功与进程退出状态；hcloud 仍是主后端，未引入 SDK 替代路径。
+
 ## 0.9.3 - 2026-08-04
 
 - 修复 `hcloud_safe_exec.py` 直接 CLI 的裸 `--arg` 参数：service/operation 模式自动补齐缺失的 `--`，已有长/短选项保持不变；generic command-part 继续保留 `obs://` 等位置参数，空值、首尾空白和多行 token 在启动 hcloud 前拒绝。

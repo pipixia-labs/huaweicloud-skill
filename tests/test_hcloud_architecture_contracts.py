@@ -97,6 +97,18 @@ class ArchitectureContractsTest(unittest.TestCase):
         )
         self.assertEqual(inventory["result_contract"], "json_outcome_v1")
         self.assertTrue((ROOT / inventory["entrypoint"]).is_file())
+        billing = capabilities["huaweicloud.billing.read.v1"]
+        self.assertEqual(billing["risk"], "read")
+        self.assertEqual(billing["credential_scope"], "huaweicloud")
+        self.assertEqual(billing["runtime"], "hcloud")
+        self.assertEqual(
+            billing["entrypoint"],
+            "scripts/hcloud_billing_live_read.py",
+        )
+        self.assertIn("--execute", billing["fixed_args"])
+        self.assertIn("READ_BILLING_DATA", billing["fixed_args"])
+        self.assertEqual(billing["result_contract"], "json_outcome_v1")
+        self.assertTrue((ROOT / billing["entrypoint"]).is_file())
 
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         contract_text = (
@@ -106,7 +118,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("`planning_status`", contract_text)
         self.assertIn("`outcome_status`", contract_text)
         self.assertIn("不要臆造某个平台的 Tool 名称", skill_text)
-        self.assertNotIn("run_read_only_capability", skill_text)
+        self.assertIn("run_read_only_capability", skill_text)
 
     def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:
         playbook = (
