@@ -529,7 +529,6 @@ python3 scripts/hcloud_billing_live_read.py \
   --entry-point monthly_spend \
   --operation monthly-sum \
   --bill-cycle 2026-05 \
-  --limit 10 \
   --pretty
 ```
 
@@ -540,13 +539,12 @@ python3 scripts/hcloud_billing_live_read.py \
   --entry-point monthly_spend \
   --operation monthly-sum \
   --bill-cycle 2026-05 \
-  --limit 10 \
   --execute \
   --confirm-live-billing-read READ_BILLING_DATA \
   --pretty
 ```
 
-The wrapper only allows reviewed BSS `List*` and `Show*` operations from `hcloud_billing_readonly.py`, keeps `--cli-region=cn-north-1`, passes `X-Language` only for operations that expose that Header, rejects pages larger than 50 rows, and returns a redacted billing summary instead of the raw safe_exec result. Use `--include-redacted-records` only when row-level evidence is necessary; raw identifiers still remain hashed.
+该 wrapper 只允许执行 `hcloud_billing_readonly.py` 已审核的 BSS `List*` 和 `Show*` 操作，固定使用 `--cli-region=cn-north-1`，且只为确实支持该 Header 的操作传递 `X-Language`；每页最多 50 条。执行模式从 offset 0 开始自动续页，校验请求 scope、币种、顶层金额元数据和 `total_count` 跨页保持一致，并在总 timeout 内最多合并 20 页、1000 条记录和 16 MiB payload。只有完整合并后才返回 `verified_monetary_totals`；后续页失败、空页、响应不一致、payload 过大或触及上限时返回 `partially_succeeded`，不提供可声明为完整的总额。公共结果仍为脱敏摘要，不返回 safe_exec 原始 payload；只有确实需要逐行证据时才使用 `--include-redacted-records`，原始标识符仍会被哈希脱敏。
 
 ### Billing Operation Gap Audit
 

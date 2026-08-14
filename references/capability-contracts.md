@@ -33,3 +33,9 @@ capability 的固定参数包含 `--strict`，因此满足这一约束；脱离 
 
 只生成命令而不访问云 API 的 plan 模式返回 `planning_status`，不返回
 `outcome_status`。这样可以避免把“计划构造成功”误写成“云查询已经成功”。
+
+账单 capability 的普通总额查询由 Skill 入口在安全上限内自动完成底层 BSS
+分页。只有从 `offset=0` 开始、跨页 scope/币种/总记录数一致且全部记录已取得时，
+才返回 `pagination.complete=true`、`complete_result_claim_allowed=true` 和
+`verified_monetary_totals`。后续页失败、空页不前进、跨页元数据变化或触及上限时，
+必须返回 `partially_succeeded`，保留可用的部分摘要但不生成可声明为完整的总额。

@@ -63,9 +63,10 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 参数错误、凭据错误、超时、部分成功、查询失败、版本解析错误或输出错误都不是 fallback 条件。按照 `recommended_next_action` 处理，不得因为标准入口这一次失败就改用裸 `hcloud`、临时 SDK 或对应脚本。
    - 正例（参数修正）：账单 capability 返回缺少 `begin_time` / `end_time` 且 `recommended_next_action=correct_arguments_and_retry_capability`，先补齐准确时间范围，再次调用同一个 capability。
    - 正例（北京4资源盘点）：调用 `run_read_only_capability(capability_id="huaweicloud.account_inventory.v1", arguments_json='{"regions":["cn-north-4"]}')`。
-   - 正例（北京4区域成本）：调用账单 capability，把 `operation` 设为 `cost-data`，使用 `region_code=cn-north-4` 和准确时间范围；读取返回的区域维度金额和分页完整性。`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
+   - 正例（北京4区域成本）：调用账单 capability，把 `operation` 设为 `cost-data`，使用 `region_code=cn-north-4` 和准确时间范围。标准 capability 会在安全上限内自动完成 BSS 分页并合并同一 scope 的结果；只有 `pagination.complete=true`、`complete_result_claim_allowed=true` 时，才能把 `verified_monetary_totals` 表述为完整总额。Agent 不需要为普通总额查询手工计算或传递下一页 `offset`。`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
+   - 正例（账单分页部分成功）：账单 capability 因后续页失败、空页、跨页 scope 不一致或安全上限返回 `partially_succeeded` 时，只能使用已返回的部分记录并明确缺口；不得把 `partial` 页面的金额小计改名为合计，也不得绕过 capability 补跑裸 hcloud。
    - 正例（部分成功）：资源盘点返回 `partially_succeeded` 和 `fallback_allowed=false` 时，使用已成功的资源结果并明确列出失败服务；不要为失败服务另开裸命令通道。
-   - 反例：盘点能力已登记却先用 `exec` 运行 `hcloud_account_inventory.py`；收到 `VERSION_RESOLUTION_ERROR`、空摘要、超时或部分结果后改用裸 hcloud/临时 SDK；或把已登记查询交给 `propose_command_execution`。空摘要不等于费用为 0，应按结构化错误和 scope 如实报告。这些路径都绕过了标准查询入口。
+   - 反例：盘点能力已登记却先用 `exec` 运行 `hcloud_account_inventory.py`；收到 `VERSION_RESOLUTION_ERROR`、空摘要、超时或部分结果后改用裸 hcloud/临时 SDK；或把已登记查询交给 `propose_command_execution`。账单返回 `total_count=11`、`record_count=10`、`complete_result_claim_allowed=false` 时，把这 10 条相加后写成“完整合计”同样错误。空摘要不等于费用为 0，应按结构化错误和 scope 如实报告。这些路径都绕过或误用了标准查询入口。
    - 调用优先级“专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`”只适用于查询未登记、当前 runtime 没有标准查询工具，或工具明确返回未登记。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
    - 以下 operation 均属于大输出；命中时禁止先执行裸 `hcloud` 试探响应大小，直接使用 `hcloud_safe_exec.py --output-mode=auto`：

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -175,6 +176,33 @@ def dimension_aggregates(payload: Any) -> list[dict[str, Any]]:
     return aggregates
 
 
+def verified_dimension_monetary_totals(payload: Any) -> dict[str, str]:
+    """Sum monetary fields shared by every dimension aggregate using Decimal."""
+    records = [
+        record
+        for _, items in iter_record_lists(payload)
+        for record in items
+        if isinstance(record, dict) and isinstance(record.get("dimensions"), list)
+    ]
+    if not records:
+        return {}
+    shared_fields = set(collect_money_fields(records[0]))
+    for record in records[1:]:
+        shared_fields.intersection_update(collect_money_fields(record))
+
+    totals: dict[str, str] = {}
+    for field in sorted(shared_fields):
+        values = [record.get(field) for record in records]
+        if any(value is None or isinstance(value, (bool, dict, list)) for value in values):
+            continue
+        try:
+            total = sum((Decimal(str(value)) for value in values), Decimal("0"))
+        except (InvalidOperation, ValueError):
+            continue
+        totals[field] = format(total, "f")
+    return totals
+
+
 def billing_scope_summary(
     operation: str | None,
     aggregates: list[dict[str, Any]],
@@ -205,10 +233,10 @@ def billing_scope_summary(
         }
     if normalized_operation == "listcosts":
         region_values = {
-                str(dimension["value"])
-                for aggregate in aggregates
-                for dimension in aggregate.get("dimensions", [])
-                if str(dimension.get("key") or "").upper() == "REGION_CODE"
+            str(dimension["value"])
+            for aggregate in aggregates
+            for dimension in aggregate.get("dimensions", [])
+            if str(dimension.get("key") or "").upper() == "REGION_CODE"
         }
         body = request_spec.get("body") if isinstance(request_spec, dict) else None
         filters = body.get("filters") if isinstance(body, dict) else None
@@ -239,16 +267,23 @@ def pagination_summary(payload: Any, offset: int | None = None, limit: int | Non
     """Return pagination completeness metadata."""
     total_count = payload.get("total_count") if isinstance(payload, dict) else None
     record_count = sum(len(records) for _, records in iter_record_lists(payload))
+    reached_end = False
     complete = False
     if isinstance(total_count, int) and offset is not None:
-        complete = offset + record_count >= total_count
+        reached_end = offset + record_count >= total_count
+        complete = offset == 0 and record_count >= total_count
+    next_offset = None
+    if not reached_end and offset is not None and record_count > 0:
+        next_offset = offset + record_count
     return {
         "total_count": total_count,
         "record_count": record_count,
         "offset": offset,
         "limit": limit,
+        "complete": bool(complete and total_count is not None),
+        "next_offset": next_offset,
         "complete_result_claim_allowed": bool(complete and total_count is not None),
-        "reason": "Totals and rankings require all intended pages; one page is partial when total_count exceeds offset + limit.",
+        "reason": "Totals and rankings require all intended pages; one page is partial when total_count exceeds offset + record_count.",
     }
 
 
@@ -267,6 +302,32 @@ def build_summary(
     record_lists = iter_record_lists(redacted_payload)
     aggregates = dimension_aggregates(redacted_payload)
     operation = safe_exec.get("operation") if isinstance(safe_exec, dict) else None
+    pagination = pagination_summary(redacted_payload, offset=offset, limit=limit)
+    summary: dict[str, Any] = {
+        "top_level_fields": sorted(redacted_payload.keys()) if isinstance(redacted_payload, dict) else [],
+        "money_fields_present": collect_money_fields(redacted_payload),
+        "monetary_totals": monetary_totals(redacted_payload),
+        "currency": (bounded_summary_scalar(redacted_payload.get("currency")) if isinstance(redacted_payload, dict) else None),
+        "dimension_aggregates": aggregates,
+        "billing_scope": billing_scope_summary(
+            operation,
+            aggregates,
+            request_spec=request_spec,
+        ),
+        "record_lists": [
+            {
+                "field": field,
+                "record_count": len(records),
+                "field_names": collect_field_names(records),
+            }
+            for field, records in record_lists
+        ],
+    }
+    if pagination["complete_result_claim_allowed"]:
+        verified_totals = verified_dimension_monetary_totals(redacted_payload)
+        if verified_totals:
+            summary["verified_monetary_totals"] = verified_totals
+
     result: dict[str, Any] = {
         "success": payload is not None,
         "source": "safe_exec" if safe_exec is not None else "direct_json",
@@ -276,31 +337,8 @@ def build_summary(
             "strategy": "stable_hash_marker",
             "raw_identifiers_included": False,
         },
-        "pagination": pagination_summary(redacted_payload, offset=offset, limit=limit),
-        "summary": {
-            "top_level_fields": sorted(redacted_payload.keys()) if isinstance(redacted_payload, dict) else [],
-            "money_fields_present": collect_money_fields(redacted_payload),
-            "monetary_totals": monetary_totals(redacted_payload),
-            "currency": (
-                bounded_summary_scalar(redacted_payload.get("currency"))
-                if isinstance(redacted_payload, dict)
-                else None
-            ),
-            "dimension_aggregates": aggregates,
-            "billing_scope": billing_scope_summary(
-                operation,
-                aggregates,
-                request_spec=request_spec,
-            ),
-            "record_lists": [
-                {
-                    "field": field,
-                    "record_count": len(records),
-                    "field_names": collect_field_names(records),
-                }
-                for field, records in record_lists
-            ],
-        },
+        "pagination": pagination,
+        "summary": summary,
         "output_boundary": {
             "summarize_by_default": True,
             "raw_output_allowed_only_after_scope_confirmation": True,

@@ -236,6 +236,36 @@ class MultiServiceToolsTest(unittest.TestCase):
         values.update(overrides)
         return SimpleNamespace(**values)
 
+    def billing_safe_exec_completed(
+        self,
+        command,
+        payload,
+        *,
+        success=True,
+        operation="ListCosts/v2",
+    ):
+        """Return one mocked safe-exec process result with a private payload."""
+        artifact_arg = next(item for item in command if str(item).startswith("--parsed-json-file="))
+        artifact_path = Path(str(artifact_arg).split("=", 1)[1])
+        if payload is not None:
+            artifact_path.write_text(json.dumps(payload), encoding="utf-8")
+            artifact_path.chmod(0o600)
+        safe_exec_result = {
+            "success": success,
+            "return_code": 0 if success else 1,
+            "duration_seconds": 0.1,
+            "service": "BSS",
+            "operation": operation,
+            "command": ["hcloud", "BSS", operation],
+            "parsed_json": None,
+        }
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=0 if success else 1,
+            stdout=json.dumps(safe_exec_result),
+            stderr="" if success else "page failed",
+        )
+
     def ces_alarm_args(self, **overrides):
         """Return default CES alarm planner args for unit tests."""
         values = {
@@ -1061,6 +1091,33 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertTrue(scope["region_filtered"])
         self.assertEqual(scope["region_values"], ["cn-north-4"])
 
+    def test_billing_cost_summary_does_not_treat_nonzero_offset_as_complete(self) -> None:
+        result = hcloud_billing_result_summarize.build_summary(
+            {
+                "service": "BSS",
+                "operation": "ListCosts/v2",
+                "parsed_json": {
+                    "total_count": 11,
+                    "currency": "CNY",
+                    "cost_data": [
+                        {
+                            "dimensions": [
+                                {"key": "CLOUD_SERVICE_TYPE", "value": "service-last"}
+                            ],
+                            "amount_by_costs": "2.20",
+                        }
+                    ],
+                },
+            },
+            offset=10,
+            limit=10,
+        )
+
+        self.assertFalse(result["pagination"]["complete"])
+        self.assertFalse(result["pagination"]["complete_result_claim_allowed"])
+        self.assertIsNone(result["pagination"]["next_offset"])
+        self.assertNotIn("verified_monetary_totals", result["summary"])
+
     def test_billing_result_summary_can_include_redacted_records(self) -> None:
         payload = {
             "total_count": 1,
@@ -1341,6 +1398,361 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(
             summary["summary"]["monetary_totals"]["consume_amount"],
             "2374.05",
+        )
+
+    def test_billing_live_read_auto_paginates_cost_data_and_verifies_totals(self) -> None:
+        first_page = {
+            "total_count": 11,
+            "currency": "CNY",
+            "cost_data": [
+                {
+                    "dimensions": [
+                        {
+                            "key": "CLOUD_SERVICE_TYPE",
+                            "value": f"hws.service.type.test{index}",
+                        }
+                    ],
+                    "amount_by_costs": "0.10",
+                    "official_amount_by_costs": "0.20",
+                }
+                for index in range(10)
+            ],
+        }
+        second_page = {
+            "total_count": 11,
+            "currency": "CNY",
+            "cost_data": [
+                {
+                    "dimensions": [
+                        {
+                            "key": "CLOUD_SERVICE_TYPE",
+                            "value": "hws.service.type.last",
+                        },
+                        {"key": "RESOURCE_ID", "value": "server-page-two-secret"},
+                    ],
+                    "amount_by_costs": "2.20",
+                    "official_amount_by_costs": "2.30",
+                }
+            ],
+        }
+        observed_offsets = []
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            offset_arg = next(item for item in command if "--offset=" in str(item))
+            offset = int(str(offset_arg).rsplit("=", 1)[1])
+            observed_offsets.append(offset)
+            payload = first_page if offset == 0 else second_page
+            return self.billing_safe_exec_completed(command, payload)
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="cost-data",
+                    begin_time="2026-08-01",
+                    end_time="2026-08-14",
+                    region_code="cn-north-4",
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["outcome_status"], "succeeded")
+        self.assertEqual(observed_offsets, [0, 10])
+        summary = result["execution"]["result"]["summary"]
+        self.assertEqual(summary["pagination"]["page_count"], 2)
+        self.assertEqual(summary["pagination"]["record_count"], 11)
+        self.assertTrue(summary["pagination"]["complete"])
+        self.assertTrue(summary["pagination"]["complete_result_claim_allowed"])
+        self.assertIsNone(summary["pagination"]["next_offset"])
+        self.assertEqual(
+            summary["summary"]["verified_monetary_totals"],
+            {
+                "amount_by_costs": "3.20",
+                "official_amount_by_costs": "4.30",
+            },
+        )
+        self.assertNotIn("server-page-two-secret", json.dumps(summary, ensure_ascii=False))
+
+    def test_billing_live_read_returns_partial_when_next_page_fails(self) -> None:
+        first_page = {
+            "total_count": 11,
+            "currency": "CNY",
+            "cost_data": [
+                {
+                    "dimensions": [{"key": "CLOUD_SERVICE_TYPE", "value": f"service-{index}"}],
+                    "amount_by_costs": "1.00",
+                }
+                for index in range(10)
+            ],
+        }
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            offset_arg = next(item for item in command if "--offset=" in str(item))
+            offset = int(str(offset_arg).rsplit("=", 1)[1])
+            if offset == 0:
+                return self.billing_safe_exec_completed(command, first_page)
+            return self.billing_safe_exec_completed(command, None, success=False)
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="cost-data",
+                    begin_time="2026-08-01",
+                    end_time="2026-08-14",
+                    region_code="cn-north-4",
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "partially_succeeded")
+        summary = result["execution"]["result"]["summary"]
+        self.assertFalse(summary["pagination"]["complete"])
+        self.assertFalse(summary["pagination"]["complete_result_claim_allowed"])
+        self.assertEqual(summary["pagination"]["next_offset"], 10)
+        self.assertEqual(summary["pagination"]["stop_reason"], "page_execution_failed")
+        self.assertNotIn("verified_monetary_totals", summary["summary"])
+
+    def test_billing_live_read_returns_partial_when_next_page_times_out(self) -> None:
+        first_page = {
+            "total_count": 11,
+            "currency": "CNY",
+            "cost_data": [
+                {
+                    "dimensions": [{"key": "CLOUD_SERVICE_TYPE", "value": f"service-{index}"}],
+                    "amount_by_costs": "1.00",
+                }
+                for index in range(10)
+            ],
+        }
+        calls = 0
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return self.billing_safe_exec_completed(command, first_page)
+            raise subprocess.TimeoutExpired(cmd=command, timeout=1)
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="cost-data",
+                    begin_time="2026-08-01",
+                    end_time="2026-08-14",
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "partially_succeeded")
+        execution = result["execution"]["result"]
+        self.assertEqual(execution["pagination_stop_reason"], "page_execution_failed")
+        self.assertEqual(execution["safe_exec_status"]["error_type"], "subprocess_timeout")
+        self.assertFalse(execution["summary"]["pagination"]["complete_result_claim_allowed"])
+
+    def test_billing_live_read_rejects_page_larger_than_remaining_total(self) -> None:
+        repeated_page = {
+            "total_count": 11,
+            "currency": "CNY",
+            "cost_data": [
+                {
+                    "dimensions": [{"key": "CLOUD_SERVICE_TYPE", "value": f"service-{index}"}],
+                    "amount_by_costs": "1.00",
+                }
+                for index in range(10)
+            ],
+        }
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            return self.billing_safe_exec_completed(command, repeated_page)
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="cost-data",
+                    begin_time="2026-08-01",
+                    end_time="2026-08-14",
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "partially_succeeded")
+        pagination = result["execution"]["result"]["summary"]["pagination"]
+        self.assertEqual(pagination["stop_reason"], "page_record_count_exceeds_remaining")
+        self.assertEqual(pagination["record_count"], 10)
+        self.assertEqual(pagination["next_offset"], 10)
+        self.assertFalse(pagination["complete_result_claim_allowed"])
+
+    def test_billing_live_read_stops_on_empty_page_before_total_count(self) -> None:
+        pages = [
+            {
+                "total_count": 11,
+                "currency": "CNY",
+                "cost_data": [
+                    {
+                        "dimensions": [{"key": "CLOUD_SERVICE_TYPE", "value": f"service-{index}"}],
+                        "amount_by_costs": "1.00",
+                    }
+                    for index in range(10)
+                ],
+            },
+            {"total_count": 11, "currency": "CNY", "cost_data": []},
+        ]
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            return self.billing_safe_exec_completed(command, pages.pop(0))
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="cost-data",
+                    begin_time="2026-08-01",
+                    end_time="2026-08-14",
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "partially_succeeded")
+        pagination = result["execution"]["result"]["summary"]["pagination"]
+        self.assertEqual(pagination["stop_reason"], "empty_page_before_total_count")
+        self.assertEqual(pagination["record_count"], 10)
+        self.assertFalse(pagination["complete_result_claim_allowed"])
+
+    def test_billing_live_read_stops_at_auto_page_limit(self) -> None:
+        first_page = {
+            "total_count": 11,
+            "currency": "CNY",
+            "cost_data": [
+                {
+                    "dimensions": [{"key": "CLOUD_SERVICE_TYPE", "value": f"service-{index}"}],
+                    "amount_by_costs": "1.00",
+                }
+                for index in range(10)
+            ],
+        }
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            return self.billing_safe_exec_completed(command, first_page)
+
+        with (
+            patch.object(hcloud_billing_live_read, "MAX_AUTO_PAGES", 1),
+            patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run) as run,
+        ):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="cost-data",
+                    begin_time="2026-08-01",
+                    end_time="2026-08-14",
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        run.assert_called_once()
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "partially_succeeded")
+        pagination = result["execution"]["result"]["summary"]["pagination"]
+        self.assertEqual(pagination["stop_reason"], "max_pages_reached")
+        self.assertEqual(pagination["next_offset"], 10)
+        self.assertFalse(pagination["complete_result_claim_allowed"])
+
+    def test_billing_live_read_rejects_cross_page_currency_change(self) -> None:
+        pages = [
+            {
+                "total_count": 11,
+                "currency": "CNY",
+                "cost_data": [
+                    {
+                        "dimensions": [{"key": "CLOUD_SERVICE_TYPE", "value": f"service-{index}"}],
+                        "amount_by_costs": "1.00",
+                    }
+                    for index in range(10)
+                ],
+            },
+            {
+                "total_count": 11,
+                "currency": "USD",
+                "cost_data": [
+                    {
+                        "dimensions": [{"key": "CLOUD_SERVICE_TYPE", "value": "service-last"}],
+                        "amount_by_costs": "1.00",
+                    }
+                ],
+            },
+        ]
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            return self.billing_safe_exec_completed(command, pages.pop(0))
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="cost-data",
+                    begin_time="2026-08-01",
+                    end_time="2026-08-14",
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "partially_succeeded")
+        pagination = result["execution"]["result"]["summary"]["pagination"]
+        self.assertEqual(pagination["stop_reason"], "page_metadata_changed")
+        self.assertEqual(pagination["record_count"], 10)
+        self.assertNotIn(
+            "verified_monetary_totals",
+            result["execution"]["result"]["summary"]["summary"],
+        )
+
+    def test_billing_live_read_does_not_sum_repeated_top_level_monthly_total(self) -> None:
+        pages = [
+            {
+                "total_count": 2,
+                "currency": "CNY",
+                "consume_amount": "100.00",
+                "bill_sums": [{"consume_amount": "40.00"}],
+            },
+            {
+                "total_count": 2,
+                "currency": "CNY",
+                "consume_amount": "100.00",
+                "bill_sums": [{"consume_amount": "60.00"}],
+            },
+        ]
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            return self.billing_safe_exec_completed(
+                command,
+                pages.pop(0),
+                operation="ShowCustomerMonthlySum/v2",
+            )
+
+        with patch.object(hcloud_billing_live_read.subprocess, "run", side_effect=fake_run):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    operation="monthly-sum",
+                    bill_cycle="2026-08",
+                    limit=1,
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                )
+            )
+
+        self.assertTrue(result["success"], result)
+        summary = result["execution"]["result"]["summary"]
+        self.assertEqual(summary["pagination"]["page_count"], 2)
+        self.assertEqual(
+            summary["summary"]["monetary_totals"]["consume_amount"],
+            "100.00",
         )
 
     def test_ces_alarm_plan_is_planner_only(self) -> None:

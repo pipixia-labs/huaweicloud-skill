@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 账单 capability 在 live-read 内部自动完成受控分页与跨页合并；只有完整结果返回 `verified_monetary_totals`，分页失败、空页、元数据漂移或触及安全上限时返回 `partially_succeeded`，Agent 不再负责普通总额查询的 offset 协议。
 - 新增 `huaweicloud.billing.read.v1` 机器能力契约，覆盖月度汇总、成本数据和资源账单明细的受限只读入口；固定参数内置账单读取确认，结果遵循 `json_outcome_v1`，原始账单仍默认不返回。
 - Agent 继续自主决定业务能力；一旦选中的能力已声明 capability 且 runtime 支持，必须使用 capability 入口，只有 capability 不存在或运行时不支持时才回退到同一脚本。
 - 本次只补 Skill 的执行契约和结构化 outcome。KooCLI 固定版本、中文 BSS 离线元数据种子、临时 profile 与断网验收由宿主 runtime 负责；Skill 不携带平台路径、镜像元数据或凭据。

@@ -75,7 +75,7 @@
     {
       "id": "huaweicloud.billing.read.v1",
       "version": 1,
-      "description": "读取经过明确确认的华为云 BSS 账单或成本数据，并默认只返回脱敏摘要。",
+      "description": "读取经过明确确认的华为云 BSS 账单或成本数据，在安全上限内自动完成分页合并，并默认只返回脱敏摘要。",
       "risk": "read",
       "credential_scope": "huaweicloud",
       "runtime": "hcloud",
@@ -204,7 +204,7 @@
         "limit": {
           "type": "integer",
           "flag": "--limit",
-          "default": 10,
+          "default": 50,
           "minimum": 1,
           "maximum": 50
         },

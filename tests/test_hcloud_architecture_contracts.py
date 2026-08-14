@@ -108,6 +108,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("--execute", billing["fixed_args"])
         self.assertIn("READ_BILLING_DATA", billing["fixed_args"])
         self.assertEqual(billing["result_contract"], "json_outcome_v1")
+        self.assertEqual(billing["arguments"]["limit"]["default"], 50)
         self.assertTrue((ROOT / billing["entrypoint"]).is_file())
 
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")

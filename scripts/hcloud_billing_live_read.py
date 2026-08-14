@@ -7,6 +7,8 @@ import argparse
 import json
 import subprocess
 import tempfile
+import time
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -19,6 +21,9 @@ CONFIRM_TOKEN = "READ_BILLING_DATA"
 MAX_LIVE_LIMIT = 50
 READ_ONLY_PREFIXES = ("List", "Show")
 MAX_PRIVATE_PAYLOAD_BYTES = 16 * 1024 * 1024
+MAX_AUTO_PAGES = 20
+MAX_AUTO_RECORDS = 1000
+MAX_MERGED_PAYLOAD_BYTES = 16 * 1024 * 1024
 
 
 def billing_args(args: argparse.Namespace) -> SimpleNamespace:
@@ -170,6 +175,75 @@ def safe_exec_status(
     }
 
 
+def page_args(
+    args: argparse.Namespace,
+    *,
+    offset: int,
+    timeout: int | None = None,
+) -> SimpleNamespace:
+    """Return a copy of live-read arguments for one bounded page."""
+    values = dict(vars(args))
+    values["offset"] = offset
+    if timeout is not None:
+        values["timeout"] = timeout
+    return SimpleNamespace(**values)
+
+
+def request_scope_signature(request_spec: dict[str, Any]) -> str:
+    """Return a stable request signature excluding pagination fields."""
+    query = deepcopy(request_spec.get("query") or {})
+    body = deepcopy(request_spec.get("body"))
+    if isinstance(query, dict):
+        query.pop("offset", None)
+        query.pop("limit", None)
+    if isinstance(body, dict):
+        body.pop("offset", None)
+        body.pop("limit", None)
+    scope = {
+        "method": request_spec.get("method"),
+        "path": request_spec.get("path"),
+        "headers": request_spec.get("headers"),
+        "query": query,
+        "body": body,
+    }
+    return json.dumps(scope, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def payload_page_info(payload: Any) -> tuple[str | None, list[Any], int | None, str | None]:
+    """Return the sole record field, rows, total count, and validation error."""
+    if not isinstance(payload, dict):
+        return None, [], None, "billing payload must be a JSON object"
+    record_lists = hcloud_billing_result_summarize.iter_record_lists(payload)
+    if len(record_lists) != 1:
+        return None, [], None, "billing payload must expose exactly one top-level record list"
+    record_field, records = record_lists[0]
+    total_count = payload.get("total_count")
+    if not isinstance(total_count, int) or total_count < 0:
+        return record_field, records, None, "billing payload has no valid total_count"
+    return record_field, records, total_count, None
+
+
+def stable_page_metadata(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return cross-page metadata that must remain identical."""
+    return {
+        "currency": payload.get("currency"),
+        "monetary_totals": hcloud_billing_result_summarize.monetary_totals(payload),
+    }
+
+
+def merged_payload(
+    payloads: list[dict[str, Any]],
+    *,
+    record_field: str,
+) -> dict[str, Any]:
+    """Return one private payload containing all accepted billing rows."""
+    merged = deepcopy(payloads[0])
+    merged[record_field] = []
+    for payload in payloads:
+        merged[record_field].extend(deepcopy(payload[record_field]))
+    return merged
+
+
 def load_private_billing_payload(path: Path, root: Path) -> Any:
     """Load one bounded 0600 parsed-JSON artifact owned by this execution."""
     if path.is_symlink() or not path.is_file():
@@ -189,8 +263,12 @@ def load_private_billing_payload(path: Path, root: Path) -> Any:
     return value
 
 
-def run_safe_exec(command: list[str], args: argparse.Namespace, request_spec: dict[str, Any]) -> dict[str, Any]:
-    """Run safe_exec and return a redacted summary of the BSS payload."""
+def run_safe_exec_page(
+    command: list[str],
+    args: argparse.Namespace,
+    request_spec: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Run one safe-exec page and return its public result and private payload."""
     with tempfile.TemporaryDirectory(prefix="hcloud-billing-read-") as temp_dir:
         artifact_root = Path(temp_dir)
         artifact_root.chmod(0o700)
@@ -199,43 +277,74 @@ def run_safe_exec(command: list[str], args: argparse.Namespace, request_spec: di
             *command,
             f"--parsed-json-file={parsed_json_path}",
         ]
-        completed = subprocess.run(
-            execution_command,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-            timeout=args.timeout + 5,
-        )
+        try:
+            completed = subprocess.run(
+                execution_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=args.timeout + 5,
+            )
+        except subprocess.TimeoutExpired:
+            return (
+                {
+                    "executed": True,
+                    "success": False,
+                    "safe_exec_status": {
+                        "success": False,
+                        "return_code": None,
+                        "error_type": "subprocess_timeout",
+                    },
+                    "safe_exec_parse_error": (
+                        f"safe_exec subprocess timed out after {args.timeout + 5} seconds"
+                    ),
+                    "summary": None,
+                },
+                None,
+            )
         safe_exec_result, parse_error = parse_safe_exec_stdout(completed.stdout)
         if parse_error:
-            return {
-                "executed": True,
-                "success": False,
-                "safe_exec_status": safe_exec_status(None, completed),
-                "safe_exec_parse_error": parse_error,
-                "stderr": completed.stderr,
-                "summary": None,
-            }
+            return (
+                {
+                    "executed": True,
+                    "success": False,
+                    "safe_exec_status": safe_exec_status(None, completed),
+                    "safe_exec_parse_error": parse_error,
+                    "stderr": completed.stderr,
+                    "summary": None,
+                },
+                None,
+            )
 
         summary_input = dict(safe_exec_result)
+        private_payload: dict[str, Any] | None = None
         try:
             if parsed_json_path.exists():
-                summary_input["parsed_json"] = load_private_billing_payload(
+                loaded_payload = load_private_billing_payload(
                     parsed_json_path,
                     artifact_root,
                 )
+                if not isinstance(loaded_payload, dict):
+                    raise ValueError("private parsed billing payload must contain a JSON object")
+                private_payload = loaded_payload
+                summary_input["parsed_json"] = private_payload
             elif summary_input.get("parsed_json") is None and summary_input.get("success"):
                 raise ValueError("safe_exec returned no parsed billing payload")
+            elif isinstance(summary_input.get("parsed_json"), dict):
+                private_payload = summary_input["parsed_json"]
         except (json.JSONDecodeError, OSError, UnicodeError, ValueError) as exc:
-            return {
-                "executed": True,
-                "success": False,
-                "safe_exec_status": safe_exec_status(safe_exec_result, completed),
-                "safe_exec_parse_error": str(exc),
-                "summary": None,
-            }
+            return (
+                {
+                    "executed": True,
+                    "success": False,
+                    "safe_exec_status": safe_exec_status(safe_exec_result, completed),
+                    "safe_exec_parse_error": str(exc),
+                    "summary": None,
+                },
+                None,
+            )
 
         summary = hcloud_billing_result_summarize.build_summary(
             summary_input,
@@ -244,13 +353,176 @@ def run_safe_exec(command: list[str], args: argparse.Namespace, request_spec: di
             include_redacted_records=args.include_redacted_records,
             request_spec=request_spec,
         )
-        return {
-            "executed": True,
-            "success": bool(safe_exec_result.get("success")) and bool(summary.get("success")),
-            "safe_exec_status": safe_exec_status(safe_exec_result, completed),
-            "safe_exec_parse_error": None,
-            "summary": summary,
-        }
+        return (
+            {
+                "executed": True,
+                "success": bool(safe_exec_result.get("success")) and bool(summary.get("success")),
+                "safe_exec_status": safe_exec_status(safe_exec_result, completed),
+                "safe_exec_parse_error": None,
+                "summary": summary,
+            },
+            private_payload,
+        )
+
+
+def run_safe_exec(
+    command: list[str],
+    args: argparse.Namespace,
+    request_spec: dict[str, Any],
+) -> dict[str, Any]:
+    """Run one safe-exec page and discard its private payload after summarizing."""
+    result, _ = run_safe_exec_page(command, args, request_spec)
+    return result
+
+
+def run_paginated_safe_exec(
+    args: argparse.Namespace,
+    initial_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Execute and merge bounded BSS pages without exposing private payload rows."""
+    initial_request_spec = initial_plan.get("request_spec", {})
+    initial_offset = planned_int_field(initial_request_spec, "offset", args.offset)
+    page_limit = planned_int_field(initial_request_spec, "limit", args.limit)
+    expected_scope = request_scope_signature(initial_request_spec)
+    deadline = time.monotonic() + args.timeout
+
+    accepted_payloads: list[dict[str, Any]] = []
+    page_statuses: list[dict[str, Any]] = []
+    record_field: str | None = None
+    total_count: int | None = None
+    expected_metadata: dict[str, Any] | None = None
+    fetched_count = 0
+    merged_payload_bytes = 0
+    attempted_page_count = 0
+    next_offset = initial_offset
+    stop_reason = "page_execution_failed"
+    last_parse_error: str | None = None
+
+    while attempted_page_count < MAX_AUTO_PAGES:
+        remaining_seconds = deadline - time.monotonic()
+        if remaining_seconds <= 0:
+            stop_reason = "total_timeout_reached"
+            break
+        per_page_timeout = max(1, min(args.timeout, int(remaining_seconds)))
+        current_args = page_args(
+            args,
+            offset=next_offset,
+            timeout=per_page_timeout,
+        )
+        page_plan = (
+            initial_plan
+            if attempted_page_count == 0 and next_offset == initial_offset
+            else hcloud_billing_readonly.build_request_spec(billing_args(current_args))
+        )
+        guard_errors = validate_live_read_plan(page_plan, fallback_limit=page_limit)
+        request_spec = page_plan.get("request_spec", {})
+        command = safe_exec_command(page_plan.get("hcloud_command_plan", {}), current_args)
+        if guard_errors or command is None:
+            stop_reason = "page_plan_invalid"
+            break
+        if request_scope_signature(request_spec) != expected_scope:
+            stop_reason = "page_request_scope_changed"
+            break
+
+        page_result, payload = run_safe_exec_page(command, current_args, request_spec)
+        attempted_page_count += 1
+        page_status = dict(page_result.get("safe_exec_status") or {})
+        page_status["offset"] = next_offset
+        page_statuses.append(page_status)
+        last_parse_error = page_result.get("safe_exec_parse_error")
+        if not page_result.get("success") or payload is None:
+            stop_reason = "page_execution_failed"
+            break
+
+        current_field, records, current_total, page_error = payload_page_info(payload)
+        if page_error:
+            stop_reason = "page_contract_invalid"
+            break
+        if record_field is None:
+            record_field = current_field
+            total_count = current_total
+            expected_metadata = stable_page_metadata(payload)
+        elif current_field != record_field or current_total != total_count or stable_page_metadata(payload) != expected_metadata:
+            stop_reason = "page_metadata_changed"
+            break
+
+        remaining_records = total_count - fetched_count
+        if len(records) > remaining_records:
+            stop_reason = "page_record_count_exceeds_remaining"
+            break
+
+        payload_bytes = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+        if merged_payload_bytes + payload_bytes > MAX_MERGED_PAYLOAD_BYTES:
+            stop_reason = "merged_payload_limit_reached"
+            break
+        if fetched_count + len(records) > MAX_AUTO_RECORDS:
+            stop_reason = "max_records_reached"
+            break
+
+        accepted_payloads.append(payload)
+        merged_payload_bytes += payload_bytes
+        fetched_count += len(records)
+        next_offset = initial_offset + fetched_count
+
+        if total_count == 0 or next_offset == total_count:
+            stop_reason = "all_records_fetched" if initial_offset == 0 else "started_from_nonzero_offset"
+            break
+        if not records:
+            stop_reason = "empty_page_before_total_count"
+            break
+        if attempted_page_count >= MAX_AUTO_PAGES:
+            stop_reason = "max_pages_reached"
+            break
+
+    complete = stop_reason == "all_records_fetched" and initial_offset == 0 and total_count is not None and fetched_count == total_count
+    summary: dict[str, Any] | None = None
+    if accepted_payloads and record_field is not None:
+        private_merged_payload = merged_payload(
+            accepted_payloads,
+            record_field=record_field,
+        )
+        operation = next(
+            (status.get("operation") for status in page_statuses if status.get("operation")),
+            initial_plan.get("title"),
+        )
+        summary = hcloud_billing_result_summarize.build_summary(
+            {
+                "service": "BSS",
+                "operation": operation,
+                "parsed_json": private_merged_payload,
+            },
+            offset=initial_offset,
+            limit=page_limit,
+            include_redacted_records=args.include_redacted_records,
+            request_spec=initial_request_spec,
+        )
+        summary["pagination"].update(
+            {
+                "auto_paginated": True,
+                "page_count": len(accepted_payloads),
+                "attempted_page_count": attempted_page_count,
+                "record_count": fetched_count,
+                "total_count": total_count,
+                "complete": complete,
+                "next_offset": None if complete else next_offset,
+                "stop_reason": stop_reason,
+                "complete_result_claim_allowed": complete,
+            }
+        )
+        if not complete:
+            summary["summary"].pop("verified_monetary_totals", None)
+
+    outcome_status = "succeeded" if complete else "partially_succeeded" if accepted_payloads else "failed"
+    return {
+        "executed": attempted_page_count > 0,
+        "success": complete,
+        "outcome_status": outcome_status,
+        "safe_exec_status": page_statuses[-1] if page_statuses else None,
+        "safe_exec_statuses": page_statuses,
+        "safe_exec_parse_error": last_parse_error,
+        "summary": summary,
+        "pagination_stop_reason": stop_reason,
+    }
 
 
 def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
@@ -283,6 +555,17 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
                 "raw_safe_exec_result_returned": False,
                 "full_payload_transport": "execution_local_0600_artifact",
             },
+            "pagination": {
+                "mode": "automatic",
+                "page_size": planned_int_field(
+                    plan.get("request_spec", {}),
+                    "limit",
+                    args.limit,
+                ),
+                "max_pages": MAX_AUTO_PAGES,
+                "max_records": MAX_AUTO_RECORDS,
+                "total_timeout_seconds": args.timeout,
+            },
         },
         "execution": {
             "requested": bool(args.execute),
@@ -308,14 +591,14 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
         result["live_read_plan"]["guard_errors"].append(f"Live billing read requires --confirm-live-billing-read {CONFIRM_TOKEN}.")
         return result
 
-    execution_result = run_safe_exec(command, args, plan.get("request_spec", {}))
+    execution_result = run_paginated_safe_exec(args, plan)
     result["execution"] = {
         "requested": True,
-        "executed": True,
+        "executed": bool(execution_result.get("executed")),
         "result": execution_result,
     }
-    result["success"] = bool(execution_result.get("success"))
-    result["outcome_status"] = "succeeded" if result["success"] else "failed"
+    result["outcome_status"] = str(execution_result.get("outcome_status") or "failed")
+    result["success"] = result["outcome_status"] == "succeeded"
     return result
 
 
@@ -370,7 +653,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--include-zero-record")
     parser.add_argument("--statistic-type", type=int)
     parser.add_argument("--offset", type=int, default=0)
-    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--query", action="append", default=[])
     parser.add_argument("--body-json-file")
     parser.add_argument("--body-json-text")
