@@ -70,6 +70,13 @@ MAX_TEXT = 320
 PRIVATE_CLOUD_CATEGORY = "hcs"
 
 
+def parameter_metadata_complete(detail_file: str | None) -> bool:
+    """Return whether a cached detail uses KooCLI's normalized parameter schema."""
+
+    filename = str(detail_file or "").lower()
+    return bool(filename and "_origin_" not in filename)
+
+
 def normalize_token(value: str) -> str:
     """Return a lowercase alphanumeric-only token for loose matching."""
     return re.sub(r"[^a-z0-9]", "", value.lower())
@@ -356,6 +363,7 @@ def build_version_detail(
         "description": clean_text(detail.get("Description")),
         "detail_cached": bool(detail_file),
         "detail_file": detail_file,
+        "parameter_metadata_complete": parameter_metadata_complete(detail_file),
         "detail_language": detail_language,
         "method": request.get("Method"),
         "path": request.get("Path"),
@@ -403,6 +411,7 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any], language: str) 
             "description": clean_text(detail.get("Description")),
             "detail_cached": bool(detail_file),
             "detail_file": detail_file,
+            "parameter_metadata_complete": parameter_metadata_complete(detail_file),
             "detail_language": detail_language,
             "method": request.get("Method"),
             "path": request.get("Path"),
@@ -426,6 +435,9 @@ def build_operation(template_dir: Path, raw_api: dict[str, Any], language: str) 
         "read_only": action in READ_ONLY_ACTIONS,
         "detail_cached": bool(selected_detail.get("detail_cached")),
         "detail_file": selected_detail.get("detail_file"),
+        "parameter_metadata_complete": bool(
+            selected_detail.get("parameter_metadata_complete")
+        ),
         "detail_language": selected_detail.get("detail_language"),
         "method": selected_detail.get("method"),
         "path": selected_detail.get("path"),

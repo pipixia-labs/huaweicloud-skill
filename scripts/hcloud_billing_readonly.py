@@ -848,11 +848,34 @@ def build_cost_data_body(args: argparse.Namespace) -> tuple[dict[str, Any] | Non
             "end_time": args.end_time,
         },
     }
-    if args.filter:
-        try:
-            body["filters"] = parse_filters(args.filter)
-        except ValueError as exc:
-            return None, "generated", [str(exc)]
+    try:
+        filters = parse_filters(args.filter)
+    except ValueError as exc:
+        return None, "generated", [str(exc)]
+    if args.region_code:
+        existing_region_filters = [
+            item
+            for item in filters
+            if item.get("filter_factor", {}).get("key") == "REGION_CODE"
+        ]
+        if existing_region_filters:
+            values = existing_region_filters[0]["filter_factor"].get("value", [])
+            if values != [args.region_code]:
+                return None, "generated", [
+                    "region_code conflicts with the explicit REGION_CODE cost-data filter."
+                ]
+        else:
+            filters.append(
+                {
+                    "operator": 0,
+                    "filter_factor": {
+                        "key": "REGION_CODE",
+                        "value": [args.region_code],
+                    },
+                }
+            )
+    if filters:
+        body["filters"] = filters
     return body, "generated", []
 
 

@@ -26,8 +26,13 @@ DEFAULT_PROTECTED_KEYS = {
     "account_name",
     "customer_id",
     "customer_name",
+    "enterprise_project_id",
     "sub_customer_id",
     "indirect_partner_id",
+    "associated_account",
+    "payer_account_id",
+    "resource_tag",
+    "cost_unit",
     "resource_id",
     "res_instance_id",
     "resource_instance_id",
@@ -37,6 +42,9 @@ DEFAULT_PROTECTED_KEYS = {
     "quota_id",
     "card_id",
 }
+MAX_DIMENSION_AGGREGATES = 50
+MAX_DIMENSIONS_PER_AGGREGATE = 8
+MAX_SUMMARY_SCALAR_CHARS = 256
 
 
 def load_semantic_catalog(path: Path = SEMANTIC_CATALOG_PATH) -> dict[str, Any]:
@@ -63,8 +71,12 @@ def redact_protected_identifiers(value: Any, keys: set[str]) -> Any:
     """Recursively redact protected billing identifiers by key name."""
     if isinstance(value, dict):
         redacted = {}
+        dimension_key = str(value.get("key") or "").strip().lower()
         for key, child in value.items():
-            if key in keys and child not in (None, "", []):
+            if (
+                key in keys
+                or (key == "value" and dimension_key in keys)
+            ) and child not in (None, "", []):
                 redacted[key] = stable_redaction(child)
             else:
                 redacted[key] = redact_protected_identifiers(child, keys)
@@ -113,13 +125,123 @@ def collect_money_fields(value: Any) -> list[str]:
     return sorted(fields)
 
 
+def bounded_summary_scalar(value: Any) -> Any | None:
+    """Return one bounded scalar suitable for an agent-facing billing summary."""
+    if value is None or isinstance(value, (dict, list)):
+        return None
+    if isinstance(value, (bool, int, float)):
+        return value
+    text = str(value)
+    if len(text) > MAX_SUMMARY_SCALAR_CHARS:
+        return text[:MAX_SUMMARY_SCALAR_CHARS] + "…"
+    return text
+
+
+def monetary_totals(payload: Any) -> dict[str, Any]:
+    """Return bounded top-level monetary totals without exposing billing rows."""
+    if not isinstance(payload, dict):
+        return {}
+    totals: dict[str, Any] = {}
+    for key in collect_money_fields(payload):
+        scalar = bounded_summary_scalar(payload.get(key))
+        if scalar is not None:
+            totals[key] = scalar
+    return totals
+
+
+def dimension_aggregates(payload: Any) -> list[dict[str, Any]]:
+    """Return bounded cost-analysis dimension groups and their aggregate amounts."""
+    aggregates: list[dict[str, Any]] = []
+    for _, records in iter_record_lists(payload):
+        for record in records:
+            if not isinstance(record, dict) or not isinstance(record.get("dimensions"), list):
+                continue
+            dimensions: list[dict[str, Any]] = []
+            for dimension in record["dimensions"][:MAX_DIMENSIONS_PER_AGGREGATE]:
+                if not isinstance(dimension, dict):
+                    continue
+                key = bounded_summary_scalar(dimension.get("key"))
+                value = bounded_summary_scalar(dimension.get("value"))
+                if key is not None and value is not None:
+                    dimensions.append({"key": key, "value": value})
+            aggregate: dict[str, Any] = {"dimensions": dimensions}
+            for field in collect_money_fields(record):
+                scalar = bounded_summary_scalar(record.get(field))
+                if scalar is not None:
+                    aggregate[field] = scalar
+            aggregates.append(aggregate)
+            if len(aggregates) >= MAX_DIMENSION_AGGREGATES:
+                return aggregates
+    return aggregates
+
+
+def billing_scope_summary(
+    operation: str | None,
+    aggregates: list[dict[str, Any]],
+    request_spec: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Describe whether the summarized fact is account-wide or region-scoped."""
+    normalized_operation = str(operation or "").split("/", 1)[0].lower()
+    if normalized_operation == "showcustomermonthlysum":
+        query = request_spec.get("query") if isinstance(request_spec, dict) else None
+        filtered = bool(
+            isinstance(query, dict)
+            and any(
+                query.get(field) not in (None, "", [])
+                for field in ("service_type_code", "method", "sub_customer_id")
+            )
+        )
+        return {
+            "scope_type": (
+                "filtered_account_monthly_summary"
+                if filtered
+                else "all_account_monthly_summary"
+            ),
+            "region_filtered": False,
+            "claim_boundary": (
+                "ShowCustomerMonthlySum is not a region-specific fact and must not "
+                "be presented as one region's exact cost."
+            ),
+        }
+    if normalized_operation == "listcosts":
+        region_values = {
+                str(dimension["value"])
+                for aggregate in aggregates
+                for dimension in aggregate.get("dimensions", [])
+                if str(dimension.get("key") or "").upper() == "REGION_CODE"
+        }
+        body = request_spec.get("body") if isinstance(request_spec, dict) else None
+        filters = body.get("filters") if isinstance(body, dict) else None
+        for item in filters if isinstance(filters, list) else []:
+            factor = item.get("filter_factor") if isinstance(item, dict) else None
+            if not isinstance(factor, dict) or factor.get("key") != "REGION_CODE":
+                continue
+            values = factor.get("value")
+            if isinstance(values, list):
+                region_values.update(str(value) for value in values)
+        sorted_region_values = sorted(region_values)
+        return {
+            "scope_type": "cost_analysis_dimensions",
+            "region_filtered": bool(sorted_region_values),
+            "region_values": sorted_region_values,
+            "claim_boundary": (
+                "Region claims require a REGION_CODE filter or dimension and complete pagination."
+            ),
+        }
+    return {
+        "scope_type": "operation_specific",
+        "region_filtered": False,
+        "claim_boundary": "Use the reviewed request scope before making region-specific claims.",
+    }
+
+
 def pagination_summary(payload: Any, offset: int | None = None, limit: int | None = None) -> dict[str, Any]:
     """Return pagination completeness metadata."""
     total_count = payload.get("total_count") if isinstance(payload, dict) else None
     record_count = sum(len(records) for _, records in iter_record_lists(payload))
     complete = False
-    if isinstance(total_count, int) and offset is not None and limit is not None:
-        complete = offset + limit >= total_count
+    if isinstance(total_count, int) and offset is not None:
+        complete = offset + record_count >= total_count
     return {
         "total_count": total_count,
         "record_count": record_count,
@@ -136,16 +258,19 @@ def build_summary(
     offset: int | None = None,
     limit: int | None = None,
     include_redacted_records: bool = False,
+    request_spec: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a safe billing result summary."""
     payload, safe_exec = unwrap_safe_exec_result(raw_value)
     keys = protected_keys()
     redacted_payload = redact_protected_identifiers(payload, keys)
     record_lists = iter_record_lists(redacted_payload)
+    aggregates = dimension_aggregates(redacted_payload)
+    operation = safe_exec.get("operation") if isinstance(safe_exec, dict) else None
     result: dict[str, Any] = {
         "success": payload is not None,
         "source": "safe_exec" if safe_exec is not None else "direct_json",
-        "operation": safe_exec.get("operation") if isinstance(safe_exec, dict) else None,
+        "operation": operation,
         "redaction": {
             "protected_identifier_keys": sorted(keys),
             "strategy": "stable_hash_marker",
@@ -155,6 +280,18 @@ def build_summary(
         "summary": {
             "top_level_fields": sorted(redacted_payload.keys()) if isinstance(redacted_payload, dict) else [],
             "money_fields_present": collect_money_fields(redacted_payload),
+            "monetary_totals": monetary_totals(redacted_payload),
+            "currency": (
+                bounded_summary_scalar(redacted_payload.get("currency"))
+                if isinstance(redacted_payload, dict)
+                else None
+            ),
+            "dimension_aggregates": aggregates,
+            "billing_scope": billing_scope_summary(
+                operation,
+                aggregates,
+                request_spec=request_spec,
+            ),
             "record_lists": [
                 {
                     "field": field,

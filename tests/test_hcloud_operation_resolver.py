@@ -101,6 +101,51 @@ class HcloudOperationResolverTest(unittest.TestCase):
         self.assertEqual(result["resolved_operation"], "ListSecurityGroups/v3")
         self.assertEqual(result["confidence"], "catalog_default")
 
+    def test_raw_origin_detail_does_not_reject_valid_nested_body_params(self) -> None:
+        catalog = {
+            "schema_version": 2,
+            "services": {
+                "bss": {
+                    "name": "BSS",
+                    "service_key": "bss",
+                    "template_dir": "bss",
+                    "operations": {
+                        "ListCosts": {
+                            "name": "ListCosts",
+                            "versions": ["v2"],
+                            "selected_version": "v2",
+                            "read_only": True,
+                            "detail_cached": True,
+                            "detail_file": "ListCosts_origin_cn.yaml",
+                            "params": [],
+                            "required_params": [],
+                            "optional_params": [],
+                        }
+                    },
+                }
+            },
+        }
+
+        result = hcloud_operation_resolver.resolve_operation_version(
+            "BSS",
+            "ListCosts",
+            {
+                "time_condition",
+                "groupby",
+                "cost_type",
+                "amount_type",
+                "offset",
+                "limit",
+            },
+            catalog=catalog,
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["resolved_operation"], "ListCosts/v2")
+        self.assertEqual(result["candidates"][0]["compatibility"], "unknown")
+        self.assertFalse(result["candidates"][0]["parameter_metadata_complete"])
+        self.assertEqual(result["candidates"][0]["unsupported_params"], [])
+
     def test_explicit_incompatible_version_returns_v2_correction(self) -> None:
         result = hcloud_operation_resolver.resolve_operation_version(
             "VPC",

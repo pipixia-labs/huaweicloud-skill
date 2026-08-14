@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -16,6 +18,7 @@ import hcloud_common
 CONFIRM_TOKEN = "READ_BILLING_DATA"
 MAX_LIVE_LIMIT = 50
 READ_ONLY_PREFIXES = ("List", "Show")
+MAX_PRIVATE_PAYLOAD_BYTES = 16 * 1024 * 1024
 
 
 def billing_args(args: argparse.Namespace) -> SimpleNamespace:
@@ -167,41 +170,87 @@ def safe_exec_status(
     }
 
 
+def load_private_billing_payload(path: Path, root: Path) -> Any:
+    """Load one bounded 0600 parsed-JSON artifact owned by this execution."""
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("private parsed billing payload is unavailable")
+    resolved_root = root.resolve(strict=True)
+    resolved_path = path.resolve(strict=True)
+    if resolved_path.parent != resolved_root:
+        raise ValueError("private parsed billing payload escaped its execution directory")
+    metadata = resolved_path.stat()
+    if metadata.st_mode & 0o077:
+        raise ValueError("private parsed billing payload permissions are too broad")
+    if metadata.st_size > MAX_PRIVATE_PAYLOAD_BYTES:
+        raise ValueError("private parsed billing payload is too large")
+    value = json.loads(resolved_path.read_text(encoding="utf-8"))
+    if not isinstance(value, (dict, list)):
+        raise ValueError("private parsed billing payload must contain JSON data")
+    return value
+
+
 def run_safe_exec(command: list[str], args: argparse.Namespace, request_spec: dict[str, Any]) -> dict[str, Any]:
     """Run safe_exec and return a redacted summary of the BSS payload."""
-    completed = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        timeout=args.timeout + 5,
-    )
-    safe_exec_result, parse_error = parse_safe_exec_stdout(completed.stdout)
-    if parse_error:
+    with tempfile.TemporaryDirectory(prefix="hcloud-billing-read-") as temp_dir:
+        artifact_root = Path(temp_dir)
+        artifact_root.chmod(0o700)
+        parsed_json_path = artifact_root / "parsed-billing-response.json"
+        execution_command = [
+            *command,
+            f"--parsed-json-file={parsed_json_path}",
+        ]
+        completed = subprocess.run(
+            execution_command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=args.timeout + 5,
+        )
+        safe_exec_result, parse_error = parse_safe_exec_stdout(completed.stdout)
+        if parse_error:
+            return {
+                "executed": True,
+                "success": False,
+                "safe_exec_status": safe_exec_status(None, completed),
+                "safe_exec_parse_error": parse_error,
+                "stderr": completed.stderr,
+                "summary": None,
+            }
+
+        summary_input = dict(safe_exec_result)
+        try:
+            if parsed_json_path.exists():
+                summary_input["parsed_json"] = load_private_billing_payload(
+                    parsed_json_path,
+                    artifact_root,
+                )
+            elif summary_input.get("parsed_json") is None and summary_input.get("success"):
+                raise ValueError("safe_exec returned no parsed billing payload")
+        except (json.JSONDecodeError, OSError, UnicodeError, ValueError) as exc:
+            return {
+                "executed": True,
+                "success": False,
+                "safe_exec_status": safe_exec_status(safe_exec_result, completed),
+                "safe_exec_parse_error": str(exc),
+                "summary": None,
+            }
+
+        summary = hcloud_billing_result_summarize.build_summary(
+            summary_input,
+            offset=planned_int_field(request_spec, "offset", args.offset),
+            limit=planned_int_field(request_spec, "limit", args.limit),
+            include_redacted_records=args.include_redacted_records,
+            request_spec=request_spec,
+        )
         return {
             "executed": True,
-            "success": False,
-            "safe_exec_status": safe_exec_status(None, completed),
-            "safe_exec_parse_error": parse_error,
-            "stderr": completed.stderr,
-            "summary": None,
+            "success": bool(safe_exec_result.get("success")) and bool(summary.get("success")),
+            "safe_exec_status": safe_exec_status(safe_exec_result, completed),
+            "safe_exec_parse_error": None,
+            "summary": summary,
         }
-
-    summary = hcloud_billing_result_summarize.build_summary(
-        safe_exec_result,
-        offset=planned_int_field(request_spec, "offset", args.offset),
-        limit=planned_int_field(request_spec, "limit", args.limit),
-        include_redacted_records=args.include_redacted_records,
-    )
-    return {
-        "executed": True,
-        "success": bool(safe_exec_result.get("success")) and bool(summary.get("success")),
-        "safe_exec_status": safe_exec_status(safe_exec_result, completed),
-        "safe_exec_parse_error": None,
-        "summary": summary,
-    }
 
 
 def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
@@ -232,6 +281,7 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
             "output_boundary": {
                 "default_output": "redacted_summary_only",
                 "raw_safe_exec_result_returned": False,
+                "full_payload_transport": "execution_local_0600_artifact",
             },
         },
         "execution": {

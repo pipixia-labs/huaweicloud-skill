@@ -336,6 +336,8 @@ class SafeExecRedactionTest(unittest.TestCase):
             result = json.loads(completed.stdout)
             parsed_file = json.loads(parsed_path.read_text(encoding="utf-8"))
             full_result_file = json.loads(result_path.read_text(encoding="utf-8"))
+            parsed_mode = stat.S_IMODE(parsed_path.stat().st_mode)
+            result_mode = stat.S_IMODE(result_path.stat().st_mode)
 
         self.assertEqual(completed.returncode, 0)
         self.assertIsNone(result["parsed_json"])
@@ -347,6 +349,8 @@ class SafeExecRedactionTest(unittest.TestCase):
             {"adminPass": "***", "note": "***", "server": {"OS-EXT-SRV-ATTR:user_data": "***"}},
         )
         self.assertEqual(full_result_file["parsed_json"], parsed_file)
+        self.assertEqual(parsed_mode, 0o600)
+        self.assertEqual(result_mode, 0o600)
         self.assertTrue(
             full_result_file["output_policy"]["full_payload_persisted"]
         )

@@ -684,6 +684,26 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--groupby.2.key=REGION", command)
         self.assertIn("--arg=--filters.1.filter_factor.value.1=hws.service.type.ec2", command)
 
+    def test_billing_cost_data_maps_region_code_to_region_filter(self) -> None:
+        result = hcloud_billing_readonly.build_request_spec(
+            self.billing_readonly_args(
+                operation="cost-data",
+                begin_time="2026-05-01",
+                end_time="2026-05-31",
+                region_code="cn-north-4",
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        filters = result["request_spec"]["body"]["filters"]
+        self.assertEqual(filters[0]["filter_factor"]["key"], "REGION_CODE")
+        self.assertEqual(filters[0]["filter_factor"]["value"], ["cn-north-4"])
+        command = result["hcloud_command_plan"]["safe_exec_command"]
+        self.assertIn(
+            "--arg=--filters.1.filter_factor.value.1=cn-north-4",
+            command,
+        )
+
     def test_billing_readonly_attaches_semantic_route(self) -> None:
         result = hcloud_billing_readonly.build_request_spec(
             self.billing_readonly_args(
@@ -945,6 +965,101 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("customer-123", json.dumps(result, ensure_ascii=False))
         self.assertNotIn("server-1", json.dumps(result, ensure_ascii=False))
         self.assertNotIn("redacted_records", result)
+        self.assertEqual(
+            result["summary"]["monetary_totals"],
+            {"consume_amount": "123.45"},
+        )
+        self.assertEqual(result["summary"]["currency"], "CNY")
+        self.assertEqual(
+            result["summary"]["billing_scope"]["scope_type"],
+            "all_account_monthly_summary",
+        )
+        self.assertFalse(result["summary"]["billing_scope"]["region_filtered"])
+
+    def test_billing_cost_summary_exposes_bounded_region_aggregates(self) -> None:
+        safe_exec_result = {
+            "service": "BSS",
+            "operation": "ListCosts/v2",
+            "parsed_json": {
+                "total_count": 2,
+                "currency": "CNY",
+                "cost_data": [
+                    {
+                        "dimensions": [
+                            {"key": "REGION_CODE", "value": "cn-north-4"},
+                            {"key": "RESOURCE_ID", "value": "server-secret"},
+                        ],
+                        "amount_by_costs": "18.88",
+                        "official_amount_by_costs": "20.00",
+                    },
+                    {
+                        "dimensions": [
+                            {"key": "REGION_CODE", "value": "cn-east-3"}
+                        ],
+                        "amount_by_costs": "2.00",
+                        "official_amount_by_costs": "2.50",
+                    },
+                ],
+            },
+        }
+
+        result = hcloud_billing_result_summarize.build_summary(
+            safe_exec_result,
+            offset=0,
+            limit=10,
+        )
+
+        self.assertTrue(result["success"], result)
+        aggregates = result["summary"]["dimension_aggregates"]
+        self.assertEqual(len(aggregates), 2)
+        self.assertEqual(aggregates[0]["dimensions"][0]["value"], "cn-north-4")
+        self.assertEqual(aggregates[0]["amount_by_costs"], "18.88")
+        self.assertTrue(aggregates[0]["dimensions"][1]["value"].startswith("***:"))
+        self.assertNotIn("server-secret", json.dumps(result, ensure_ascii=False))
+        self.assertTrue(result["summary"]["billing_scope"]["region_filtered"])
+        self.assertTrue(result["pagination"]["complete_result_claim_allowed"])
+
+    def test_billing_cost_summary_preserves_region_filter_scope(self) -> None:
+        result = hcloud_billing_result_summarize.build_summary(
+            {
+                "service": "BSS",
+                "operation": "ListCosts/v2",
+                "parsed_json": {
+                    "total_count": 1,
+                    "currency": "CNY",
+                    "cost_data": [
+                        {
+                            "dimensions": [
+                                {
+                                    "key": "CLOUD_SERVICE_TYPE",
+                                    "value": "hws.service.type.ec2",
+                                }
+                            ],
+                            "amount_by_costs": "18.88",
+                        }
+                    ],
+                },
+            },
+            offset=0,
+            limit=10,
+            request_spec={
+                "body": {
+                    "filters": [
+                        {
+                            "operator": 0,
+                            "filter_factor": {
+                                "key": "REGION_CODE",
+                                "value": ["cn-north-4"],
+                            },
+                        }
+                    ]
+                }
+            },
+        )
+
+        scope = result["summary"]["billing_scope"]
+        self.assertTrue(scope["region_filtered"])
+        self.assertEqual(scope["region_values"], ["cn-north-4"])
 
     def test_billing_result_summary_can_include_redacted_records(self) -> None:
         payload = {
@@ -1165,6 +1280,68 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("server-123", text)
         self.assertIn("***:", text)
         self.assertNotIn("parsed_json", json.dumps(result["execution"]["result"]["safe_exec_status"], ensure_ascii=False))
+
+    def test_billing_live_read_summarizes_large_payload_from_private_artifact(self) -> None:
+        payload = {
+            "total_count": 50,
+            "consume_amount": "2374.05",
+            "currency": "CNY",
+            "bill_sums": [
+                {
+                    "customer_id": f"customer-{index}",
+                    "consume_amount": "29.68",
+                    "padding": "x" * 200,
+                }
+                for index in range(50)
+            ],
+        }
+        observed_artifact: Path | None = None
+
+        def fake_run(command, **_kwargs):  # noqa: ANN001, ANN202
+            nonlocal observed_artifact
+            artifact_arg = next(
+                item for item in command if str(item).startswith("--parsed-json-file=")
+            )
+            observed_artifact = Path(str(artifact_arg).split("=", 1)[1])
+            observed_artifact.write_text(json.dumps(payload), encoding="utf-8")
+            observed_artifact.chmod(0o600)
+            safe_exec_result = {
+                "success": True,
+                "return_code": 0,
+                "service": "BSS",
+                "operation": "ShowCustomerMonthlySum/v2",
+                "parsed_json": None,
+                "parsed_json_suppressed": True,
+            }
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=json.dumps(safe_exec_result),
+                stderr="",
+            )
+
+        with patch.object(
+            hcloud_billing_live_read.subprocess,
+            "run",
+            side_effect=fake_run,
+        ):
+            result = hcloud_billing_live_read.build_live_read(
+                self.billing_live_read_args(
+                    execute=True,
+                    confirm_live_billing_read=hcloud_billing_live_read.CONFIRM_TOKEN,
+                    limit=50,
+                )
+            )
+
+        self.assertTrue(result["success"], result)
+        self.assertIsNotNone(observed_artifact)
+        self.assertFalse(observed_artifact.exists())
+        summary = result["execution"]["result"]["summary"]
+        self.assertEqual(summary["pagination"]["record_count"], 50)
+        self.assertEqual(
+            summary["summary"]["monetary_totals"]["consume_amount"],
+            "2374.05",
+        )
 
     def test_ces_alarm_plan_is_planner_only(self) -> None:
         result = hcloud_ces_alarm_plan.build_plan(self.ces_alarm_args())

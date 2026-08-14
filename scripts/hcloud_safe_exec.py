@@ -519,6 +519,7 @@ def write_json_artifact(path: Path, value: Any) -> dict[str, Any]:
         json.dumps(value, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    path.chmod(0o600)
     return artifact_metadata(path, "parsed_json")
 
 
@@ -527,6 +528,7 @@ def write_text_artifact(path: Path, value: str) -> dict[str, Any]:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(value, encoding="utf-8")
+    path.chmod(0o600)
     return artifact_metadata(path, "raw_stdout")
 
 
@@ -949,6 +951,7 @@ def finalize_output(
             json.dumps(full_result, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        result_path.chmod(0o600)
         result_artifact = artifact_metadata(result_path, "structured_result")
         artifacts.append(result_artifact)
 

@@ -29,6 +29,10 @@ DEFAULT_VERSION_PATTERNS = (
     re.compile(r"默认使用(?:该API)?版本\s*(v[0-9][a-z0-9._-]*)", re.IGNORECASE),
     re.compile(r"default(?:\s+api)?\s+version[^v0-9]*(v[0-9][a-z0-9._-]*)", re.IGNORECASE),
 )
+RAW_ORIGIN_DETAIL_RE = re.compile(
+    r"_origin_(?:cn|en)\.ya?ml$",
+    re.IGNORECASE,
+)
 
 
 def normalize_version(value: str | None) -> str | None:
@@ -135,6 +139,13 @@ def candidate_for_version(
 
     detail = hcloud_catalog.operation_version_detail(operation, version)
     detail_cached = bool(detail.get("detail_cached"))
+    detail_file = str(detail.get("detail_file") or "")
+    explicit_completeness = detail.get("parameter_metadata_complete")
+    parameter_metadata_complete = (
+        explicit_completeness
+        if isinstance(explicit_completeness, bool)
+        else bool(detail_cached and not RAW_ORIGIN_DETAIL_RE.search(detail_file))
+    )
     known_params = {
         comparable_param_name(name)
         for name in hcloud_catalog.operation_param_names(detail)
@@ -145,11 +156,15 @@ def candidate_for_version(
         for name in hcloud_catalog.normalized_required_params(detail)
         if comparable_param_name(name)
     }
-    unsupported_params = sorted(provided_params - known_params) if detail_cached else []
+    unsupported_params = (
+        sorted(provided_params - known_params)
+        if parameter_metadata_complete
+        else []
+    )
     missing_required_params = sorted(required_params - provided_params)
     if unsupported_params:
         compatibility = "incompatible"
-    elif detail_cached:
+    elif parameter_metadata_complete:
         compatibility = "compatible"
     else:
         compatibility = "unknown"
@@ -158,6 +173,7 @@ def candidate_for_version(
         "compatibility": compatibility,
         "detail_cached": detail_cached,
         "detail_file": detail.get("detail_file"),
+        "parameter_metadata_complete": parameter_metadata_complete,
         "known_params": sorted(known_params),
         "unsupported_params": unsupported_params,
         "missing_required_params": missing_required_params,

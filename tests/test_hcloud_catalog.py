@@ -178,6 +178,31 @@ class HcloudCatalogTest(unittest.TestCase):
             self.assertIsNotNone(operation)
             self.assertTrue(hcloud_catalog.is_discovery_operation(operation))
 
+    def test_build_catalog_marks_raw_origin_parameter_metadata_incomplete(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            template_dir = Path(tmp_dir)
+            self.write_json(
+                template_dir / "ListCosts_origin_cn.yaml",
+                {
+                    "name": "ListCosts",
+                    "paths": {"/v4/costs/query": {"post": {}}},
+                },
+            )
+
+            operation = build_hcloud_catalog.build_operation(
+                template_dir,
+                {
+                    "Name": "ListCosts",
+                    "Versions": ["v2"],
+                    "Suggests": {"v2": "查询成本数据"},
+                },
+                "cn",
+            )
+
+        self.assertIsNotNone(operation)
+        self.assertEqual(operation["detail_file"], "ListCosts_origin_cn.yaml")
+        self.assertFalse(operation["parameter_metadata_complete"])
+
     def test_build_catalog_preserves_version_specific_operation_details(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             meta_repo = Path(tmp_dir)
