@@ -128,7 +128,10 @@
       "boundary": "Use only after context discovery and risk review. Submit still requires the exact command, fresh evidence, and explicit user confirmation.",
       "scripts": [
         "scripts/hcloud_change_plan.py",
+        "scripts/hcloud_async_job_wait.py",
+        "scripts/hcloud_ecs_change_flow.py",
         "scripts/hcloud_ecs_create_plan.py",
+        "scripts/hcloud_ecs_guest_delivery.py",
         "scripts/hcloud_ecs_verify_active.py",
         "scripts/hcloud_ecs_wait_job.py",
         "scripts/hcloud_eip_change_flow.py",
@@ -177,9 +180,11 @@
       "boundary": "Keep stable APIs for callers and tests; do not document as normal command-line tools.",
       "scripts": [
         "scripts/credential_aliases.py",
+        "scripts/hcloud_change_state.py",
         "scripts/hcloud_common.py",
         "scripts/hcloud_core.py",
         "scripts/hcloud_output_policy.py",
+        "scripts/hcloud_resource_ledger.py",
         "scripts/hcloud_run_journal.py",
         "scripts/hcloud_security_policy.py",
         "scripts/maas_common.py"

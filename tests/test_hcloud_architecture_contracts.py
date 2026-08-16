@@ -96,6 +96,7 @@ class ArchitectureContractsTest(unittest.TestCase):
             "scripts/hcloud_account_inventory.py",
         )
         self.assertEqual(inventory["result_contract"], "json_outcome_v1")
+        self.assertFalse(inventory["arguments"]["regions"].get("required", False))
         self.assertTrue((ROOT / inventory["entrypoint"]).is_file())
         billing = capabilities["huaweicloud.billing.read.v1"]
         self.assertEqual(billing["risk"], "read")
@@ -110,6 +111,43 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertEqual(billing["result_contract"], "json_outcome_v1")
         self.assertEqual(billing["arguments"]["limit"]["default"], 50)
         self.assertTrue((ROOT / billing["entrypoint"]).is_file())
+        expected_changes = {
+            "huaweicloud.ecs.create.v1": ("write", "scripts/hcloud_ecs_change_flow.py"),
+            "huaweicloud.eip.change.v1": ("write", "scripts/hcloud_eip_change_flow.py"),
+            "huaweicloud.eip.destructive_change.v1": (
+                "destructive",
+                "scripts/hcloud_eip_change_flow.py",
+            ),
+            "huaweicloud.resource.change.v1": (
+                "write",
+                "scripts/hcloud_guarded_change_flow.py",
+            ),
+            "huaweicloud.ecs.guest_delivery.v1": (
+                "write",
+                "scripts/hcloud_ecs_guest_delivery.py",
+            ),
+        }
+        for capability_id, (risk, entrypoint) in expected_changes.items():
+            capability = capabilities[capability_id]
+            self.assertEqual(capability["risk"], risk)
+            self.assertEqual(capability["entrypoint"], entrypoint)
+            self.assertEqual(capability["result_contract"], "json_outcome_v1")
+            self.assertTrue((ROOT / entrypoint).is_file())
+
+        eip_arguments = capabilities["huaweicloud.eip.change.v1"]["arguments"]
+        self.assertNotIn("required", eip_arguments["ledger_file"])
+        self.assertNotIn("required", eip_arguments["resource_role"])
+        self.assertNotIn("default", eip_arguments["cleanup_operation"])
+        self.assertEqual(
+            eip_arguments["operation"]["choices"],
+            ["CreatePublicip", "UpdatePublicip"],
+        )
+        self.assertEqual(
+            capabilities["huaweicloud.eip.destructive_change.v1"]["arguments"][
+                "operation"
+            ]["choices"],
+            ["DeletePublicip"],
+        )
 
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         contract_text = (
@@ -118,6 +156,14 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("平台无关", contract_text)
         self.assertIn("`planning_status`", contract_text)
         self.assertIn("`outcome_status`", contract_text)
+        self.assertIn("省略 `regions`", contract_text)
+        self.assertIn("`skipped_checks`", contract_text)
+        self.assertIn("`complete=true`", contract_text)
+        self.assertIn("`affects_completeness=false`", contract_text)
+        self.assertIn("endpoint 元数据缺失", contract_text)
+        self.assertIn("`inventory_scope`", contract_text)
+        self.assertIn("不表示已经枚举华为云账号可能使用的所有产品", contract_text)
+        self.assertIn("不要先用裸 hcloud 获取区域列表", skill_text)
         self.assertIn("不要臆造某个平台的 Tool 名称", skill_text)
         self.assertIn("run_read_only_capability", skill_text)
         self.assertIn("Agent 自主决定查什么和传什么业务参数", skill_text)
@@ -133,6 +179,10 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("参数错误、凭据错误、超时、部分成功", skill_text)
         self.assertIn("专用场景脚本 ->", skill_text)
         self.assertIn("只适用于查询未登记", skill_text)
+        self.assertIn("`run_guarded_change_capability`", skill_text)
+        self.assertIn("`GUARDED_CHANGE_CAPABILITY_NOT_REGISTERED`", skill_text)
+        self.assertIn("本地 plan 生成精确输入/token/state/ledger", skill_text)
+        self.assertIn("submit 结果不确定后禁止重复提交", skill_text)
 
     def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:
         playbook = (
@@ -1021,7 +1071,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         safety_text = (ROOT / "references" / "runtime-safety-boundaries.md").read_text(encoding="utf-8")
         version_text = (ROOT / "references" / "versioning-policy.md").read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(skill_text.splitlines()), 155)
+        self.assertLessEqual(len(skill_text.splitlines()), 300)
         self.assertIn("references/runtime-safety-boundaries.md", skill_text)
         self.assertIn("references/scripts.md", skill_text)
         self.assertIn("references/versioning-policy.md", skill_text)

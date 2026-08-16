@@ -62,10 +62,11 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 只有以下三种情况允许按同一 Skill 的脚本流程 fallback：没有登记对应查询；当前 runtime 没有 `run_read_only_capability`；该工具明确返回 `READ_ONLY_CAPABILITY_NOT_REGISTERED`。若返回中带有 `fallback_allowed`，以该字段为机器可判定合同：只有 `fallback_allowed=true` 才能 fallback；`fallback_allowed=false` 时继续使用 capability 结果、修正参数后重调同一个 capability，或如实报告限制。
    - 参数错误、凭据错误、超时、部分成功、查询失败、版本解析错误或输出错误都不是 fallback 条件。按照 `recommended_next_action` 处理，不得因为标准入口这一次失败就改用裸 `hcloud`、临时 SDK 或对应脚本。
    - 正例（参数修正）：账单 capability 返回缺少 `begin_time` / `end_time` 且 `recommended_next_action=correct_arguments_and_retry_capability`，先补齐准确时间范围，再次调用同一个 capability。
-   - 正例（北京4资源盘点）：调用 `run_read_only_capability(capability_id="huaweicloud.account_inventory.v1", arguments_json='{"regions":["cn-north-4"]}')`。
+   - 正例（全账号核心资源盘点）：调用 `run_read_only_capability(capability_id="huaweicloud.account_inventory.v1", arguments_json='{}')`；省略 `regions` 时由 capability 内部通过 IAM 区域与可访问项目 API 建立 region→project_id，再让区域级服务按可访问项目查询、全局服务只查一次。capability 会依据 KooCLI endpoint 元数据跳过明确不支持某区域的服务；这种 `affects_completeness=false` 的不适用项不是查询失败。元数据未知时 capability 仍会实际查询，不会猜测该区域没有资源。最终必须披露 `inventory_scope` 中实际登记的核心服务范围，`complete=true` 也不能扩大表述成华为云全部产品。不要先用裸 hcloud 获取区域列表。
+   - 正例（北京4资源盘点）：显式调用 `run_read_only_capability(capability_id="huaweicloud.account_inventory.v1", arguments_json='{"regions":["cn-north-4"]}')`，只查询该目标区域。
    - 正例（北京4区域成本）：调用账单 capability，把 `operation` 设为 `cost-data`，使用 `region_code=cn-north-4` 和准确时间范围。标准 capability 会在安全上限内自动完成 BSS 分页并合并同一 scope 的结果；只有 `pagination.complete=true`、`complete_result_claim_allowed=true` 时，才能把 `verified_monetary_totals` 表述为完整总额。Agent 不需要为普通总额查询手工计算或传递下一页 `offset`。`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
    - 正例（账单分页部分成功）：账单 capability 因后续页失败、空页、跨页 scope 不一致或安全上限返回 `partially_succeeded` 时，只能使用已返回的部分记录并明确缺口；不得把 `partial` 页面的金额小计改名为合计，也不得绕过 capability 补跑裸 hcloud。
-   - 正例（部分成功）：资源盘点返回 `partially_succeeded` 和 `fallback_allowed=false` 时，使用已成功的资源结果并明确列出失败服务；不要为失败服务另开裸命令通道。
+   - 正例（部分成功）：资源盘点返回 `partially_succeeded` 和 `fallback_allowed=false` 时，使用已成功的资源结果，并报告 succeeded/failed/skipped 数量、区域/服务范围、原因和对完整性的影响；不得称为“全部资源”，也不要为失败服务另开裸命令通道。
    - 反例：盘点能力已登记却先用 `exec` 运行 `hcloud_account_inventory.py`；收到 `VERSION_RESOLUTION_ERROR`、空摘要、超时或部分结果后改用裸 hcloud/临时 SDK；或把已登记查询交给 `propose_command_execution`。账单返回 `total_count=11`、`record_count=10`、`complete_result_claim_allowed=false` 时，把这 10 条相加后写成“完整合计”同样错误。空摘要不等于费用为 0，应按结构化错误和 scope 如实报告。这些路径都绕过或误用了标准查询入口。
    - 调用优先级“专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`”只适用于查询未登记、当前 runtime 没有标准查询工具，或工具明确返回未登记。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
@@ -80,10 +81,19 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
    - 先查现状证据，再生成 change plan / dry-run / guarded submit。
+   - Agent 自主决定使用哪个变更能力；先检查 `capabilities.json` 与 runtime 工具。当前已登记 ECS create-to-ACTIVE、EIP 写/删除、通用服务变更和 ECS 来宾交付。对应 ID、参数和风险见 `references/capability-contracts.md`。
+   - 已登记且 runtime 提供 `run_guarded_change_capability` 时，必须按“本地 plan 生成精确输入/token/state/ledger -> 调用 capability 创建提案 -> 用户确认后 `execute_cloud_action` -> 用同一 workflow 恢复等待和验证”执行。plan-only 阶段允许通过 `exec` / `process` 调用同一个 Skill 脚本，但命令不得包含 `--execute-submit`、`--execute`、`--confirm-submit` 或其他真实执行开关；得到 review token 后，真正 execute 必须交给 capability，不能再用 `exec`，也不得手工包装成 `propose_command_execution`。
+   - 只有对应变更未登记、runtime 没有该工具，或工具明确返回 `GUARDED_CHANGE_CAPABILITY_NOT_REGISTERED` 时才允许脚本 fallback。参数、token、凭据、超时、部分成功和执行错误不是 fallback 条件；`fallback_allowed=false` 时只能修正后重调同一 capability、继续回读，或如实报告。
+   - 创建类流程必须同时使用稳定的 `--state-file`、`--workflow-id`、`--step-id` 和 `--ledger-file`；用 `hcloud_resource_ledger.py` 记录逻辑角色、预期数量、canonical ID、job ID 与依赖。ECS 使用 `hcloud_ecs_change_flow.py` 完成 submit -> job terminal -> ACTIVE；EIP 和 generic guarded flow 使用相同 receipt 语义。云端已受理或 submit 结果不确定后禁止重复提交；请求指纹变化时必须新建 step。
+   - 正例：先用 `exec` 调用不带任何 execute/confirm 开关的 ECS flow plan 模式取得 token，再调用 `huaweicloud.ecs.create.v1`；若 job 等待超时，续跑复用同一 state/ledger，只等待和回读 ACTIVE。反例：plan 命令提前加入 `--execute-submit`；capability 参数缺失后改用裸 hcloud/临时 SDK；或 submit 超时后删除状态、改资源名再次 Create。
    - 按所选工具的真实结果契约解释输出。本 Skill 的 execute 脚本如果返回
      `outcome_status`，以该结构化字段为业务结果；裸 `hcloud`、帮助探测和其他
      未声明结构化结果的命令必须同时保留 stdout、stderr 和退出码，不能只因进程
      退出码为 `0` 就断言云操作成功。
+   - 所有已登记变更 capability 都声明 `json_outcome_v1`。`partially_succeeded` 表示已有外部副作用但验证尚未完成；此时应带同一 state/ledger 继续验证，不能把它说成失败，也不能重新创建。
+   - 示例：创建 RDS 后返回 `job_id`，flow 写入 step receipt 并返回
+     `partially_succeeded`；任务续跑时使用相同三个状态参数，flow 跳过 submit，
+     对已记录的 instance ID 执行只读验证，验证成功后返回 `succeeded`。
    - 对可能产生费用或影响线上服务的云资源操作，先形成一套或多套候选方案。Agent 可以调用现有工具、专家能力或自行分析来制定方案；每套方案应说明目标资源、预期影响、持续费用（如适用）、主要风险和验证方式。
    - 将候选方案交由用户选择并明确确认后，才能执行对应操作；用户仅提出初始需求不构成执行授权。
    - 真实 submit，以及会产生计费或外部副作用的 MaaS 图片/视频生成，必须有用户在查看本次方案后作出的明确确认；初始任务请求、路由成功、dry-run 成功或 `change_execution_blocked=false` 都不是执行授权。安全、身份、密钥、治理类 mutation 默认 hard guard。

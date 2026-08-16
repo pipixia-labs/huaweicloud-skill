@@ -9,6 +9,7 @@ import subprocess
 import time
 from typing import Any
 
+import hcloud_change_state
 import hcloud_common
 
 SUCCESS_STATUSES = {"SUCCESS", "SUCCEEDED", "COMPLETE", "COMPLETED"}
@@ -185,6 +186,9 @@ def wait_for_job(args: argparse.Namespace) -> dict[str, Any]:
                 "attempts": attempts,
                 "final_status": status,
                 "classification": classification,
+                "final_identifiers": hcloud_change_state.extract_identifiers(
+                    exec_result.get("parsed_json")
+                ),
                 "duration_seconds": round(time.time() - started_at, 3),
             }
         if classification == "failure":
@@ -196,6 +200,9 @@ def wait_for_job(args: argparse.Namespace) -> dict[str, Any]:
                 "attempts": attempts,
                 "final_status": status,
                 "classification": classification,
+                "final_identifiers": hcloud_change_state.extract_identifiers(
+                    exec_result.get("parsed_json")
+                ),
                 "duration_seconds": round(time.time() - started_at, 3),
             }
         if consecutive_failures >= args.max_command_failures:

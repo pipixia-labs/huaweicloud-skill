@@ -11,8 +11,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import hcloud_async_job_wait
+import hcloud_change_state
 import hcloud_common
 import hcloud_resource_discovery
+import hcloud_resource_ledger
 import hcloud_resource_query
 import hcloud_run_journal
 import hcloud_service_change_plan
@@ -324,6 +327,7 @@ def build_verify_plan(
     args: argparse.Namespace,
     service_plan: dict[str, Any],
     submit_result: dict[str, Any] | None,
+    stored_verify_params: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build a service-specific post-change verification plan."""
     service = args.service.upper()
@@ -353,6 +357,7 @@ def build_verify_plan(
 
     params = {
         **extracted_verify_params(profile, submit_result),
+        **(stored_verify_params or {}),
         **explicit_params,
     }
     verify_args = SimpleNamespace(
@@ -391,7 +396,228 @@ def build_verify_plan(
     return plan
 
 
-def build_flow(args: argparse.Namespace) -> dict[str, Any]:
+def lifecycle_state_context(
+    args: argparse.Namespace,
+    service_plan: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Prepare durable state for one exact guarded-flow step when configured."""
+    state_file = getattr(args, "state_file", None)
+    workflow_id = getattr(args, "workflow_id", None)
+    step_id = getattr(args, "step_id", None)
+    if not any((state_file, workflow_id, step_id)):
+        return None
+    if not all((state_file, workflow_id, step_id)):
+        raise ValueError(
+            "--state-file, --workflow-id, and --step-id must be provided together."
+        )
+    fingerprint_payload = submit_token_payload(args, service_plan)
+    fingerprint = hcloud_change_state.request_fingerprint(fingerprint_payload)
+    prepared = hcloud_change_state.prepare_step(
+        Path(state_file),
+        workflow_id=str(workflow_id),
+        step_id=str(step_id),
+        fingerprint=fingerprint,
+        request_summary={
+            "service": args.service.upper(),
+            "operation": service_plan.get("operation") or args.operation,
+            "region": args.region,
+            "project_id": args.project_id,
+            "profile": args.profile,
+        },
+    )
+    lifecycle = {
+        "state_file": str(state_file),
+        "workflow_id": str(workflow_id),
+        "step_id": str(step_id),
+        "fingerprint": fingerprint,
+        **prepared,
+    }
+    ledger_values = (
+        getattr(args, "ledger_file", None),
+        getattr(args, "resource_role", None),
+    )
+    if any(ledger_values) and not all(ledger_values):
+        raise ValueError("--ledger-file and --resource-role must be provided together.")
+    if all(ledger_values):
+        cleanup_operation = getattr(args, "cleanup_operation", None)
+        identifier_parameter = getattr(args, "identifier_parameter", None)
+        hcloud_resource_ledger.register_resource(
+            Path(str(ledger_values[0])),
+            workflow_id=str(workflow_id),
+            role=str(ledger_values[1]),
+            service=args.service.upper(),
+            region=args.region,
+            project_id=args.project_id,
+            expected_count=int(getattr(args, "expected_count", 1)),
+            dependencies=getattr(args, "depends_on", []),
+            request_fingerprint=fingerprint,
+            cleanup_operation=cleanup_operation,
+            identifier_parameter=identifier_parameter,
+        )
+        lifecycle["ledger_file"] = str(ledger_values[0])
+        lifecycle["resource_role"] = str(ledger_values[1])
+        lifecycle["identifier_parameter"] = identifier_parameter
+    return lifecycle
+
+
+def identifier_values(
+    identifiers: dict[str, list[str]] | None,
+    *keys: str,
+) -> list[str]:
+    """Return unique receipt values whose terminal key matches one of `keys`."""
+    normalized_keys = {
+        key.strip().replace("-", "_").lower()
+        for key in keys
+        if key and key.strip()
+    }
+    values: list[str] = []
+    for path, candidates in (identifiers or {}).items():
+        tail = str(path).rsplit(".", 1)[-1].replace("-", "_").lower()
+        if tail not in normalized_keys:
+            continue
+        for candidate in candidates:
+            if candidate and candidate not in values:
+                values.append(candidate)
+    return values
+
+
+def lifecycle_verification_params(
+    args: argparse.Namespace,
+    service_plan: dict[str, Any],
+    submit_result: dict[str, Any],
+) -> dict[str, str]:
+    """Return target parameters worth retaining after an accepted submit."""
+    requested_operation = service_plan.get("operation") or args.operation
+    profile = infer_verify_profile(args.service.upper(), str(requested_operation))
+    extracted = extracted_verify_params(profile, submit_result) if profile else {}
+    try:
+        return {
+            **extracted,
+            **parse_key_value(args.verify_param, "--verify-param"),
+        }
+    except ValueError:
+        return extracted
+
+
+def _record_lifecycle_submit(
+    lifecycle: dict[str, Any],
+    *,
+    submit_result: dict[str, Any],
+    verification_params: dict[str, str],
+) -> None:
+    """Persist one submit receipt without retaining the complete response."""
+    parsed_json = submit_result.get("parsed_json")
+    identifiers = hcloud_change_state.extract_identifiers(parsed_json)
+    step = hcloud_change_state.record_submit(
+        Path(lifecycle["state_file"]),
+        workflow_id=lifecycle["workflow_id"],
+        step_id=lifecycle["step_id"],
+        fingerprint=lifecycle["fingerprint"],
+        success=bool(submit_result.get("success")),
+        identifiers=identifiers,
+        verification_params=verification_params,
+    )
+    lifecycle["step"] = step
+    lifecycle["resume_action"] = "verify_existing"
+    lifecycle["can_submit"] = False
+    if lifecycle.get("ledger_file"):
+        identifier_parameter = lifecycle.get("identifier_parameter")
+        resource_ids = []
+        if identifier_parameter and verification_params.get(identifier_parameter):
+            resource_ids.append(verification_params[identifier_parameter])
+        hcloud_resource_ledger.record_submission(
+            Path(lifecycle["ledger_file"]),
+            workflow_id=lifecycle["workflow_id"],
+            role=lifecycle["resource_role"],
+            accepted=True if submit_result.get("success") else None,
+            identifiers=resource_ids,
+            job_ids=identifier_values(
+                identifiers,
+                "job_id",
+                "job_ids",
+                "jobId",
+                "jobIds",
+            ),
+        )
+
+
+def _record_lifecycle_verification(
+    lifecycle: dict[str, Any],
+    *,
+    success: bool,
+    identifiers: list[str] | None = None,
+) -> None:
+    """Persist the resource verification result for a submitted step."""
+    step = hcloud_change_state.record_verification(
+        Path(lifecycle["state_file"]),
+        workflow_id=lifecycle["workflow_id"],
+        step_id=lifecycle["step_id"],
+        fingerprint=lifecycle["fingerprint"],
+        success=success,
+    )
+    lifecycle["step"] = step
+    lifecycle["resume_action"] = "reuse_verified" if success else "verify_existing"
+    lifecycle["can_submit"] = False
+    if lifecycle.get("ledger_file"):
+        hcloud_resource_ledger.record_verification(
+            Path(lifecycle["ledger_file"]),
+            workflow_id=lifecycle["workflow_id"],
+            role=lifecycle["resource_role"],
+            success=success,
+            identifiers=identifiers or [],
+            details={"verification_scope": "registered_resource_query"},
+        )
+
+
+def lifecycle_job_ids(lifecycle: dict[str, Any] | None) -> list[str]:
+    """Return exact job identifiers retained for a prior submit."""
+    if not lifecycle:
+        return []
+    identifiers = lifecycle.get("step", {}).get("identifiers")
+    return identifier_values(
+        identifiers if isinstance(identifiers, dict) else {},
+        "job_id",
+        "job_ids",
+        "jobId",
+        "jobIds",
+    )
+
+
+def async_wait_args(
+    args: argparse.Namespace,
+    *,
+    job_id: str,
+) -> SimpleNamespace:
+    """Build generic async waiter arguments from guarded-flow options."""
+    job_parameter = str(getattr(args, "async_job_param", "job_id") or "job_id")
+    return SimpleNamespace(
+        service=getattr(args, "async_service", None) or args.service,
+        operation=args.async_operation,
+        param=[
+            *getattr(args, "async_param", []),
+            f"{job_parameter}={job_id}",
+        ],
+        arg=[],
+        region=args.region,
+        project_id=args.project_id,
+        profile=args.profile,
+        status_path=getattr(args, "async_status_path", []),
+        success_status=(
+            getattr(args, "async_success_status", [])
+            or list(hcloud_async_job_wait.DEFAULT_SUCCESS_STATUSES)
+        ),
+        failure_status=(
+            getattr(args, "async_failure_status", [])
+            or list(hcloud_async_job_wait.DEFAULT_FAILURE_STATUSES)
+        ),
+        interval=float(getattr(args, "async_interval", 10.0)),
+        timeout=float(getattr(args, "async_timeout", 600.0)),
+        command_timeout=args.timeout,
+        max_command_failures=int(getattr(args, "max_command_failures", 3)),
+    )
+
+
+def _build_flow(args: argparse.Namespace) -> dict[str, Any]:
     """Build and optionally execute a guarded change flow."""
     service = args.service.upper()
     service_plan = hcloud_service_change_plan.build_service_plan(service_plan_args(args))
@@ -399,7 +625,7 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         "success": bool(service_plan.get("success")),
         "service": service,
         "operation": args.operation,
-        "mode": "execute" if (args.execute_dryrun or args.execute_submit or args.execute_readiness or args.execute_verify) else "plan",
+        "mode": "execute" if (args.execute_dryrun or args.execute_submit or args.execute_readiness or args.execute_verify or getattr(args, "execute_wait", False)) else "plan",
         "planning_only": True,
         "service_plan": service_plan,
         "submit_guard": {
@@ -427,6 +653,22 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         result["success"] = False
         result["error"] = "Service plan did not produce dry-run/submit commands."
         return result
+
+    try:
+        lifecycle = lifecycle_state_context(args, service_plan)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        result["success"] = False
+        result["lifecycle_state_error"] = str(exc)
+        return result
+    if lifecycle:
+        result["lifecycle_state"] = lifecycle
+        if lifecycle["resume_action"] == "fingerprint_mismatch":
+            result["success"] = False
+            result["error"] = (
+                "The persisted step belongs to a different cloud request. "
+                "Use a new step_id or restore the original exact plan."
+            )
+            return result
 
     submit_token = expected_submit_token(args, service_plan)
     result["submit_guard"].update(
@@ -470,30 +712,102 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
             return result
 
     submit_result: dict[str, Any] | None = None
+    stored_verify_params: dict[str, str] = {}
     if args.execute_submit:
-        submit_result = execute_command(commands["submit"], args.timeout)
-        result["submit"] = submit_result
-        result["submit_command_shell"] = shlex.join(commands["submit"])
         result["planning_only"] = False
-        append_journal_event(
-            args,
-            {
-                "type": "command",
-                "stage": "submit",
-                "service": service,
-                "operation": args.operation,
-                "success": bool(submit_result.get("success")),
-                "command": commands["submit"],
-                "result": submit_result,
-            },
-        )
-        if not submit_result.get("success"):
+        if lifecycle and not lifecycle["can_submit"]:
+            step = lifecycle["step"]
+            stored_verify_params = dict(step.get("verification_params") or {})
+            result["submit_resume"] = {
+                "submit_was_not_repeated": True,
+                "resume_action": lifecycle["resume_action"],
+                "prior_status": step.get("status"),
+                "identifiers": step.get("identifiers") or {},
+            }
+        else:
+            submit_result = execute_command(commands["submit"], args.timeout)
+            result["submit"] = submit_result
+            result["submit_command_shell"] = shlex.join(commands["submit"])
+            append_journal_event(
+                args,
+                {
+                    "type": "command",
+                    "stage": "submit",
+                    "service": service,
+                    "operation": args.operation,
+                    "success": bool(submit_result.get("success")),
+                    "command": commands["submit"],
+                    "result": submit_result,
+                },
+            )
+            if lifecycle:
+                stored_verify_params = lifecycle_verification_params(
+                    args,
+                    service_plan,
+                    submit_result,
+                )
+                _record_lifecycle_submit(
+                    lifecycle,
+                    submit_result=submit_result,
+                    verification_params=stored_verify_params,
+                )
+            if not submit_result.get("success"):
+                result["success"] = False
+                if lifecycle:
+                    result["next_steps"].append(
+                        "Submit result is ambiguous. Read back the recorded target or scope before any retry."
+                    )
+                else:
+                    result["next_steps"].append("Submit failed. Inspect submit.error_details/advice before retrying.")
+                return result
+
+    if getattr(args, "execute_wait", False):
+        if not getattr(args, "async_operation", None):
             result["success"] = False
-            result["next_steps"].append("Submit failed. Inspect submit.error_details/advice before retrying.")
+            result["async_wait"] = {
+                "success": False,
+                "classification": "configuration_error",
+                "error": "--execute-wait requires --async-operation.",
+            }
+            return result
+        job_ids = lifecycle_job_ids(lifecycle)
+        if not job_ids:
+            result["success"] = False
+            result["async_wait"] = {
+                "success": False,
+                "classification": "identifier_missing",
+                "error": "No exact submit job_id is available for async convergence.",
+            }
+            return result
+        async_result = hcloud_async_job_wait.wait_for_job(
+            async_wait_args(args, job_id=job_ids[0])
+        )
+        result["async_wait"] = async_result
+        if lifecycle and lifecycle.get("ledger_file"):
+            final_identifiers = async_result.get("final_identifiers")
+            identifier_parameter = lifecycle.get("identifier_parameter")
+            hcloud_resource_ledger.record_submission(
+                Path(lifecycle["ledger_file"]),
+                workflow_id=lifecycle["workflow_id"],
+                role=lifecycle["resource_role"],
+                accepted=True,
+                identifiers=identifier_values(
+                    final_identifiers if isinstance(final_identifiers, dict) else {},
+                    str(identifier_parameter or ""),
+                ),
+                job_ids=job_ids,
+            )
+        if not async_result.get("success"):
+            result["success"] = False
             return result
 
     try:
-        verify_plan = build_verify_plan(args, service_plan, submit_result)
+        verify_plan = build_verify_plan(
+            args,
+            service_plan,
+            submit_result,
+            stored_verify_params,
+        )
     except ValueError as exc:
         result["success"] = False
         result["post_change_verification"] = {"success": False, "error": str(exc)}
@@ -501,6 +815,25 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     result["post_change_verification"] = verify_plan
     if args.execute_verify:
         result["success"] = bool(verify_plan.get("success"))
+        if lifecycle and str(lifecycle["step"].get("status")) in {
+            "submitted",
+            "submit_unknown",
+            "verification_failed",
+            "verified",
+        }:
+            identifier_parameter = lifecycle.get("identifier_parameter")
+            verified_identifiers = []
+            if identifier_parameter and stored_verify_params.get(
+                identifier_parameter
+            ):
+                verified_identifiers.append(
+                    stored_verify_params[identifier_parameter]
+                )
+            _record_lifecycle_verification(
+                lifecycle,
+                success=bool(verify_plan.get("success")),
+                identifiers=verified_identifiers,
+            )
         append_journal_event(
             args,
             {
@@ -542,6 +875,55 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     return result
 
 
+def finalize_flow_result(
+    result: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Attach the platform's declared JSON outcome contract to every result."""
+    result["result_contract"] = "json_outcome_v1"
+    lifecycle = result.get("lifecycle_state")
+    lifecycle_status = (
+        str(lifecycle.get("step", {}).get("status") or "")
+        if isinstance(lifecycle, dict)
+        else ""
+    )
+    accepted_submit = bool(
+        isinstance(result.get("submit"), dict)
+        and result["submit"].get("success")
+    ) or bool(result.get("submit_resume"))
+    verification = result.get("post_change_verification")
+    verification_succeeded = bool(
+        getattr(args, "execute_verify", False)
+        and isinstance(verification, dict)
+        and verification.get("success")
+    )
+    if result.get("success"):
+        if result.get("planning_only"):
+            outcome_status = "succeeded"
+        elif lifecycle_status == "verified" or verification_succeeded:
+            outcome_status = "succeeded"
+        elif getattr(args, "execute_submit", False) and accepted_submit:
+            outcome_status = "partially_succeeded"
+        else:
+            outcome_status = "succeeded"
+    elif accepted_submit or lifecycle_status in {
+        "submitted",
+        "submit_unknown",
+        "verification_failed",
+        "verified",
+    }:
+        outcome_status = "partially_succeeded"
+    else:
+        outcome_status = "failed"
+    result["outcome_status"] = outcome_status
+    return result
+
+
+def build_flow(args: argparse.Namespace) -> dict[str, Any]:
+    """Build the guarded flow and expose a declared machine-readable outcome."""
+    return finalize_flow_result(_build_flow(args), args)
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -572,11 +954,56 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--verify-param", action="append", default=[], help="Post-change verification parameter as KEY=VALUE. Can be repeated.")
     parser.add_argument("--execute-verify", action="store_true", help="Execute the post-change resource verification query.")
     parser.add_argument("--journal", help="Optional JSONL journal path for executed dry-run/submit/verify events.")
+    parser.add_argument(
+        "--state-file",
+        help="Optional durable JSON state file; requires --workflow-id and --step-id.",
+    )
+    parser.add_argument(
+        "--workflow-id",
+        help="Stable task/workflow identifier used with --state-file.",
+    )
+    parser.add_argument(
+        "--step-id",
+        help="Stable logical change-step identifier used with --state-file.",
+    )
+    parser.add_argument("--ledger-file", help="Optional task-owned resource ledger file.")
+    parser.add_argument("--resource-role", help="Logical resource role used with --ledger-file.")
+    parser.add_argument("--expected-count", type=int, default=1)
+    parser.add_argument("--depends-on", action="append", default=[])
+    parser.add_argument("--cleanup-operation")
+    parser.add_argument("--identifier-parameter")
+    parser.add_argument("--execute-wait", action="store_true")
+    parser.add_argument("--async-service")
+    parser.add_argument("--async-operation")
+    parser.add_argument("--async-job-param", default="job_id")
+    parser.add_argument("--async-param", action="append", default=[])
+    parser.add_argument("--async-status-path", action="append", default=[])
+    parser.add_argument("--async-success-status", action="append", default=[])
+    parser.add_argument("--async-failure-status", action="append", default=[])
+    parser.add_argument("--async-interval", type=float, default=10.0)
+    parser.add_argument("--async-timeout", type=float, default=600.0)
+    parser.add_argument("--max-command-failures", type=int, default=3)
     parser.add_argument("--timeout", type=int, default=120, help="Timeout for executed safe_exec commands.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.timeout < 1:
         parser.error("--timeout must be greater than 0.")
+    state_values = (args.state_file, args.workflow_id, args.step_id)
+    if any(state_values) and not all(state_values):
+        parser.error("--state-file, --workflow-id, and --step-id must be provided together.")
+    ledger_values = (args.ledger_file, args.resource_role)
+    if any(ledger_values) and not all(ledger_values):
+        parser.error("--ledger-file and --resource-role must be provided together.")
+    if any(ledger_values) and not all(state_values):
+        parser.error("--ledger-file requires durable workflow state arguments.")
+    if bool(args.cleanup_operation) != bool(args.identifier_parameter):
+        parser.error("--cleanup-operation and --identifier-parameter must be provided together.")
+    if args.expected_count < 1:
+        parser.error("--expected-count must be greater than 0.")
+    if args.async_interval <= 0 or args.async_timeout <= 0:
+        parser.error("async interval and timeout must be greater than 0.")
+    if args.max_command_failures < 1:
+        parser.error("--max-command-failures must be at least 1.")
     return args
 
 

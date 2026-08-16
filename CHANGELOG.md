@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- 新增 Skill 声明式变更 capability：ECS 创建、EIP 写/删除、通用服务变更和 ECS 来宾交付均通过 runtime 提案/审批入口执行；Agent 先本地规划，再调用 capability 创建普通 CloudAction proposal，只有未登记或运行时不支持时才允许脚本 fallback。
+- 澄清变更 capability 的 plan-only 例外：本地 `exec` / `process` 只能生成计划和 review token，真实 execute 必须走 capability；EIP 创建强制精确资源台账/清理合同，更新既有 EIP 不再错误取得任务资源所有权。
+- 新增任务资源台账、通用异步 waiter、ECS create-to-ACTIVE flow 和来宾交付闭环；资源创建后立即记录 canonical ID/job/依赖，恢复执行不重复 submit，清理只使用台账精确目标，交付完成后以 HTTP 用户路径验收。
+- 通用 guarded change flow 新增可选的持久化生命周期状态：用完整请求指纹、逻辑 step、有限资源/job 标识和验证参数阻止已受理操作被重复 submit，并支持续跑时直接进入回读验证；同时声明 `json_outcome_v1` 和 `outcome_status`，区分已受理待验证与最终成功。
+- 账号盘点 capability 现在可在省略 `regions` 时通过 IAM 自动发现区域与可访问项目，区域级服务按 region→project_id 查询，CDN/DNS/SCM/OBS 等非区域循环服务只查询一次；查询前用 KooCLI endpoint 元数据排除明确不支持的服务/区域组合，元数据未知时继续尝试；结果新增 attempted/succeeded/failed/skipped 覆盖率和结构化缺口，避免把部分结果描述成完整清单。
 - Billing live-read 现在在固定页数、记录数、payload 和总超时上限内自动完成 BSS 分页，跨页校验 scope、币种、顶层金额元数据与 `total_count`，完整后用 Decimal 生成 `verified_monetary_totals`；后续页失败或不一致时返回 `partially_succeeded`，不再把第一页小计暴露为可声明总额。
 - 为账单只读路径增加 `huaweicloud.billing.read.v1` capability，固定使用已确认的 live-read 入口、受限参数和 `json_outcome_v1`，让支持机器契约的 runtime 在精确凭据/profile 边界内执行 BSS 查询。
 - 明确 capability-first 运行规则：Agent 仍自主选择业务能力；选中已声明 capability 且 runtime 支持时必须调用 capability 入口，只有契约不存在或运行时不支持时才允许脚本 fallback。

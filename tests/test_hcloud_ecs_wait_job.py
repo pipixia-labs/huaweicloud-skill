@@ -6,6 +6,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "hcloud_ecs_wait_job.py"
@@ -53,6 +54,40 @@ class EcsWaitJobTest(unittest.TestCase):
         self.assertTrue(result["resource_verification"]["has_targets"])
         self.assertIn("hcloud_ecs_verify_active.py", result["resource_verification"]["recommended_followup_command"][1])
         self.assertIn("--server-id=server-1", result["resource_verification"]["recommended_followup_command"])
+
+    def test_successful_terminal_job_returns_identifier_receipt(self) -> None:
+        args = SimpleNamespace(
+            job_id="job-1",
+            region="cn-north-4",
+            project_id="project-1",
+            profile=None,
+            server_id=[],
+            server_name=["web-server"],
+            interval=0.01,
+            timeout=1.0,
+            command_timeout=1,
+            max_command_failures=1,
+            print_command_only=False,
+        )
+        with mock.patch.object(
+            hcloud_ecs_wait_job,
+            "run_show_job",
+            return_value={
+                "success": True,
+                "return_code": 0,
+                "parsed_json": {
+                    "status": "SUCCESS",
+                    "entities": {"serverId": "server-1"},
+                },
+            },
+        ):
+            result = hcloud_ecs_wait_job.wait_for_job(args)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["final_identifiers"],
+            {"entities.serverId": ["server-1"]},
+        )
 
 
 if __name__ == "__main__":

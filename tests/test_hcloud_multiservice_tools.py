@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -88,6 +89,9 @@ class MultiServiceToolsTest(unittest.TestCase):
             "skip_dryrun": False,
             "execute_verify": False,
             "journal": None,
+            "state_file": None,
+            "workflow_id": None,
+            "step_id": None,
             "timeout": 1,
         }
         values.update(overrides)
@@ -479,6 +483,11 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("outcome_status", result)
         self.assertTrue(result["planning_only"])
         self.assertGreaterEqual(result["summary"]["check_count"], 10)
+        self.assertEqual(result["inventory_scope"]["scope_kind"], "registered_core_services")
+        self.assertEqual(result["inventory_scope"]["complete_claim_scope"], "selected_services_and_regions")
+        self.assertEqual(result["inventory_scope"]["selected_service_count"], 12)
+        self.assertIn("ECS", result["inventory_scope"]["selected_services"])
+        self.assertIn("OBS", result["inventory_scope"]["selected_services"])
         operations = {(check["service"], check["operation"]) for check in result["checks"]}
         self.assertIn(("ECS", "ListCloudServers"), operations)
         self.assertIn(("EIP", "ListPublicips"), operations)
@@ -516,6 +525,328 @@ class MultiServiceToolsTest(unittest.TestCase):
                     check["plan"]["commands"][0]["command"],
                 )
 
+    def test_account_inventory_runs_global_services_once_per_request(self) -> None:
+        result = hcloud_account_inventory.build_plan(
+            self.inventory_args(
+                service=["ECS", "SCM", "OBS"],
+                region=["cn-north-4", "cn-east-3"],
+            )
+        )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["summary"]["check_count"], 4)
+        counts = Counter(check["service"] for check in result["checks"])
+        self.assertEqual(counts, {"ECS": 2, "SCM": 1, "OBS": 1})
+        global_checks = [
+            check for check in result["checks"] if check["service"] in {"SCM", "OBS"}
+        ]
+        self.assertTrue(all(check["scope_type"] == "global" for check in global_checks))
+        self.assertTrue(all(check["scope"]["region"] is None for check in global_checks))
+
+    def test_account_inventory_discovers_accessible_projects_when_regions_omitted(self) -> None:
+        discovered = {
+            "success": True,
+            "source": "iam_regions_and_auth_projects",
+            "catalog_region_count": 2,
+            "region_scopes": [
+                {
+                    "region": "cn-north-4",
+                    "project_id": "project-1",
+                    "region_type": "public",
+                }
+            ],
+            "skipped_regions": [
+                {
+                    "region": "af-north-1",
+                    "reason": "no_accessible_project",
+                }
+            ],
+            "checks": [],
+        }
+        seen: list[tuple[str | None, str | None]] = []
+
+        def fake_target_plan(args, target, region, project_id_override=None):
+            seen.append((region, project_id_override))
+            return {
+                **target,
+                "scope_type": "regional",
+                "scope": {"region": region, "project_id": project_id_override},
+                "success": True,
+                "plan": {"success": True, "commands": []},
+            }
+
+        with (
+            patch.object(
+                hcloud_account_inventory,
+                "discover_region_context",
+                return_value=discovered,
+                create=True,
+            ),
+            patch.object(
+                hcloud_account_inventory,
+                "build_target_plan_for_region",
+                side_effect=fake_target_plan,
+            ),
+        ):
+            result = hcloud_account_inventory.build_plan(
+                self.inventory_args(service=["ECS"], region=[], execute=True)
+            )
+
+        self.assertEqual(seen, [("cn-north-4", "project-1")])
+        self.assertEqual(result["region_source"], "iam_regions_and_auth_projects")
+        self.assertEqual(result["regions"], ["cn-north-4"])
+        self.assertEqual(result["summary"]["attempted_check_count"], 1)
+        self.assertEqual(result["summary"]["succeeded_check_count"], 1)
+        self.assertEqual(result["summary"]["failed_check_count"], 0)
+        self.assertEqual(result["summary"]["skipped_check_count"], 1)
+        self.assertFalse(result["summary"]["complete"])
+        self.assertEqual(result["outcome_status"], "partially_succeeded")
+
+    def test_account_inventory_reads_service_regions_from_endpoint_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            meta_repo = Path(tmp_dir)
+            endpoint_file = meta_repo / "template" / "ecs" / "endpoints_en.json"
+            endpoint_file.parent.mkdir(parents=True)
+            endpoint_file.write_text(
+                json.dumps(
+                    {
+                        "service": "ECS",
+                        "updateTime": 1785636295,
+                        "groupInfo": [
+                            {"region": "cn-north-4", "endpoints": ["ecs.cn-north-4.example.com"]},
+                            {"region": "cn-east-3", "endpoints": ["ecs.cn-east-3.example.com"]},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            support = hcloud_account_inventory.load_service_region_support(
+                "ECS",
+                meta_repo=meta_repo,
+            )
+
+        self.assertTrue(support["known"])
+        self.assertEqual(support["source"], "hcloud_endpoint_metadata")
+        self.assertEqual(support["metadata_update_time"], 1785636295)
+        self.assertEqual(support["supported_regions"], ["cn-east-3", "cn-north-4"])
+
+    def test_account_inventory_does_not_skip_when_endpoint_metadata_is_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            support = hcloud_account_inventory.load_service_region_support(
+                "ECS",
+                meta_repo=Path(tmp_dir),
+            )
+
+        self.assertFalse(support["known"])
+        self.assertEqual(support["reason"], "endpoint_metadata_unavailable")
+        self.assertIsNone(
+            hcloud_account_inventory._unsupported_region_skip(
+                {"service": "ECS", "operation": "ListCloudServers"},
+                "cn-new-region-1",
+                support,
+            )
+        )
+
+    def test_account_inventory_skips_service_regions_known_to_be_unsupported(self) -> None:
+        support = {
+            "service": "ECS",
+            "known": True,
+            "source": "hcloud_endpoint_metadata",
+            "metadata_update_time": 1785636295,
+            "supported_regions": ["cn-north-4"],
+        }
+        seen: list[str | None] = []
+
+        def fake_target_plan(args, target, region, project_id_override=None):
+            seen.append(region)
+            return {
+                **target,
+                "scope_type": "regional",
+                "scope": {"region": region, "project_id": project_id_override},
+                "success": True,
+                "plan": {"success": True, "commands": []},
+            }
+
+        with (
+            patch.object(
+                hcloud_account_inventory,
+                "load_service_region_support",
+                return_value=support,
+                create=True,
+            ),
+            patch.object(
+                hcloud_account_inventory,
+                "build_target_plan_for_region",
+                side_effect=fake_target_plan,
+            ),
+        ):
+            result = hcloud_account_inventory.build_plan(
+                self.inventory_args(
+                    service=["ECS"],
+                    region=["cn-north-4", "cn-north-12"],
+                )
+            )
+
+        self.assertEqual(seen, ["cn-north-4"])
+        self.assertEqual(result["summary"]["attempted_check_count"], 1)
+        self.assertEqual(result["summary"]["skipped_check_count"], 1)
+        self.assertEqual(result["summary"]["completeness_affecting_skipped_check_count"], 0)
+        self.assertTrue(result["summary"]["complete"])
+        self.assertEqual(result["planning_status"], "succeeded")
+        self.assertEqual(
+            result["skipped_checks"],
+            [
+                {
+                    "service": "ECS",
+                    "operation": "ListCloudServers",
+                    "region": "cn-north-12",
+                    "reason": "service_region_not_supported",
+                    "status": "skipped",
+                    "affects_completeness": False,
+                    "evidence_source": "hcloud_endpoint_metadata",
+                    "metadata_update_time": 1785636295,
+                }
+            ],
+        )
+
+    def test_account_inventory_region_discovery_joins_catalog_and_accessible_projects(self) -> None:
+        region_plan = {
+            "success": True,
+            "results": [
+                {
+                    "result": {
+                        "success": True,
+                        "parsed_json": {
+                            "regions": [
+                                {
+                                    "id": "cn-north-4",
+                                    "type": "public",
+                                    "locales": {"zh-cn": "华北-北京四"},
+                                },
+                                {
+                                    "id": "af-north-1",
+                                    "type": "public",
+                                    "locales": {"zh-cn": "非洲-开罗"},
+                                },
+                            ]
+                        },
+                    }
+                }
+            ],
+        }
+        project_plan = {
+            "success": True,
+            "results": [
+                {
+                    "result": {
+                        "success": True,
+                        "parsed_json": {
+                            "projects": [
+                                {
+                                    "name": "cn-north-4",
+                                    "id": "project-1",
+                                    "enabled": True,
+                                    "is_domain": False,
+                                    "domain_id": "domain-1",
+                                    "parent_id": "domain-1",
+                                },
+                                {
+                                    "name": "af-north-1",
+                                    "id": "project-disabled",
+                                    "enabled": False,
+                                    "is_domain": False,
+                                },
+                            ]
+                        },
+                    }
+                }
+            ],
+        }
+
+        with patch.object(
+            hcloud_account_inventory,
+            "execute_iam_discovery_operation",
+            side_effect=[region_plan, project_plan],
+            create=True,
+        ):
+            result = hcloud_account_inventory.discover_region_context(
+                self.inventory_args(region=[], execute=True)
+            )
+
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["catalog_region_count"], 2)
+        self.assertEqual(
+            result["region_scopes"],
+            [
+                {
+                    "region": "cn-north-4",
+                    "project_id": "project-1",
+                    "region_type": "public",
+                    "region_name": "华北-北京四",
+                }
+            ],
+        )
+        self.assertEqual(
+            result["skipped_regions"],
+            [
+                {
+                    "region": "af-north-1",
+                    "region_type": "public",
+                    "region_name": "非洲-开罗",
+                    "reason": "no_accessible_project",
+                }
+            ],
+        )
+
+    def test_account_inventory_summary_retains_failure_context(self) -> None:
+        checks = [
+            {
+                "service": "ELB",
+                "operation": "ListLoadbalancers",
+                "category": "traffic",
+                "scope_type": "regional",
+                "scope": {"region": "cn-north-12", "project_id": "project-1"},
+                "success": False,
+                "plan": {
+                    "results": [
+                        {
+                            "result": {
+                                "success": False,
+                                "error_details": {
+                                    "category": "parameter",
+                                    "cloud_error_code": None,
+                                    "cloud_error_message": None,
+                                    "error_type": "USE_ERROR",
+                                },
+                                "stdout": "[USE_ERROR] ELB does not support region cn-north-12",
+                            }
+                        }
+                    ]
+                },
+            }
+        ]
+
+        summary = hcloud_account_inventory.summarize_checks(checks)
+
+        self.assertEqual(summary["attempted_check_count"], 1)
+        self.assertEqual(summary["succeeded_check_count"], 0)
+        self.assertEqual(summary["failed_check_count"], 1)
+        self.assertFalse(summary["complete"])
+        self.assertEqual(
+            summary["failed_checks"],
+            [
+                {
+                    "service": "ELB",
+                    "operation": "ListLoadbalancers",
+                    "region": "cn-north-12",
+                    "category": "parameter",
+                    "error_code": "USE_ERROR",
+                    "message": "[USE_ERROR] ELB does not support region cn-north-12",
+                }
+            ],
+        )
+
     def test_account_inventory_filters_services(self) -> None:
         result = hcloud_account_inventory.build_plan(self.inventory_args(service=["EIP"]))
 
@@ -545,6 +876,22 @@ class MultiServiceToolsTest(unittest.TestCase):
                 failed_check_count=4,
             ),
             "failed",
+        )
+        self.assertEqual(
+            hcloud_account_inventory.inventory_outcome_status(
+                check_count=4,
+                failed_check_count=0,
+                skipped_check_count=1,
+            ),
+            "partially_succeeded",
+        )
+        self.assertEqual(
+            hcloud_account_inventory.inventory_outcome_status(
+                check_count=0,
+                failed_check_count=0,
+                non_applicable_skipped_check_count=1,
+            ),
+            "succeeded",
         )
 
     def test_account_inventory_execute_returns_business_outcome_only(self) -> None:
@@ -2644,10 +2991,123 @@ class MultiServiceToolsTest(unittest.TestCase):
 
         self.assertTrue(result["success"], result)
         self.assertFalse(result["planning_only"])
+        self.assertEqual(result["outcome_status"], "succeeded")
         self.assertEqual(result["post_change_verification"]["operation"], "ShowSecurityGroupRule")
         self.assertIn("--arg=--security_group_rule_id=rule-2", result["post_change_verification"]["command"])
         self.assertEqual(execute_mock.call_count, 2)
         verify_mock.assert_called_once()
+
+    def test_guarded_change_flow_state_prevents_duplicate_submit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            state_file = str(Path(tmp_dir) / "change-state.json")
+            args = self.guarded_flow_args(
+                execute_submit=True,
+                confirm_submit=True,
+                skip_dryrun=True,
+                state_file=state_file,
+                workflow_id="workflow-1",
+                step_id="create-rule",
+                verify_param=[],
+            )
+            args.submit_token = self.current_guarded_submit_token(args)
+            with patch.object(
+                hcloud_guarded_change_flow,
+                "execute_command",
+                return_value={
+                    "success": True,
+                    "parsed_json": {"security_group_rule": {"id": "rule-2"}},
+                },
+            ) as execute_mock:
+                first = hcloud_guarded_change_flow.build_flow(args)
+                resumed = hcloud_guarded_change_flow.build_flow(args)
+
+        self.assertTrue(first["success"], first)
+        self.assertEqual(first["outcome_status"], "partially_succeeded")
+        self.assertEqual(resumed["lifecycle_state"]["resume_action"], "verify_existing")
+        self.assertTrue(resumed["submit_resume"]["submit_was_not_repeated"])
+        self.assertEqual(execute_mock.call_count, 1)
+
+    def test_guarded_change_flow_records_successful_resumed_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            state_file = str(Path(tmp_dir) / "change-state.json")
+            submit_args = self.guarded_flow_args(
+                execute_submit=True,
+                confirm_submit=True,
+                skip_dryrun=True,
+                state_file=state_file,
+                workflow_id="workflow-1",
+                step_id="create-rule",
+                verify_param=[],
+            )
+            submit_args.submit_token = self.current_guarded_submit_token(submit_args)
+            verify_args = self.guarded_flow_args(
+                execute_submit=True,
+                confirm_submit=True,
+                skip_dryrun=True,
+                execute_verify=True,
+                state_file=state_file,
+                workflow_id="workflow-1",
+                step_id="create-rule",
+                verify_param=[],
+            )
+            verify_args.submit_token = self.current_guarded_submit_token(verify_args)
+            with (
+                patch.object(
+                    hcloud_guarded_change_flow,
+                    "execute_command",
+                    return_value={
+                        "success": True,
+                        "parsed_json": {"security_group_rule": {"id": "rule-2"}},
+                    },
+                ) as execute_mock,
+                patch.object(
+                    hcloud_guarded_change_flow.hcloud_resource_query,
+                    "execute_command",
+                    return_value={
+                        "success": True,
+                        "parsed_json": {"security_group_rule": {"id": "rule-2"}},
+                    },
+                ),
+            ):
+                hcloud_guarded_change_flow.build_flow(submit_args)
+                verified = hcloud_guarded_change_flow.build_flow(verify_args)
+
+            state = json.loads(Path(state_file).read_text(encoding="utf-8"))
+
+        self.assertTrue(verified["success"], verified)
+        self.assertEqual(verified["outcome_status"], "succeeded")
+        self.assertEqual(state["steps"]["create-rule"]["status"], "verified")
+        self.assertEqual(execute_mock.call_count, 1)
+
+    def test_guarded_change_flow_does_not_retry_ambiguous_submit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            args = self.guarded_flow_args(
+                execute_submit=True,
+                confirm_submit=True,
+                skip_dryrun=True,
+                state_file=str(Path(tmp_dir) / "change-state.json"),
+                workflow_id="workflow-1",
+                step_id="create-rule",
+                verify_param=[],
+            )
+            args.submit_token = self.current_guarded_submit_token(args)
+            with patch.object(
+                hcloud_guarded_change_flow,
+                "execute_command",
+                return_value={
+                    "success": False,
+                    "parsed_json": None,
+                    "error_details": {"category": "network"},
+                },
+            ) as execute_mock:
+                ambiguous = hcloud_guarded_change_flow.build_flow(args)
+                resumed = hcloud_guarded_change_flow.build_flow(args)
+
+        self.assertFalse(ambiguous["success"])
+        self.assertEqual(ambiguous["outcome_status"], "partially_succeeded")
+        self.assertEqual(ambiguous["lifecycle_state"]["step"]["status"], "submit_unknown")
+        self.assertTrue(resumed["submit_resume"]["submit_was_not_repeated"])
+        self.assertEqual(execute_mock.call_count, 1)
 
     def test_guarded_change_flow_reports_missing_verify_target(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(verify_param=[]))

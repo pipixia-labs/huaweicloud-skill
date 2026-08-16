@@ -320,6 +320,8 @@ python3 scripts/hcloud_account_inventory.py \
 
 Use this for a read-only account inventory plan across core services such as ECS, VPC, EIP, ELB, EVS, NAT, RDS, CCE, CDN, DNS, SCM, and OBS. Default mode only builds commands. Add `--execute` only after read-only collection is approved.
 
+In execute mode, omitting `--region` makes the script call the read-only IAM region and accessible-project APIs first. Regional services are queried only for regions with an enabled project and use that region's `project_id`; services that do not require a caller region are queried once. Regions without an accessible project are reported as completeness-affecting `skipped_checks`, not treated as empty or successful. Before a regional query, local KooCLI endpoint metadata is used to skip a service/region combination that is explicitly unsupported. Such a skip has `reason=service_region_not_supported` and `affects_completeness=false`; unavailable endpoint metadata causes the query to proceed rather than be guessed away.
+
 Use repeated `--region` or `--region-file` for cross-region reviews, and `--enterprise-project-id` when the tenant needs EPS-scoped inventory. EPS is appended only when the operation metadata supports `enterprise_project_id`; unsupported operations keep the scope visible instead of pretending it was applied.
 
 ```bash
@@ -333,6 +335,8 @@ python3 scripts/hcloud_account_inventory.py \
 ```
 
 Save executed JSON output when you need follow-up idle-resource analysis.
+
+Read `inventory_scope` plus `summary.attempted_check_count`, `succeeded_check_count`, `failed_check_count`, `skipped_check_count`, `completeness_affecting_skipped_check_count`, `non_applicable_skipped_check_count`, and `complete` before making completeness claims. `complete=true` applies only to the declared selected services and regions, not every Huawei Cloud product. A partial result remains useful, but it is not an all-resource inventory.
 
 `hcloud_idle_audit.py` preserves region, project, enterprise-project, and tag dimensions from inventory output so idle candidates can be reviewed by owner/scope before any release, delete, stop, or downsize discussion.
 
@@ -897,14 +901,48 @@ python3 scripts/hcloud_guarded_change_flow.py \
   --verify-param security_group_rule_id=<rule-id> \
   --region=cn-north-4 \
   --project-id=<project-id> \
+  --state-file=tasks/<task-id>/huawei-change-state.json \
+  --workflow-id=<task-id> \
+  --step-id=create-public-web-rule \
   --pretty
 ```
 
 Use for non-ECS ordinary services with service-aware risk planning, optional dry-run execution, guarded submit, resource-level verification, and post-change read-only readiness. `--execute-submit` must be paired with `--confirm-submit`; medium/high risk also requires a successful dry-run or explicit `--skip-dryrun`. If `risk.hard_guard=true`, submit execution is blocked even with confirmation.
 
+For multi-step or resumable work, pass `--state-file`, `--workflow-id`, and
+`--step-id` together. The state stores the exact request fingerprint, bounded
+resource/job identifiers, verification parameters, and the latest lifecycle
+status. Once submit has been accepted, rerunning the same step skips submit and
+continues verification. A changed fingerprint is rejected instead of being
+silently attached to the old receipt. The script emits `result_contract` set to
+`json_outcome_v1` and a top-level `outcome_status`; platform command proposals
+for this script must therefore select `json_outcome_v1`.
+
+A local timeout, network error, or parse failure does not prove the cloud
+rejected submit. With lifecycle state enabled, that result is recorded as
+`submit_unknown` and the next run must perform readback instead of resubmitting.
+
+Positive resume example: keep the same state file and logical step after an
+accepted RDS create or VPC rule create, then rerun with `--execute-verify`; the
+recorded identifier is reused and submit is not repeated. Negative example:
+after a timeout, do not remove the state file, rename the step, or alter the
+create request just to force another submit. First verify the recorded resource
+or explicitly plan a distinct replacement step.
+
 Only add `--allow-public-web` after the user has reviewed and confirmed an EIP-direct public website plan. The generated submit token binds this exposure context to the exact plan; submit still requires `--execute-submit --confirm-submit --submit-token <current-token>`.
 
 This does not replace dedicated planners. EIP uses `hcloud_eip_change_flow.py`, OBS uses `hcloud_obs_change_plan.py`, and ECS creation uses ECS-specific scripts.
+
+### Task Resource Ledger And Generic Async Wait
+
+`hcloud_resource_ledger.py` 记录同一 workflow 明确创建出的资源角色、canonical ID、
+job ID、预期数量和依赖关系。`cleanup-plan` 只按依赖反序返回台账内精确目标；缺少 ID
+时阻止计划，不通过名称或全账号查询猜测资源。
+
+`hcloud_async_job_wait.py` 使用 service registry 登记的只读 operation 轮询异步状态。
+通过重复 `--status-path`、`--success-status` 和 `--failure-status` 适配不同服务；它不接受
+任意 shell 命令。generic guarded flow 可用 `--execute-wait --async-operation ...` 把这个
+收敛步骤接在 submit 与 resource verify 之间。
 
 ### EIP Guarded Flow
 
@@ -918,7 +956,7 @@ python3 scripts/hcloud_eip_change_flow.py \
   --pretty
 ```
 
-Use for EIP Plan -> dry-run -> guarded submit -> ShowPublicip verification. Default mode only builds the plan and verification plan. Real submit requires explicit confirmation for the exact operation.
+Use for public EIP Plan -> dry-run -> guarded submit -> ShowPublicip verification. Default mode only builds the plan and verification plan and may be run locally through `exec` / `process`; do not add execute or confirmation flags to that local plan command. Real submit uses the declared change capability and requires explicit confirmation for the exact operation. `CreatePublicip` additionally requires durable state, a task resource ledger, a resource role, and `DeletePublicip` as its exact cleanup operation. `UpdatePublicip` must not claim the existing EIP as a newly task-owned resource.
 
 ### OBS Change Plan
 
@@ -933,6 +971,13 @@ python3 scripts/hcloud_obs_change_plan.py \
 Use for OBS bucket, lifecycle, and policy changes. It produces planner-only commands and read-only verification guidance; it does not execute real bucket changes.
 
 ## ECS-Specific Flow
+
+### ECS Resumable Change Flow
+
+`hcloud_ecs_change_flow.py` 组合 ECS create planner、`ShowJob` waiter、ACTIVE verifier、
+change state 和 resource ledger。先用 plan 模式取得当前 `submit_token`；真实执行必须复用
+同一 JSON、state、ledger、workflow、step 和 resource role。submit 已受理或结果不确定后，
+再次运行只会等待/回读，不会重新创建。
 
 ### ECS Create Plan
 
@@ -984,6 +1029,13 @@ python3 scripts/hcloud_ecs_verify_active.py \
 ```
 
 Use after job success to verify the target ECS exists and reaches `ACTIVE`. Continue with SSH/application readiness when the task requires host-level or protocol-level completion.
+
+### ECS Guest Delivery
+
+`hcloud_ecs_guest_delivery.py` 把工作区目录按 checksum 幂等同步到 ECS，支持 key 文件或
+`0600` 密码文件、apt/dnf/yum 依赖收敛、可选 systemd 服务和 HTTP 用户路径验收。plan
+token 绑定目标、制品摘要和阶段命令；密码内容不会进入 token、argv、state 或输出。交付
+失败后同一 step 不重放远端变更，先用 health URL 回读确认。
 
 ## Verification And Regression
 
