@@ -183,6 +183,32 @@ class GuardedChangeLifecycleTest(unittest.TestCase):
         self.assertEqual(resumed["outcome_status"], "partially_succeeded")
         self.assertTrue(resumed["submit_resume"]["submit_was_not_repeated"])
 
+    def test_local_runtime_failure_is_not_reported_as_partial(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            plan = hcloud_guarded_change_flow.build_flow(flow_args(directory))
+            args = flow_args(
+                directory,
+                execute_submit=True,
+                confirm_submit=True,
+                submit_token=plan["submit_guard"]["submit_token"],
+            )
+            with mock.patch.object(
+                hcloud_guarded_change_flow,
+                "execute_command",
+                return_value={
+                    "success": False,
+                    "request_dispatched": False,
+                    "error_code": "RUNTIME_DEPENDENCY_UNAVAILABLE",
+                },
+            ):
+                result = hcloud_guarded_change_flow.build_flow(args)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "failed")
+        self.assertEqual(result["lifecycle_state"]["step"]["status"], "submit_failed")
+        self.assertIn("did not reach hcloud", result["next_steps"][-1])
+
 
 if __name__ == "__main__":
     unittest.main()

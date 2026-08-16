@@ -214,6 +214,36 @@ class EipChangeFlowTest(unittest.TestCase):
         self.assertEqual(first["outcome_status"], "partially_succeeded")
         self.assertEqual(resumed["submit_resume"]["prior_status"], "submit_unknown")
 
+    def test_local_runtime_failure_is_not_reported_as_partial(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            with mock.patch.object(
+                hcloud_eip_change_flow.hcloud_service_change_plan,
+                "build_service_plan",
+                return_value=service_plan(),
+            ):
+                plan = hcloud_eip_change_flow.build_flow(flow_args(directory))
+                args = flow_args(
+                    directory,
+                    execute_submit=True,
+                    confirm_submit=True,
+                    submit_token=plan["submit_guard"]["submit_token"],
+                )
+                with mock.patch.object(
+                    hcloud_eip_change_flow,
+                    "execute_command",
+                    return_value={
+                        "success": False,
+                        "request_dispatched": False,
+                        "parsed_json": None,
+                    },
+                ):
+                    result = hcloud_eip_change_flow.build_flow(args)
+
+        self.assertEqual(result["outcome_status"], "failed")
+        self.assertEqual(result["lifecycle_state"]["step"]["status"], "submit_failed")
+        self.assertIn("did not reach hcloud", result["next_steps"][-1])
+
     def test_delete_verification_accepts_confirmed_absence(self) -> None:
         args = SimpleNamespace(
             **{

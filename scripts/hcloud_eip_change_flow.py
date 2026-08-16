@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -27,24 +26,7 @@ CREATE_CLEANUP_OPERATIONS = {
 
 def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
     """Run one generated safe_exec command and parse its JSON result."""
-    completed = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=timeout,
-    )
-    try:
-        return json.loads(completed.stdout)
-    except json.JSONDecodeError:
-        return {
-            "success": False,
-            "return_code": completed.returncode,
-            "stdout": completed.stdout,
-            "stderr": completed.stderr,
-            "parsed_json": None,
-            "parsed_json_error": "hcloud_safe_exec.py did not return valid JSON.",
-        }
+    return hcloud_common.run_json_command(command, timeout)
 
 
 def append_journal_event(args: argparse.Namespace, event: dict[str, Any]) -> None:
@@ -114,7 +96,9 @@ def submit_token_payload(args: argparse.Namespace, service_plan: dict[str, Any])
         "project_id": args.project_id,
         "profile": args.profile,
         "publicip_id": args.publicip_id,
-        "submit": commands.get("submit"),
+        "submit": hcloud_common.canonical_bundled_script_command(
+            commands.get("submit")
+        ),
         "risk": service_plan.get("risk"),
     }
 
@@ -218,6 +202,7 @@ def _record_lifecycle_submit(
         step_id=lifecycle["step_id"],
         fingerprint=lifecycle["fingerprint"],
         success=bool(submit_result.get("success")),
+        request_dispatched=submit_result.get("request_dispatched"),
         identifiers=identifiers,
         verification_params={},
     )
@@ -230,11 +215,16 @@ def _record_lifecycle_submit(
     )
     if lifecycle.get("ledger_file"):
         publicip_id = find_publicip_id(submit_result.get("parsed_json"))
+        dispatched = submit_result.get("request_dispatched")
         hcloud_resource_ledger.record_submission(
             Path(lifecycle["ledger_file"]),
             workflow_id=lifecycle["workflow_id"],
             role=lifecycle["resource_role"],
-            accepted=True if submit_result.get("success") else None,
+            accepted=(
+                True
+                if submit_result.get("success")
+                else False if dispatched is False else None
+            ),
             identifiers=[publicip_id] if publicip_id else [],
         )
 
@@ -501,7 +491,11 @@ def _build_flow(args: argparse.Namespace) -> dict[str, Any]:
                 _record_lifecycle_submit(lifecycle, submit_result)
             if not submit_result.get("success"):
                 result["success"] = False
-                if lifecycle:
+                if submit_result.get("request_dispatched") is False:
+                    result["next_steps"].append(
+                        "Submit did not reach hcloud. Repair the local runtime, then retry the same exact plan."
+                    )
+                elif lifecycle:
                     result["next_steps"].append(
                         "Submit result is ambiguous. Read back the recorded target before any retry."
                     )

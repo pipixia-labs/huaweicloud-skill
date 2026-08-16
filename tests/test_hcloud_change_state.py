@@ -164,6 +164,39 @@ class ChangeStateTest(unittest.TestCase):
         self.assertEqual(resumed["resume_action"], "verify_existing")
         self.assertFalse(resumed["can_submit"])
 
+    def test_submit_not_dispatched_is_failed_and_can_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "change-state.json"
+            fingerprint = hcloud_change_state.request_fingerprint(
+                {"service": "VPC", "operation": "CreateVpc"}
+            )
+            hcloud_change_state.prepare_step(
+                path,
+                workflow_id="workflow-1",
+                step_id="create-vpc",
+                fingerprint=fingerprint,
+                request_summary={"service": "VPC", "operation": "CreateVpc"},
+            )
+            recorded = hcloud_change_state.record_submit(
+                path,
+                workflow_id="workflow-1",
+                step_id="create-vpc",
+                fingerprint=fingerprint,
+                success=False,
+                request_dispatched=False,
+            )
+            resumed = hcloud_change_state.prepare_step(
+                path,
+                workflow_id="workflow-1",
+                step_id="create-vpc",
+                fingerprint=fingerprint,
+                request_summary={"service": "VPC", "operation": "CreateVpc"},
+            )
+
+        self.assertEqual(recorded["status"], "submit_failed")
+        self.assertEqual(resumed["resume_action"], "retry_submit")
+        self.assertTrue(resumed["can_submit"])
+
 
 if __name__ == "__main__":
     unittest.main()

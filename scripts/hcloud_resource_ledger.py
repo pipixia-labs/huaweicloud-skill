@@ -259,7 +259,12 @@ def record_submission(
 
     def mutate(ledger: dict[str, Any]) -> dict[str, Any]:
         resource = _resource(ledger, role)
-        resource["state"] = "submitted" if accepted is True else "submit_unknown"
+        if accepted is True:
+            resource["state"] = "submitted"
+        elif accepted is False:
+            resource["state"] = "submit_failed"
+        else:
+            resource["state"] = "submit_unknown"
         resource["identifiers"] = _unique_text_values(
             [*resource.get("identifiers", []), *normalized_identifiers],
             label="resource identifier",

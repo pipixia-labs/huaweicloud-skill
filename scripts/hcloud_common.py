@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -91,6 +92,108 @@ def bundled_script_command(name: str) -> list[str]:
     """
     python_executable = sys.executable or ("python.exe" if sys.platform == "win32" else "python3")
     return [python_executable, str(script_path(name))]
+
+
+def canonical_bundled_script_command(command: Any) -> Any:
+    """Return a path-independent representation of a generated Skill command.
+
+    Confirmation tokens bind the cloud operation and its arguments, not the
+    directory where the trusted Skill happens to be installed.  Normalize only
+    the interpreter and a recognized bundled ``hcloud_*.py`` entrypoint; all
+    business arguments remain byte-for-byte significant.
+    """
+
+    if not isinstance(command, (list, tuple)):
+        return command
+    normalized = list(command)
+    if len(normalized) < 2:
+        return normalized
+    script = Path(str(normalized[1]))
+    if script.suffix == ".py" and script.name.startswith("hcloud_"):
+        normalized[0] = "<python>"
+        normalized[1] = f"scripts/{script.name}"
+    return normalized
+
+
+def run_json_command(command: list[str], timeout: int) -> dict[str, Any]:
+    """Run a generated JSON command and report whether cloud dispatch started.
+
+    A missing bundled Python entrypoint or an OS-level spawn failure happens
+    before ``hcloud`` can receive the request.  Mark those cases explicitly so
+    lifecycle code can safely report ``failed`` and allow a retry after the
+    runtime is repaired.  Invalid child output remains ambiguous because the
+    child may already have dispatched the cloud request.
+    """
+
+    if (
+        len(command) >= 2
+        and str(command[1]).endswith(".py")
+        and not Path(str(command[1])).is_file()
+    ):
+        return {
+            "success": False,
+            "return_code": None,
+            "stdout": "",
+            "stderr": f"Bundled runtime script is unavailable: {command[1]}",
+            "parsed_json": None,
+            "parsed_json_error": "The bundled runtime command did not start.",
+            "error_code": "RUNTIME_DEPENDENCY_UNAVAILABLE",
+            "request_dispatched": False,
+        }
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except OSError as exc:
+        return {
+            "success": False,
+            "return_code": None,
+            "stdout": "",
+            "stderr": str(exc),
+            "parsed_json": None,
+            "parsed_json_error": "The bundled runtime command did not start.",
+            "error_code": "RUNTIME_COMMAND_START_FAILED",
+            "request_dispatched": False,
+        }
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "success": False,
+            "return_code": None,
+            "stdout": coerce_output_text(exc.stdout),
+            "stderr": coerce_output_text(exc.stderr),
+            "parsed_json": None,
+            "parsed_json_error": "The bundled runtime command timed out.",
+            "error_code": "RUNTIME_COMMAND_TIMEOUT",
+            "request_dispatched": True,
+        }
+    try:
+        result = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return {
+            "success": False,
+            "return_code": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+            "parsed_json": None,
+            "parsed_json_error": "hcloud_safe_exec.py did not return valid JSON.",
+            "request_dispatched": None,
+        }
+    if not isinstance(result, dict):
+        return {
+            "success": False,
+            "return_code": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+            "parsed_json": None,
+            "parsed_json_error": "hcloud_safe_exec.py did not return a JSON object.",
+            "request_dispatched": None,
+        }
+    result.setdefault("request_dispatched", None)
+    return result
 
 
 def load_json(path: Path) -> Any:

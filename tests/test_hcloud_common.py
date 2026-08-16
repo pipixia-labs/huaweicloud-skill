@@ -110,6 +110,27 @@ class HcloudCommonTest(unittest.TestCase):
         self.assertEqual(prefix[0], sys.executable)
         self.assertEqual(Path(prefix[1]), SCRIPTS / "hcloud_ecs_verify_active.py")
 
+    def test_canonical_bundled_command_ignores_installation_path(self) -> None:
+        first = hcloud_common.canonical_bundled_script_command(
+            ["/usr/bin/python3", "/opt/skill/scripts/hcloud_safe_exec.py", "--service", "VPC"]
+        )
+        second = hcloud_common.canonical_bundled_script_command(
+            ["/runtime/python", "/runtime/capabilities/sha256/abc/runtime/scripts/hcloud_safe_exec.py", "--service", "VPC"]
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(first[:2], ["<python>", "scripts/hcloud_safe_exec.py"])
+
+    def test_run_json_command_rejects_missing_bundled_script_before_dispatch(self) -> None:
+        result = hcloud_common.run_json_command(
+            [sys.executable, "/missing/hcloud_safe_exec.py", "--service", "VPC"],
+            timeout=1,
+        )
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["request_dispatched"])
+        self.assertEqual(result["error_code"], "RUNTIME_DEPENDENCY_UNAVAILABLE")
+
     def test_redaction_avoids_generic_token_and_short_numeric_values(self) -> None:
         payload = {
             "nextPageToken": "page-token-value",

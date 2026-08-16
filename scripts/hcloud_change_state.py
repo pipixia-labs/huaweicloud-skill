@@ -217,10 +217,11 @@ def record_submit(
     step_id: str,
     fingerprint: str,
     success: bool,
+    request_dispatched: bool | None = None,
     identifiers: dict[str, list[str]] | None = None,
     verification_params: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Record whether submit was accepted and the identifiers needed to resume."""
+    """Record submit certainty and the identifiers needed to resume safely."""
     state, step = _matching_step(
         path,
         workflow_id=workflow_id,
@@ -228,10 +229,19 @@ def record_submit(
         fingerprint=fingerprint,
     )
     step["submit_attempts"] = int(step.get("submit_attempts") or 0) + 1
-    step["submit"] = {"success": bool(success), "recorded_at": utc_timestamp()}
-    # A failed local command result does not prove the cloud rejected the
-    # request. Preserve ambiguity and require readback before another submit.
-    step["status"] = "submitted" if success else "submit_unknown"
+    step["submit"] = {
+        "success": bool(success),
+        "request_dispatched": request_dispatched,
+        "recorded_at": utc_timestamp(),
+    }
+    if success:
+        step["status"] = "submitted"
+    elif request_dispatched is False:
+        step["status"] = "submit_failed"
+    else:
+        # Once a child may have reached hcloud, local failure cannot prove the
+        # cloud rejected the request. Require readback before another submit.
+        step["status"] = "submit_unknown"
     if identifiers:
         step["identifiers"] = identifiers
     if verification_params:

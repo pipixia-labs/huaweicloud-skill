@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,24 +20,7 @@ import hcloud_resource_ledger
 
 def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
     """Run one generated safe-exec command and parse its JSON envelope."""
-    completed = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
-    try:
-        return json.loads(completed.stdout)
-    except json.JSONDecodeError:
-        return {
-            "success": False,
-            "return_code": completed.returncode,
-            "stdout": completed.stdout,
-            "stderr": completed.stderr,
-            "parsed_json": None,
-            "parsed_json_error": "hcloud_safe_exec.py did not return valid JSON.",
-        }
+    return hcloud_common.run_json_command(command, timeout)
 
 
 def planner_args(args: argparse.Namespace, *, mode: str) -> SimpleNamespace:
@@ -136,7 +118,9 @@ def submit_token_payload(
         "region": args.region,
         "project_id": args.project_id,
         "request": payload,
-        "submit": submit_plan.get("commands", {}).get("safe_exec"),
+        "submit": hcloud_common.canonical_bundled_script_command(
+            submit_plan.get("commands", {}).get("safe_exec")
+        ),
         "workflow_id": args.workflow_id,
         "step_id": args.step_id,
         "resource_role": args.resource_role,
@@ -335,13 +319,19 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
             result["submit"] = submit
             result["planning_only"] = False
             identifiers = hcloud_change_state.extract_identifiers(submit.get("parsed_json"))
-            accepted = True if submit.get("success") else None
+            dispatched = submit.get("request_dispatched")
+            accepted = (
+                True
+                if submit.get("success")
+                else False if dispatched is False else None
+            )
             step = hcloud_change_state.record_submit(
                 Path(args.state_file),
                 workflow_id=args.workflow_id,
                 step_id=args.step_id,
                 fingerprint=fingerprint,
                 success=bool(submit.get("success")),
+                request_dispatched=dispatched,
                 identifiers=identifiers,
                 verification_params={
                     "region": args.region,
@@ -358,11 +348,20 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
             )
             result["lifecycle_status"] = step["status"]
             if not submit.get("success"):
+                definitely_failed = dispatched is False
                 return _failure_result(
                     result,
-                    error_code="SUBMIT_OUTCOME_REQUIRES_READBACK",
-                    message=("The local submit result is ambiguous. The exact workflow must be read back before any retry."),
-                    partial=True,
+                    error_code=(
+                        "ECS_SUBMIT_NOT_DISPATCHED"
+                        if definitely_failed
+                        else "SUBMIT_OUTCOME_REQUIRES_READBACK"
+                    ),
+                    message=(
+                        "The ECS submit did not reach hcloud. Repair the local runtime, then retry the same exact plan."
+                        if definitely_failed
+                        else "The local submit result is ambiguous. The exact workflow must be read back before any retry."
+                    ),
+                    partial=not definitely_failed,
                 )
         else:
             result["planning_only"] = False

@@ -1185,7 +1185,7 @@ def main() -> int:
                 result["version_resolution"] = current_resolution
             result["config_context"]["used_temp_json_input"] = bool(temp_json_file)
             result["output_policy"] = output_policy
-    except FileNotFoundError as exc:
+    except OSError as exc:
         result = {
             "success": False,
             "return_code": None,
@@ -1262,6 +1262,7 @@ def main() -> int:
             temp_json_file.unlink()
 
     assert result is not None
+    result.setdefault("request_dispatched", bool(result.get("command")))
     emitted_result = finalize_output(result, args, output_policy)
     emitted_result["redaction"] = redaction_metadata()
     emit_json(emitted_result, pretty=args.pretty)

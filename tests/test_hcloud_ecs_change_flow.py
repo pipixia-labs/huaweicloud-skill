@@ -217,6 +217,31 @@ class EcsChangeFlowTest(unittest.TestCase):
         self.assertEqual(resumed["outcome_status"], "partially_succeeded")
         self.assertEqual(resumed["error_code"], "SUBMIT_OUTCOME_REQUIRES_READBACK")
 
+    def test_local_runtime_failure_is_failed_and_retryable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            plan = hcloud_ecs_change_flow.build_flow(flow_args(directory))
+            execute_args = flow_args(
+                directory,
+                execute_submit=True,
+                confirm_submit=True,
+                submit_token=plan["submit_guard"]["submit_token"],
+            )
+            with mock.patch.object(
+                hcloud_ecs_change_flow,
+                "execute_command",
+                return_value={
+                    "success": False,
+                    "request_dispatched": False,
+                    "parsed_json": None,
+                },
+            ):
+                result = hcloud_ecs_change_flow.build_flow(execute_args)
+
+        self.assertEqual(result["outcome_status"], "failed")
+        self.assertEqual(result["error_code"], "ECS_SUBMIT_NOT_DISPATCHED")
+        self.assertEqual(result["lifecycle_status"], "submit_failed")
+
 
 if __name__ == "__main__":
     unittest.main()

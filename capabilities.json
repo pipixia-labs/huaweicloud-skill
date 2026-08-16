@@ -4,15 +4,23 @@
   "runtime_bundles": {
     "ecs-change-v1": {
       "include": [
+        "scripts/hcloud_catalog.py",
         "scripts/hcloud_change_state.py",
         "scripts/hcloud_common.py",
         "scripts/hcloud_ecs_change_flow.py",
         "scripts/hcloud_ecs_create_plan.py",
         "scripts/hcloud_ecs_verify_active.py",
         "scripts/hcloud_ecs_wait_job.py",
+        "scripts/hcloud_operation_resolver.py",
+        "scripts/hcloud_output_policy.py",
         "scripts/hcloud_resource_ledger.py",
         "scripts/hcloud_run_journal.py",
+        "scripts/hcloud_safe_exec.py",
         "scripts/hcloud_security_policy.py",
+        "references/hcloud-output-policies.json",
+        "references/hcloud-service-catalog.index.json",
+        "references/hcloud-service-catalog/ecs.json",
+        "references/hcloud-service-confidence.json",
         "references/service-registry.json"
       ]
     },
@@ -31,6 +39,7 @@
         "scripts/hcloud_resource_ledger.py",
         "scripts/hcloud_resource_query.py",
         "scripts/hcloud_run_journal.py",
+        "scripts/hcloud_safe_exec.py",
         "scripts/hcloud_sdk_catalog.py",
         "scripts/hcloud_sdk_supplement_audit.py",
         "scripts/hcloud_security_policy.py",
@@ -59,6 +68,7 @@
         "scripts/hcloud_resource_ledger.py",
         "scripts/hcloud_resource_query.py",
         "scripts/hcloud_run_journal.py",
+        "scripts/hcloud_safe_exec.py",
         "scripts/hcloud_sdk_catalog.py",
         "scripts/hcloud_sdk_supplement_audit.py",
         "scripts/hcloud_security_policy.py",

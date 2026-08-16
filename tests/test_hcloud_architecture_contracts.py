@@ -158,6 +158,21 @@ class ArchitectureContractsTest(unittest.TestCase):
             self.assertNotIn("SKILL.md", expanded)
             self.assertFalse(any(path.startswith("tests/") for path in expanded))
 
+        for bundle_name in ("ecs-change-v1", "eip-change-v1", "resource-change-v1"):
+            expanded = {
+                path.relative_to(ROOT).as_posix()
+                for pattern in runtime_bundles[bundle_name]["include"]
+                for path in ROOT.glob(pattern)
+                if path.is_file()
+            }
+            self.assertIn("scripts/hcloud_safe_exec.py", expanded)
+            self.assertIn("scripts/hcloud_catalog.py", expanded)
+            self.assertIn("scripts/hcloud_operation_resolver.py", expanded)
+            self.assertIn("scripts/hcloud_output_policy.py", expanded)
+            self.assertIn("references/hcloud-output-policies.json", expanded)
+            self.assertIn("references/hcloud-service-catalog.index.json", expanded)
+            self.assertIn("references/hcloud-service-confidence.json", expanded)
+
         eip_arguments = capabilities["huaweicloud.eip.change.v1"]["arguments"]
         self.assertNotIn("required", eip_arguments["ledger_file"])
         self.assertNotIn("required", eip_arguments["resource_role"])
