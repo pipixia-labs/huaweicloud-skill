@@ -69,6 +69,14 @@ runtime 必须把固定 Skill 入口、规范化参数、风险等级、凭据 s
 `json_outcome_v1` 绑定为普通审批提案，再由既有执行器在确认后运行。只读 capability
 执行器不得加载这些条目。
 
+每个变更 capability 必须通过 `runtime_bundle` 引用顶层 `runtime_bundles` 中的一个
+最小运行包。运行包的 `include` 只声明固定入口实际依赖的 Skill 内文件，可以使用
+末级文件名 glob 表达同一目录中的同类运行数据。入口脚本本身必须包含在运行包中；
+文档、测试、示例和其他非运行材料不得因为实现方便而整套复制。Runtime 应对展开后的
+路径和内容生成稳定摘要，把该摘要与入口一起绑定到审批提案，并从用户工作区之外的
+不可变存储只读提供。这样 Skill 升级后旧提案仍能使用原运行包，同时用户工作区不承担
+平台运行文件的所有权和生命周期。
+
 | capability ID | 用途 | 风险 |
 | --- | --- | --- |
 | `huaweicloud.ecs.create.v1` | ECS submit、job 收敛、ACTIVE 回读 | `write` |
@@ -81,6 +89,9 @@ runtime 必须把固定 Skill 入口、规范化参数、风险等级、凭据 s
 resource ledger；调用 runtime 的变更 capability 入口创建提案；确认后调用平台执行器；
 若结果为 `partially_succeeded`，复用同一 workflow 继续 job/resource/application
 回读。`submitted`、`submit_unknown` 或 `verification_failed` 都禁止重新 submit。
+平台执行器的 Agent 可见调用只接收 `proposal_id`。提案的 `action_hash` 和 runtime bundle
+摘要由 runtime 持有、校验并投影到执行环境，Agent 不负责在工具调用之间搬运这些不透明
+标识；即使模型输出了 hash，runtime 也不得把它当作权威执行参数。
 
 本地 planner 可以通过 `exec` / `process` 运行，但必须是 plan-only 命令，不能包含任何
 execute/confirm 开关。EIP 创建必须同时提供 ledger、resource role 和与创建操作匹配的

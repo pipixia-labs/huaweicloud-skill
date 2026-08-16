@@ -112,27 +112,51 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertEqual(billing["arguments"]["limit"]["default"], 50)
         self.assertTrue((ROOT / billing["entrypoint"]).is_file())
         expected_changes = {
-            "huaweicloud.ecs.create.v1": ("write", "scripts/hcloud_ecs_change_flow.py"),
-            "huaweicloud.eip.change.v1": ("write", "scripts/hcloud_eip_change_flow.py"),
+            "huaweicloud.ecs.create.v1": (
+                "write",
+                "scripts/hcloud_ecs_change_flow.py",
+                "ecs-change-v1",
+            ),
+            "huaweicloud.eip.change.v1": (
+                "write",
+                "scripts/hcloud_eip_change_flow.py",
+                "eip-change-v1",
+            ),
             "huaweicloud.eip.destructive_change.v1": (
                 "destructive",
                 "scripts/hcloud_eip_change_flow.py",
+                "eip-change-v1",
             ),
             "huaweicloud.resource.change.v1": (
                 "write",
                 "scripts/hcloud_guarded_change_flow.py",
+                "resource-change-v1",
             ),
             "huaweicloud.ecs.guest_delivery.v1": (
                 "write",
                 "scripts/hcloud_ecs_guest_delivery.py",
+                "ecs-guest-delivery-v1",
             ),
         }
-        for capability_id, (risk, entrypoint) in expected_changes.items():
+        runtime_bundles = manifest["runtime_bundles"]
+        for capability_id, (risk, entrypoint, bundle_name) in expected_changes.items():
             capability = capabilities[capability_id]
             self.assertEqual(capability["risk"], risk)
             self.assertEqual(capability["entrypoint"], entrypoint)
+            self.assertEqual(capability["runtime_bundle"], bundle_name)
             self.assertEqual(capability["result_contract"], "json_outcome_v1")
             self.assertTrue((ROOT / entrypoint).is_file())
+            include_patterns = runtime_bundles[bundle_name]["include"]
+            expanded = {
+                path.relative_to(ROOT).as_posix()
+                for pattern in include_patterns
+                for path in ROOT.glob(pattern)
+                if path.is_file()
+            }
+            self.assertIn(entrypoint, expanded)
+            self.assertLess(len(expanded), 300)
+            self.assertNotIn("SKILL.md", expanded)
+            self.assertFalse(any(path.startswith("tests/") for path in expanded))
 
         eip_arguments = capabilities["huaweicloud.eip.change.v1"]["arguments"]
         self.assertNotIn("required", eip_arguments["ledger_file"])
