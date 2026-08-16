@@ -136,6 +136,7 @@
         "scripts/hcloud_ecs_wait_job.py",
         "scripts/hcloud_eip_change_flow.py",
         "scripts/hcloud_guarded_change_flow.py",
+        "scripts/hcloud_kps_keypair_change.py",
         "scripts/hcloud_obs_change_plan.py",
         "scripts/hcloud_service_change_plan.py",
         "scripts/hcloud_terraform_operations_plan.py"

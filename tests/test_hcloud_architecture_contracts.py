@@ -142,6 +142,16 @@ class ArchitectureContractsTest(unittest.TestCase):
                 "scripts/hcloud_ecs_guest_delivery.py",
                 "ecs-guest-delivery-v1",
             ),
+            "huaweicloud.kps.import_keypair.v1": (
+                "write",
+                "scripts/hcloud_kps_keypair_change.py",
+                "kps-keypair-change-v1",
+            ),
+            "huaweicloud.kps.delete_keypair.v1": (
+                "destructive",
+                "scripts/hcloud_kps_keypair_change.py",
+                "kps-keypair-change-v1",
+            ),
         }
         runtime_bundles = manifest["runtime_bundles"]
         for capability_id, (risk, entrypoint, bundle_name) in expected_changes.items():
@@ -167,6 +177,7 @@ class ArchitectureContractsTest(unittest.TestCase):
             "ecs-change-v1",
             "ecs-change-v2",
             "eip-change-v1",
+            "kps-keypair-change-v1",
             "resource-change-v1",
         ):
             expanded = {
@@ -196,6 +207,18 @@ class ArchitectureContractsTest(unittest.TestCase):
                 "operation"
             ]["choices"],
             ["DeletePublicip"],
+        )
+
+        kps_import = capabilities["huaweicloud.kps.import_keypair.v1"]
+        self.assertEqual(
+            set(kps_import["arguments"]),
+            {"region", "project_id", "keypair_name", "public_key_file", "timeout"},
+        )
+        self.assertTrue(kps_import["arguments"]["public_key_file"]["required"])
+        self.assertNotIn("private_key", kps_import["arguments"])
+        self.assertEqual(
+            set(capabilities["huaweicloud.kps.delete_keypair.v1"]["arguments"]),
+            {"region", "project_id", "keypair_name", "timeout"},
         )
 
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -234,6 +257,10 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("最新 capability 未声明时 Agent 不生成", skill_text)
         self.assertIn("`huaweicloud.ecs.create.v2` 固定使用 `CreateServers`", skill_text)
         self.assertIn("submit 结果不确定后禁止重复提交", skill_text)
+        self.assertIn("`huaweicloud.kps.import_keypair.v1`", skill_text)
+        self.assertIn("`huaweicloud.kps.delete_keypair.v1`", skill_text)
+        self.assertIn("Agent 只编排业务步骤", skill_text)
+        self.assertIn("不检查 bundle digest", skill_text)
 
     def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:
         playbook = (
@@ -307,6 +334,15 @@ class ArchitectureContractsTest(unittest.TestCase):
 
         services = registry["services"]
         self.assertEqual(services["EIP"].get("change_flow"), "scripts/hcloud_eip_change_flow.py")
+        self.assertEqual(services["IMS"]["change_operations"], [])
+        self.assertEqual(
+            services["KPS"]["change_operations"],
+            ["CreateKeypair", "DeleteKeypair"],
+        )
+        self.assertEqual(
+            services["KPS"].get("change_flow"),
+            "scripts/hcloud_kps_keypair_change.py",
+        )
         for service, entry in services.items():
             if entry.get("change_flow") == "scripts/hcloud_eip_change_flow.py":
                 self.assertEqual(service, "EIP", f"{service} must not route to the EIP-specific flow")
@@ -969,6 +1005,10 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("scripts/hcloud_environment_doctor.py", by_group["default_runtime"])
         self.assertIn("scripts/hcloud_billing_readonly.py", by_group["default_runtime"])
         self.assertIn("scripts/hcloud_change_plan.py", by_group["guarded_change"])
+        self.assertIn(
+            "scripts/hcloud_kps_keypair_change.py",
+            by_group["guarded_change"],
+        )
         self.assertIn("scripts/hcloud_sdk_readonly.py", by_group["runtime_supplement"])
         self.assertIn("scripts/check_question_coverage.py", by_group["maintenance_and_regression"])
         self.assertIn(

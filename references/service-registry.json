@@ -193,10 +193,14 @@
       "resource_query_operations": [
         "ListKeypairDetail"
       ],
-      "change_operations": [],
+      "change_operations": [
+        "CreateKeypair",
+        "DeleteKeypair"
+      ],
       "planner": null,
+      "change_flow": "scripts/hcloud_kps_keypair_change.py",
       "job_verifier": null,
-      "resource_verifier": null,
+      "resource_verifier": "scripts/hcloud_resource_verify.py",
       "playbooks": [
         "references/playbooks/kps-keypair-discovery.md"
       ],
@@ -204,7 +208,8 @@
         "https://support.huaweicloud.com/intl/zh-cn/"
       ],
       "known_limits": [
-        "Use ListKeypairs as keypair discovery support for ECS planning; key creation and private key handling need a dedicated risk gate."
+        "Managed import accepts only an existing workspace OpenSSH public key; cloud-generated or imported private-key material is intentionally outside this capability.",
+        "Use the dedicated import/delete capabilities instead of generic commands so exact read-back and hcloud logical errors remain structured."
       ]
     },
     "EIP": {

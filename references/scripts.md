@@ -931,7 +931,16 @@ or explicitly plan a distinct replacement step.
 
 Only add `--allow-public-web` after the user has reviewed and confirmed an EIP-direct public website plan. The generated submit token binds this exposure context to the exact plan; submit still requires `--execute-submit --confirm-submit --submit-token <current-token>`.
 
-This does not replace dedicated planners. EIP uses `hcloud_eip_change_flow.py`, OBS uses `hcloud_obs_change_plan.py`, and ECS creation uses ECS-specific scripts.
+This does not replace dedicated flows. EIP uses `hcloud_eip_change_flow.py`, KPS key-pair import/delete uses `hcloud_kps_keypair_change.py`, OBS uses `hcloud_obs_change_plan.py`, and ECS creation uses ECS-specific scripts.
+
+### KPS Keypair Guarded Flow
+
+`hcloud_kps_keypair_change.py` 为已登记 capability 提供窄接口：导入只接收 region、可选
+project、密钥对名称和 workspace 相对公钥文件；删除只接收精确名称。脚本在变更前后调用
+`ListKeypairDetail`，同名同公钥或目标已不存在时幂等成功，同名异钥时拒绝覆盖。
+
+该脚本是真实执行入口，不是 Agent 的本地 planner。已有 capability runtime 时，不通过
+`exec` / `process` 直接调用，也不改用通用命令提案；私钥永远不作为该入口的参数或输出。
 
 ### Task Resource Ledger And Generic Async Wait
 

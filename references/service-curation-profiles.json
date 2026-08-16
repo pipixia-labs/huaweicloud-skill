@@ -129,10 +129,10 @@
         "references/playbooks/kps-keypair-discovery.md"
       ],
       "risk_profile": {
-        "mutation_policy": "none",
+        "mutation_policy": "guarded_public_key_import_and_exact_delete",
         "default_risk": "medium",
-        "submit_policy": "read_only_keypair_discovery",
-        "verification_policy": "keypair_name_and_private_key_handling_check"
+        "submit_policy": "dedicated_capability_only",
+        "verification_policy": "exact_name_and_public_key_readback"
       }
     },
     "EIP": {

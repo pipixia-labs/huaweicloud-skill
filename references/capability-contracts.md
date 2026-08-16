@@ -83,6 +83,8 @@ runtime 必须把固定 Skill 入口、规范化参数、风险等级、凭据 s
 | `huaweicloud.ecs.create.v1` | ECS 创建旧接口，仅兼容既有 plan/token/state 调用 | `write` |
 | `huaweicloud.eip.change.v1` | 公网 EIP 创建/更新和 ShowPublicip 回读 | `write` |
 | `huaweicloud.eip.destructive_change.v1` | 公网 EIP 精确 ID 删除和缺失回读 | `destructive` |
+| `huaweicloud.kps.import_keypair.v1` | 从工作区 OpenSSH 公钥幂等导入 KPS 密钥对并精确回读 | `write` |
+| `huaweicloud.kps.delete_keypair.v1` | 按精确名称删除 KPS 密钥对并验证缺失 | `destructive` |
 | `huaweicloud.resource.change.v1` | registry 支持的通用非 ECS/EIP 变更 | `write` |
 | `huaweicloud.ecs.guest_delivery.v1` | ECS 目录交付、依赖/服务收敛和 HTTP 验收 | `write` |
 
@@ -91,6 +93,10 @@ runtime 必须把固定 Skill 入口、规范化参数、风险等级、凭据 s
 逻辑资源角色继续 job/resource/application 回读。`submitted`、`submit_unknown` 或
 `verification_failed` 都禁止重新 submit。对于 `huaweicloud.ecs.create.v2`，state、ledger、
 workflow/step、fingerprint 和 submit token 全部由 Skill/runtime 内部管理，Agent 不参与搬运。
+KPS import 只接收 `region`、可选 `project_id`、`keypair_name` 和工作区相对
+`public_key_file`；Agent 不需要生成 hcloud 参数、状态文件或确认 token。删除只接收目标
+region/project/name。两个 capability 都在 runtime 内先查现状、执行一次 submit，再进行精确
+回读；同名同公钥或目标已不存在时幂等成功，同名异钥时拒绝覆盖。
 平台执行器的 Agent 可见调用只接收 `proposal_id`。提案的 `action_hash` 和 runtime bundle
 摘要由 runtime 持有、校验并投影到执行环境，Agent 不负责在工具调用之间搬运这些不透明
 标识；即使模型输出了 hash，runtime 也不得把它当作权威执行参数。
