@@ -79,22 +79,25 @@ runtime 必须把固定 Skill 入口、规范化参数、风险等级、凭据 s
 
 | capability ID | 用途 | 风险 |
 | --- | --- | --- |
-| `huaweicloud.ecs.create.v1` | ECS submit、job 收敛、ACTIVE 回读 | `write` |
+| `huaweicloud.ecs.create.v2` | ECS 创建（托管状态、提交确认、job 收敛和 ACTIVE 回读） | `write` |
+| `huaweicloud.ecs.create.v1` | ECS 创建旧接口，仅兼容既有 plan/token/state 调用 | `write` |
 | `huaweicloud.eip.change.v1` | 公网 EIP 创建/更新和 ShowPublicip 回读 | `write` |
 | `huaweicloud.eip.destructive_change.v1` | 公网 EIP 精确 ID 删除和缺失回读 | `destructive` |
 | `huaweicloud.resource.change.v1` | registry 支持的通用非 ECS/EIP 变更 | `write` |
 | `huaweicloud.ecs.guest_delivery.v1` | ECS 目录交付、依赖/服务收敛和 HTTP 验收 | `write` |
 
-执行顺序固定为：本地 planner 生成精确输入和 review token；准备同一 task 的 state 与
-resource ledger；调用 runtime 的变更 capability 入口创建提案；确认后调用平台执行器；
-若结果为 `partially_succeeded`，复用同一 workflow 继续 job/resource/application
-回读。`submitted`、`submit_unknown` 或 `verification_failed` 都禁止重新 submit。
+执行顺序固定为：选择最新已登记 capability；准备 manifest 声明的业务输入；调用 runtime
+创建提案；确认后调用平台执行器；若结果为 `partially_succeeded`，使用同一 capability 和
+逻辑资源角色继续 job/resource/application 回读。`submitted`、`submit_unknown` 或
+`verification_failed` 都禁止重新 submit。对于 `huaweicloud.ecs.create.v2`，state、ledger、
+workflow/step、fingerprint 和 submit token 全部由 Skill/runtime 内部管理，Agent 不参与搬运。
 平台执行器的 Agent 可见调用只接收 `proposal_id`。提案的 `action_hash` 和 runtime bundle
 摘要由 runtime 持有、校验并投影到执行环境，Agent 不负责在工具调用之间搬运这些不透明
 标识；即使模型输出了 hash，runtime 也不得把它当作权威执行参数。
 
-本地 planner 可以通过 `exec` / `process` 运行，但必须是 plan-only 命令，不能包含任何
-execute/confirm 开关。EIP 创建必须同时提供 ledger、resource role 和与创建操作匹配的
+只有 capability manifest 明确声明 legacy plan artifact 时，本地 planner 才可以通过
+`exec` / `process` 运行，且必须是 plan-only 命令，不能包含任何 execute/confirm 开关。
+最新 capability 未声明 token/state/ledger 参数时，不得引用旧示例额外生成这些参数。EIP 创建必须同时提供 ledger、resource role 和与创建操作匹配的
 cleanup operation；更新既有 EIP 只记录 step 状态，不得把既有资源登记为本任务新建资源。
 
 `hcloud_resource_ledger.py` 只记录当前 workflow 明确取得的 canonical ID，不按名称或

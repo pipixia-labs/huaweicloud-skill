@@ -82,10 +82,10 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 4. 变更类先计划再执行：
    - 先查现状证据，再生成 change plan / dry-run / guarded submit。
    - Agent 自主决定使用哪个变更能力；先检查 `capabilities.json` 与 runtime 工具。当前已登记 ECS create-to-ACTIVE、EIP 写/删除、通用服务变更和 ECS 来宾交付。对应 ID、参数和风险见 `references/capability-contracts.md`。
-   - 已登记且 runtime 提供 `run_guarded_change_capability` 时，必须按“本地 plan 生成精确输入/token/state/ledger -> 调用 capability 创建提案 -> 用户确认后 `execute_cloud_action` -> 用同一 workflow 恢复等待和验证”执行。调用 `execute_cloud_action` 时只传平台返回的 `proposal_id`；`action_hash` 由 runtime 从不可变提案中权威解析，Agent 不复制、不补写也不猜测。plan-only 阶段允许通过 `exec` / `process` 调用同一个 Skill 脚本，但命令不得包含 `--execute-submit`、`--execute`、`--confirm-submit` 或其他真实执行开关；得到 review token 后，真正 execute 必须交给 capability，不能再用 `exec`，也不得手工包装成 `propose_command_execution`。
+   - 已登记且 runtime 提供 `run_guarded_change_capability` 时，优先选择同一业务能力的最新版本，只提交 manifest 声明的业务参数和工作区输入文件；调用 `execute_cloud_action` 时只传平台返回的 `proposal_id`。`submit_token`、fingerprint、state、ledger、workflow/step、runtime 路径和 `action_hash` 属于 Skill/runtime 内部执行协议，最新 capability 未声明时 Agent 不生成、不复制、不补写也不猜测。只有 manifest 明确要求 legacy plan artifact 时，才允许通过 `exec` / `process` 生成该只读 artifact，且命令不得包含 `--execute-submit`、`--execute`、`--confirm-submit` 或其他真实执行开关；真正 execute 必须交给 capability，不能再用 `exec`，也不得手工包装成 `propose_command_execution`。
    - 只有对应变更未登记、runtime 没有该工具，或工具明确返回 `GUARDED_CHANGE_CAPABILITY_NOT_REGISTERED` 时才允许脚本 fallback。参数、token、凭据、超时、部分成功和执行错误不是 fallback 条件；`fallback_allowed=false` 时只能修正后重调同一 capability、继续回读，或如实报告。
-   - 创建类流程必须同时使用稳定的 `--state-file`、`--workflow-id`、`--step-id` 和 `--ledger-file`；用 `hcloud_resource_ledger.py` 记录逻辑角色、预期数量、canonical ID、job ID 与依赖。ECS 使用 `hcloud_ecs_change_flow.py` 完成 submit -> job terminal -> ACTIVE；EIP 和 generic guarded flow 使用相同 receipt 语义。云端已受理或 submit 结果不确定后禁止重复提交；请求指纹变化时必须新建 step。
-   - 正例：先用 `exec` 调用不带任何 execute/confirm 开关的 ECS flow plan 模式取得 token，再调用 `huaweicloud.ecs.create.v1`；若 job 等待超时，续跑复用同一 state/ledger，只等待和回读 ACTIVE。反例：plan 命令提前加入 `--execute-submit`；capability 参数缺失后改用裸 hcloud/临时 SDK；或 submit 超时后删除状态、改资源名再次 Create。
+   - 创建类 capability 内部必须使用稳定 state/workflow/step/ledger，记录逻辑角色、预期数量、canonical ID、job ID 与依赖。`huaweicloud.ecs.create.v2` 固定使用 `CreateServers`，只要求请求文件、安全组读回证据、region/project、逻辑资源角色和可选依赖；Skill/runtime 内部完成 submit -> job terminal -> ACTIVE 和幂等恢复。v1 仅为旧调用兼容。云端已受理或 submit 结果不确定后禁止重复提交；请求指纹变化时必须使用新的逻辑资源角色或先解决现有待决状态。
+   - 正例：直接把 ECS 请求文件、安全组证据、region/project 和 `resource_role` 交给 `huaweicloud.ecs.create.v2`，确认 proposal 后执行；若等待超时，再次使用同一 capability 和逻辑角色恢复回读。反例：先用 `exec` 运行旧 ECS plan，再把 token/state/ledger/workflow/step 填给 v2；capability 参数错误后改用裸 hcloud/临时 SDK；或 submit 超时后换名字再次 Create。
    - 按所选工具的真实结果契约解释输出。本 Skill 的 execute 脚本如果返回
      `outcome_status`，以该结构化字段为业务结果；裸 `hcloud`、帮助探测和其他
      未声明结构化结果的命令必须同时保留 stdout、stderr 和退出码，不能只因进程

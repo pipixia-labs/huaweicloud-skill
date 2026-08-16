@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +19,10 @@ import hcloud_ecs_create_plan
 import hcloud_ecs_verify_active
 import hcloud_ecs_wait_job
 import hcloud_resource_ledger
+
+
+MANAGED_STATE_ROOT = Path(".cloud-claw") / "guarded-changes"
+_ACTION_HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def execute_command(command: list[str], timeout: int) -> dict[str, Any]:
@@ -118,13 +125,77 @@ def submit_token_payload(
         "region": args.region,
         "project_id": args.project_id,
         "request": payload,
-        "submit": hcloud_common.canonical_bundled_script_command(
+        "submit": _portable_submit_command(
             submit_plan.get("commands", {}).get("safe_exec")
         ),
         "workflow_id": args.workflow_id,
         "step_id": args.step_id,
         "resource_role": args.resource_role,
     }
+
+
+def _portable_submit_command(command: Any) -> list[str]:
+    """Return a canonical submit command without workspace path spelling.
+
+    The canonical request JSON is already included in the fingerprint payload.
+    Replacing its local filename keeps an identical request stable when the
+    proposal runtime projects an artifact under a different workspace path.
+    """
+
+    canonical = hcloud_common.canonical_bundled_script_command(command)
+    portable: list[str] = []
+    replace_next = False
+    for item in canonical:
+        if replace_next:
+            portable.append("<request-artifact>")
+            replace_next = False
+        elif item == "--json-input-file":
+            portable.append(item)
+            replace_next = True
+        elif item.startswith("--json-input-file="):
+            portable.append("--json-input-file=<request-artifact>")
+        else:
+            portable.append(item)
+    return portable
+
+
+def _managed_scope(args: argparse.Namespace) -> str | None:
+    """Configure stable internal lifecycle files for an approved proposal.
+
+    Managed workflow mode is reserved for the guarded action executor. It
+    derives durable bookkeeping from the user/conversation scope and logical
+    resource role, so callers do not need to copy opaque tokens or filenames.
+    """
+
+    if not getattr(args, "managed_workflow", False):
+        return None
+
+    action_hash = os.getenv("CLOUD_CLAW_ACTION_HASH", "").strip().lower()
+    authorized = os.getenv("CLOUD_CLAW_ACTION_AUTHORIZED", "").strip().lower()
+    user_id = os.getenv("CLOUD_CLAW_ACTION_USER_ID", "").strip()
+    conversation_id = os.getenv("CLOUD_CLAW_ACTION_CONVERSATION_ID", "").strip()
+    execution_id = os.getenv("CLOUD_CLAW_ACTION_EXECUTION_ID", "").strip()
+    if (
+        authorized != "true"
+        or not _ACTION_HASH_PATTERN.fullmatch(action_hash)
+        or not user_id
+        or not conversation_id
+        or not execution_id
+    ):
+        return "Managed ECS execution requires an approved CloudClaw action context."
+
+    scope = hashlib.sha256(f"{user_id}\0{conversation_id}".encode()).hexdigest()[:16]
+    role_text = str(args.resource_role).strip()
+    role_slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", role_text).strip("-.") or "server"
+    role_digest = hashlib.sha256(role_text.encode()).hexdigest()[:10]
+    configured_state_root = os.getenv("CLOUD_CLAW_CAPABILITY_STATE_ROOT", "").strip()
+    state_root = Path(configured_state_root) if configured_state_root else MANAGED_STATE_ROOT
+    state_root /= scope
+    args.state_file = str(state_root / "ecs-create-state.json")
+    args.ledger_file = str(state_root / "resource-ledger.json")
+    args.workflow_id = f"managed-{scope}"
+    args.step_id = f"ecs-create-{role_slug[:72]}-{role_digest}"
+    return None
 
 
 def _failure_result(
@@ -199,6 +270,15 @@ def _verify_active_args(
 
 def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     """Plan or execute one idempotent ECS create-to-ACTIVE lifecycle."""
+    managed_error = _managed_scope(args)
+    if managed_error:
+        return {
+            "success": False,
+            "outcome_status": "failed",
+            "error_code": "ECS_MANAGED_EXECUTION_UNAUTHORIZED",
+            "error_message": managed_error,
+        }
+
     try:
         payload = hcloud_common.load_json(Path(args.json_input_file))
     except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError) as exc:
@@ -228,12 +308,19 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
     fingerprint_payload = submit_token_payload(args, payload, submit_plan)
     fingerprint = hcloud_change_state.request_fingerprint(fingerprint_payload)
     submit_token = hcloud_common.stable_plan_token(fingerprint_payload)
-    result["submit_guard"] = {
-        "submit_token": submit_token,
-        "submit_token_required": True,
-        "submit_token_provided": bool(args.submit_token),
-        "confirm_submit": bool(args.confirm_submit),
-    }
+    if getattr(args, "managed_workflow", False):
+        result["submit_guard"] = {
+            "managed_by_runtime": True,
+            "submit_token_required": False,
+            "proposal_authorized": True,
+        }
+    else:
+        result["submit_guard"] = {
+            "submit_token": submit_token,
+            "submit_token_required": True,
+            "submit_token_provided": bool(args.submit_token),
+            "confirm_submit": bool(args.confirm_submit),
+        }
 
     try:
         hcloud_resource_ledger.register_resource(
@@ -307,7 +394,11 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
             )
 
     if args.execute_submit:
-        if not args.confirm_submit or args.submit_token != submit_token:
+        token_matches = (
+            getattr(args, "managed_workflow", False)
+            or args.submit_token == submit_token
+        )
+        if not args.confirm_submit or not token_matches:
             return _failure_result(
                 result,
                 error_code="ECS_SUBMIT_CONFIRMATION_INVALID",
@@ -505,10 +596,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--region", required=True)
     parser.add_argument("--project-id")
     parser.add_argument("--profile")
-    parser.add_argument("--state-file", required=True)
-    parser.add_argument("--ledger-file", required=True)
-    parser.add_argument("--workflow-id", required=True)
-    parser.add_argument("--step-id", required=True)
+    parser.add_argument("--state-file")
+    parser.add_argument("--ledger-file")
+    parser.add_argument("--workflow-id")
+    parser.add_argument("--step-id")
     parser.add_argument("--resource-role", required=True)
     parser.add_argument("--depends-on", action="append", default=[])
     parser.add_argument("--execute-dryrun", action="store_true")
@@ -517,6 +608,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute-verify", action="store_true")
     parser.add_argument("--confirm-submit", action="store_true")
     parser.add_argument("--submit-token")
+    parser.add_argument("--managed-workflow", action="store_true")
     parser.add_argument("--allow-placeholders", action="store_true")
     parser.add_argument("--max-count", type=int, default=10)
     parser.add_argument("--allow-large-count", action="store_true")
@@ -534,6 +626,19 @@ def parse_args() -> argparse.Namespace:
         parser.error("polling intervals and timeouts must be greater than 0")
     if args.max_command_failures < 1:
         parser.error("--max-command-failures must be at least 1")
+    if not args.managed_workflow:
+        missing = [
+            flag
+            for flag, value in (
+                ("--state-file", args.state_file),
+                ("--ledger-file", args.ledger_file),
+                ("--workflow-id", args.workflow_id),
+                ("--step-id", args.step_id),
+            )
+            if not value
+        ]
+        if missing:
+            parser.error(f"legacy workflow mode requires {', '.join(missing)}")
     return args
 
 

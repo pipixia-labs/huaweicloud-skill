@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -75,6 +76,7 @@ def security_group_evidence() -> dict:
 
 def flow_args(directory: Path, **overrides) -> SimpleNamespace:
     """Create a complete ECS flow namespace and its JSON inputs."""
+    directory.mkdir(parents=True, exist_ok=True)
     input_path = directory / "ecs-create.json"
     evidence_path = directory / "security-group.json"
     input_path.write_text(json.dumps(payload()), encoding="utf-8")
@@ -108,6 +110,7 @@ def flow_args(directory: Path, **overrides) -> SimpleNamespace:
         "max_command_failures": 2,
         "journal": None,
         "pretty": False,
+        "managed_workflow": False,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -126,6 +129,123 @@ class EcsChangeFlowTest(unittest.TestCase):
         self.assertTrue(result["planning_only"])
         self.assertEqual(len(result["submit_guard"]["submit_token"]), 16)
         self.assertEqual(ledger["resources"]["web-server"]["state"], "planned")
+
+    def test_plan_token_is_independent_of_request_file_location(self) -> None:
+        """Bind request content and intent without binding a workspace spelling."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            first = hcloud_ecs_change_flow.build_flow(flow_args(root / "first"))
+            second = hcloud_ecs_change_flow.build_flow(flow_args(root / "second"))
+
+        self.assertTrue(first["success"])
+        self.assertTrue(second["success"])
+        self.assertEqual(
+            first["submit_guard"]["submit_token"],
+            second["submit_guard"]["submit_token"],
+        )
+
+    def test_managed_workflow_derives_internal_state_and_needs_no_agent_token(self) -> None:
+        """Execute an approved proposal without exposing lifecycle plumbing."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            args = flow_args(
+                directory,
+                state_file=None,
+                ledger_file=None,
+                workflow_id=None,
+                step_id=None,
+                managed_workflow=True,
+                execute_submit=True,
+                execute_wait=True,
+                execute_verify=True,
+                confirm_submit=True,
+            )
+            managed_root = directory / ".cloud-claw" / "capability-state"
+            authorization = {
+                "CLOUD_CLAW_ACTION_AUTHORIZED": "true",
+                "CLOUD_CLAW_ACTION_HASH": "a" * 64,
+                "CLOUD_CLAW_ACTION_USER_ID": "user-1",
+                "CLOUD_CLAW_ACTION_CONVERSATION_ID": "conversation-1",
+                "CLOUD_CLAW_ACTION_EXECUTION_ID": "execution-1",
+                "CLOUD_CLAW_CAPABILITY_STATE_ROOT": str(managed_root),
+            }
+            with (
+                mock.patch.dict(os.environ, authorization, clear=False),
+                mock.patch.object(
+                    hcloud_ecs_change_flow,
+                    "execute_command",
+                    return_value={
+                        "success": True,
+                        "return_code": 0,
+                        "parsed_json": {"job_id": "job-1"},
+                    },
+                ),
+                mock.patch.object(
+                    hcloud_ecs_change_flow.hcloud_ecs_wait_job,
+                    "wait_for_job",
+                    return_value={
+                        "success": True,
+                        "classification": "success",
+                        "final_status": "SUCCESS",
+                        "final_identifiers": {"entities.server_id": ["server-1"]},
+                    },
+                ),
+                mock.patch.object(
+                    hcloud_ecs_change_flow.hcloud_ecs_verify_active,
+                    "wait_for_active",
+                    return_value={
+                        "success": True,
+                        "final": {
+                            "matched": [
+                                {
+                                    "id": "server-1",
+                                    "name": "web-server",
+                                    "status": "ACTIVE",
+                                }
+                            ],
+                            "missing": [],
+                            "inactive": [],
+                        },
+                    },
+                ),
+            ):
+                result = hcloud_ecs_change_flow.build_flow(args)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["outcome_status"], "succeeded")
+        self.assertEqual(
+            result["submit_guard"],
+            {
+                "managed_by_runtime": True,
+                "submit_token_required": False,
+                "proposal_authorized": True,
+            },
+        )
+        self.assertTrue(str(args.state_file).startswith(str(managed_root)))
+        self.assertTrue(str(args.ledger_file).startswith(str(managed_root)))
+        self.assertRegex(args.workflow_id, r"^managed-[0-9a-f]{16}$")
+        self.assertTrue(args.step_id.startswith("ecs-create-web-server-"))
+
+    def test_managed_workflow_rejects_execution_outside_approved_action(self) -> None:
+        """Prevent the internal managed mode from becoming a raw shell fallback."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            args = flow_args(
+                directory,
+                state_file=None,
+                ledger_file=None,
+                workflow_id=None,
+                step_id=None,
+                managed_workflow=True,
+                execute_submit=True,
+                confirm_submit=True,
+            )
+            with mock.patch.dict(os.environ, {}, clear=True):
+                result = hcloud_ecs_change_flow.build_flow(args)
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_code"], "ECS_MANAGED_EXECUTION_UNAUTHORIZED")
+        self.assertFalse((directory / "change-state.json").exists())
 
     def test_submit_wait_and_active_verification_converge_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

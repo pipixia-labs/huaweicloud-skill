@@ -117,6 +117,11 @@ class ArchitectureContractsTest(unittest.TestCase):
                 "scripts/hcloud_ecs_change_flow.py",
                 "ecs-change-v1",
             ),
+            "huaweicloud.ecs.create.v2": (
+                "write",
+                "scripts/hcloud_ecs_change_flow.py",
+                "ecs-change-v2",
+            ),
             "huaweicloud.eip.change.v1": (
                 "write",
                 "scripts/hcloud_eip_change_flow.py",
@@ -158,7 +163,12 @@ class ArchitectureContractsTest(unittest.TestCase):
             self.assertNotIn("SKILL.md", expanded)
             self.assertFalse(any(path.startswith("tests/") for path in expanded))
 
-        for bundle_name in ("ecs-change-v1", "eip-change-v1", "resource-change-v1"):
+        for bundle_name in (
+            "ecs-change-v1",
+            "ecs-change-v2",
+            "eip-change-v1",
+            "resource-change-v1",
+        ):
             expanded = {
                 path.relative_to(ROOT).as_posix()
                 for pattern in runtime_bundles[bundle_name]["include"]
@@ -220,7 +230,9 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("只适用于查询未登记", skill_text)
         self.assertIn("`run_guarded_change_capability`", skill_text)
         self.assertIn("`GUARDED_CHANGE_CAPABILITY_NOT_REGISTERED`", skill_text)
-        self.assertIn("本地 plan 生成精确输入/token/state/ledger", skill_text)
+        self.assertIn("优先选择同一业务能力的最新版本", skill_text)
+        self.assertIn("最新 capability 未声明时 Agent 不生成", skill_text)
+        self.assertIn("`huaweicloud.ecs.create.v2` 固定使用 `CreateServers`", skill_text)
         self.assertIn("submit 结果不确定后禁止重复提交", skill_text)
 
     def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:

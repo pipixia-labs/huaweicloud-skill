@@ -36,6 +36,8 @@
         "CreateServers",
         "CreatePostPaidServers"
       ],
+      "preferred_change_operation": "CreateServers",
+      "preferred_change_capability": "huaweicloud.ecs.create.v2",
       "planner": "scripts/hcloud_ecs_create_plan.py",
       "job_verifier": "scripts/hcloud_ecs_wait_job.py",
       "resource_verifier": "scripts/hcloud_ecs_verify_active.py",
