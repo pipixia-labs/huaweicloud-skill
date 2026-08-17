@@ -2,10 +2,44 @@
 
 ## Unreleased
 
-- 账号盘点和账单读取现在由 Agent 通过普通命令执行工具直接调用 Skill CLI；不再要求宿主实现 `run_read_only_capability`，也不再发布两项只读 `capabilities.json` 声明。
-- 宽泛查询可用 `--output-file` 保存完整 JSON 并只向 stdout 返回紧凑回执；账号盘点还会按区域复用一次 `project_id` 并有限并发查询服务，减少 IAM 重复探测和模型大结果等待。
-- 账单 live-read CLI 在内部自动完成受控分页与跨页合并；只有完整结果返回 `verified_monetary_totals`，分页失败、空页、元数据漂移或触及安全上限时返回 `partially_succeeded`，Agent 不再负责普通总额查询的 offset 协议。
-- KooCLI 固定版本、中文 BSS 离线元数据种子、临时 profile 与断网验收仍由宿主 runtime 负责；Skill 不携带平台路径、镜像元数据或凭据。
+## v0.9.4 / 0.9.4 - 2026-08-17
+
+v0.9.4 是只读执行入口的可移植性和长结果可靠性增强版本。账号盘点与账单读取由 Agent 直接通过
+普通命令执行工具调用 Skill CLI，不再要求宿主平台实现专属只读 capability Function Calling；
+同时补齐 project 复用、有限并发、结果 artifact 和账单完整分页，减少重复探测、模型大结果等待和
+第一页账单被误报为完整总额的问题。
+
+### 主要变化
+
+- **可移植只读 Skill CLI**
+  - 账号盘点和账单读取现在由 Agent 通过普通命令执行工具直接调用 Skill CLI；不再要求宿主实现
+    `run_read_only_capability`，也不再发布两项只读 `capabilities.json` 声明。
+  - Skill 继续负责华为云查询、分页、结果语义和错误分类；凭据、KooCLI 安装与离线缓存仍由宿主
+    runtime 准备。
+
+- **盘点性能和大结果收敛**
+  - 宽泛查询可用 `--output-file` 保存完整 JSON，并只向 stdout 返回紧凑状态、摘要、文件路径、
+    大小和 SHA-256 回执。
+  - 账号盘点在每个区域只解析并复用一次 `project_id`，使用有限并发查询独立服务；IAM 解析失败时
+    一次性标记该区域的项目级检查，避免每个 hcloud 子进程重复探测。
+
+- **账单分页和完整性语义**
+  - Billing live-read 在页数、记录数、payload 和总超时上限内自动分页并合并结果。
+  - 跨页校验查询 scope、币种、顶层金额元数据和 `total_count`；只有完整结果返回
+    `verified_monetary_totals`。
+  - 后续页失败、空页、响应不一致或触及安全上限时返回 `partially_succeeded`，不把第一页小计
+    暴露为可声明的完整总额。
+
+### 验证
+
+- 全量离线回归：463 项通过，10 项按条件跳过。
+- 本版本未执行真实云变更。
+
+### 兼容性与运行时边界
+
+- 未指定 `--output-file` 时，账号盘点和账单读取继续输出完整 JSON，保持原有 CLI 调用兼容。
+- KooCLI 固定版本、中文 BSS 离线元数据种子、临时 profile 与断网验收仍由宿主 runtime 负责；
+  Skill 不携带平台路径、镜像元数据或凭据。
 
 ## v0.9.3 / 0.9.3 - 2026-08-04
 

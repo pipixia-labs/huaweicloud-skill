@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.4 - 2026-08-17
+
 - 账号盘点与账单查询改为可移植的 Skill CLI 入口，不再依赖 runtime 专属的只读 capability Function Calling；删除两项只读 `capabilities.json` 声明。
 - 两个宽泛查询入口新增 `--output-file`：完整 JSON 原样、原子地写入 `0600` 文件，stdout 返回紧凑状态、摘要和文件回执；未指定时继续输出完整 JSON。
 - 账号盘点在执行模式按区域只解析一次 `project_id`，默认用有限并发完成独立服务查询，IAM 解析失败时一次性标记该区域的项目级检查，不再由每个 hcloud 子进程重复探测。
