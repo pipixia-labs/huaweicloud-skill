@@ -1,4 +1,4 @@
-"""Tests for SDK supplemental metadata and narrow read-only bridge."""
+"""Tests for SDK metadata and the curated read-only convenience runner."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
+import hcloud_context_inspect  # noqa: E402
 import hcloud_resource_discovery  # noqa: E402
 import hcloud_resource_query  # noqa: E402
 import hcloud_sdk_catalog  # noqa: E402
@@ -22,7 +23,7 @@ import hcloud_sdk_supplement_audit  # noqa: E402
 
 
 class HcloudSdkSupplementTest(unittest.TestCase):
-    """Validate SDK remains a small hcloud supplement."""
+    """Validate SDK metadata and the bounded convenience runner."""
 
     def write_text(self, path: Path, content: str) -> None:
         """Write test source content."""
@@ -167,6 +168,22 @@ class ShowVpcRequest:
         limit_param = next(item for item in operation["request_params"] if item["name"] == "limit")
         self.assertEqual(limit_param["position"], "query")
         self.assertEqual(version["regions"][0]["id"], "cn-north-4")
+        self.assertEqual(result["backend"], "sdk")
+        self.assertEqual(result["backend_preference"], "hcloud_then_sdk")
+        self.assertFalse(result["boundaries"]["catalog_is_operation_allowlist"])
+        self.assertTrue(result["boundaries"]["agent_authored_sdk_code_allowed"])
+        self.assertNotIn("primary_runtime", result["boundaries"])
+        self.assertNotIn("role", result)
+
+    def test_context_inspector_reports_sdk_as_supported_backend(self) -> None:
+        self.without_installed_sdk_packages()
+        result = hcloud_context_inspect.inspect_sdk_runtime(None)
+
+        self.assertEqual(result["backend"], "sdk")
+        self.assertEqual(result["availability_role"], "supported_programmatic_backend")
+        self.assertEqual(result["backend_preference"], "hcloud_then_sdk")
+        self.assertNotIn("primary_runtime", result)
+        self.assertNotIn("role", result)
 
     def test_sdk_catalog_default_does_not_discover_a_source_checkout(self) -> None:
         self.without_installed_sdk_packages()
@@ -182,7 +199,7 @@ class ShowVpcRequest:
         self.assertFalse(result["sdk_source_root_exists"])
         self.assertEqual(result["package_discovery"], "installed_packages_only")
 
-    def test_sdk_readonly_plan_is_allowlisted_and_supplemental(self) -> None:
+    def test_sdk_readonly_plan_describes_runner_scope_not_global_sdk_policy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             self.without_installed_sdk_packages()
             root = Path(tmp_dir)
@@ -203,8 +220,11 @@ class ShowVpcRequest:
             result = hcloud_sdk_readonly.build_plan(args)
 
         self.assertTrue(result["success"], json.dumps(result, ensure_ascii=False))
-        self.assertEqual(result["primary_runtime"], "hcloud")
-        self.assertEqual(result["role"], "supplemental_to_hcloud")
+        self.assertEqual(result["backend"], "sdk")
+        self.assertEqual(result["runner_scope"], "curated_readonly_shortcut")
+        self.assertEqual(result["backend_preference"], "hcloud_then_sdk")
+        self.assertNotIn("primary_runtime", result)
+        self.assertNotIn("role", result)
         self.assertEqual(result["sdk_metadata"]["source_kind"], "source_tree")
         self.assertEqual(result["registry_entry"]["hcloud_operation"], "ListFlavors")
         self.assertEqual(result["request_kwargs"], {"limit": 5})
@@ -241,6 +261,8 @@ class ShowVpcRequest:
 
         self.assertFalse(result["success"])
         self.assertIn("not in sdk-supplement-registry", result["error"])
+        self.assertIn("only this convenience runner", result["error"])
+        self.assertIn("task-specific SDK code", result["error"])
 
     def test_hcloud_resource_query_uses_sdk_type_validation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

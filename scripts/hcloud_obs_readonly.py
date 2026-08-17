@@ -8,6 +8,7 @@ import json
 import re
 import shlex
 import subprocess
+from pathlib import Path
 from typing import Any
 
 import hcloud_common
@@ -216,6 +217,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--arg", action="append", default=[], help="Raw obsutil option such as -s or -sc. Can be repeated.")
     parser.add_argument("--execute", action="store_true", help="Execute the read-only OBS command.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout for the wrapped hcloud obs command.")
+    parser.add_argument(
+        "--output-file",
+        type=Path,
+        help="Write the full JSON result privately and print a compact receipt.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
@@ -229,7 +235,11 @@ def main() -> int:
     """Build or run a read-only OBS obsutil command."""
     args = parse_args()
     result = build_plan(args)
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    hcloud_common.emit_public_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+    )
     return 0 if result["success"] else 1
 
 

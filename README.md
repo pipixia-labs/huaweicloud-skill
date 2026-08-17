@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
-  <img src="https://img.shields.io/badge/execution-hcloud%20CLI--first-brightgreen.svg" alt="执行面" />
+  <img src="https://img.shields.io/badge/default-hcloud%20%3E%20SDK%20%3E%20Terraform-brightgreen.svg" alt="默认后端优先级" />
   <img src="https://img.shields.io/badge/offline%20tests-300%2B-brightgreen.svg" alt="离线测试" />
   <img src="https://img.shields.io/badge/catalog-199%20services%20%2F%2015%2C702%20ops-blue.svg" alt="覆盖" />
 </p>
@@ -15,7 +15,7 @@
 - **乱改** —— 没评估费用、网络暴露面和权限边界，就直接提交创建、绑定、删除；
 - **误判完成** —— API 返回成功、job 提交成功就宣布"部署完成"，业务实际不可用。
 
-`huaweicloud-skill` 把 Agent 从"凭记忆拼命令"升级为**"按证据、风险门禁和后置验证推进任务"**：以华为云 KooCLI（`hcloud`）为主执行链路，查询默认只读，变更默认先计划、先 dry-run、等确认，完成默认要证据。你只需要用自然语言说目标——路由、命令构造、风险判断和验收，都在这一个 Skill 内完成。
+`huaweicloud-skill` 把 Agent 从"凭记忆拼命令"升级为**"按证据、风险和后置验证推进任务"**：默认优先使用华为云 KooCLI（`hcloud`），需要类型化/程序化处理时可使用官方 SDK，用户明确要求 IaC 时进入 Terraform；查询默认只读，变更先计划、说明影响并取得确认，完成必须有证据。高频脚本减少重复工作，但不限制 Agent 处理长尾任务。
 
 ## 30 秒看效果
 
@@ -44,8 +44,8 @@ Agent 会自动完成：检查 KooCLI/profile/region/project → 按本地 regis
 
 ```mermaid
 flowchart LR
-  A[自然语言目标] --> B[场景路由]
-  B --> C[上下文检查<br/>profile / region / project]
+  A[自然语言目标] --> B[意图与后端选择]
+  B --> C[上下文检查<br/>CLI / SDK / provider]
   C --> D[服务与参数发现<br/>registry + catalog + help]
   D --> E[计划 / dry-run<br/>风险门禁]
   E --> F{用户确认}
@@ -56,7 +56,8 @@ flowchart LR
 
 ## 核心能力
 
-- **CLI-first 执行面**：基于本机 `hcloud` 的真实 service、operation 和 help 工作；内置 catalog 覆盖 199 个公有云服务、15,702 个 operation，按服务懒加载，不炸上下文。
+- **hcloud 默认优先**：基于本机 `hcloud` 的真实 service、operation 和 help 工作；内置 catalog 覆盖 199 个公有云服务、15,702 个 operation，按服务懒加载，不炸上下文。
+- **SDK 程序化后端**：支持官方 `huaweicloudsdk*` package 的类型化请求、复杂 body、分页/并发和结构化异常；curated 只读 runner 是便捷入口，不是全局白名单。
 - **场景路由**：自然语言目标直接映射到本地 playbook、服务指南和 planner，覆盖建站、监控排障、成本优化、权限诊断、容器部署等高频场景。
 - **变更门禁**：dry-run、风险识别、显式确认、执行记录、变更后验证一条链；安全、身份、密钥、治理类操作进入硬门禁。
 - **验收闭环**：内置 HTTP/TCP/DNS/TLS 验收探测和证据判定，把"资源 ACTIVE"和"业务可用"严格区分开。
@@ -64,7 +65,7 @@ flowchart LR
 - **Terraform 受控 IaC**：73 个本地示例 + provider 参考，fmt/init/validate/plan 全流程；import、drift、remote state 均有确认门禁，不自动 apply。
 - **MaaS 模型能力**：华为云 MaaS 大模型对话、图像理解、图片生成/编辑、视频生成与用量治理，API Key 只走环境变量。
 - **诚实分层**：curated / metadata-backed / evidence-gap 三层能力标注，配 300+ 离线测试和晋级审计——未实测的能力不会被包装成已验证。
-- **跨服务任务记忆**：复杂、多轮或可中断任务由 Agent 使用自身文件工具把最小任务记忆写入 workspace；共享目标、事实来源和完成语义，但不锁定 Agent 的服务、参数和调用顺序。
+- **跨服务任务记忆**：复杂、多轮或可中断任务优先复用宿主的持久 task state；有持久 workspace 时可保存最小任务文件。共享目标、事实来源和完成语义，但不要求特定平台机制。
 
 ## 快速开始
 
@@ -75,7 +76,7 @@ hcloud version
 hcloud configure list
 ```
 
-还没安装？参考 [KooCLI 快速安装](https://support.huaweicloud.com/qs-hcli/hcli_02_003.html)（更多见 [KooCLI 文档](https://support.huaweicloud.com/intl/zh-cn/cli/index.html)、[华为云支持中心](https://support.huaweicloud.com/intl/zh-cn/)）。`hcloud` 不可执行时，Skill 只输出本地方案草稿，不会宣称已查询或修改云资源。
+还没安装？参考 [KooCLI 快速安装](https://support.huaweicloud.com/qs-hcli/hcli_02_003.html)（更多见 [KooCLI 文档](https://support.huaweicloud.com/intl/zh-cn/cli/index.html)、[华为云支持中心](https://support.huaweicloud.com/intl/zh-cn/)）。`hcloud` 不可执行时，Agent 可以评估官方 SDK 或 Terraform 是否适合当前任务；没有任何可执行后端和实时证据时，只输出方案草稿和环境缺口。
 
 ### 2. 安装 Skill
 
@@ -101,7 +102,7 @@ Codex CLI / Claude Code 用户可把本仓库放入本地 skills 目录，或在
 <summary><b>可选能力的额外准备（OBS / SDK / Terraform / MaaS）</b></summary>
 
 - **OBS**：让 `hcloud obs ...` 或 `obsutil` 使用同一套可用 AK/SK；认证错误会保留在结构化输出里供继续诊断。
-- **SDK 补充**：无需 SDK 源码。个别 curated 只读能力需要时，`pip install huaweicloudsdkecs` 等安装对应 package 即可；未安装时自动降级回 `hcloud` 主流程。
+- **SDK**：无需 SDK 源码。按任务用 `pip install huaweicloudsdkecs` 等安装单个服务 package；可直接用于程序化任务，也可复用 curated 只读 runner。不要默认安装全量集合包。
 - **Terraform**：需要本机 Terraform CLI 和可访问的华为云 provider（或本地 plugin cache）。真实 apply 必须基于用户确认过的 exact plan；`terraform apply -auto-approve` 不会被作为默认建议。
 - **MaaS**：准备华为云 MaaS API Key，只通过环境变量传入：
 

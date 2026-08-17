@@ -1,6 +1,65 @@
 {
   "schema_version": 1,
   "description": "Script audience and consolidation manifest for huaweicloud-skill. It documents who should use each script and identifies consolidation entry points without broadening safety gates.",
+  "public_result_contract": {
+    "id": "huaweicloud_skill_public_result_v1",
+    "script_kinds": [
+      "planner",
+      "inspector_router",
+      "query_executor",
+      "mutation_helper",
+      "artifact_media_producer"
+    ],
+    "backend_note": "A high-frequency script wraps hcloud, SDK, Terraform, MaaS API, or local logic; it is not a separate backend.",
+    "compatibility": "Without --output-file, migrated scripts keep their full JSON stdout. With --output-file, the full unmodified JSON is stored privately and stdout is a compact receipt.",
+    "receipt_fields": [
+      "result_contract",
+      "success",
+      "mode",
+      "outcome_status",
+      "result_file",
+      "artifact"
+    ],
+    "exit_semantics": "Exit 0 only when the script result has success=true; otherwise exit nonzero. Callers should still inspect a returned result_file after nonzero exit."
+  },
+  "public_script_contracts": {
+    "scripts/hcloud_resource_query.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "optional_execute",
+      "default_mode": "plan",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_resource_discovery.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "optional_execute",
+      "default_mode": "plan",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_obs_readonly.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "optional_execute",
+      "default_mode": "plan",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_sdk_readonly.py": {
+      "kind": "query_executor",
+      "backend": "sdk",
+      "cloud_access": "optional_execute",
+      "default_mode": "plan",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    }
+  },
   "consolidation_policy": {
     "v0_6_action": "Document audience boundaries and keep existing script files stable for reviewability.",
     "do_not_do_in_v0_6": [
@@ -140,8 +199,8 @@
     },
     {
       "id": "runtime_supplement",
-      "audience": "agent runtime only when the primary hcloud path needs local support evidence",
-      "boundary": "Supplement hcloud; do not become a second broad execution plane.",
+      "audience": "agent runtime for SDK metadata, curated SDK reads, and focused diagnostic helpers",
+      "boundary": "These scripts have bounded interfaces. Their registries constrain the scripts themselves, not task-specific SDK code written by an Agent.",
       "scripts": [
         "scripts/hcloud_billing_cost_probe.py",
         "scripts/hcloud_resource_detail_probe.py",

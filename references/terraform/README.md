@@ -1,6 +1,6 @@
 # Terraform Assets
 
-本目录完整吸收原独立 Terraform skill 中对 `huaweicloud-skill` 有用的 Markdown 和 Terraform 示例资产，但运行时不要从这里“全量浏览”。Terraform 是 `hcloud` 的补充 IaC 面：用于可重复创建、环境复制、长期纳管、import 和 drift review；不是只读查询、排障和一次性小变更的默认入口。
+本目录包含当前 Skill 使用的 Terraform Markdown 和示例资产，运行时不要“全量浏览”。Terraform 由 IaC 意图触发，用于可重复创建、环境复制、长期纳管、import 和 drift review；它不是只读查询、排障和一次性小变更的默认入口，也不是 hcloud/SDK 报错后的机械 fallback。
 
 ## 默认入口
 
@@ -9,8 +9,8 @@
 1. 先运行 `python3 scripts/hcloud_terraform_context_inspect.py --pretty`，确认 Terraform CLI、hcloud、环境变量、provider cache 和禁止提交的运行时产物状态。
 2. 再运行 `python3 scripts/hcloud_terraform_router.py "<user-goal>" --pretty`，按用户意图选择少量示例和核心参考。
 3. 只读取 router 返回的 `references` 和 `matches.path`；不要默认打开所有 `examples/terraform/*`。
-4. 生成或修改 `.tf` 前，仍要按 `references/terraform-workflow.md` 先做 hcloud 现网发现，再做 Terraform fmt/init/validate/plan。
-5. Terraform apply 必须等用户确认 exact plan；apply 后回到 hcloud 做资源状态和业务可用性验证。
+4. 生成或修改 `.tf` 前，按 `references/terraform-workflow.md` 先做现网发现，再做 Terraform fmt/init/validate/plan；hcloud 优先，允许等价证据。
+5. Terraform apply 必须等用户确认 exact plan；apply 后做实时资源状态和业务可用性验证。
 
 ## 目录角色
 

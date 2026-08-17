@@ -36,18 +36,19 @@
 
 ## 执行面选择框架
 
-v0.4 和 v0.5 后，skill 不再只是“hcloud 脚本集合”，而是 hcloud-first 的云任务框架。开发者需要先判断任务进入哪个执行面：
+Skill 不只是“hcloud 脚本集合”。开发者和 Agent 先判断任务应进入哪个后端：默认优先 hcloud，
+SDK 用于程序化/复杂处理或 hcloud 实际障碍，Terraform 由 IaC 意图触发。
 
 ```mermaid
 flowchart LR
     Goal["用户目标"] --> Intent{"任务类型"}
     Intent -->|查询/排障/一次性受控变更| HCloud["hcloud 主链路"]
-    Intent -->|hcloud 信息不足/稳定只读补证| SDK["SDK 补充"]
+    Intent -->|类型化/复杂处理或 hcloud 实际障碍| SDK["SDK 程序化路径"]
     Intent -->|可重复环境/import/drift/长期纳管| Terraform["Terraform"]
-    SDK --> HCloudPlan["hcloud fallback plan"]
-    Terraform --> HCloudDiscovery["hcloud 现网发现"]
+    SDK --> Evidence["SDK/API 证据"]
+    Terraform --> HCloudDiscovery["优先 hcloud 现网发现"]
     HCloudDiscovery --> TFPlan["Terraform plan"]
-    TFPlan --> HCloudVerify["hcloud 后置验证"]
+    TFPlan --> HCloudVerify["hcloud 或等价后置验证"]
     HCloud --> Evidence["状态、风险、验证和审计证据"]
     HCloudPlan --> Evidence
     HCloudVerify --> Evidence
@@ -56,8 +57,8 @@ flowchart LR
 | 执行面 | 什么时候使用 | 产出 | 不能做什么 |
 | --- | --- | --- | --- |
 | hcloud | 用户要查状态、排障、盘点、做一次性受控变更，或需要验证资源真实状态。 | JSON-friendly 命令、结构化错误、planner、dry-run、guarded submit、readiness/verifier。 | 不适合长期环境复制和 IaC 纳管。 |
-| SDK | hcloud metadata/help 不足，或者 allowlist 内稳定只读查询能补充参数、endpoint、request model 证据。 | SDK metadata 证据、少量只读 supplement result、hcloud fallback plan。 | 不做通用 mutation runner，不替代 hcloud guarded flow。 |
-| Terraform | 用户明确要 IaC、环境复制、import、drift review 或长期纳管。 | 选中的 `.tf` 示例、reference、fmt/init/validate/plan 流程和 apply 后 hcloud verify 清单。 | 不用于普通只读查询、临时排障和绕过用户确认的 apply。 |
+| SDK | 类型化请求、复杂 body、分页/并发、结构化异常，或 hcloud metadata/覆盖/解析存在实际障碍。 | SDK metadata、任务专用程序和结构化 API 结果；高频只读可复用便捷 runner。 | 不把便捷 runner allowlist 当全局禁令；变更仍需授权和回读。 |
+| Terraform | 用户明确要 IaC、环境复制、import、drift review 或长期纳管。 | 选中的 `.tf` 示例、reference、fmt/init/validate/plan 流程和 apply 后验证清单。 | 不用于普通只读查询、临时排障和绕过用户确认的 apply。 |
 
 ## 云任务闭环能力
 
@@ -153,9 +154,14 @@ v0.3.3 补上 P2 场景服务。选择这些服务，是因为它们覆盖了 P0
 | HSS / SecMaster / CFW / DBSS / KMS | 安全姿态只读可见性和 evidence gap。 | 保持 metadata-backed evidence gap；安全策略、主机 agent、防火墙、审计和密钥变更 hard-gated。 |
 | GaussDB / GaussDBforNoSQL / GaussDBforopenGauss / DDS / DDM / DWS | 复用 RDS 的备份、连接、参数、重启影响和回滚证据模型。 | 保持 metadata-backed evidence gap；不从实例状态直接宣称数据库可用，不自动改参数、重启、恢复或删除。 |
 
-v0.4 的 SDK 补充层解决的是“hcloud 主链路有时缺参数证据”的问题，而不是把 SDK 扩展成第二套执行系统。典型价值是：创建 ECS 前补规格和镜像查询参数，排查 VPC/ELB/RDS/CCE 时补 Show* request model 和 region/endpoint 线索，可观测场景补 CES metric 查询参数。SDK supplement 的结论必须回到 hcloud 的 fallback plan、readiness 或 verifier 中闭合。
+v0.4 最初引入 SDK metadata 和小型只读 runner，用来解决 hcloud 缺参数证据的问题。当前模型保留这些
+高频资产，同时允许 Agent 在复杂 body、分页/并发或 hcloud 覆盖/解析障碍时编写任务专用 SDK 代码。
+runner registry 只限制 runner；SDK 结果按相同完成语义进入 readiness、verifier 或业务验收。
 
-v0.5 的 Terraform 资产面解决的是“长期可重复纳管”的问题，而不是替代 hcloud 排障。典型价值是：把 ECS + VPC + EIP + 安全组沉淀成可复用 `.tf`，把现网资源 import 到代码管理，或做 drift review。Terraform 进入后仍要先用 hcloud 发现现网，plan/apply 后仍要用 hcloud 验证资源状态和业务可用性。
+v0.5 的 Terraform 资产面解决的是“长期可重复纳管”的问题，而不是替代一次性排障。典型价值是：
+把 ECS + VPC + EIP + 安全组沉淀成可复用 `.tf`，把现网资源 import 到代码管理，或做 drift review。
+Terraform 前后优先用 hcloud 发现和验证；不可用时接受等价 SDK/API、data source/provider refresh 和
+业务探测证据。
 
 ## 服务补充能力总览
 
@@ -177,8 +183,8 @@ v0.5 的 Terraform 资产面解决的是“长期可重复纳管”的问题，�
 | CES / LTS | metric namespace/dimension/time window 发现，log group/stream/keyword/time window 查询计划。 | 健康判断不硬编码指标名，也不拉取过多日志；结论有指标和日志证据。 |
 | CCE / UCS | cluster、node、addon、policy 和 fleet 只读 readiness。 | 容器和多集群场景先看状态和边界，写操作不默认开放。 |
 | DCS / RFS | 缓存实例健康、备份、配置、诊断；stack/template/resource/execution plan review。 | 缓存和 IaC 任务先看证据和计划影响，再考虑变更。 |
-| SDK supplement | ECS/IMS/VPC/ELB/RDS/CES/CCE 等 allowlist 只读补充。 | 在 hcloud metadata 不足时补参数、request model、endpoint 和少量稳定只读证据；不开放 SDK 通用变更。 |
-| Terraform assets | provider/reference、示例 `.tf`、import/drift/长期纳管 workflow。 | 当用户要 IaC 时选择少量相关资产，生成可评审计划；不替代 hcloud 发现和后置验证。 |
+| SDK backend | 官方 SDK package、metadata inspector 和 ECS/IMS/VPC/ELB/RDS/CES/CCE 等 curated 只读 runner。 | 为类型化/复杂任务提供程序化路径；runner 不覆盖长尾时可写任务专用代码。 |
+| Terraform assets | provider/reference、示例 `.tf`、import/drift/长期纳管 workflow。 | 当用户要 IaC 时选择少量相关资产，生成可评审计划；用 hcloud 或等价证据发现和验证。 |
 | TMS / CTS / CBR / RMS / Config | 标签、审计、备份、合规、资源清单的 candidate、evidence gap 和 review plan。 | 让管云治理从口号变成可盘点、可追踪、可评审的清单。 |
 | Billing / Cost / BSS | 能力探测、官方 API request spec、权限和数据敏感边界；不签名、不发请求。 | 成本结论必须来自明确账单数据源，不从资源规格粗略推断费用。 |
 | WAF / HSS / SecMaster / CFW / DBSS / KMS | 安全姿态只读发现、policy/host/event/key 等高风险对象的 evidence gap。 | 安全服务先做可见性和证据，不把高风险策略变更过早自动化。 |
@@ -342,7 +348,7 @@ ELB 不是只创建 listener，还要确认后端 ECS、VPC、协议、端口和
 | 资产选择 | 可能浏览大量示例，混用不相关资源。 | 用 `hcloud_terraform_router.py` 从 catalog 中选择少量匹配示例和 reference。 |
 | 本地环境 | 可能默认 Terraform/provider 已可用。 | 用 `hcloud_terraform_context_inspect.py` 检查 Terraform CLI、认证环境变量、provider cache 和 forbidden artifact。 |
 | 计划执行 | 可能直接 apply 或建议 `-auto-approve`。 | 先 fmt/init/validate/plan，用户确认 exact plan 后才能 apply。 |
-| 后置验证 | 可能把 Terraform apply 成功当成业务完成。 | apply 后回到 hcloud 验证资源状态、网络路径和业务 readiness。 |
+| 后置验证 | 可能把 Terraform apply 成功当成业务完成。 | apply 后用 hcloud 或等价实时证据验证资源状态、网络路径和业务 readiness。 |
 
 核心差异：不用 skill 时，Terraform 容易变成另一种直接执行；使用 skill 时，Terraform 是可重复纳管链路，前后都被 hcloud 证据闭合。
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the SDK supplement registry for hcloud-first boundary compliance."""
+"""Audit the curated SDK read-only convenience-runner registry."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ ALLOWED_STATUSES = {"candidate", "curated", "deprecated"}
 
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
-    """Load SDK supplement registry JSON."""
+    """Load the curated SDK runner registry JSON."""
     if not path.exists():
         return {"schema_version": 1, "operations": []}
     return hcloud_common.load_json(path)
@@ -192,7 +192,7 @@ def validate_metadata(entry: dict[str, Any], sdk_root: Path | None, require_meta
 
 
 def audit_registry(path: Path = REGISTRY_PATH, sdk_root: Path | None = hcloud_sdk_catalog.DEFAULT_SDK_ROOT, require_metadata: bool = False) -> dict[str, Any]:
-    """Audit SDK supplement registry and return structured findings."""
+    """Audit the curated SDK runner registry and return structured findings."""
     registry = load_registry(path)
     findings: list[dict[str, Any]] = []
     operations = registry.get("operations", [])
@@ -243,7 +243,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """Audit SDK supplement registry."""
+    """Audit the curated SDK runner registry."""
     args = parse_args()
     result = audit_registry(args.registry, sdk_root=args.sdk_root, require_metadata=args.require_metadata)
     hcloud_common.emit_json(result, pretty=args.pretty)

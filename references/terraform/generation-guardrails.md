@@ -1,6 +1,6 @@
 # Terraform Generation Guardrails
 
-本文件把可复用的 Terraform 生成规则统一到当前项目的 hcloud-first 边界：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须回到 hcloud 做状态和业务验收。
+本文件统一可复用的 Terraform 生成规则：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须用实时云侧和业务证据验收。发现与回读优先 hcloud，也允许等价 SDK/API、Terraform data source/provider refresh 和协议探测。
 
 ## 生成前必须确认的事实
 
@@ -16,6 +16,7 @@
 
 - 用户明确输入
 - hcloud 只读查询和现网发现
+- 官方 SDK/API 的当前只读查询
 - Terraform data source 在 plan 阶段解析出的结果
 - 本地 provider schema / inventory 提供的字段结构线索
 
@@ -25,17 +26,19 @@
 
 Terraform 生成和验证过程里，最终汇报只能描述真实发生过的动作和真实输出：
 
-- 没有运行 `terraform init`、`validate`、`plan`、`apply`、`import`、`state` 或 hcloud readback，就不要写成已运行。
+- 没有运行 `terraform init`、`validate`、`plan`、`apply`、`import`、`state` 或实时 readback，就不要写成已运行。
 - 如果第一次 `plan` 就通过，不要虚构“先失败再修复”的过程。
 - 如果只生成了文件或命令草案，状态是 `prepared`，不是 `verified`。
 - 如果只做了 `terraform plan`，状态是 IaC 层可计划，不等于云资源已存在或业务可用。
-- 如果 apply 后没有 hcloud readback、健康检查或协议探测，不要说“上线完成”。
+- 如果 apply 后没有云侧 readback、健康检查或协议探测，不要说“上线完成”。
 
-推荐输出按状态分组：`planned`、`generated`、`validated`、`planned_by_terraform`、`applied`、`verified_by_hcloud`、`blocked`。缺少哪一层，就明确写缺口。
+推荐输出按状态分组：`planned`、`generated`、`validated`、`planned_by_terraform`、`applied`、
+`verified_by_cloud_readback`、`blocked`。缺少哪一层，就明确写缺口。
 
-## hcloud-first 流程
+## 首选证据流程
 
-1. 用 `hcloud_context_inspect.py` 和服务发现脚本确认账号、region、project 和现网资源。
+1. 优先用 `hcloud_context_inspect.py` 和服务发现脚本确认账号、region、project 和现网资源；hcloud
+   不可用时使用等价 SDK/API 或 data source/provider refresh。
 2. 用 `hcloud_terraform_context_inspect.py` 检查 Terraform CLI、provider cache、环境变量、mirror 配置和禁止提交产物。
 3. 用 `hcloud_terraform_router.py` 只选择少量相关 example/reference。
 4. 对目标 region 做资源可用性和依赖校验，不能把其它 region 的规格、镜像或 AZ 直接套用。
@@ -43,7 +46,8 @@ Terraform 生成和验证过程里，最终汇报只能描述真实发生过的�
 6. 运行 `terraform fmt`、`terraform init`、`terraform validate`、`terraform plan`。
 7. 摘要 plan 里的新增、修改、删除、替换、停机和计费风险。
 8. 用户明确确认 exact plan 后才能 apply。
-9. apply 后回到 hcloud 做资源 readback、健康检查、协议探测和业务验收。
+9. apply 后优先回到 hcloud 做资源 readback；不可用时使用等价 SDK/API 查询，并继续健康检查、
+   协议探测和业务验收。
 
 ## 生成前可用性校验
 
@@ -51,7 +55,7 @@ Terraform 代码生成前，必须先确认目标 region 中的关键候选值�
 
 | 场景 | 必查事实 | 推荐来源 |
 | --- | --- | --- |
-| ECS | AZ、flavor、image、subnet、安全组、EIP 需求 | hcloud 发现、`hcloud_resource_discovery.py`、SDK allowlist 补充 |
+| ECS | AZ、flavor、image、subnet、安全组、EIP 需求 | hcloud 发现、`hcloud_resource_discovery.py`、官方 SDK/API |
 | OBS 静态站 | bucket name、region、website endpoint、自定义域名和 DNS 归属 | `hcloud_obs_readonly.py`、`obs-static-website-hosting.md` |
 | RDS | 引擎版本、实例模式、flavor、AZ 组合、备份和连接边界 | hcloud 发现、RDS playbook、provider data source |
 | CCE | cluster flavor、subnet DNS、节点 flavor、key pair、addon 变体 | hcloud 发现、CCE playbook、provider data source |

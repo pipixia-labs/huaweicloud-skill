@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect Huawei Cloud Python SDK metadata as a supplemental source.
+"""Inspect Huawei Cloud Python SDK metadata for Agent backend selection.
 
 Runtime discovery prefers installed huaweicloudsdk* packages. A local SDK source
 tree can be supplied for maintenance and tests, but user machines are not
@@ -374,7 +374,9 @@ def inspect_sdk(
     result: dict[str, Any] = {
         "success": True,
         "mode": "sdk_metadata",
-        "role": "supplemental_to_hcloud",
+        "backend": "sdk",
+        "catalog_scope": "installed_sdk_metadata",
+        "backend_preference": "hcloud_then_sdk",
         "package_discovery": "installed_packages_first_with_explicit_source_fallback"
         if sdk_root
         else "installed_packages_only",
@@ -383,9 +385,9 @@ def inspect_sdk(
         "service": service.upper() if service else None,
         "operation": operation,
         "boundaries": {
-            "primary_runtime": "hcloud",
-            "sdk_default_use": "metadata_and_curated_read_only_supplement",
-            "mutations": "do_not_execute_via_sdk_generic_runner",
+            "agent_authored_sdk_code_allowed": True,
+            "catalog_is_operation_allowlist": False,
+            "mutations": "require task-specific risk controls, explicit confirmation, and readback",
         },
     }
     packages = find_sdk_packages(sdk_root, service)
@@ -437,7 +439,7 @@ def sdk_hint_for_operation(service: str, operation: str, sdk_root: Path | None =
             candidates.append(
                 {
                     "source": "huaweicloud-python-sdk",
-                    "role": "supplemental_to_hcloud",
+                    "role": "sdk_metadata_evidence",
                     "source_kind": package.get("source_kind"),
                     "package": package.get("package"),
                     "version": version.get("version"),

@@ -1,11 +1,13 @@
 {
   "schema_version": 1,
-  "description": "Curated SDK supplements for the hcloud-first Huawei Cloud skill. SDK entries exist only when they make the hcloud workflow more reliable.",
+  "description": "Curated operations for the hcloud_sdk_readonly.py convenience runner. This registry does not limit task-specific SDK programs written by an Agent.",
   "boundaries": {
-    "primary_runtime": "hcloud",
-    "sdk_role": "supplemental_to_hcloud",
+    "scope": "hcloud_sdk_readonly_only",
+    "backend": "sdk",
+    "backend_preference": "hcloud_then_sdk",
     "default_mode": "plan",
-    "generic_mutations_allowed": false,
+    "generic_mutations_allowed_by_this_runner": false,
+    "agent_authored_sdk_outside_registry_allowed": true,
     "source_preference": "installed_package_then_explicit_maintenance_source"
   },
   "operations": [

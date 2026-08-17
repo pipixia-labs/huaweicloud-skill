@@ -16,7 +16,7 @@ def read_text(relative_path: str) -> str:
 class UnifiedMechanismContractsTest(unittest.TestCase):
     """Keep the first unified mechanism small, portable, and agent-owned."""
 
-    def test_skill_requires_durable_memory_for_complex_tasks(self) -> None:
+    def test_skill_adapts_complex_task_memory_to_host_capabilities(self) -> None:
         skill = read_text("SKILL.md")
 
         for reference in (
@@ -27,22 +27,14 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             self.assertIn(reference, skill)
 
         self.assertIn("Agent 仍然负责", skill)
-        self.assertIn("自己的 workspace", skill)
-        self.assertIn("简单查询", skill)
-        self.assertIn("不要求创建 task 记录", skill)
-        self.assertIn("必须在首次实质规划或执行前", skill)
-        self.assertIn("文件读写工具", skill)
-        self.assertIn("运行时待办", skill)
-        self.assertIn("不算完成记录", skill)
-        self.assertIn("task 级独立 workspace", skill)
-        self.assertIn("多个 task 共用一个 workspace", skill)
-        self.assertIn("同一 task", skill)
-        self.assertIn("必须立即重新分类", skill)
-        self.assertIn("下一项实质规划或执行前", skill)
-        self.assertIn("进入付费、真实变更或异步等待前", skill)
+        self.assertIn("宿主已有持久 task state 时优先复用", skill)
+        self.assertIn("宿主提供持久且可写的 workspace", skill)
+        self.assertIn("不得仅因缺少特定 task ID、文件工具或目录而阻断云任务", skill)
+        self.assertIn("用户要求变化时重新判断复杂度", skill)
+        self.assertIn("运行时 task ID 对 Agent 可见", skill)
+        self.assertIn("不得冒充平台 ID", skill)
         self.assertIn("可信摘要", skill)
-        self.assertIn("必须更新", skill)
-        self.assertIn("恢复任务时先读取", skill)
+        self.assertIn("不替 Agent 决定架构、工具、参数和次序", skill)
 
     def test_required_assets_exist(self) -> None:
         for relative_path in (
@@ -65,11 +57,11 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
             "Agent 自己的 workspace",
             "task 级 workspace",
             "共享 workspace",
-            "优先复用运行时",
             "当前 workspace",
             "tasks/<task_id>/",
             "不依赖 PID",
-            "必须持久化",
+            "宿主提供持久任务状态",
+            "不得仅因宿主没有文件 workspace 而阻断云任务",
             "首次实质规划或执行前",
             "每轮收到用户",
             "立即重新分类",
@@ -146,7 +138,7 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         self.assertIn("agent-generated", task_template)
         self.assertIn("不可见", skill)
         self.assertIn("稳定任务描述符", skill)
-        self.assertIn("缺少任一项不算完成建档", skill)
+        self.assertIn("不得冒充平台 ID", skill)
 
         combined = f"{skill}\n{guide}\n{task_template}"
         self.assertNotIn("CLOUD_CLAW_ACTION_TASK_RUN_ID", combined)
@@ -369,14 +361,14 @@ class UnifiedMechanismContractsTest(unittest.TestCase):
         for phrase in (
             "v0.9.0",
             "反推目标",
-            "Agent 必须使用",
-            "运行时待办",
+            "优先复用宿主持久 task state",
+            "持久 workspace",
             "平台自动日志",
             "task 级 workspace",
             "多个 task 共用 workspace",
             "不要求固定 Schema",
             "创建偏晚",
-            "升级时创建、变化时更新、恢复时读取",
+            "升级时建立状态、变化时更新、恢复时读取",
             "plus 版",
             "逻辑资源",
             "预期数量",

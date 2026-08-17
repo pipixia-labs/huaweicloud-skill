@@ -101,6 +101,68 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("参数错误、凭据错误、超时", skill_text)
         self.assertIn("调用优先级为", skill_text)
 
+    def test_backend_selection_and_host_responsibilities_are_portable(self) -> None:
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        backend_text = (ROOT / "references" / "backend-selection.md").read_text(encoding="utf-8")
+        sdk_text = (ROOT / "references" / "sdk-supplement.md").read_text(encoding="utf-8")
+        terraform_text = (ROOT / "references" / "terraform-workflow.md").read_text(encoding="utf-8")
+        workspace_text = (ROOT / "references" / "task-workspace-guide.md").read_text(encoding="utf-8")
+
+        for phrase in (
+            "默认优先级是 `hcloud > SDK > Terraform`",
+            "高频脚本不是第四种后端",
+            "Agent 自行选择",
+            "Terraform 由 IaC 意图触发",
+        ):
+            self.assertIn(phrase, backend_text)
+        self.assertIn("`hcloud` 不可用不等于整个 Skill 不可用", skill_text)
+        self.assertIn("Agent 编写任务专用 SDK 代码", sdk_text)
+        self.assertIn("不受该 registry 限制", sdk_text)
+        self.assertIn("等价的 SDK/API、Terraform data source", terraform_text)
+        self.assertIn("宿主提供持久任务状态", workspace_text)
+        self.assertIn("不得仅因宿主没有文件 workspace 而阻断云任务", workspace_text)
+
+        self.assertNotIn("任何网站部署任务", skill_text)
+        self.assertNotIn("Agent 必须使用自身的文件读写工具", skill_text)
+        self.assertNotIn("guarded flow", skill_text)
+        self.assertNotIn("guarded submit", skill_text)
+
+    def test_first_wave_public_script_contracts_are_declared(self) -> None:
+        manifest = json.loads(
+            (ROOT / "references" / "script-audience-manifest.json").read_text(encoding="utf-8")
+        )
+        contract_text = (ROOT / "references" / "public-script-contract.md").read_text(
+            encoding="utf-8"
+        )
+        contracts = manifest["public_script_contracts"]
+        expected = {
+            "scripts/hcloud_resource_query.py": ("query_executor", "hcloud"),
+            "scripts/hcloud_resource_discovery.py": ("query_executor", "hcloud"),
+            "scripts/hcloud_obs_readonly.py": ("query_executor", "hcloud"),
+            "scripts/hcloud_sdk_readonly.py": ("query_executor", "sdk"),
+        }
+
+        self.assertEqual(
+            manifest["public_result_contract"]["id"],
+            "huaweicloud_skill_public_result_v1",
+        )
+        self.assertIn("一个大 dispatcher", contract_text)
+        self.assertIn("不传 `--output-file`", contract_text)
+        self.assertIn("完整 JSON 原样写入", contract_text)
+        for script, (kind, backend) in expected.items():
+            with self.subTest(script=script):
+                contract = contracts[script]
+                self.assertEqual(contract["kind"], kind)
+                self.assertEqual(contract["backend"], backend)
+                self.assertEqual(contract["default_mode"], "plan")
+                self.assertEqual(contract["stdout_without_output_file"], "full_json")
+                self.assertEqual(
+                    contract["stdout_with_output_file"],
+                    "compact_receipt",
+                )
+                self.assertEqual(contract["output_file_content"], "full_json")
+                self.assertTrue((ROOT / script).exists())
+
     def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:
         playbook = (
             ROOT / "references/playbooks/ecs-ssh-access-readiness.md"
@@ -988,18 +1050,16 @@ class ArchitectureContractsTest(unittest.TestCase):
         safety_text = (ROOT / "references" / "runtime-safety-boundaries.md").read_text(encoding="utf-8")
         version_text = (ROOT / "references" / "versioning-policy.md").read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(skill_text.splitlines()), 155)
+        self.assertLessEqual(len(skill_text.splitlines()), 300)
         self.assertIn("references/runtime-safety-boundaries.md", skill_text)
+        self.assertIn("references/backend-selection.md", skill_text)
         self.assertIn("references/scripts.md", skill_text)
         self.assertIn("references/versioning-policy.md", skill_text)
         self.assertIn("hcloud_closure_plan.py", skill_text)
         self.assertIn("hcloud_acceptance_closure.py", skill_text)
-        self.assertIn("不要自行拼接或直接执行裸 `hcloud` 命令", skill_text)
-        self.assertIn("专用场景脚本 ->", skill_text)
-        self.assertIn(
-            "只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底",
-            skill_text,
-        )
+        self.assertIn("脚本是捷径，不是白名单", skill_text)
+        self.assertIn("有 metadata/help 证据的直接 hcloud", skill_text)
+        self.assertIn("直接命令仍须确认 operation 版本", skill_text)
         self.assertIn("CHANGELOG.md", version_text)
         self.assertIn("RELEASE_NOTES.md", version_text)
         self.assertNotIn("## 当前版本覆盖", skill_text)

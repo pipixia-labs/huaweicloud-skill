@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Natural-language scenario router for the hcloud-first Huawei Cloud skill. Routes to local registry, playbooks, SDK supplements, and Terraform candidates without external skill dependencies.",
+  "description": "Optional natural-language scenario router for broad or ambiguous Huawei Cloud goals. Routes to local registry, playbooks, hcloud, SDK, and Terraform candidates without external skill dependencies.",
   "scenarios": [
     {
       "id": "maas-model-api-calls",

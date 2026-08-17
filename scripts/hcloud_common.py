@@ -153,6 +153,52 @@ def write_json_artifact(path: Path, value: Any, pretty: bool = False) -> dict[st
     }
 
 
+def result_outcome_status(result: dict[str, Any]) -> str:
+    """Return a stable high-level outcome for a public script result."""
+    declared = result.get("outcome_status")
+    if isinstance(declared, str) and declared.strip():
+        return declared
+    if not result.get("success", False):
+        return "failed"
+    if result.get("mode") == "plan":
+        return "planned"
+    return "succeeded"
+
+
+def emit_public_result(
+    result: dict[str, Any],
+    *,
+    output_file: Path | None = None,
+    pretty: bool = False,
+) -> dict[str, Any]:
+    """Emit a public CLI result, optionally storing the full JSON as an artifact.
+
+    Without ``output_file`` this preserves the historical full-stdout behavior.
+    With ``output_file`` it writes the unmodified result using private permissions
+    and prints a compact, stable receipt so large responses do not fill the
+    Agent's context.
+    """
+    if output_file is None:
+        emit_json(result, pretty=pretty)
+        return result
+
+    artifact = write_json_artifact(output_file, result, pretty=pretty)
+    receipt: dict[str, Any] = {
+        "result_contract": "huaweicloud_skill_public_result_v1",
+        "success": bool(result.get("success", False)),
+        "mode": result.get("mode", "unknown"),
+        "outcome_status": result_outcome_status(result),
+        "result_file": artifact["path"],
+        "artifact": artifact,
+    }
+    for key in ("service", "operation"):
+        value = result.get(key)
+        if value is not None:
+            receipt[key] = value
+    emit_json(receipt, pretty=pretty)
+    return receipt
+
+
 def collect_known_secrets(config_path: Path | None = None) -> set[str]:
     """Collect locally known hcloud secrets so they can be redacted from output."""
     target = config_path or (Path.home() / ".hcloud" / "config.json")

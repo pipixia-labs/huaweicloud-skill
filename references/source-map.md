@@ -33,6 +33,8 @@
 | --- | --- | --- |
 | Metadata | Skill 触发范围和一句话定位 | Agent 选择 Skill 时 |
 | `SKILL.md` | 最短入口、公共边界、工具和资料路由 | Skill 被触发时 |
+| Backend Selection | hcloud、SDK、Terraform 的选择和切换证据 | 任务开始、后端受阻或 IaC 意图出现时 |
+| Public Script Contract | 公共脚本分类、stdout/artifact 和退出语义 | Agent 调用公共脚本或维护者迁移入口时 |
 | Shared Core | 共享原则、task workspace 和交互指南 | 多轮、跨服务、副作用、恢复或复杂交付时按需 |
 | Goal / Scenario | 目标能力、scenario router 和 contract | 命中宽泛目标或场景时 |
 | Service Module | 对应服务 guide、playbook、catalog 和专用脚本 | 实际涉及该服务或证据缺口时 |
@@ -43,6 +45,7 @@
 ```text
 Skill metadata
   -> SKILL.md 最短入口
+  -> 按需读取 backend-selection.md 选择执行后端
   -> 只读取当前复杂度需要的 shared core
   -> 命中目标或场景时读取对应目标视图和 router
   -> 实际涉及服务时读取该服务模块
@@ -74,7 +77,7 @@ Skill 外合理工具；不要求为了满足层级顺序加载无关文件。
 
 ## 资料分层
 
-默认使用顺序：
+知识资料的默认使用顺序：
 
 1. `references/`
 2. `materials/hcloud-docs-md/`
@@ -90,8 +93,9 @@ Skill 外合理工具；不要求为了满足层级顺序加载无关文件。
   - 是主要阅读源。
   - 适合 `rg`、摘取命令示例、整理章节内容。
 - 已安装的 `huaweicloudsdk*` package
-  - 是 SDK 补充能力的运行时来源。
-  - 只用于参数、region/endpoint、错误结构和 allowlist 内只读 runner。
+  - 是 SDK 程序化后端和 metadata 证据的运行时来源。
+  - curated registry 只限制 `hcloud_sdk_readonly.py`；Agent 编写的任务专用 SDK 代码以官方
+    package/API 契约和当前任务授权为边界。
 - 上游 `huaweicloud/huaweicloud-sdk-python-v3` 的显式本地 checkout
   - 是本仓库维护和测试参考。
   - 用户机器不要求存在该源码目录。
@@ -154,6 +158,15 @@ Skill 外合理工具；不要求为了满足层级顺序加载无关文件。
   - 企业网站、跨服务资源盘点和成本治理样本引用现有 router、contract、guide、playbook 和脚本；
   - 只组织用户结果、候选能力、替代、动态缺口和完成证据；
   - 不复制 API 参数、实时价格、配额、库存或运行时资源状态。
+
+- `references/backend-selection.md`
+  - 属于面向 Agent 的执行后端决策知识；
+  - 维护 hcloud 默认优先、SDK 程序化路径、Terraform IaC 意图和等价证据原则；
+  - 不替 Agent 固定具体 service、operation、参数或调用顺序。
+
+- `references/public-script-contract.md`
+  - 属于公共 CLI 的人类可读契约，与 `script-audience-manifest.json` 的机器声明对应；
+  - 只统一分类、兼容输出、artifact 回执和退出语义，不把脚本合并成大 dispatcher。
 
 目标样本中的服务事实仍在原 registry、catalog、guide 和 playbook 维护。引用失效时修正目标视图，
 不在目标指南中另建一份事实副本。

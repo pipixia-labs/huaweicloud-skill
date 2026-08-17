@@ -209,45 +209,50 @@ python3 scripts/hcloud_safe_exec.py \
 
 它适合在连续处理大量华为云任务前运行。
 
-## SDK 补充实现
+## SDK 后端支持与便捷 runner
 
-SDK 补充链路由三个脚本和一个 registry 组成：
+Skill 不提供一个包办全部 API 的 SDK dispatcher。Agent 可以直接使用官方 package 编写任务专用代码；
+另外保留三个脚本和一个 registry，为 metadata 检查和高频只读调用提供捷径：
 
 | 模块 | 职责 |
 | --- | --- |
-| `references/sdk-supplement-registry.json` | 控制哪些 SDK operation 可以作为 hcloud 补充，声明风险、用途、fallback runner 和执行边界。 |
+| `references/sdk-supplement-registry.json` | 只控制 `hcloud_sdk_readonly.py` 可执行的高频只读 operation，声明风险、用途和 hcloud 对照 plan。 |
 | `hcloud_sdk_catalog.py` | 从已安装 `huaweicloudsdk*` package 读取 client、request、region 等模型信息；维护期可 fallback 到 SDK 源码参考。 |
-| `hcloud_sdk_readonly.py` | 对 allowlist 内的稳定只读 operation 生成计划或显式执行；默认 plan mode，输出 hcloud fallback plan。 |
-| `hcloud_sdk_supplement_audit.py` | 校验 registry 是否仍符合 hcloud-first、小 allowlist、低风险只读和 fallback 约束。 |
+| `hcloud_sdk_readonly.py` | 对 registry 内的稳定只读 operation 生成计划或显式执行；默认 plan mode，输出 hcloud 对照 plan。 |
+| `hcloud_sdk_supplement_audit.py` | 校验 runner registry 是否保持小范围、低风险只读和 fallback 可比较。 |
 
 ```mermaid
 flowchart LR
-    Need["hcloud metadata/help gap"] --> Registry["sdk-supplement-registry.json"]
+    Need["SDK metadata or repeated read call"] --> Registry["sdk-supplement-registry.json"]
     Registry --> Catalog["hcloud_sdk_catalog.py"]
     Catalog --> Evidence["request/region/error evidence"]
     Registry --> ReadOnly["hcloud_sdk_readonly.py"]
     ReadOnly --> SDKPkg["installed huaweicloudsdk* package"]
-    ReadOnly --> Fallback["hcloud fallback plan"]
-    Evidence --> HCloudPlan["hcloud query/verify plan"]
-    Fallback --> HCloudPlan
+    ReadOnly --> Fallback["hcloud comparison plan"]
+    Need --> TaskCode["Agent task-specific SDK code"]
+    TaskCode --> SDKPkg
 ```
 
 关键实现边界：
 
 - 用户机器不需要 SDK 源码；维护期源码对照必须通过 `--sdk-root <sdk-source-root>` 显式传入。
-- `hcloud_sdk_catalog.py` 可以在没有安装 SDK package 时返回能力缺口，调用方应降级回 hcloud。
+- `hcloud_sdk_catalog.py` 可以在没有安装 SDK package 时返回能力缺口；调用方可安装单个服务 package、
+  改选 hcloud，或报告依赖缺口。
 - `hcloud_sdk_readonly.py --execute` 只对 allowlist、read-only、low risk 的 operation 生效。
-- SDK runner 不负责 mutation、批量治理写操作或 Terraform/IaC。
+- SDK runner 不负责 mutation、批量治理写操作或 Terraform/IaC；这不禁止 Agent 在任务授权和 API
+  语义明确时使用官方 SDK 完成具体变更。
 
-扩展 SDK supplement 时，先问“这个 SDK 补充是否让 hcloud 主链路更稳”。如果只是 SDK 也能做同一件事，不应该加入 allowlist。
+扩展 runner 时先问“这个调用是否高频、稳定，而且封装后能显著减少错误或步骤”。如果只是某个任务
+临时需要，写最小任务代码，不扩大公共 registry。
 
 ## Terraform 资产实现
 
-Terraform 支持由本地资产、catalog 和 router 组成。它不是 hcloud 的替代执行面，而是当用户目标需要 IaC 时，帮助 agent 选择少量相关示例和参考文档。
+Terraform 支持由本地资产、catalog 和 router 组成。它由 IaC 意图触发，而不是普通 fallback；当
+用户目标需要 IaC 时，帮助 Agent 选择少量相关示例和参考文档。
 
 | 模块 | 职责 |
 | --- | --- |
-| `references/terraform-workflow.md` | 定义 hcloud 发现、Terraform fmt/init/validate/plan、用户确认、apply 后 hcloud verify 的顺序。 |
+| `references/terraform-workflow.md` | 定义现网发现、Terraform fmt/init/validate/plan、用户确认和 apply 后实时 verify；hcloud 优先，允许等价证据。 |
 | `references/terraform/README.md` | Terraform 资产入口和目录角色说明。 |
 | `examples/terraform/` | 可复用 `.tf` 示例资产。 |
 | `references/terraform/catalog/*.json` | 示例和 reference 的机器可读路由索引。 |

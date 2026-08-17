@@ -1,14 +1,15 @@
 # Terraform Workflow
 
-Terraform 是已接入的补充 IaC 变更面，适合可重复创建、环境复制、长期纳管、import 和 drift review。它不替代 hcloud 的上下文发现、只读核验和故障排查，也不由 SDK runner 承担。
+Terraform 是由 IaC 意图触发的声明式变更面，适合可重复创建、环境复制、长期纳管、import 和 drift
+review。它不是 hcloud 或 SDK 失败后的普通兜底，也不由 SDK runner 承担。
 
 ## 三个执行面
 
 | 执行面 | 角色 | 默认边界 |
 | --- | --- | --- |
-| hcloud | 主查询/执行面，负责真实上下文、资源发现、dry-run、提交和后置验证。 | 变更需显式确认。 |
-| SDK | hcloud 补充面，负责参数类型、request model、region/endpoint 和少量 allowlist 只读查询。 | 不做通用写操作。 |
-| Terraform | IaC 面，负责声明式资源、plan、validate、apply 和 drift 管理。 | 不自动 apply；apply 后仍用 hcloud 验证。 |
+| hcloud | 默认优先接口，适合真实上下文、资源发现、一次性查询/变更和回读。 | 变更需显式确认。 |
+| SDK | 程序化后端，适合类型化请求、复杂处理和等价查询/回读。 | 变更同样需要风险、授权和验证。 |
+| Terraform | IaC 面，负责声明式资源、plan、validate、apply 和 drift 管理。 | 不自动 apply；apply 后必须用实时证据验证。 |
 
 ## 什么时候用 Terraform
 
@@ -33,11 +34,12 @@ Terraform 是已接入的补充 IaC 变更面，适合可重复创建、环境�
    - 记录 region、project、企业项目、资源命名、计费影响和回滚边界。
    - 运行 `python3 scripts/hcloud_terraform_router.py "<user-goal>" --pretty`，只选择命中的少量 `examples/terraform/*` 和 `references/terraform/*`。
 
-2. **hcloud 发现现状**
-   - 运行 `hcloud_context_inspect.py`。
+2. **发现现状和运行条件**
+   - 优先运行 `hcloud_context_inspect.py`，因为 hcloud 通常能以最少代码确认 region/project 和现有资源。
    - 运行 `hcloud_terraform_context_inspect.py`，确认 Terraform CLI、provider cache、环境变量和禁止提交的 runtime artifact。
-   - 用 `hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和对应 playbook 收集现有 VPC、subnet、安全组、EIP、镜像、规格、RDS/ELB/CCE 等证据。
-   - 对 SDK allowlist 中的补充点，可用 SDK metadata 验证参数类型和 request path。
+   - 优先用 `hcloud_resource_discovery.py`、`hcloud_resource_query.py` 和对应 playbook 收集现有 VPC、subnet、安全组、EIP、镜像、规格、RDS/ELB/CCE 等证据。
+   - hcloud 不可用或当前覆盖不足时，使用等价的 SDK/API、Terraform data source、provider refresh，
+     或用户提供并重新核验的精确 ID。SDK 便捷 runner 的 allowlist 不限制任务专用 SDK 查询。
 
 3. **生成 Terraform 草案**
    - 只生成必要资源，不把账号内所有资源一次性塞入 state。
@@ -57,8 +59,9 @@ Terraform 是已接入的补充 IaC 变更面，适合可重复创建、环境�
    - 不要把 `terraform apply -auto-approve` 作为默认建议。
    - apply 输出中涉及敏感字段必须摘要和脱敏。
 
-6. **hcloud 后置验证**
-   - apply 后回到 hcloud 查询资源状态。
+6. **实时后置验证**
+   - apply 后优先回到 hcloud 查询资源状态；如果不可用，使用等价 SDK/API 查询或 Terraform data
+     source/provider refresh。无论来源如何，state 本身不能替代云侧回读。
    - ECS 要继续 job/ACTIVE/SSH/应用验收。
    - ELB 要继续 member health 和协议探测。
    - RDS 要继续实例、备份、配置和连接证据。
@@ -67,9 +70,10 @@ Terraform 是已接入的补充 IaC 变更面，适合可重复创建、环境�
 ## 与 SDK 的关系
 
 - SDK 不负责生成 Terraform。
-- SDK 可以补充 Terraform 草案所需的 API 参数类型、region 线索和只读资源详情。
-- 若 hcloud 和 SDK 对字段名称或可选性给出不同线索，以实际 hcloud dry-run/查询和官方 Terraform provider schema 为准。
-- SDK allowlist 不因为 Terraform 接入而扩大。
+- SDK 可以提供 Terraform 草案所需的 API 参数类型、region 线索、只读资源详情和后置回读。
+- 若 hcloud、SDK 与 provider 对字段名称或可选性给出不同线索，以当前 provider schema、实际 API
+  dry-run/query 和官方文档交叉验证，不凭单一旧缓存判断。
+- SDK 便捷 runner registry 不因为 Terraform 接入而扩大，也不限制 Agent 的任务专用 SDK 代码。
 
 ## 安全边界
 
@@ -78,7 +82,7 @@ Terraform 是已接入的补充 IaC 变更面，适合可重复创建、环境�
 - 不自动 destroy。
 - 不用 Terraform 批量接管未知生产资源。
 - 不把 plan 中的替换、删除、停机、计费风险藏在长日志里。
-- 不在没有 hcloud 后置验证的情况下宣称 IaC 变更完成。
+- 不在没有实时云侧或业务后置验证的情况下宣称 IaC 变更完成。
 
 ## 本地资产面
 

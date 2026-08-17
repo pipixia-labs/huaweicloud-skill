@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+当前未发布改动统一了自主 Agent 的后端选择和公共脚本契约：hcloud 仍默认优先，SDK 可承担类型化、
+复杂处理和 hcloud 实际障碍下的任务，Terraform 保持 IaC 意图专用。宿主负责持久化与确认交互机制，
+Skill 负责华为云事实、风险、参数、错误和验证语义。
+
+第一批公共查询入口新增兼容的 artifact/receipt 模式：只有显式传入 `--output-file` 才把完整结果写入
+`0600` 文件并在 stdout 返回紧凑回执；不传时保持原有完整 JSON 输出。SDK curated registry 只约束
+便捷只读 runner，不限制 Agent 使用经核验的官方 SDK 编写任务代码。
+
 ## v0.9.4 / 0.9.4 - 2026-08-17
 
 v0.9.4 是只读执行入口的可移植性和长结果可靠性增强版本。账号盘点与账单读取由 Agent 直接通过

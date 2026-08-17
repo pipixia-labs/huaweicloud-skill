@@ -620,6 +620,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute", action="store_true", help="Execute the read query through hcloud_safe_exec.py.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout for the executed command.")
     parser.add_argument("--allow-sensitive-read", action="store_true", help="Allow high-risk read operations such as password/private-key reads.")
+    parser.add_argument(
+        "--output-file",
+        type=Path,
+        help="Write the full JSON result privately and print a compact receipt.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.timeout < 1:
@@ -634,7 +639,11 @@ def main() -> int:
         result = build_plan(args)
     except ValueError as exc:
         result = {"success": False, "error": str(exc)}
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    hcloud_common.emit_public_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+    )
     return 0 if result["success"] else 1
 
 

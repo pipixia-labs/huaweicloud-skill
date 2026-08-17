@@ -59,7 +59,8 @@ OBS 不走普通 OpenAPI-style `hcloud OBS <Operation>` 命令。默认按 `obs-
 
 - 只读：`scripts/hcloud_obs_readonly.py`
 - 写类规划：`scripts/hcloud_obs_change_plan.py`
-- 真实对象上传、桶属性、网站托管和自定义域名能力优先通过 `hcloud obs` / obsutil / 已验证 SDK 补充路径实现。
+- 真实对象上传、桶属性、网站托管和自定义域名能力优先通过 `hcloud obs` / obsutil；其覆盖或解析存在
+  实际障碍时，可使用已验证的官方 SDK/API 路径。
 
 不要在未确认 obsutil 配置和 endpoint 前直接生成写命令。
 

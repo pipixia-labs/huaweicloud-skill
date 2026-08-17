@@ -9,7 +9,7 @@
       "path": "references/terraform/README.md",
       "category": "core",
       "default_route": true,
-      "summary": "本目录完整吸收原独立 Terraform skill 中对 `huaweicloud-skill` 有用的 Markdown 和 Terraform 示例资产，但运行时不要从这里“全量浏览”。Terraform 是 `hcloud` 的补充 IaC 面：用于可重复创建、环境复制、长期纳管、import 和 drift review；不是只读查询、排障和一次性小变更的默认入口。"
+      "summary": "本目录包含当前 Skill 使用的 Terraform Markdown 和示例资产，运行时不要“全量浏览”。Terraform 由 IaC 意图触发，用于可重复创建、环境复制、长期纳管、import 和 drift review；它不是只读查询、排障和一次性小变更的默认入口，也不是 hcloud/SDK 报错后的机械 fallback。"
     },
     {
       "id": "advanced-variant-catalog",
@@ -37,7 +37,7 @@
       "path": "references/terraform/generation-guardrails.md",
       "category": "core",
       "default_route": true,
-      "summary": "本文件把可复用的 Terraform 生成规则统一到当前项目的 hcloud-first 边界：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须回到 hcloud 做状态和业务验收。"
+      "summary": "本文件统一可复用的 Terraform 生成规则：先发现现网，再生成 IaC 草案；先 plan review，再由用户明确确认 apply；apply 后必须用实时云侧和业务证据验收。发现与回读优先 hcloud，也允许等价 SDK/API、Terraform data source/provider refresh 和协议探测。"
     },
     {
       "id": "interop-with-hcloud",
@@ -86,7 +86,7 @@
       "path": "references/terraform/operations.md",
       "category": "core",
       "default_route": true,
-      "summary": "Terraform 在本 skill 中是辅助 IaC 面，适合长期纳管、环境复制、plan review 和 drift 管理。现网真相、资源发现、权限诊断和后置验收仍以 `hcloud` 为主体。"
+      "summary": "Terraform 在本 Skill 中是由 IaC 意图触发的执行面，适合长期纳管、环境复制、plan review 和 drift 管理。现网真相、资源发现、权限诊断和后置验收优先使用 `hcloud`，也允许等价 SDK/API、data source/provider refresh 和业务探测证据。"
     },
     {
       "id": "provider-auth",

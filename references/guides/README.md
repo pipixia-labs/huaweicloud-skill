@@ -1,12 +1,14 @@
 # Service Guides
 
-这些服务指南用于把自然语言目标快速路由到本 skill 的 hcloud-first 执行路径。它们吸收了官方 skill 常见的“按服务/场景组织入口”的优点，但不替代本地 registry、playbook、planner 和真实 `hcloud` 证据。
+这些服务指南用于把自然语言目标快速定位到本 Skill 的服务知识、hcloud 默认路径、SDK 程序化候选
+和 Terraform IaC 资产。它们不替代 registry、playbook、官方 API/schema 和当前工具证据。
 
 ## 使用规则
 
 - 先按 `scripts/hcloud_scenario_router.py` 或用户明确服务定位到场景。
 - 再读取对应服务指南和 `references/playbooks/` 下的 playbook。
-- 查询和变更仍以 hcloud 为主；SDK 只读取 `references/sdk-supplement-registry.json` 中登记的补充点。
+- 查询和一次性变更默认优先 hcloud；SDK 更适合复杂程序化处理或 hcloud 实际障碍时可以成为任务
+  后端。`sdk-supplement-registry.json` 只限制便捷只读 runner。
 - Terraform 只在用户需要可重复 IaC、环境复制或长期纳管时接入，详见 `references/terraform-workflow.md`。
 
 ## 指南索引

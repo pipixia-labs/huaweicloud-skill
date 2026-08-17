@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- 重写后端选择契约：默认优先级为 `hcloud > SDK > Terraform`，SDK 成为受支持的程序化路径，
+  Terraform 只由 IaC/import/drift/长期纳管意图触发；高频脚本是可选捷径，不是第四种后端。
+- 将任务持久化、场景路由和确认交互改为宿主能力自适应：优先复用宿主持久 task state，有 workspace
+  时可保存最小任务文件，明确目标可跳过 router，Skill 不要求平台专属函数名。
+- 将 `hcloud_sdk_readonly.py` 和 `sdk-supplement-registry.json` 收窄为便捷只读 runner 契约；registry
+  不再被描述为 Agent 任务专用 SDK 代码的全局白名单。
+- 新增公共脚本分类和 `huaweicloud_skill_public_result_v1` 回执；资源查询、发现、OBS 只读和 SDK
+  只读入口支持 `--output-file`，未指定时保持完整 JSON stdout，指定时完整结果私有落盘并返回紧凑回执。
+
 ## 0.9.4 - 2026-08-17
 
 - 账号盘点与账单查询改为可移植的 Skill CLI 入口，不再依赖 runtime 专属的只读 capability Function Calling；删除两项只读 `capabilities.json` 声明。

@@ -62,6 +62,51 @@ class HcloudCommonTest(unittest.TestCase):
             self.assertEqual(receipt["bytes"], path.stat().st_size)
             self.assertEqual(len(receipt["sha256"]), 64)
 
+    def test_emit_public_result_preserves_stdout_without_output_file(self) -> None:
+        result = {
+            "success": True,
+            "mode": "execute",
+            "service": "ECS",
+            "records": [{"id": "server-1"}],
+        }
+        output = io.StringIO()
+
+        with contextlib.redirect_stdout(output):
+            emitted = hcloud_common.emit_public_result(result)
+
+        self.assertEqual(json.loads(output.getvalue()), result)
+        self.assertIs(emitted, result)
+
+    def test_emit_public_result_writes_full_artifact_and_prints_compact_receipt(self) -> None:
+        result = {
+            "success": True,
+            "mode": "plan",
+            "service": "ECS",
+            "operation": "ListServersDetails",
+            "records": [{"id": "server-1"}],
+        }
+        output = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "results" / "query.json"
+            with contextlib.redirect_stdout(output):
+                receipt = hcloud_common.emit_public_result(result, output_file=path)
+
+            printed = json.loads(output.getvalue())
+            persisted = json.loads(path.read_text(encoding="utf-8"))
+
+            self.assertEqual(persisted, result)
+            self.assertEqual(printed, receipt)
+            self.assertEqual(receipt["result_contract"], "huaweicloud_skill_public_result_v1")
+            self.assertTrue(receipt["success"])
+            self.assertEqual(receipt["mode"], "plan")
+            self.assertEqual(receipt["outcome_status"], "planned")
+            self.assertEqual(receipt["service"], "ECS")
+            self.assertEqual(receipt["operation"], "ListServersDetails")
+            self.assertEqual(receipt["result_file"], str(path.absolute()))
+            self.assertEqual(receipt["artifact"]["permissions"], "0600")
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
     def test_load_registry_uses_supplied_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "registry.json"

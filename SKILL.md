@@ -1,17 +1,18 @@
 ---
 name: huaweicloud-skill
-description: 使用 hcloud 命令行工具执行华为云资源查询、分析、规划和变更；也支持通过华为云 MaaS API 规划和调用大模型、图像理解、图片生成/编辑与视频生成任务。适用于 CLI/KooCLI 云资源操作、MaaS API 调用、认证排查、命令构造、执行验证和安全变更规划。
+description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资源查询、分析、规划、变更和验证；也支持华为云 MaaS 大模型、图像和视频任务。适用于华为云认证与上下文排查、API/CLI 发现、命令或代码构造、IaC、错误恢复和可验证交付。
 ---
 
-# Huawei CLI Skill
+# Huawei Cloud Agent Skill
 
 ## 核心定位
 
 - 单一 skill 覆盖华为云上云、用云、管云场景，默认以租户体验和可验证闭环为中心。
-- `hcloud` 是云资源查询、执行、回读和验收的主链路；没有可用 `hcloud` 时，不宣称已经查询或修改云资源。
-- Agent 默认不要自行拼接或直接执行裸 `hcloud` 命令；优先调用本 skill 提供的脚本，让脚本统一处理版本选择、参数构造、脱敏、输出收敛、错误分类和纠正重试。
-- SDK 只做窄范围补充，例如参数、region/endpoint、错误结构、凭证来源线索，或 allowlist 内的稳定只读查询。
-- Terraform 是辅助 IaC 面，只在用户明确需要可重复创建、环境复制、长期纳管、import 或 drift review 时进入；不能跳过 hcloud 发现和后置验证。
+- 云资源默认优先使用 `hcloud`：它更适合 Agent 做 operation 发现、一次性查询/变更、dry-run 和回读。Agent 仍根据任务意图、运行时能力和证据质量自行选择 `hcloud`、SDK 或 Terraform，详细决策见 `references/backend-selection.md`。
+- SDK 是受支持的程序化后端，适合类型化请求、复杂 body、分页/并发、结构化异常，或 hcloud 当前确有覆盖/解析障碍的任务。`hcloud_sdk_readonly.py` 的 allowlist 只约束该便捷 runner，不限制 Agent 编写任务专用 SDK 代码。
+- Terraform 由 IaC 意图触发，用于可重复创建、环境复制、长期纳管、import 或 drift；它不是 hcloud 失败后的普通兜底。前置发现和后置验证优先用 hcloud，也允许等价 SDK/API、data source 和业务探测证据。
+- 高频脚本是对上述后端的可选封装，不是第四种后端。脚本覆盖目标时优先复用其版本选择、参数校验、脱敏、输出收敛和错误分类；未覆盖的长尾任务可直接使用有证据的 hcloud、官方 SDK 或 Terraform。
+- `hcloud` 不可用不等于整个 Skill 不可用；如果 SDK 或 Terraform 符合任务且运行条件完备，可以继续。无论使用哪个后端，没有真实执行和回读证据时都不能宣称已经查询、修改或完成。
 - MaaS 是 API-first 能力面。模型调用使用 MaaS API Key；用量统计是治理查询，按本地 AK/SK 签名规划处理。不要让用户在对话里粘贴密钥。
 - 目标不是背命令，而是稳定完成：识别上下文 -> 发现资源/operation -> 构造安全命令 -> 查询或变更 -> 回读验证 -> 处理错误。
 
@@ -24,27 +25,27 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - 用户需要华为云认证、region/project、profile、meta cache、网络或输出格式排查。
 - 用户明确需要 Terraform/IaC、MaaS 大模型/图像/视频，或华为云 Web/OBS/CDN/ECS 站点资产辅助。
 
-不要把本 skill 当成通用云知识问答、通用 SDK 执行器、通用 Terraform apply 器，或非华为模型服务兜底。
+不要把本 skill 当成非华为云的通用云知识问答、无证据 API 猜测器、自动 Terraform apply 器，或非华为模型服务兜底。
 
 ## 跨服务和多轮任务
 
 本 skill 用少量共享语义帮助不同服务场景保持目标、事实来源和完成口径一致，但它不是任务执行控制器。Agent 仍然负责理解现场情况，并自主选择或调整服务、工具、参数和操作次序。
 
-- 复杂任务的任务记忆入口必须明确包含非空 `task_id` 和 `task_id_source`，缺少任一项不算完成建档；简单查询不要求创建 task 记录。预计多轮、跨服务、有副作用、异步或可能中断的任务，必须在首次实质规划或执行前，在 Agent 自己的 workspace 持久化当前目标、关键约束与授权边界、重要进展和下一步。每轮收到用户新增或修改要求后重新判断复杂度；任务最初简单、但同一 task 后续升级为上述复杂任务时，必须立即重新分类，并在下一项实质规划或执行前建立或更新任务记忆入口，默认使用 `task.md`。
-- Agent 必须使用自身的文件读写工具将上述信息实际写入 workspace；只保存在对话 context、运行时待办或平台自动日志中不算完成记录。运行时 task ID 对 Agent 可见时原样复用；不可见时首次建档由 Agent 生成稳定任务描述符、写明来源并在后续轮次从记录复用，不得用占位词冒充平台 ID。task 级独立 workspace 直接使用当前目录，多个 task 共用一个 workspace 时使用 `tasks/<task_id>/` 隔离。目标、约束、授权、方案、结果或缺口发生重要变化时必须更新，等待确认、结束本轮或可能中断前补齐，恢复任务时先读取；进入付费、真实变更或异步等待前再确认记录存在且仍有效。写入失败要明确说明，不能声称已经落盘；这套记录不限制 Agent 调整方案、工具、参数或顺序。具体见 `references/task-workspace-guide.md`，可选用 `templates/task.md` 和 `templates/progress.md`。
-- 对创建、删除、替换或绑定付费/有副作用资源的任务，还要在任务记忆中保留逻辑角色、预期数量、canonical 资源和待决操作。待决操作尚未确认终态或结果未知时，必须先回读收敛，禁止再次创建同一角色的替代资源；具体恢复方式仍由 Agent 自主判断。
-- 任务入口只保存经过 Agent 判断的可信摘要和 artifact 相对路径；未经处理的云 API、网页或工具大输出保存在独立 artifact，并继续遵守大输出策略。需要统一事实来源、时效范围和完成语义时读取 `references/unified-principles.md`；企业网站、跨服务资源盘点或成本治理等宽泛目标可参考 `references/goal-capability-guide.md`，再运行现有 router 并读取命中的 playbook；形成方案选择、阶段进展、失败恢复、部分成功、结果未知或完成交付时，按需读取 `references/interaction-guidance.md`，从现有任务记忆生成用户状态，不另建固定状态对象。持久化只约束最小任务记忆，不锁定架构、工具、参数或操作次序。
+- 多轮、跨服务、有副作用、异步或可能中断的任务需要可恢复记忆。宿主已有持久 task state 时优先复用；宿主提供持久且可写的 workspace 时，可用 `task.md` 或等价文件记录目标、约束、授权、重要进展、artifact 和下一步。宿主没有文件 workspace 时，使用其可用状态机制并说明恢复限制，不得仅因缺少特定 task ID、文件工具或目录而阻断云任务。
+- 用户要求变化时重新判断复杂度并更新可恢复状态。运行时 task ID 对 Agent 可见时原样复用；不可见时可使用稳定任务描述符，但不得冒充平台 ID。具体建议见 `references/task-workspace-guide.md`，模板只是可选起点。
+- 创建、删除、替换或绑定付费/有副作用资源时，应保留逻辑角色、预期数量、canonical 资源和待决操作。待决操作尚未确认终态或结果未知时，先回读收敛，避免重复副作用。
+- 未经处理的云 API、网页或工具大输出保存在 artifact；任务状态只保留可信摘要和引用。企业网站、跨服务资源盘点、成本治理等宽泛目标可按需读取 `references/goal-capability-guide.md`、router 和命中的 playbook；状态表达见 `references/interaction-guidance.md`。这些都是可选辅助，不替 Agent 决定架构、工具、参数和次序。
 
 ## 默认工作流
 
-1. 先确认环境和上下文：
-   - 首选 `python3 scripts/hcloud_environment_doctor.py --pretty` 或 `python3 scripts/hcloud_context_inspect.py --pretty`。
+1. 先选择候选后端并确认上下文：
+   - 默认先考虑 hcloud；选择它时可运行 `python3 scripts/hcloud_environment_doctor.py --pretty` 或 `python3 scripts/hcloud_context_inspect.py --pretty`。选择 SDK/Terraform 时检查对应 package/CLI、认证、endpoint/provider 和网络。
    - doctor/context 只能观察当前进程环境和本地 profile；未观察到 AK/SK 或 MaaS API Key 只表示配置状态未知，不得断言用户未配置。使用凭据 broker 的运行时可能只在受授权的执行子进程中注入凭据。
    - 需要项目级服务的 `project_id` 时，用 `python3 scripts/hcloud_project_resolve.py --region=<region> --pretty`，按显式值、环境变量、本地 profile 缓存、IAM `KeystoneListProjects` 的顺序解析；不要因为 IAM SDK 未安装而改写签名请求。
-   - 若 `hcloud.found=false`，停止真实云查询和变更，只能给本地方案草稿和安装指引。
-2. 宽泛目标和网站部署先路由：
-   - 用 `hcloud_scenario_router.py` 找到本地 playbook、guide、planner、SDK supplement 和 Terraform 候选。
-   - **任何网站部署任务**在决定架构、生成 MaaS 图片/视频、创建云资源、上传站点或暴露公网前，必须先运行路由；先读取顶层 `architecture_decision`，再看 `matches`。路由只约束对用户原话的忠实解释，不替 agent 预设 ECS、OBS、Flexus 或具体规格。
+   - 若 `hcloud.found=false`，不要执行 hcloud 路径；按 `references/backend-selection.md` 判断 SDK 或 Terraform 是否能可靠完成，否则只给方案草稿和环境缺口。
+2. 宽泛或架构不明确的目标按需路由：
+   - `hcloud_scenario_router.py` 可帮助找到少量 playbook、guide、planner、SDK 和 Terraform 候选；目标、运行载体和服务已经明确时可跳过 router。
+   - 宽泛或架构不明确的网站部署任务可先读取 router 的 `architecture_decision` 和 `matches`；它是决策辅助，不是所有网站任务的前置门禁，也不替 Agent 预设 ECS、OBS、Flexus 或具体规格。
    - 网站部署任务先读取顶层 `architecture_decision`，再看 `matches`。`explicit_constraints` 是用户约束，不是成本优化提示；用户指定机器、ECS、公网 IP、SSH、Nginx 或 Docker 时，不得自动改成 OBS。
    - `change_execution_blocked=true` 时，原样围绕 `clarification_question` 澄清运行载体或动态能力；确认前禁止生成或执行创建、购买、上传、公开访问等变更。`change_execution_blocked=false` 只表示当前不需要架构澄清，**不表示用户已授权执行**。
    - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
@@ -54,12 +55,12 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 账号级多服务盘点使用 `python3 scripts/hcloud_account_inventory.py --region <region> --execute --strict --output-file <workspace-result.json>`。脚本会在每个区域解析并复用一次 `project_id`，有限并发查询服务，并在 stdout 返回紧凑摘要和完整结果文件位置。宿主命令工具的总 timeout 要覆盖整个工作流，建议 1800 秒；若先返回后台 session，持续 poll 同一 session，不要重复启动。
    - 账单、成本或费用记录使用 `python3 scripts/hcloud_billing_live_read.py ... --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace-result.json>`。脚本在安全上限内自动分页和合并；Agent 不手工维护普通总额查询的下一页 `offset`，宿主命令 timeout 同样要覆盖分页总时长。
    - 收到 stdout 文件回执后，先读 `outcome_status`、`summary` 和 `result_file`。需要资源明细时用 `jq` 等工具从结果文件提取当前回答所需字段，不要把完整大文件一次性读回模型上下文。命令退出码非零时仍要检查结果文件；`partially_succeeded` 表示可使用成功部分并明确失败服务，不等于整项查询没有结果。
-   - 参数错误、凭据错误、超时、版本解析错误或部分成功时，先根据脚本结构化错误修正参数、缩小 service/region 范围后重调同一脚本，或如实报告限制。只有专用脚本确实不覆盖目标操作时，才进入 `hcloud_resource_discovery.py` / `hcloud_resource_query.py`；不得因为一次查询失败就改用临时 SDK、重复 IAM 探测或裸 hcloud 批量重跑。
+   - 参数错误、凭据错误、超时、版本解析错误或部分成功时，先根据结构化错误判断根因。可修正同一路径，也可在 hcloud 确有覆盖/解析障碍、SDK 更适合类型化或程序化处理时切换 SDK；切换要保留原因和重新验证项，不重复已经成功的查询或副作用。
    - 正例（北京4资源盘点）：运行 `hcloud_account_inventory.py --region cn-north-4 --execute --strict --output-file <workspace>/beijing4-inventory.json`；stdout 返回回执后，从该文件提取资源名称、ID、状态和关系，并保留失败服务清单。
    - 正例（北京4区域成本）：运行 `hcloud_billing_live_read.py --operation cost-data --region-code cn-north-4 --begin-time <start> --end-time <end> --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace>/beijing4-cost.json`。只有 `pagination.complete=true`、`complete_result_claim_allowed=true` 时，才能把 `verified_monetary_totals` 表述为完整总额。`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
    - 正例（部分成功）：盘点返回 `partially_succeeded` 时，读取完整结果文件，使用成功服务的数据并明确列出失败服务；如有必要只重跑失败的 service，不重复已经成功的查询。
    - 反例：专用盘点脚本超时后，连续运行 IAM 探测、临时 Python SDK 和一批裸 hcloud 命令；或账单返回 `total_count=11`、`record_count=10`、`complete_result_claim_allowed=false` 时，把 10 条小计写成“完整合计”。空摘要也不等于费用为 0。
-   - 调用优先级为“专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`”。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
+   - hcloud 路径的调用优先级为“匹配的专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> resolver/safe exec 或有 metadata/help 证据的直接 hcloud”。脚本是捷径，不是白名单；直接命令仍须确认 operation 版本、参数、风险、输出策略和验证方式。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
    - 以下 operation 均属于大输出；命中时禁止先执行裸 `hcloud` 试探响应大小，直接使用 `hcloud_safe_exec.py --output-mode=auto`：
      - 镜像、规格和资源列表：`IMS:ListImages`、`IMS:GlanceListImages`、`ECS:ListFlavors`、`ECS:ListFlavorSellPolicies`、`ECS:ListServersDetails`、`DNS:ListRecordSets`。
@@ -71,7 +72,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - `OUTPUT_POLICY_REQUIRED` 不是云 API 失败；按返回的 `corrected_command` 或补齐 `corrected_command_template` 中的时间/范围参数后再执行一次，不要原样重试。
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
-   - 先查现状证据，再生成 change plan / dry-run / guarded submit。
+   - 先查现状证据，再生成 change plan 或 dry-run；执行授权使用宿主可用的确认交互，Skill 不假设特定平台函数名。
    - 按所选工具的真实结果契约解释输出。本 Skill 的 execute 脚本如果返回
      `outcome_status`，以该结构化字段为业务结果；裸 `hcloud`、帮助探测和其他
      未声明结构化结果的命令必须同时保留 stdout、stderr 和退出码，不能只因进程
@@ -112,7 +113,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 | 自然语言场景路由 | `hcloud_scenario_router.py` |
 | hcloud 版本选择、真实查询或受控系统命令 | `hcloud_operation_resolver.py`、`hcloud_safe_exec.py` |
 | 多服务发现、目标查询、readiness/live validation（含 CCI 工作负载前检） | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py`、`hcloud_cci_workload_plan.py` |
-| 创建/变更计划和 guarded flow | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
+| 创建/变更计划、风险校验和回读帮助 | `hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
 | P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |
 | 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py`、`hcloud_billing_live_read.py` |
 | Terraform/IaC | `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`hcloud_terraform_operations_plan.py` |
@@ -123,10 +124,11 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 按任务需要读取，不要一次性加载所有资料：
 
-- 基础流程和安全：`references/workflow.md`、`references/runtime-safety-boundaries.md`、`references/auth-and-context.md`
+- 后端选择、基础流程和安全：`references/backend-selection.md`、`references/workflow.md`、`references/runtime-safety-boundaries.md`、`references/auth-and-context.md`
+- 跨服务事实、可恢复状态和交互：`references/unified-principles.md`、`references/task-workspace-guide.md`、`references/goal-capability-guide.md`、`references/interaction-guidance.md`
 - 场景路由和服务资料：`references/scenario-router.json`、`references/guides/`、`references/playbooks/`
 - 命令构造和错误处理：`references/command-construction.md`、`references/error-playbook.md`、`references/output-and-query.md`、`references/hcloud-output-policies.json`
-- 脚本索引和受众边界：`references/scripts.md`、`references/script-audience-manifest.json`
+- 脚本索引和公共契约：`references/scripts.md`、`references/public-script-contract.md`、`references/script-audience-manifest.json`
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`
 - 覆盖和晋级：`references/service-coverage.md`、`references/service-curation-profiles.json`、`references/live-validation-profiles.json`、`hcloud_closure_maturity_audit.py`
@@ -139,7 +141,7 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 
 - ECS guidance 最完整，覆盖创建前校验、dry-run、job 终态、ACTIVE 回读、SSH 和应用验收。
 - P0 高频服务有 lifecycle planner 和 acceptance closure；P1/P2 主要是 governance/scenario planner，不能说成完整执行闭环。
-- OBS、MaaS、Billing、Terraform 都有专门边界：各自只在明确场景进入，不替代 hcloud 主链路。
+- OBS、MaaS、Billing、SDK、Terraform 都有专门边界；MaaS 是 API-first，Terraform 由 IaC 意图触发，SDK 可在程序化处理或 hcloud 障碍时成为任务后端。
 - 长尾安全、数据库、治理、身份和 key 类服务多为 metadata-backed evidence gap；先做发现、计划和证据缺口，不默认执行 mutation。
 - 自动 live probe 只支持内置 HTTP/TCP/DNS/TLS；内网、localhost 或 `.local` 目标必须带 `--allow-private-targets` 且来自已审阅的 evidence plan，其他 evidence 需要人工或专用工具采集后再 evaluate。
 - 真实账号回归、Terraform state-changing import、计费资源创建/释放仍需要用户提供隔离环境、资源 ID、profile/region 和明确确认。

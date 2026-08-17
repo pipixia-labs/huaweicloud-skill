@@ -1,23 +1,26 @@
 # Architecture
 
-`huaweicloud-skill` 是一个基于华为云 KooCLI (`hcloud`) 的执行型 skill。它的目标不是让模型记住所有云命令，而是把云资源操作拆成一条可审计、可验证、可扩展的执行链路。
+`huaweicloud-skill` 是一个面向自主 Agent 的华为云执行型 Skill。它默认优先 KooCLI (`hcloud`)，
+也支持官方 SDK 程序化任务和 Terraform IaC；目标不是让模型记住所有 API，而是让 Agent 依据真实
+运行条件选择后端，并把云资源操作组织成可审计、可验证、可扩展的执行链路。
 
 核心链路是：
 
-1. 检查本机 `hcloud` 上下文。
-2. 发现 service、operation 和参数线索。
-3. 根据机器可读 registry 生成命令或变更计划。
-4. 通过统一包装器执行命令。
+1. 识别意图并检查 hcloud、SDK 或 Terraform 候选后端的运行条件。
+2. 从 catalog/help、官方 SDK 模型或 provider schema 发现 service、operation 和参数线索。
+3. 复用合适的高频脚本，或由 Agent 直接构造经过验证的命令/代码/配置。
+4. 通过选定后端执行；高频 hcloud 调用优先复用统一包装器。
 5. 对返回结果做结构化错误诊断、资源状态验证和后续检查。
 
 当前架构重点是十一个平面：
 
-- **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json`、`references/scenario-contracts.json` 和 `references/guides/` 把自然语言目标映射到本地 playbook、planner、SDK 补充点、Terraform 候选，以及重点场景的输入/证据/输出契约。
-- **跨服务共享与任务记忆面**：`references/unified-principles.md` 统一目标、事实来源和完成语义；`references/goal-capability-guide.md` 组织跨服务目标；`references/interaction-guidance.md` 统一用户状态投影；`references/source-map.md` 管理知识所有权和渐进加载；`references/task-workspace-guide.md` 与 `templates/` 指导 Agent 为复杂、多轮任务在自己的 workspace 中维护最小可恢复记忆。该平面不控制 Agent 的工具、参数或调用顺序。
+- **后端选择面**：`references/backend-selection.md` 定义 hcloud 默认优先、SDK 程序化路径、Terraform IaC 意图、后端切换和等价证据。
+- **路由/指南面**：`hcloud_scenario_router.py`、`references/scenario-router.json`、`references/scenario-contracts.json` 和 `references/guides/` 为宽泛或不明确目标映射本地 playbook、planner、SDK 和 Terraform 候选；它是可选决策辅助。
+- **跨服务共享与任务记忆面**：`references/unified-principles.md` 统一目标、事实来源和完成语义；`references/goal-capability-guide.md` 组织跨服务目标；`references/interaction-guidance.md` 统一用户状态投影；`references/source-map.md` 管理知识所有权和渐进加载；`references/task-workspace-guide.md` 指导 Agent 优先复用宿主持久状态，有 workspace 时可保存最小文件。该平面不控制 Agent 的工具、参数或调用顺序。
 - **控制面**：`references/service-registry.json` 决定服务、operation、runner、planner、verifier 和 known limits。
 - **执行面**：`hcloud_safe_exec.py` 统一执行、脱敏、JSON 解析和错误诊断。
-- **SDK 补充面**：`references/sdk-supplement-registry.json` 控制允许的 SDK supplement；`hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 默认只使用已安装的 `huaweicloudsdk*` package，也允许维护者显式传入源码目录，补充参数类型、region/endpoint、错误结构和少量 registry allowlist 只读查询；不作为通用变更执行面。
-- **IaC 资产面**：`hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`references/terraform/catalog/` 和 `examples/terraform/` 负责 Terraform 环境检查、资产路由和示例渐进加载；`references/terraform-workflow.md` 定义 plan/validate/apply/verify 流程和 hcloud 后置验证边界。
+- **SDK 程序化面**：官方 `huaweicloudsdk*` package 可承担类型化/复杂处理任务；`hcloud_sdk_catalog.py` 提供模型证据，`hcloud_sdk_readonly.py` 提供少量高频只读捷径。`sdk-supplement-registry.json` 只约束该 runner，不是全局 SDK 白名单。
+- **IaC 资产面**：`hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`references/terraform/catalog/` 和 `examples/terraform/` 负责 Terraform 环境检查、资产路由和示例渐进加载；`references/terraform-workflow.md` 定义 plan/validate/apply/verify 和等价实时后置验证。
 - **MaaS API 面**：`references/maas-model-calls.md`、`references/maas-model-catalog.json` 和 `scripts/maas_*.py` 负责华为云 MaaS 模型 API 的 dry-run、payload 构造、调用和异步任务查询；不进入 KooCLI service registry。
 - **验证面**：job waiter、resource query、resource verifier、service readiness 分层确认结果。
 - **闭环面**：`hcloud_lifecycle_closure_plan.py` 把 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 的 P0 典型任务组织成六阶段 planner-only 闭环。
@@ -48,7 +51,7 @@ huaweicloud-skill/
 | 路径 | 职责 |
 | --- | --- |
 | `SKILL.md` | 面向 agent 的入口，定义触发场景、质量规则和默认工作流。 |
-| `references/` | 清洗后的操作资料，包括 workflow、playbook、错误手册、服务覆盖矩阵和 service registry。 |
+| `references/` | 清洗后的操作资料，包括后端选择、workflow、playbook、错误手册、服务覆盖矩阵和 registry。 |
 | `templates/` | Agent workspace 的可选轻量任务记录模板；不是运行时任务实例目录。 |
 | `scripts/` | 可执行 Python 脚本，负责上下文探查、命令生成、安全执行、规划、验证和 coverage 检查。 |
 | `examples/` | 可复用的输入模板和示例，例如 ECS 创建 JSON。 |
@@ -61,17 +64,21 @@ huaweicloud-skill/
 ```mermaid
 flowchart TD
     UserTask["User cloud task"] --> Skill["SKILL.md"]
+    Skill --> Backend["backend-selection.md"]
     Skill --> SharedPrinciples["unified-principles.md"]
     Skill --> WorkspaceGuide["task-workspace-guide.md"]
     Skill --> GoalGuide["goal-capability-guide.md"]
     Skill --> InteractionGuide["interaction-guidance.md"]
     Skill --> SourceMap["source-map.md"]
-    SharedPrinciples --> AgentWorkspace["Agent-owned task workspace"]
-    WorkspaceGuide --> AgentWorkspace
+    SharedPrinciples --> TaskState["Host task state or optional workspace"]
+    WorkspaceGuide --> TaskState
     GoalGuide --> Router
-    InteractionGuide --> AgentWorkspace
+    InteractionGuide --> TaskState
     SourceMap --> Guides
-    UserTask --> Router["hcloud_scenario_router.py"]
+    Backend --> HCloudPath["hcloud default path"]
+    Backend --> SDKPath["official SDK path"]
+    Backend --> TerraformRouter
+    UserTask -. broad or ambiguous .-> Router["hcloud_scenario_router.py"]
     Router --> ScenarioMap["references/scenario-router.json"]
     ScenarioMap --> Guides["references/guides/*.md"]
     ScenarioMap --> Workflow
@@ -91,8 +98,9 @@ flowchart TD
     Workflow --> Meta["hcloud_meta_lookup.py / hcloud_prewarm_cache.py"]
     Registry --> Discovery["hcloud_resource_discovery.py"]
     Registry --> Query["hcloud_resource_query.py"]
-    SDKRegistry["sdk-supplement-registry.json"] --> SDKMeta["hcloud_sdk_catalog.py\nSDK metadata supplement"]
-    SDKRegistry --> SDKRead["hcloud_sdk_readonly.py\nallowlisted SDK read-only"]
+    SDKPath --> SDKMeta["hcloud_sdk_catalog.py\nSDK metadata"]
+    SDKPath --> SDKCode["Agent task-specific SDK code"]
+    SDKRegistry["sdk-supplement-registry.json"] --> SDKRead["hcloud_sdk_readonly.py\ncurated read-only shortcut"]
     SDKMeta --> Query
     Registry --> Closure["hcloud_lifecycle_closure_plan.py"]
     Registry --> Scenario["hcloud_p2_scenario_closure_plan.py"]
@@ -109,8 +117,10 @@ flowchart TD
     Guarded --> SafeExec
     Readiness --> SafeExec
     SafeExec --> HCloud["hcloud / hcloud obs"]
+    SDKCode --> HuaweiAPI["Huawei Cloud API"]
+    SDKRead --> HuaweiAPI
     HCloud --> Result["Structured JSON result"]
-    Result --> AgentWorkspace
+    Result --> TaskState
     Result --> Verify["Show* query / resource verifier / ECS waiters"]
     Verify --> Report["Auditable final state"]
     Materials["materials/ raw docs"] --> References["references/ curated docs"]

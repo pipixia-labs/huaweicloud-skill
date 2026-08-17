@@ -5,27 +5,30 @@
 运行时入口仍然是：
 
 - `SKILL.md`
+- `references/backend-selection.md`
 - `references/workflow.md`
 - `references/service-registry.json`
 - `scripts/`
 
 ## 设计框架速览
 
-`huaweicloud-skill` 是 hcloud-first 的云任务执行框架。SDK 和 Terraform 都不是平行的大而全入口，而是在合适场景补强 hcloud 主链路：SDK 用于少量稳定只读补充和参数证据，Terraform 用于可重复 IaC、import 和 drift review。
+`huaweicloud-skill` 默认优先 hcloud，同时支持 SDK 程序化任务和 Terraform IaC。三者不是等权随机
+选择：默认顺序是 `hcloud > SDK > Terraform`，SDK 可在类型化/复杂处理或 hcloud 实际障碍时承担
+任务，Terraform 只由 IaC、import、drift 和长期纳管意图触发。高频脚本是可选捷径，不是新后端。
 
 ```mermaid
 flowchart LR
-    Goal["用户目标"] --> Router["场景路由"]
-    Router --> HCloud["hcloud 主链路"]
-    Router --> SDK["SDK 补充层"]
-    Router --> Terraform["Terraform IaC 资产面"]
+    Goal["用户目标"] --> Select["Agent 后端选择"]
+    Select --> HCloud["hcloud 默认路径"]
+    Select --> SDK["SDK 程序化路径"]
+    Select --> Terraform["Terraform IaC 路径"]
+    Select -.宽泛目标.-> Router["可选场景路由"]
     HCloud --> Registry["service registry"]
     HCloud --> SafeExec["safe exec"]
     HCloud --> Verify["verify/readiness"]
     SDK --> SDKRegistry["sdk supplement registry"]
-    SDK --> HCloud
     Terraform --> TFCatalog["terraform catalog/examples"]
-    Terraform --> HCloud
+    Terraform --> Verify["等价实时回读"]
     Registry --> Tests["tests and coverage gates"]
     TFCatalog --> Tests
     SDKRegistry --> Tests
@@ -36,10 +39,12 @@ flowchart LR
 | 模块 | 代表文件 | 作用 |
 | --- | --- | --- |
 | 运行时入口 | `SKILL.md`、`references/workflow.md` | 告诉 agent 什么时候触发、按什么顺序工作。 |
-| 跨服务共享与任务记忆 | `references/unified-principles.md`、`references/task-workspace-guide.md`、`references/goal-capability-guide.md`、`references/interaction-guidance.md`、`references/source-map.md`、`templates/` | 统一跨服务语义、目标组织、用户投影和知识所有权，并让复杂、多轮任务在 Agent workspace 中保留最小可恢复记忆。 |
+| 跨服务共享与任务记忆 | `references/unified-principles.md`、`references/task-workspace-guide.md`、`references/goal-capability-guide.md`、`references/interaction-guidance.md`、`references/source-map.md`、`templates/` | 统一跨服务语义、目标组织、用户投影和知识所有权；优先复用宿主持久 task state，有 workspace 时可保存最小任务文件。 |
+| 后端选择 | `references/backend-selection.md` | 约束 hcloud 默认优先、SDK 程序化路径、Terraform IaC 意图和后端切换证据。 |
 | 场景路由 | `hcloud_scenario_router.py`、`references/scenario-router.json` | 把自然语言目标映射到 playbook、planner、SDK 补充点和 Terraform 候选。 |
 | hcloud 执行框架 | `service-registry.json`、`hcloud_safe_exec.py`、查询/变更/验证脚本 | 负责发现、计划、执行、脱敏、错误诊断和后置验证。 |
-| SDK 补充层 | `sdk-supplement-registry.json`、`hcloud_sdk_catalog.py`、`hcloud_sdk_readonly.py` | 使用已安装 SDK package 补参数、endpoint、错误结构和少量 allowlist 只读查询。 |
+| SDK 程序化路径 | `sdk-supplement-registry.json`、`hcloud_sdk_catalog.py`、`hcloud_sdk_readonly.py` | 支持官方 SDK 任务；registry 只约束便捷只读 runner，不限制 Agent 的任务专用 SDK 代码。 |
+| 公共脚本契约 | `references/public-script-contract.md`、`script-audience-manifest.json` | 统一脚本分类、完整 stdout 兼容、artifact 回执和退出语义，不建设大 dispatcher。 |
 | Terraform 资产面 | `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`references/terraform/`、`examples/terraform/` | 负责 IaC 环境检查、资产路由和示例渐进加载。 |
 | 质量门禁 | `tests/`、`check_question_coverage.py`、`check_materials_drift.py` | 防止服务覆盖、安全边界和资产索引退化。 |
 
@@ -75,7 +80,7 @@ flowchart LR
 阅读和维护本项目时，建议抓住下面这条技术主线：
 
 1. 这不是普通 prompt，而是一个围绕华为云 KooCLI 的可执行云操作框架。
-2. 核心架构是场景路由、registry 控制面、safe exec 执行面、SDK 补充面、Terraform 资产面、verifier 验证面和 quality gate 回归面。
+2. 核心架构是 Agent 后端选择、可选场景路由、registry/catalog 证据、hcloud safe exec、SDK 程序化路径、Terraform IaC、verifier 和 quality gate。
 3. v0.3 系列把 ECS 单点闭环扩展到 P0/P1/P2 的生命周期、治理和场景闭环 planner；v0.4 增加 SDK 补充层；v0.5 增加 Terraform 资产面；v0.8 系列进一步收敛独立分发、API 版本解析和大输出安全；v0.9.0 增加轻量跨服务共享原则和 Agent workspace 任务记忆，v0.9.1 补齐多轮更新、逻辑资源收敛和受控替换。准确 registry 服务数、operation 计数和 Terraform catalog 数量以对应 audit/catalog 脚本输出为准。
 4. 写类操作默认不自动提交，而是走 plan、dry-run、显式确认和后置验证，适合真实云资源场景的风险控制。
 5. 单测、架构契约、materials drift 和 coverage 脚本是回归门禁，用来持续防止 coverage 和安全边界退化。
@@ -85,7 +90,8 @@ flowchart LR
 - 一个对话对应一个 task；同一对话中的多轮追加、修改、撤销和恢复更新同一 task。
 - task 内部可由 Agent 自主组织为 `phase -> step -> operation`，subtask 可选且没有强制 Schema。
 - 当前不建设跨 task workload、长期偏好、跨 Agent 交接、常见 Agent 适配，也不继续扩展现有 P2 能力。
-- 使用本 Skill 的 Agent 假定具备 Skill 使用、代码执行、云工具调用和 workspace 文件读写能力。
+- 使用本 Skill 的 Agent 需要能读取 Skill 并调用至少一种合适后端；持久 task state、文件 workspace、
+  确认 UI 和超时/事件传输由宿主按能力提供，不作为华为云知识本身的硬前提。
 
 架构优势不是“把服务文档放在一起”，而是让所有服务场景共享事实与完成语义、当前 task 记忆、
 逻辑资源恢复边界、目标组织、用户状态投影和知识所有权；内部服务资料仍模块化并按需加载。完整

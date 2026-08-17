@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Plan or run narrow SDK read-only calls as a supplement to hcloud.
+"""Plan or run curated Huawei Cloud SDK read-only calls.
 
-The generic Huawei Cloud skill remains hcloud-first. This bridge exists only
-for curated, stable, read-only SDK calls where SDK request models provide a
-clear benefit over ad-hoc CLI parameter handling.
+This convenience runner intentionally supports a small registry of stable
+read-only calls. Its registry is not a policy boundary for task-specific SDK
+programs written by an Agent.
 """
 
 from __future__ import annotations
@@ -130,7 +130,7 @@ def request_kwargs(operation: dict[str, Any], params: dict[str, str]) -> dict[st
 
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
-    """Build an SDK read-only supplement plan, optionally executing it."""
+    """Build a curated SDK read-only plan, optionally executing it."""
     service = args.service.upper()
     operation = hcloud_resource_query.canonical_operation(service, args.operation)
     supplement_registry = getattr(args, "supplement_registry", hcloud_sdk_supplement_audit.REGISTRY_PATH)
@@ -142,8 +142,9 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "success": False,
         "mode": "execute" if args.execute else "plan",
         "runtime": "sdk",
-        "role": "supplemental_to_hcloud",
-        "primary_runtime": "hcloud",
+        "backend": "sdk",
+        "runner_scope": "curated_readonly_shortcut",
+        "backend_preference": "hcloud_then_sdk",
         "service": service,
         "operation": operation,
         "sdk_source_root": str(args.sdk_root) if args.sdk_root else None,
@@ -154,7 +155,11 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "hcloud_fallback_plan": hcloud_fallback_plan(args, hcloud_operation),
     }
     if registry_entry is None:
-        result["error"] = "SDK bridge operation is not in sdk-supplement-registry; use hcloud plan or add curated coverage first."
+        result["error"] = (
+            "SDK operation is not in sdk-supplement-registry; this registry limits "
+            "only this convenience runner. Prefer hcloud, or write task-specific SDK "
+            "code after validating the installed official package and API contract."
+        )
         result["sdk_metadata"] = sdk_result
         return result
     if not sdk_result.get("success"):
@@ -287,6 +292,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--profile", help="Optional hcloud profile used only for fallback hcloud plan generation.")
     parser.add_argument("--execute", action="store_true", help="Execute the allowlisted SDK read-only call.")
     parser.add_argument("--timeout", type=int, default=120, help="Reserved timeout hint for fallback hcloud plan.")
+    parser.add_argument(
+        "--output-file",
+        type=Path,
+        help="Write the full JSON result privately and print a compact receipt.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     return parser.parse_args()
 
@@ -300,7 +310,11 @@ def main() -> int:
         result = build_plan(args)
     except ValueError as exc:
         result = {"success": False, "error": str(exc)}
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    hcloud_common.emit_public_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+    )
     return 0 if result.get("success") else 1
 
 

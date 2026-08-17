@@ -186,8 +186,9 @@ def inspect_sdk_runtime(sdk_root_path: Path | None) -> dict[str, Any]:
         "source_root_exists": source_root_exists,
         "source_root_path": str(sdk_root_path) if sdk_root_path else None,
         "source_service_package_count": len(source_packages),
-        "role": "supplemental_to_hcloud",
-        "primary_runtime": "hcloud",
+        "backend": "sdk",
+        "availability_role": "supported_programmatic_backend",
+        "backend_preference": "hcloud_then_sdk",
     }
     return result
 

@@ -59,7 +59,8 @@ python3 scripts/hcloud_terraform_context_inspect.py --pretty
 python3 scripts/hcloud_terraform_router.py "低成本网站托管" --pretty
 ```
 
-Terraform 只用于生成和评审可重复资产，不替代 hcloud/obsutil 发现、部署后协议验收和成本边界说明。
+Terraform 只用于生成和评审可重复资产，不替代现网发现、部署后协议验收和成本边界说明；发现优先
+使用 hcloud/obsutil，也允许等价 SDK/API 或 provider data source 证据。
 
 ## OBS 静态站路径
 

@@ -44,6 +44,7 @@ flowchart TD
 
 | 文件 | 用途 |
 | --- | --- |
+| `backend-selection.md` | hcloud、SDK、Terraform 的选择、切换和等价证据规则。 |
 | `workflow.md` | 标准执行流程，从意图分类到上下文、发现、执行、验证。 |
 | `auth-and-context.md` | hcloud 认证、profile、region、project 等上下文规则。 |
 | `command-construction.md` | 命令构造规则，包括 JSON 输出、`--cli-jsonInput`、`--dryrun`。 |
@@ -54,13 +55,13 @@ flowchart TD
 | `service-coverage.md` | 人类可读服务覆盖矩阵。 |
 | `service-registry.json` | 机器可读服务覆盖和路由控制面。 |
 | `service-curation-profiles.json` | curated 服务维护档案和 metadata-backed 晋级候选门禁。 |
-| `sdk-supplement-registry.json` | SDK 补充 allowlist，控制哪些 SDK operation 可用于 hcloud 补证或少量稳定只读桥。 |
+| `sdk-supplement-registry.json` | 便捷 SDK 只读 runner registry；不限制 Agent 任务专用 SDK 代码。 |
 | `hcloud-service-catalog.index.json` | generated catalog 的运行时轻量索引，按服务懒加载。 |
 | `hcloud-service-catalog/` | 每服务 generated catalog payload，脚本按需读取。 |
 | `hcloud-service-catalog.generated.json` | 可选本地临时 full catalog，仅用于维护期完整 diff；不提交到仓库，不作为 agent 直接资料入口。 |
 | `hcloud-service-catalog.fingerprint.json` | generated catalog 的小体积升级审查事实源。 |
 | `hcloud-service-confidence.json` | live smoke、confidence 和 dry-run 支持性的人工/实测 sidecar；新实测建议应携带观测时间、具体 Skill revision 和非敏感环境，缺失项保持 unknown。 |
-| `terraform-workflow.md` | Terraform/IaC 与 hcloud 协同的运行时流程。 |
+| `terraform-workflow.md` | Terraform/IaC 与 hcloud/SDK/实时证据协同的运行时流程。 |
 | `terraform/` | Terraform provider、认证、发现、互操作、troubleshooting 和 catalog 说明。 |
 | `maas-model-calls.md` | MaaS 模型 API 调用工作流，覆盖文本、图像理解、图片生成/编辑和视频异步任务。 |
 | `maas-model-catalog.json` | 本地 MaaS 模型能力目录，用于离线路由和 dry-run 前的模型选择。 |
@@ -210,9 +211,11 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - 治理闭环：`scripts/hcloud_governance_closure_plan.py` 为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成五阶段 governance closure 计划，不执行治理写操作。
 - P2 场景闭环：`scripts/hcloud_p2_scenario_closure_plan.py` 为 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族生成四阶段 scenario closure 计划，不执行集群、NAT、缓存、IaC、多集群、安全、密钥或数据库写操作。
 
-## SDK supplement registry
+## SDK 便捷只读 runner registry
 
-`references/sdk-supplement-registry.json` 是 SDK 补充能力的控制数据。它和 `service-registry.json` 分开维护，是为了避免把 SDK 误解成第二套通用执行面。
+`references/sdk-supplement-registry.json` 是 `hcloud_sdk_readonly.py` 的控制数据。它和
+`service-registry.json` 分开维护，是为了让高频只读 runner 保持小而稳定；它不限制 Agent 使用官方
+SDK 编写任务专用程序。
 
 每个 SDK supplement entry 至少要说明：
 
@@ -220,16 +223,16 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 | --- | --- |
 | `service` / `sdk_operation` / `hcloud_operation` | SDK 操作与 hcloud 操作的对应关系。 |
 | `requires_sdk_package` | 用户机器上需要安装的 `huaweicloudsdk*` package。 |
-| `purpose` / `value` | 为什么这个 SDK 补充能让 hcloud 主链路更稳。 |
+| `purpose` / `value` | 为什么该调用值得进入固定便捷 runner。 |
 | `risk` / `read_only_required` / `execute_allowed` | 风险和是否允许窄只读执行。 |
 | `fallback` | SDK 不可用或不执行时回到哪个 hcloud runner。 |
 | `evidence` / `manual_smoke` / `status` | 测试、人工 smoke 和成熟度说明。 |
 
 维护原则：
 
-- 不因为 SDK 支持某个 API 就加入 registry。
-- 只加入能补参数、endpoint、request model、错误结构或稳定只读证据的 operation。
-- 每个 executable supplement 都必须有 hcloud fallback。
+- 不因为 SDK 支持某个 API 就加入 registry；低频长尾任务直接使用任务代码。
+- 只加入能减少重复工作、补参数/endpoint/request model/错误结构或提供稳定只读结果的 operation。
+- 每个 executable runner entry 都保留可比较的 hcloud plan，便于验证和回退，但这不是 SDK 全局前提。
 - 修改后运行 `hcloud_sdk_supplement_audit.py` 和 SDK supplement 测试。
 
 ## Terraform assets and catalogs
@@ -292,10 +295,10 @@ Provider inventory 是覆盖面索引，不是执行面。当前由 `scripts/hcl
 
 ### SDK 和 Terraform 测试
 
-`tests/test_hcloud_sdk_supplement.py` 覆盖 SDK 补充层：
+`tests/test_hcloud_sdk_supplement.py` 覆盖 SDK metadata 与便捷 runner：
 
 - SDK catalog 能从已安装 package 或维护期源码形态提取 request metadata。
-- SDK supplement registry 保持 hcloud-first、allowlist、fallback 和低风险只读边界。
+- registry 保持 runner-scoped、fallback 可比较和低风险只读边界，不扩张为全局 SDK 白名单。
 - SDK read-only bridge 默认 plan mode，执行路径必须通过 allowlist 和参数校验。
 
 `tests/test_hcloud_terraform_assets.py` 覆盖 Terraform 资产面：
@@ -330,7 +333,7 @@ Provider inventory 是覆盖面索引，不是执行面。当前由 `scripts/hcl
 | P0 任务闭环增强 | VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS | 保持原有 guarded/readiness/专用适配器边界，同时通过 `hcloud_lifecycle_closure_plan.py` 输出上下文发现、参数检查、风险门禁、受控执行、后置验证和治理审计。 |
 | P1 治理闭环计划 | TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo | 通过 `hcloud_governance_closure_plan.py` 输出治理范围、只读 evidence command plan、风险/隐私门禁、review plan、治理汇总和 curated 晋级缺口；不执行治理写操作，Billing/BSS 不生成 live query 命令。 |
 | P2 场景闭环计划 | CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态服务、数据库族 | 通过 `hcloud_p2_scenario_closure_plan.py` 输出场景范围、只读 evidence command plan、风险边界和下一步晋级缺口；CCE/NAT/DCS/RFS/UCS/IAM/KPS/IMS 复用已有 profile，安全姿态和数据库族保持 metadata evidence gap。 |
-| SDK 补充层 | ECS、IMS、VPC、ELB、RDS、CES、CCE 等 allowlist operation | 通过 `hcloud_sdk_catalog.py` 和 `hcloud_sdk_readonly.py` 补参数/endpoint/request model 和少量稳定只读执行；没有 SDK package 时降级到 hcloud fallback。 |
+| SDK 程序化路径 | 官方 `huaweicloudsdk*` package；便捷 runner 覆盖 ECS、IMS、VPC、ELB、RDS、CES、CCE 等少量操作 | Agent 可编写任务专用代码；`hcloud_sdk_catalog.py` 提供模型证据，`hcloud_sdk_readonly.py` 提供高频只读捷径。 |
 | Terraform 资产面 | Terraform provider reference、核心 workflow 和本地 `.tf` 示例 | 通过 `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py` 和 catalog 支持 IaC 资产选择；不默认执行 plan/apply。 |
 | 晋级候选 | LTS 及后续治理/安全/数据库长尾服务 | 有 candidate profile、playbook、risk profile 或 metadata-backed 入口；是否晋级取决于 live read-smoke、目标查询、playbook、risk profile 和测试证据。 |
 

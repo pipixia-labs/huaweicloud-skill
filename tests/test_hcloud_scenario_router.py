@@ -366,7 +366,8 @@ class HcloudScenarioRouterTest(unittest.TestCase):
         ecs_text = (ROOT / "references" / "playbooks" / "ecs-create-readiness.md").read_text(encoding="utf-8")
 
         self.assertIn("change_execution_blocked=true", skill_text)
-        self.assertIn("任何网站部署任务", skill_text)
+        self.assertIn("宽泛或架构不明确的网站部署任务", skill_text)
+        self.assertIn("可跳过 router", skill_text)
         self.assertIn("change_execution_blocked=false", skill_text)
         self.assertIn("只授权规划和只读预检", skill_text)
         self.assertIn("MaaS 图片/视频调用", workflow_text)

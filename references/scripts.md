@@ -136,13 +136,13 @@ Use this before a raw `hcloud` call when an operation has multiple API versions.
 
 If an explicit version conflicts with the parameters, the resolver exits non-zero and returns `corrected_operation` plus a redacted correction command. Do not repeat the original command unchanged.
 
-### SDK Supplement Metadata
+### SDK Metadata Inspector
 
 ```bash
 python3 scripts/hcloud_sdk_catalog.py --service ECS --operation ListFlavors --pretty
 ```
 
-Use this only as an hcloud supplement. Runtime discovery prefers installed `huaweicloudsdk*` Python packages such as `huaweicloudsdkecs`. The optional `--sdk-root` points to a `huaweicloud-sdk-python-v3` source tree for maintenance and tests; user machines are not expected to have that source tree.
+Use this to inspect the official SDK package when SDK is evidence for an hcloud plan or the selected programmatic backend. Runtime discovery prefers installed `huaweicloudsdk*` Python packages such as `huaweicloudsdkecs`. The optional `--sdk-root` points to a `huaweicloud-sdk-python-v3` source tree for maintenance and tests; user machines are not expected to have that source tree.
 
 The script reads SDK client/request/region files to expose method, resource path, query/path parameters, request types, sensitive fields, and static region examples. It does not execute cloud calls.
 
@@ -152,7 +152,7 @@ The script reads SDK client/request/region files to expose method, resource path
 python3 scripts/hcloud_sdk_supplement_audit.py --pretty
 ```
 
-Use this during maintenance before adding or changing any SDK supplement entry. It checks `references/sdk-supplement-registry.json` for hcloud-first boundaries, fallback runner existence, low-risk executable entries, and optional SDK metadata consistency. Add `--require-metadata` only on machines with installed SDK packages or the maintenance source tree available.
+Use this during maintenance before adding or changing the curated SDK read-only runner. It checks `references/sdk-supplement-registry.json` for fallback plan existence, low-risk executable entries, and optional SDK metadata consistency. The registry constrains only `hcloud_sdk_readonly.py`, not Agent-authored task-specific SDK programs. Add `--require-metadata` only on machines with installed SDK packages or the maintenance source tree available.
 
 ### Terraform Asset Routing
 
@@ -296,7 +296,9 @@ python3 scripts/hcloud_resource_discovery.py \
 
 Use for list/count style discovery. Curated registry services use registered query operations. Registry-outside services use generated catalog metadata and only auto-select read-only discovery operations without required business parameters. `--execute` is required for real cloud queries.
 
-### SDK Read-Only Bridge
+Add `--output-file <path>` when the response may be large. The full JSON is written with private permissions and stdout contains a compact `huaweicloud_skill_public_result_v1` receipt. Without it, full JSON stdout is preserved for compatibility.
+
+### SDK Read-Only Convenience Runner
 
 ```bash
 python3 scripts/hcloud_sdk_readonly.py \
@@ -306,7 +308,7 @@ python3 scripts/hcloud_sdk_readonly.py \
   --pretty
 ```
 
-Use this only for curated, stable SDK read-only operations where SDK request models make the hcloud path easier to validate. It defaults to plan mode and includes the equivalent hcloud fallback plan. `--execute` imports the installed SDK package and calls the SDK only when the operation is allowlisted. Do not use this as a generic SDK mutation runner.
+Use this for curated, stable SDK read-only operations that recur often enough to justify a fixed CLI. It defaults to plan mode and includes an equivalent hcloud comparison plan. `--execute` imports the installed SDK package and calls the SDK only when the operation is registered. That registry limits this runner only; Agent-authored task-specific SDK code may cover other official APIs after validating package/API semantics. Do not expand this helper into a generic mutation runner. It also supports `--output-file` with the same full-artifact/compact-receipt behavior as Resource Discovery.
 
 ### Account Inventory
 
@@ -595,6 +597,8 @@ Use when a read operation needs explicit target parameters. Do not guess resourc
 
 The output includes `resolved_operation` and `version_resolution`. Commands use an explicit `/vN`; for example, `ListSecurityGroups` with `vpc_id` resolves to `ListSecurityGroups/v2`.
 
+Add `--output-file <path>` for potentially large results. Without it, the existing full JSON stdout remains unchanged; with it, the full JSON is private on disk and stdout is a compact receipt.
+
 ### OBS Read-Only Adapter
 
 ```bash
@@ -605,6 +609,8 @@ python3 scripts/hcloud_obs_readonly.py \
 ```
 
 Use OBS through `hcloud obs`/obsutil rather than ordinary OpenAPI-style `hcloud OBS Operation` commands. Bucket-level operations require `--bucket`, for example `--bucket obs://example-bucket`.
+
+Use `--output-file <path>` when bucket/object output should be kept out of Agent context. The file contains the full JSON result and stdout returns the common compact receipt.
 
 ### Service Readiness
 

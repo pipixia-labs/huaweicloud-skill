@@ -20,7 +20,7 @@
 
 ```text
 意图分类
--> 复杂任务建立或恢复 workspace 任务记忆
+-> 复杂任务建立或恢复宿主持久状态/可选 workspace 任务记忆
 -> hcloud / SDK / Terraform 执行面选择
 -> profile / region / project / 认证上下文检查
 -> service / operation / 参数发现
@@ -33,8 +33,8 @@
 | 维度 | 不使用 `huaweicloud-skill` | 使用 `huaweicloud-skill` |
 | --- | --- | --- |
 | 任务理解 | 直接把自然语言目标转成建议或命令。 | 先判断是查询、规划、治理、变更，必要时走场景路由。 |
-| 多轮连续性 | 主要依赖当前对话 context，目标修改或中断后容易丢失关键状态。 | 复杂任务在 Agent workspace 中按 task 保留目标、约束、进展、缺口和下一步。 |
-| 执行面选择 | 可能混用 CLI、SDK、Terraform，边界不清。 | hcloud 是主链路；SDK 只补证据和少量 allowlist 只读；Terraform 只用于 IaC、import、drift、长期纳管。 |
+| 多轮连续性 | 主要依赖当前对话 context，目标修改或中断后容易丢失关键状态。 | 复杂任务优先复用宿主持久 task state；有 workspace 时保存最小任务文件。 |
+| 执行面选择 | 可能混用 CLI、SDK、Terraform，边界不清。 | 默认 `hcloud > SDK > Terraform`；SDK 处理程序化/复杂任务，Terraform 只由 IaC 意图触发。 |
 | 上下文检查 | 容易忽略 profile、region、project、domain、OBS endpoint。 | 先用上下文检查确认本机 KooCLI、profile、region、project、认证和 cache。 |
 | API 发现 | 依赖模型记忆猜 service / operation。 | 先查 registry、generated catalog、本地 meta cache 和 `hcloud --help`。 |
 | 参数构造 | 容易漏必填字段、资源 ID、JSON body、分页和输出格式。 | 通过 discovery/query/planner 脚本生成 JSON-friendly 命令，目标型查询必须显式传参。 |
@@ -420,7 +420,7 @@ v0.9.0 增加两项轻量机制：
 | 进入条件 | 可能把所有部署都强行转 Terraform。 | 只有 IaC、环境复制、import、drift、长期纳管时进入。 |
 | 现网 | 直接写 `.tf`。 | 先用 hcloud discovery/query 获取现网证据。 |
 | 资产 | 浏览大量示例，容易混用。 | 用 Terraform router 选择少量相关示例和 reference。 |
-| 执行 | 可能建议 `apply -auto-approve`。 | fmt/init/validate/plan 后确认 exact plan，apply 后回到 hcloud 验证。 |
+| 执行 | 可能建议 `apply -auto-approve`。 | fmt/init/validate/plan 后确认 exact plan，apply 后用 hcloud 或等价实时证据验证。 |
 
 核心收益：Terraform 成为可评审的纳管链路，不是绕过 hcloud 门禁的第二执行通道。
 
@@ -678,18 +678,19 @@ scoring_focus:
 
 ### SDK：补证据，不做第二套通用执行面
 
-SDK 的价值在于补强 hcloud 主链路：
+SDK 的价值既包括补强 hcloud 证据，也包括承担合适的程序化任务：
 
 - hcloud metadata/help 不完整时，补参数类型和 request model。
 - 补 region、endpoint、path/query/body 线索。
 - 补错误结构和异常字段理解。
-- 对 allowlist 内少量稳定只读 operation，可作为 supplement 执行。
+- 对 registry 内少量稳定只读 operation，可复用便捷 runner。
+- 对复杂 body、分页/并发、结构化异常或 hcloud 实际覆盖/解析障碍，可编写任务专用 SDK 代码。
 
 边界是：
 
-- 不把任意 SDK API 变成 mutation runner。
-- 不用 SDK 绕过 hcloud guarded flow。
-- SDK 结果必须标注为 supplement，并保留 hcloud fallback plan。
+- 不把任意 SDK API 批量包装成一个通用 mutation runner。
+- runner registry 只限制 runner，不限制经核验的任务专用 SDK 代码。
+- SDK 变更仍需风险披露、用户授权、幂等、副作用收敛和实时回读。
 
 ### Terraform：做长期纳管，不替代排障和一次性查询
 
@@ -704,9 +705,9 @@ Terraform 的价值在于：
 边界是：
 
 - 不用于普通状态查询和临时排障。
-- 不跳过 hcloud 现网发现。
+- 不跳过现网发现；hcloud 优先，也允许等价 SDK/API 和 data source/provider evidence。
 - 不默认 apply。
-- apply 后仍要回到 hcloud 验证资源和业务状态。
+- apply 后仍要用实时云侧 readback 和业务证据验证；优先 hcloud，也允许等价来源。
 
 ## 什么时候收益最大
 

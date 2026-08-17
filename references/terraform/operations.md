@@ -1,6 +1,6 @@
 # Terraform Operations: Import, Drift, and Remote State
 
-Terraform 在本 skill 中是辅助 IaC 面，适合长期纳管、环境复制、plan review 和 drift 管理。现网真相、资源发现、权限诊断和后置验收仍以 `hcloud` 为主体。
+Terraform 在本 Skill 中是由 IaC 意图触发的执行面，适合长期纳管、环境复制、plan review 和 drift 管理。现网真相、资源发现、权限诊断和后置验收优先使用 `hcloud`，也允许等价 SDK/API、data source/provider refresh 和业务探测证据。
 
 ## 适用场景
 
@@ -12,11 +12,11 @@ Terraform 在本 skill 中是辅助 IaC 面，适合长期纳管、环境复制�
 
 ## 总原则
 
-- 先 hcloud 只读发现，再决定 import、data source 还是新建。
+- 先做现网只读发现，再决定 import、data source 还是新建；hcloud 优先，但不是唯一证据源。
 - 不自动执行 `terraform import`、`terraform state rm`、`terraform state mv`、`terraform apply` 或 `terraform destroy`。
 - 不把 `terraform.tfstate*`、真实 `terraform.tfvars`、`.terraform/`、AK/SK、token、密码、私钥提交进仓库。
 - drift review 的结论必须区分“Terraform 配置不一致”“state 过旧”“云侧资源被手工改动”“provider schema 变更”和“数据源解析变化”。
-- apply 后必须回到 hcloud 做资源 readback 和业务验收。
+- apply 后必须做实时资源 readback 和业务验收。
 
 ## Import 流程
 
@@ -26,7 +26,7 @@ Terraform 在本 skill 中是辅助 IaC 面，适合长期纳管、环境复制�
    - 云上 resource ID
    - Terraform resource address，例如 `huaweicloud_vpc_vpc.main`
 
-2. 用 hcloud 查询资源事实：
+2. 优先用 hcloud 查询资源事实；不可用时使用等价 SDK/API 或 data source/provider refresh：
 
 ```bash
 python3 scripts/hcloud_resource_discovery.py \
@@ -148,14 +148,14 @@ terraform plan -refresh-only
 | `terraform import` | 写 state | 先确认云资源 ID 和 resource address。 |
 | `terraform refresh` | 可能更新 state | 优先用 `plan -refresh-only` review。 |
 
-## hcloud 后置验证
+## 实时后置验证
 
 Terraform 操作完成后至少做：
 
-- 用 hcloud 查询 imported/changed resources。
+- 优先用 hcloud 查询 imported/changed resources；不可用时使用等价 SDK/API 或 data source/provider refresh。
 - 对网络资源查 VPC/subnet/security group/EIP/ELB 绑定关系。
 - 对计算和容器资源查状态、事件、日志和指标。
 - 对数据库查实例状态、备份、连接和参数。
 - 对外部访问路径做协议探测或证据收集。
 
-没有 hcloud readback，不应声称 Terraform 操作已经闭环。
+没有实时云侧 readback 和所需业务证据，不应声称 Terraform 操作已经闭环。
