@@ -23,6 +23,20 @@
 
 ## 三、按问题类型处理
 
+### 0. 先看请求确定性，再决定是否重试
+
+`hcloud_safe_exec.py` 的 `execution_semantics` 不替 Agent 判断业务完成，但会给出稳定边界：
+
+| 字段 | 含义 |
+| --- | --- |
+| `request_outcome=succeeded` | 请求成功；mutation 仍需资源/job 回读 |
+| `request_outcome=failed` | 有明确失败证据；按错误建议修正后再决定是否重试 |
+| `request_outcome=outcome_unknown` | 连接、超时或运行时中断，mutation 可能已经到达云侧 |
+| `retry_strategy=verify_before_retry` | 先查目标资源或 job，禁止原样重复提交 |
+
+只读超时可在合理预算内重试；创建、修改、删除、绑定等 mutation 超时不能当作普通失败。明确的
+KooCLI 参数错误或华为云 API 拒绝是已知失败，不应被误写为 transport ambiguity。
+
 ### 1. `OUTPUT_POLICY_REQUIRED`
 
 这是 `hcloud_safe_exec.py` 在访问云 API 前触发的本地输出门禁，不是华为云服务故障。
@@ -164,6 +178,9 @@
 
 1. 在原命令上补 `--debug`
 2. 从状态码判断成功与否
+
+空响应体也不能覆盖 `execution_semantics`：mutation 请求返回成功但没有资源终态时，仍按计划中的
+Show/List/job 查询回读。
 
 ## 四、缓存与日志
 

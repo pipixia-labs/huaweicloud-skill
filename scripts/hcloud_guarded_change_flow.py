@@ -489,7 +489,21 @@ def build_flow(args: argparse.Namespace) -> dict[str, Any]:
         )
         if not submit_result.get("success"):
             result["success"] = False
-            result["next_steps"].append("Submit failed. Inspect submit.error_details/advice before retrying.")
+            semantics = submit_result.get("execution_semantics")
+            request_outcome = (
+                semantics.get("request_outcome")
+                if isinstance(semantics, dict)
+                else None
+            )
+            if request_outcome == "outcome_unknown":
+                result["submit_outcome_unknown"] = True
+                result["next_steps"].append(
+                    "Submit outcome is unknown. Read back the exact target and provider job/resource state before any retry."
+                )
+            else:
+                result["next_steps"].append(
+                    "Submit failed with actionable evidence. Inspect submit.error_details/advice and correct the request before retrying."
+                )
             return result
 
     try:

@@ -180,6 +180,71 @@ def candidate_for_version(
     }
 
 
+def request_contract(
+    service: str,
+    operation: dict[str, Any],
+    version: str,
+) -> dict[str, Any]:
+    """Return bounded request-shape evidence for one resolved API version.
+
+    KooCLI metadata is reliable for top-level path/query/body placement but can
+    flatten nested bodies to strings. This contract exposes that boundary and
+    points to optional SDK evidence instead of inventing dotted arguments.
+    """
+
+    detail = hcloud_catalog.operation_version_detail(operation, version)
+    parameters: list[dict[str, Any]] = []
+    for item in hcloud_catalog.parameter_items(detail):
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        parameter = {
+            "name": name,
+            "required": item.get("required") is True,
+            "position": str(item.get("position") or item.get("in") or "unknown"),
+            "type": str(item.get("type") or "unknown"),
+        }
+        enum = item.get("enum")
+        if isinstance(enum, list):
+            parameter["enum"] = enum[:50]
+        parameters.append(parameter)
+
+    has_body = bool(detail.get("has_body_params")) or any(
+        parameter["position"].lower() == "body" for parameter in parameters
+    )
+    operation_name = str(operation.get("name") or "")
+    contract: dict[str, Any] = {
+        "source": "generated_hcloud_catalog",
+        "version": version,
+        "method": detail.get("method"),
+        "path": detail.get("path"),
+        "parameters": parameters,
+        "has_body_params": has_body,
+        "body_shape_confidence": "top_level_only" if has_body else "not_applicable",
+        "preferred_body_transport": "cli_json_input" if has_body else "cli_arguments",
+        "nested_cli_arguments_safe_to_infer": not has_body,
+    }
+    if has_body:
+        contract.update(
+            {
+                "warning": (
+                    "KooCLI catalog metadata may flatten nested body objects. "
+                    "Do not infer indexed or dotted nested arguments from this top-level contract."
+                ),
+                "sdk_evidence_command": (
+                    "python3 scripts/hcloud_sdk_catalog.py "
+                    f"--service={service} --operation={operation_name} "
+                    "--schema-depth=3 --pretty"
+                ),
+                "next_actions": [
+                    "Prefer --cli-jsonInput for complex request bodies.",
+                    "Inspect hcloud operation help or the optional SDK request schema before constructing nested fields.",
+                ],
+            }
+        )
+    return contract
+
+
 def preferred_candidate(
     candidates: list[dict[str, Any]],
     default_version: str | None,
@@ -392,6 +457,11 @@ def resolve_operation_version(
         "metadata_default_version": catalog_default,
         "read_only": hcloud_catalog.is_read_only(operation),
         "retryable": False,
+        "request_contract": request_contract(
+            hcloud_catalog.command_service_name(catalog_service, service),
+            operation,
+            selected_version,
+        ),
     }
     if help_evidence:
         result["hcloud_help"] = help_evidence

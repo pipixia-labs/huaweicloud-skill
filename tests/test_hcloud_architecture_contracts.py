@@ -1012,6 +1012,20 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("`0600`", guide)
         self.assertIn("只记录相对路径、用途和可用状态", guide)
 
+    def test_provider_depth_guidance_preserves_request_and_resource_boundaries(self) -> None:
+        """Agent guidance must keep nested schemas and ambiguous mutations evidence-driven."""
+
+        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        command_text = (ROOT / "references" / "command-construction.md").read_text(encoding="utf-8")
+        error_text = (ROOT / "references" / "error-playbook.md").read_text(encoding="utf-8")
+        scripts_text = (ROOT / "references" / "scripts.md").read_text(encoding="utf-8")
+
+        self.assertIn("execution_semantics", skill_text)
+        self.assertIn("verify_before_retry", error_text)
+        self.assertIn("--schema-depth=3", command_text)
+        self.assertIn("request_contract", command_text)
+        self.assertIn("bounded recursive request schema", scripts_text)
+
     def test_large_output_policy_is_machine_readable_and_visible_at_entry(self) -> None:
         import hcloud_catalog
 

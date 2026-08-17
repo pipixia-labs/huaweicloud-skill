@@ -110,6 +110,19 @@ python3 scripts/hcloud_ecs_create_plan.py \
 
 如果 `validation.errors` 不为空，先修 JSON，不要进入 dry-run。
 
+若创建 JSON 含内联 EIP、NIC、磁盘等嵌套对象，先读取 operation resolver 的 `request_contract`。顶层
+catalog 不能证明嵌套字段时，用下面的静态 SDK schema 补证，不要猜 `.1` 或点号参数：
+
+```bash
+python3 scripts/hcloud_sdk_catalog.py \
+  --service=ECS \
+  --operation=CreateServers \
+  --schema-depth=5 \
+  --pretty
+```
+
+例如内联 EIP 的 `iptype` 必须来自当前 region 支持的公网 IP 类型查询，而不是从别的区域硬编码。
+
 ### 7. dry-run
 
 执行上一步输出的 `commands.safe_exec`，或者手动使用：
@@ -164,6 +177,9 @@ python3 scripts/hcloud_ecs_verify_active.py \
 ```
 
 如果 submit 返回里暂时没有 server ID，可以先按资源名查，但同名资源可能不唯一；优先在 submit 结果或后续列表结果里拿到明确 ID。
+
+submit 若返回 `execution_semantics.request_outcome=outcome_unknown`，不能再次执行同一创建命令。先按
+资源名、请求标签、已知 job ID 或其他稳定标识查询是否已经创建，再决定继续等待、补充验证或重试。
 
 ## 还需要确认的外部依赖
 

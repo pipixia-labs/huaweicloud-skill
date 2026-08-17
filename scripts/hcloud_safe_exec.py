@@ -139,6 +139,15 @@ ERROR_TYPE_CATEGORY = {
     "APIE_ERROR": "metadata",
     "TIMEOUT": "network",
 }
+AMBIGUOUS_MUTATION_ERROR_TYPES = {"CLI_ERROR", "NETWORK_ERROR", "TIMEOUT"}
+TRANSIENT_READ_ERROR_TYPES = {"CLI_ERROR", "NETWORK_ERROR", "TIMEOUT"}
+KNOWN_FAILED_REQUEST_ERROR_TYPES = {
+    "APIE_ERROR",
+    "OPENAPI_ERROR",
+    "OUTPUT_POLICY_REQUIRED",
+    "USE_ERROR",
+    "VERSION_RESOLUTION_ERROR",
+}
 VERSION_USAGE_ERROR_PATTERNS = (
     r"unsupported\s+(?:operation|parameter|version)",
     r"unknown\s+(?:operation|flag|command)",
@@ -422,6 +431,95 @@ def classify_common_error(
         if permission_hint:
             details["permission_hint"] = permission_hint
     return details
+
+
+def operation_kind(version_resolution: dict[str, Any] | None) -> str:
+    """Return the resolved operation effect without guessing from its name."""
+
+    if not isinstance(version_resolution, dict):
+        return "unknown"
+    read_only = version_resolution.get("read_only")
+    if read_only is True:
+        return "read"
+    if read_only is False:
+        return "mutation"
+    return "unknown"
+
+
+def build_execution_semantics(
+    result: dict[str, Any],
+    version_resolution: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Describe request certainty, retry safety, and required cloud readback.
+
+    A mutation interrupted by a transport/runtime failure may already have
+    reached Huawei Cloud. Such a request must be read back before retrying;
+    this function never authorizes automatic mutation replay.
+    """
+
+    kind = operation_kind(version_resolution)
+    success = bool(result.get("success"))
+    error_type = str(result.get("error_type") or "") or None
+    raw_details = result.get("error_details")
+    details = raw_details if isinstance(raw_details, dict) else {}
+    has_cloud_rejection = details.get("source") != "exception" and bool(
+        details.get("cloud_error_code") or details.get("cloud_error_message")
+    )
+
+    if success:
+        verification_required = kind == "mutation"
+        return {
+            "operation_kind": kind,
+            "request_outcome": "succeeded",
+            "resource_verification_required": verification_required,
+            "retry_strategy": "not_needed",
+            "completion_claim_allowed": kind == "read",
+            "reason": (
+                "mutation_request_succeeded_resource_state_unverified"
+                if verification_required
+                else "request_succeeded"
+            ),
+        }
+
+    known_failed_request = (
+        error_type in KNOWN_FAILED_REQUEST_ERROR_TYPES
+        or has_cloud_rejection
+        or details.get("category")
+        in {
+            "local_environment",
+            "metadata",
+            "operation_version",
+            "output_policy",
+        }
+    )
+    ambiguous_mutation = (
+        kind in {"mutation", "unknown"}
+        and not known_failed_request
+        and (error_type in AMBIGUOUS_MUTATION_ERROR_TYPES or error_type is None)
+    )
+    if ambiguous_mutation:
+        return {
+            "operation_kind": kind,
+            "request_outcome": "outcome_unknown",
+            "resource_verification_required": True,
+            "retry_strategy": "verify_before_retry",
+            "completion_claim_allowed": False,
+            "reason": "mutation_or_unknown_operation_interrupted_after_process_start",
+        }
+
+    retry_strategy = (
+        "retry_allowed"
+        if kind == "read" and error_type in TRANSIENT_READ_ERROR_TYPES
+        else "correct_before_retry"
+    )
+    return {
+        "operation_kind": kind,
+        "request_outcome": "failed",
+        "resource_verification_required": kind == "mutation",
+        "retry_strategy": retry_strategy,
+        "completion_claim_allowed": False,
+        "reason": "request_failed_with_actionable_error_evidence",
+    }
 
 
 def trim_text(text: str, max_chars: int) -> tuple[str, bool]:
@@ -1262,6 +1360,10 @@ def main() -> int:
             temp_json_file.unlink()
 
     assert result is not None
+    result["execution_semantics"] = build_execution_semantics(
+        result,
+        version_resolution,
+    )
     emitted_result = finalize_output(result, args, output_policy)
     emitted_result["redaction"] = redaction_metadata()
     emit_json(emitted_result, pretty=args.pretty)

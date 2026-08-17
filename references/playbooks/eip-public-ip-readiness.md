@@ -31,6 +31,9 @@ python3 scripts/hcloud_resource_discovery.py \
   --pretty
 ```
 
+创建 EIP 前额外执行 `EIP ShowPublicIpType`（或当前 catalog 中的等价只读 operation），以目标 region
+的真实返回选择公网 IP 类型。不要把其他 region 的 `5_bgp`、`5_sbgp` 等值直接复制到当前请求。
+
 3. 对 EIP 变更生成守护式 flow：
 
 ```bash
@@ -72,6 +75,8 @@ python3 scripts/hcloud_resource_verify.py \
 - `DOWN` 或 `UNBOUND`：还没有完成绑定，继续查目标 port/ECS/ELB。
 - 绑定 ID 不一致：停止后续协议探测，先修正绑定对象。
 - 查询为空：确认 region、project、权限和是否使用了正确的 EIP ID。
+- 创建请求提示 EIP type/iptype 无效：回到目标 region 的公网 IP 类型查询和 request schema；不要只替换成另一个猜测值。
+- 创建、绑定、解绑或删除发生 timeout/transport 中断：读取 `execution_semantics`；若为 `outcome_unknown`，先用 List/Show 回查绑定和资源状态，再决定是否重试。
 
 ## 最终输出
 

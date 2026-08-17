@@ -136,6 +136,8 @@ python3 scripts/hcloud_operation_resolver.py \
 
 Use this before a raw `hcloud` call when an operation has multiple API versions. It compares provided parameters with per-version local metadata, preserves a compatible explicit `/vN`, and otherwise selects one deterministic version. Add `--verify-help` to consult the installed KooCLI default when local help is available. Add `--emit-command` to produce the preferred executable command: ordinary small reads remain direct, explicitly versioned `hcloud`; operations matched by `hcloud-output-policies.json` are automatically emitted through `hcloud_safe_exec.py --output-mode=auto`.
 
+Successful resolution also returns `request_contract` with top-level method/path/parameter evidence. Complex bodies are marked `body_shape_confidence=top_level_only`; use its `sdk_evidence_command` or operation help rather than guessing nested dotted/indexed arguments.
+
 If an explicit version conflicts with the parameters, the resolver exits non-zero and returns `corrected_operation` plus a redacted correction command. Do not repeat the original command unchanged.
 
 ### SDK Metadata Inspector
@@ -144,9 +146,15 @@ If an explicit version conflicts with the parameters, the resolver exits non-zer
 python3 scripts/hcloud_sdk_catalog.py --service ECS --operation ListFlavors --pretty
 ```
 
+For a complex body, request a bounded recursive request schema without executing SDK code or cloud calls:
+
+```bash
+python3 scripts/hcloud_sdk_catalog.py --service ECS --operation DeleteServers --schema-depth=3 --pretty
+```
+
 Use this to inspect the official SDK package when SDK is evidence for an hcloud plan or the selected programmatic backend. Runtime discovery prefers installed `huaweicloudsdk*` Python packages such as `huaweicloudsdkecs`. The optional `--sdk-root` points to a `huaweicloud-sdk-python-v3` source tree for maintenance and tests; user machines are not expected to have that source tree.
 
-The script reads SDK client/request/region files to expose method, resource path, query/path parameters, request types, sensitive fields, and static region examples. It does not execute cloud calls.
+The script reads SDK client/request/region files to expose method, resource path, query/path parameters, request types, sensitive fields, and static region examples. With `--schema-depth`, it adds a bounded recursive request schema with required-field evidence and cycle/depth markers. It does not import SDK models or execute cloud calls.
 
 ### SDK Supplement Registry Audit
 

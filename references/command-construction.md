@@ -74,6 +74,10 @@ python3 scripts/hcloud_operation_resolver.py \
 
 这个例子会选择支持 `vpc_id` 的 `ListSecurityGroups/v2`。多版本命令最终统一写成 `Operation/vN`，便于审查和失败纠正。普通小查询的 `--emit-command` 输出直接 `hcloud`；命中大输出策略时，输出会自动改成包装显式版本 operation 的 `hcloud_safe_exec.py --output-mode=auto`，避免 Agent 从命令生成阶段绕过摘要和落盘门禁。使用 `hcloud_safe_exec.py` 或 `hcloud_resource_query.py` 时不必单独调用解析器，它们会执行同样的预解析。
 
+解析成功后同时读取 `request_contract`：它给出 method、path、顶层参数、位置、类型和必填信息。若
+`body_shape_confidence=top_level_only`，表示本地 KooCLI catalog 没有证明嵌套 body 结构，不能据此猜测
+`.1` 或点号参数。
+
 ## 二、查询类命令的默认形态
 
 推荐默认骨架：
@@ -179,6 +183,23 @@ python3 scripts/hcloud_ecs_wait_job.py \
 ```
 
 只保留真正需要的 key，不要强行保留空位置。
+
+### 用官方 SDK 元数据补充嵌套结构
+
+当 resolver 的 `request_contract` 只到顶层，且本机安装了对应官方 SDK 时，可以静态读取有限深度的
+request schema：
+
+```bash
+python3 scripts/hcloud_sdk_catalog.py \
+  --service=ECS \
+  --operation=DeleteServers \
+  --schema-depth=3 \
+  --pretty
+```
+
+该命令只解析 SDK 源码中的 model 类型，不导入 model、不调用云 API，也不执行 mutation。将
+`request_schema` 作为字段名、嵌套对象、数组元素类型和 required 证据，再写 `--cli-jsonInput`；如果
+schema 仍显示 `truncated`、`available=false` 或与 hcloud help 冲突，停止猜测并继续查官方文档。
 
 ## 五、查询类输出稳定化
 

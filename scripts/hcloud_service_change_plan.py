@@ -11,6 +11,7 @@ from typing import Any
 import hcloud_catalog
 import hcloud_change_plan
 import hcloud_common
+import hcloud_operation_resolver
 import hcloud_resource_discovery
 
 ROOT = hcloud_common.ROOT
@@ -88,6 +89,27 @@ SERVICE_CONTEXT_HINTS = {
     ],
     "CDN": [
         "Resolve domain ID/name, origin, origin protocol, certificate, cache rules, refresh/preheat scope, direct-origin health, and rollback origin.",
+    ],
+}
+
+GENERAL_CONVERGENCE_HINTS = [
+    "Treat a successful mutation response as request acceptance until the target resource is read back.",
+    "If a mutation times out or loses transport without an explicit provider rejection, read back the target before any retry.",
+    "For asynchronous operations, follow the provider job to a terminal state and then verify resource and task-level readiness.",
+]
+
+SERVICE_DEPENDENCY_HINTS = {
+    "ECS": [
+        "Before create, resolve image, flavor/AZ availability, VPC/subnet, security group, keypair, disk, and optional EIP dependencies.",
+        "After delete, separately verify EIP and data-volume disposition; delete flags and detach behavior do not prove every dependent resource was released.",
+    ],
+    "EIP": [
+        "Discover region-supported public IP types before constructing a create request; do not hard-code a type from another region.",
+        "Before release, verify current port/resource binding and confirm that the dependent public entry path is no longer required.",
+    ],
+    "ELB": [
+        "Model teardown as a dependency graph: remove pool members and health monitors before their pool, then remove listeners/pools before the load balancer as required by current readback.",
+        "Members and health monitors are sibling dependencies of a pool, not a universally valid single linear chain; refresh topology after each approved change.",
     ],
 }
 
@@ -195,6 +217,36 @@ def catalog_readiness_plan(args: argparse.Namespace, service: str) -> dict[str, 
     )
 
 
+def change_request_contract(
+    command_service: str,
+    catalog_operation: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Return top-level request evidence for a catalog-backed change."""
+
+    if not catalog_operation:
+        return None
+    versions = hcloud_catalog.operation_versions(catalog_operation)
+    selected = str(catalog_operation.get("selected_version") or "").strip().lower()
+    if not selected and versions:
+        selected = versions[0]
+    if not selected:
+        return None
+    return hcloud_operation_resolver.request_contract(
+        command_service,
+        catalog_operation,
+        selected,
+    )
+
+
+def dependency_and_convergence_hints(service: str) -> list[str]:
+    """Return generic convergence rules plus bounded service dependency facts."""
+
+    return [
+        *GENERAL_CONVERGENCE_HINTS,
+        *SERVICE_DEPENDENCY_HINTS.get(service.upper(), []),
+    ]
+
+
 def build_catalog_change_plan(
     args: argparse.Namespace,
     service: str,
@@ -259,9 +311,11 @@ def build_catalog_change_plan(
             "catalog_operation_summary": catalog_operation.get("summary"),
             "catalog_operation_method": catalog_operation.get("method"),
             "catalog_operation_path": catalog_operation.get("path"),
+            "request_contract": change_request_contract(command_service, catalog_operation),
             "service_known_limits": entry.get("known_limits", []),
             "service_context_hints": SERVICE_CONTEXT_HINTS.get(service, []),
             "service_verification_hints": SERVICE_VERIFICATION_HINTS.get(service, []),
+            "dependency_and_convergence_hints": dependency_and_convergence_hints(service),
             "submit_requires_confirmation": True,
             "submit_is_not_executed_by_this_planner": True,
             "read_only_smoke_plan": catalog_readiness_plan(args, service),
@@ -377,6 +431,8 @@ def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "service_known_limits": entry.get("known_limits", []),
                 "service_context_hints": SERVICE_CONTEXT_HINTS.get(service, []),
                 "service_verification_hints": SERVICE_VERIFICATION_HINTS.get(service, []),
+                "request_contract": change_request_contract(command_service, catalog_operation),
+                "dependency_and_convergence_hints": dependency_and_convergence_hints(service),
                 "submit_requires_confirmation": True,
                 "submit_is_not_executed_by_this_planner": True,
             }
@@ -395,6 +451,8 @@ def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
             "service_known_limits": entry.get("known_limits", []),
             "service_context_hints": SERVICE_CONTEXT_HINTS.get(service, []),
             "service_verification_hints": SERVICE_VERIFICATION_HINTS.get(service, []),
+            "request_contract": change_request_contract(command_service, catalog_operation),
+            "dependency_and_convergence_hints": dependency_and_convergence_hints(service),
             "resource_verifier": "scripts/hcloud_resource_verify.py",
             "submit_requires_confirmation": True,
             "submit_is_not_executed_by_this_planner": True,

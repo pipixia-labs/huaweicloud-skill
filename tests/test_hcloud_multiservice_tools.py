@@ -2783,6 +2783,39 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(execute_mock.call_count, 2)
         verify_mock.assert_called_once()
 
+    def test_guarded_change_flow_requires_readback_after_unknown_submit(self) -> None:
+        """A transport-ambiguous mutation must not be presented as an ordinary retry."""
+
+        with patch.object(
+            hcloud_guarded_change_flow,
+            "execute_command",
+            side_effect=[
+                {"success": True, "parsed_json": {"dryrun": True}},
+                {
+                    "success": False,
+                    "error_type": "TIMEOUT",
+                    "execution_semantics": {
+                        "operation_kind": "mutation",
+                        "request_outcome": "outcome_unknown",
+                        "resource_verification_required": True,
+                        "retry_strategy": "verify_before_retry",
+                    },
+                },
+            ],
+        ):
+            args = self.guarded_flow_args(
+                execute_dryrun=True,
+                execute_submit=True,
+                confirm_submit=True,
+            )
+            args.submit_token = self.current_guarded_submit_token(args)
+            result = hcloud_guarded_change_flow.build_flow(args)
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["submit_outcome_unknown"])
+        self.assertTrue(any("read back" in step.lower() for step in result["next_steps"]))
+        self.assertFalse(any("before retrying" in step.lower() for step in result["next_steps"][-1:]))
+
     def test_guarded_change_flow_reports_missing_verify_target(self) -> None:
         result = hcloud_guarded_change_flow.build_flow(self.guarded_flow_args(verify_param=[]))
 
@@ -3684,6 +3717,10 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertEqual(result["resource_verifier"], "scripts/hcloud_resource_verify.py")
         self.assertTrue(result["service_verification_hints"])
         self.assertIn("--arg=--dryrun", result["commands"]["dryrun_or_plan"])
+        self.assertEqual(result["request_contract"]["body_shape_confidence"], "top_level_only")
+        self.assertEqual(result["request_contract"]["preferred_body_transport"], "cli_json_input")
+        self.assertIn("--schema-depth=3", result["request_contract"]["sdk_evidence_command"])
+        self.assertTrue(result["dependency_and_convergence_hints"])
 
     def test_service_change_plan_delegates_obs_to_specific_planner(self) -> None:
         args = SimpleNamespace(

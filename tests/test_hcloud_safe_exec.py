@@ -27,6 +27,74 @@ SPEC.loader.exec_module(hcloud_safe_exec)
 class SafeExecRedactionTest(unittest.TestCase):
     """Validate redaction without calling hcloud."""
 
+    def test_mutation_timeout_requires_readback_before_retry(self) -> None:
+        """A timed-out mutation may have reached Huawei Cloud and cannot be replayed blindly."""
+
+        semantics = hcloud_safe_exec.build_execution_semantics(
+            {
+                "success": False,
+                "error_type": "TIMEOUT",
+                "error_details": {"category": "network"},
+            },
+            {"read_only": False},
+        )
+
+        self.assertEqual(semantics["operation_kind"], "mutation")
+        self.assertEqual(semantics["request_outcome"], "outcome_unknown")
+        self.assertTrue(semantics["resource_verification_required"])
+        self.assertEqual(semantics["retry_strategy"], "verify_before_retry")
+        self.assertFalse(semantics["completion_claim_allowed"])
+
+    def test_read_timeout_is_a_failed_retryable_read(self) -> None:
+        """A read can be retried because it does not duplicate a cloud-side mutation."""
+
+        semantics = hcloud_safe_exec.build_execution_semantics(
+            {
+                "success": False,
+                "error_type": "TIMEOUT",
+                "error_details": {"category": "network"},
+            },
+            {"read_only": True},
+        )
+
+        self.assertEqual(semantics["operation_kind"], "read")
+        self.assertEqual(semantics["request_outcome"], "failed")
+        self.assertFalse(semantics["resource_verification_required"])
+        self.assertEqual(semantics["retry_strategy"], "retry_allowed")
+
+    def test_provider_rejected_mutation_is_not_transport_ambiguity(self) -> None:
+        """A structured API rejection is a known failed request, not an unknown outcome."""
+
+        semantics = hcloud_safe_exec.build_execution_semantics(
+            {
+                "success": False,
+                "error_type": "OPENAPI_ERROR",
+                "error_details": {
+                    "category": "parameter",
+                    "cloud_error_code": "Ecs.0000",
+                    "cloud_error_message": "invalid request",
+                },
+            },
+            {"read_only": False},
+        )
+
+        self.assertEqual(semantics["request_outcome"], "failed")
+        self.assertEqual(semantics["retry_strategy"], "correct_before_retry")
+        self.assertTrue(semantics["resource_verification_required"])
+
+    def test_successful_mutation_still_requires_resource_verification(self) -> None:
+        """Request acceptance alone must not be presented as completed cloud state."""
+
+        semantics = hcloud_safe_exec.build_execution_semantics(
+            {"success": True, "error_type": None},
+            {"read_only": False},
+        )
+
+        self.assertEqual(semantics["request_outcome"], "succeeded")
+        self.assertTrue(semantics["resource_verification_required"])
+        self.assertEqual(semantics["retry_strategy"], "not_needed")
+        self.assertFalse(semantics["completion_claim_allowed"])
+
     def test_normalize_hcloud_args_adds_only_missing_long_option_prefixes(self) -> None:
         """Normalize direct CLI input without changing already valid option tokens."""
 
@@ -866,6 +934,45 @@ class SafeExecRedactionTest(unittest.TestCase):
         self.assertEqual(result["resolved_operation"], "CreateSecurityGroup/v3")
         self.assertEqual(len(result["attempts"]), 1)
         self.assertNotIn("version_correction", result)
+        self.assertEqual(result["execution_semantics"]["request_outcome"], "failed")
+        self.assertEqual(result["execution_semantics"]["retry_strategy"], "correct_before_retry")
+
+    def test_cli_marks_timed_out_mutation_as_unknown_outcome(self) -> None:
+        """The emitted CLI contract must preserve transport ambiguity for mutations."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            hcloud_path = tmp_path / "hcloud"
+            hcloud_path.write_text(
+                "#!/usr/bin/env python3\n"
+                "import time\n"
+                "time.sleep(2)\n",
+                encoding="utf-8",
+            )
+            hcloud_path.chmod(hcloud_path.stat().st_mode | stat.S_IXUSR)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--service",
+                    "VPC",
+                    "--operation",
+                    "CreateSecurityGroup",
+                    "--timeout=1",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"},
+            )
+
+        result = json.loads(completed.stdout)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(result["error_type"], "TIMEOUT")
+        self.assertEqual(result["execution_semantics"]["operation_kind"], "mutation")
+        self.assertEqual(result["execution_semantics"]["request_outcome"], "outcome_unknown")
+        self.assertEqual(result["execution_semantics"]["retry_strategy"], "verify_before_retry")
 
 
 if __name__ == "__main__":

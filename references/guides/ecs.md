@@ -22,3 +22,5 @@ ECS 是当前最完整的上云入口。目标不是只创建一台云服务器�
 - 不要把 job 成功说成 ECS 可用。
 - 不要在没有可用 key/password/cloud-init/COC 通道时承诺机内操作可执行。
 - 不要自动开放 SSH 或常见 Web 端口到 `0.0.0.0/0`。
+- 不要根据顶层 catalog 猜内联 EIP、NIC、磁盘或批量删除 body；复杂结构先用 `request_contract` 和有限深度 SDK schema 补证。
+- 删除 ECS 后要分别回读 EIP 和数据盘处置结果；`delete_publicip`、`delete_volume` 或请求成功不等于所有依赖已经释放。

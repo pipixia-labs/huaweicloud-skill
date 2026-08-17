@@ -33,6 +33,49 @@ def version_detail(*optional_params: str) -> dict[str, object]:
     }
 
 
+def body_operation_catalog_fixture() -> dict[str, object]:
+    """Return catalog evidence that deliberately stops at a complex body boundary."""
+
+    return {
+        "schema_version": 2,
+        "services": {
+            "ecs": {
+                "name": "ECS",
+                "service_key": "ecs",
+                "operations": {
+                    "DeleteServers": {
+                        "name": "DeleteServers",
+                        "versions": ["v2"],
+                        "selected_version": "v2",
+                        "read_only": False,
+                        "detail_cached": True,
+                        "detail_file": "DeleteServers_en.yaml",
+                        "method": "POST",
+                        "path": "/v1/{project_id}/cloudservers/delete",
+                        "has_body_params": True,
+                        "params": [
+                            {
+                                "name": "project_id",
+                                "required": True,
+                                "position": "path",
+                                "type": "string",
+                            },
+                            {
+                                "name": "servers",
+                                "required": True,
+                                "position": "body",
+                                "type": "string",
+                            },
+                        ],
+                        "required_params": ["servers"],
+                        "optional_params": ["delete_publicip", "delete_volume"],
+                    }
+                },
+            }
+        },
+    }
+
+
 def catalog_fixture() -> dict[str, object]:
     """Return a catalog containing a representative V2/V3 operation."""
 
@@ -88,6 +131,24 @@ class HcloudOperationResolverTest(unittest.TestCase):
         self.assertEqual(result["confidence"], "exact_parameter_match")
         self.assertEqual(len(result["candidates"]), 2)
         self.assertEqual(result["candidates"][0]["unsupported_params"], ["vpc_id"])
+
+    def test_selected_operation_exposes_top_level_request_contract(self) -> None:
+        result = hcloud_operation_resolver.resolve_operation_version(
+            "ECS",
+            "DeleteServers",
+            {"servers"},
+            catalog=body_operation_catalog_fixture(),
+        )
+
+        contract = result["request_contract"]
+        self.assertEqual(contract["method"], "POST")
+        self.assertEqual(contract["path"], "/v1/{project_id}/cloudservers/delete")
+        self.assertEqual(contract["body_shape_confidence"], "top_level_only")
+        self.assertEqual(contract["preferred_body_transport"], "cli_json_input")
+        self.assertEqual(contract["parameters"][1]["name"], "servers")
+        self.assertEqual(contract["parameters"][1]["position"], "body")
+        self.assertFalse(contract["nested_cli_arguments_safe_to_infer"])
+        self.assertIn("--schema-depth=3", contract["sdk_evidence_command"])
 
     def test_unversioned_operation_uses_catalog_default_when_versions_match(self) -> None:
         result = hcloud_operation_resolver.resolve_operation_version(

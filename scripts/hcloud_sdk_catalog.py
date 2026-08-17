@@ -209,6 +209,200 @@ def request_model_path(version_dir: Path, operation: str) -> Path:
     return version_dir / "model" / f"{camel_to_snake(operation)}_request.py"
 
 
+def model_path(version_dir: Path, model_name: str) -> Path:
+    """Return the generated SDK model path for a class name."""
+
+    return version_dir / "model" / f"{camel_to_snake(model_name)}.py"
+
+
+def required_model_attributes(path: Path, class_name: str) -> set[str]:
+    """Infer required fields from unconditional generated assignments."""
+
+    if not path.exists():
+        return set()
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return set()
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef) or node.name != class_name:
+            continue
+        initializer = next(
+            (
+                child
+                for child in node.body
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and child.name == "__init__"
+            ),
+            None,
+        )
+        if initializer is None:
+            return set()
+        required: set[str] = set()
+        for statement in initializer.body:
+            targets: list[ast.expr] = []
+            if isinstance(statement, ast.Assign):
+                targets = list(statement.targets)
+            elif isinstance(statement, ast.AnnAssign):
+                targets = [statement.target]
+            for target in targets:
+                if (
+                    isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"
+                    and not target.attr.startswith("_")
+                ):
+                    required.add(target.attr)
+        return required
+    return set()
+
+
+def parse_model(version_dir: Path, model_name: str) -> dict[str, Any] | None:
+    """Parse one generated SDK model without importing executable code."""
+
+    path = model_path(version_dir, model_name)
+    if not path.exists():
+        return None
+    openapi_types = literal_class_attribute(path, model_name, "openapi_types", {})
+    attribute_map = literal_class_attribute(path, model_name, "attribute_map", {})
+    sensitive_list = literal_class_attribute(path, model_name, "sensitive_list", [])
+    if not isinstance(openapi_types, dict):
+        return None
+    required = required_model_attributes(path, model_name)
+    fields = []
+    for name, type_name in openapi_types.items():
+        fields.append(
+            {
+                "name": str(name),
+                "serialized_name": (
+                    str(attribute_map.get(name, name))
+                    if isinstance(attribute_map, dict)
+                    else str(name)
+                ),
+                "type": str(type_name),
+                "required": str(name) in required,
+                "sensitive": (
+                    str(name) in sensitive_list
+                    if isinstance(sensitive_list, list)
+                    else False
+                ),
+            }
+        )
+    return {
+        "type": "model",
+        "model": model_name,
+        "path": str(path),
+        "fields": fields,
+    }
+
+
+PRIMITIVE_MODEL_TYPES = {
+    "any",
+    "bool",
+    "bytes",
+    "date",
+    "datetime",
+    "dict",
+    "float",
+    "int",
+    "object",
+    "str",
+}
+
+
+def split_generic_arguments(value: str) -> tuple[str, str] | None:
+    """Split two generic type arguments while preserving nested brackets."""
+
+    depth = 0
+    for index, char in enumerate(value):
+        if char in "[(":
+            depth += 1
+        elif char in ")]":
+            depth = max(0, depth - 1)
+        elif char == "," and depth == 0:
+            return value[:index].strip(), value[index + 1 :].strip()
+    return None
+
+
+def type_schema(
+    version_dir: Path,
+    type_name: str,
+    *,
+    remaining_depth: int,
+    visited: frozenset[str],
+) -> dict[str, Any]:
+    """Return a bounded schema for a generated SDK type expression."""
+
+    normalized = type_name.strip()
+    list_match = re.fullmatch(r"list\[(.+)]", normalized, flags=re.IGNORECASE)
+    if list_match:
+        return {
+            "type": "array",
+            "items": type_schema(
+                version_dir,
+                list_match.group(1).strip(),
+                remaining_depth=remaining_depth,
+                visited=visited,
+            ),
+        }
+    dict_match = re.fullmatch(r"dict\((.+)\)", normalized, flags=re.IGNORECASE)
+    if dict_match:
+        arguments = split_generic_arguments(dict_match.group(1))
+        if arguments:
+            key_type, value_type = arguments
+            return {
+                "type": "object",
+                "key_type": key_type,
+                "additional_properties": type_schema(
+                    version_dir,
+                    value_type,
+                    remaining_depth=remaining_depth,
+                    visited=visited,
+                ),
+            }
+    if normalized.lower() in PRIMITIVE_MODEL_TYPES:
+        return {"type": normalized}
+    if normalized in visited:
+        return {"type": "model", "model": normalized, "recursive_reference": True}
+    if remaining_depth < 0:
+        return {"type": "model", "model": normalized, "truncated": True}
+    return expand_model_schema(
+        version_dir,
+        normalized,
+        max_depth=remaining_depth,
+        _visited=visited,
+    )
+
+
+def expand_model_schema(
+    version_dir: Path,
+    model_name: str,
+    max_depth: int = 2,
+    *,
+    _visited: frozenset[str] = frozenset(),
+) -> dict[str, Any]:
+    """Expand a generated SDK model to a bounded, cycle-safe field schema."""
+
+    if max_depth < 0:
+        return {"type": "model", "model": model_name, "truncated": True}
+    parsed = parse_model(version_dir, model_name)
+    if parsed is None:
+        return {"type": "model", "model": model_name, "available": False}
+    visited = _visited | {model_name}
+    fields = []
+    for field in parsed["fields"]:
+        expanded = dict(field)
+        if field["type"].lower() not in PRIMITIVE_MODEL_TYPES:
+            expanded["schema"] = type_schema(
+                version_dir,
+                field["type"],
+                remaining_depth=max_depth - 1,
+                visited=visited,
+            )
+        fields.append(expanded)
+    return {**parsed, "fields": fields, "max_depth": max_depth}
+
+
 def parse_request_model(version_dir: Path, operation: str) -> dict[str, Any] | None:
     """Parse request model type and attribute metadata for one SDK operation."""
     path = request_model_path(version_dir, operation)
@@ -236,6 +430,7 @@ def parse_request_model(version_dir: Path, operation: str) -> dict[str, Any] | N
         "attribute_map": attribute_map if isinstance(attribute_map, dict) else {},
         "sensitive_list": sensitive_list if isinstance(sensitive_list, list) else [],
         "params": params,
+        "required_params": sorted(required_model_attributes(path, class_name)),
     }
 
 
@@ -312,7 +507,12 @@ def annotate_request_params(operation: dict[str, Any], request_model: dict[str, 
     return result
 
 
-def package_summary(package: dict[str, Any], operation: str | None = None, max_regions: int | None = 20) -> dict[str, Any]:
+def package_summary(
+    package: dict[str, Any],
+    operation: str | None = None,
+    max_regions: int | None = 20,
+    schema_depth: int = 0,
+) -> dict[str, Any]:
     """Build a metadata summary for one SDK service package."""
     result: dict[str, Any] = {
         "distribution": package["distribution"],
@@ -340,11 +540,18 @@ def package_summary(package: dict[str, Any], operation: str | None = None, max_r
             resolved = resolve_operation(operations, operation)
             if resolved:
                 request_model = parse_request_model(version_dir, resolved["name"])
-                version_entry["operation"] = {
+                operation_entry = {
                     **resolved,
                     "request_model": request_model,
                     "request_params": annotate_request_params(resolved, request_model),
                 }
+                if request_model and schema_depth > 0:
+                    operation_entry["request_schema"] = expand_model_schema(
+                        version_dir,
+                        request_model["class_name"],
+                        max_depth=schema_depth,
+                    )
+                version_entry["operation"] = operation_entry
             else:
                 version_entry["operation"] = None
         else:
@@ -368,6 +575,7 @@ def inspect_sdk(
     service: str | None = None,
     operation: str | None = None,
     max_regions: int | None = 20,
+    schema_depth: int = 0,
 ) -> dict[str, Any]:
     """Inspect SDK metadata from installed packages and optional source fallback."""
     source_root_exists = bool(sdk_root and sdk_root.exists())
@@ -407,7 +615,15 @@ def inspect_sdk(
         result["services_sample"] = service_names(sdk_root)[:120]
         return result
 
-    result["packages"] = [package_summary(package, operation, max_regions=max_regions) for package in packages]
+    result["packages"] = [
+        package_summary(
+            package,
+            operation,
+            max_regions=max_regions,
+            schema_depth=schema_depth,
+        )
+        for package in packages
+    ]
     if operation:
         matches = [
             version
@@ -473,12 +689,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--service", help="SDK service name, for example ECS or VPC.")
     parser.add_argument("--operation", help="SDK operation name, for example ListFlavors.")
     parser.add_argument("--max-regions", type=int, default=20, help="Maximum static regions to include per SDK version.")
+    parser.add_argument(
+        "--schema-depth",
+        type=int,
+        default=0,
+        help="Recursively inspect request model fields to this bounded depth; 0 keeps historical compact output.",
+    )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.operation and not args.service:
         parser.error("--operation requires --service.")
     if args.max_regions < 0:
         parser.error("--max-regions must be >= 0.")
+    if args.schema_depth < 0 or args.schema_depth > 5:
+        parser.error("--schema-depth must be between 0 and 5.")
     return args
 
 
@@ -490,6 +714,7 @@ def main() -> int:
         service=args.service,
         operation=args.operation,
         max_regions=args.max_regions,
+        schema_depth=args.schema_depth,
     )
     hcloud_common.emit_json(result, pretty=args.pretty)
     return 0 if result.get("success") else 1

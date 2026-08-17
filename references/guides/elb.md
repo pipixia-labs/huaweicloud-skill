@@ -21,3 +21,10 @@ ELB 任务必须区分云侧资源存在、后端 member 健康和最终协议�
 - 不要把 ELB `ACTIVE` 说成后端业务可用。
 - 不要忽略后端 ECS 安全组、服务监听端口、member subnet 和健康检查路径。
 - 不要把跨 VPC 后端当成默认修复策略。
+
+## 删除依赖
+
+- 先读取当前 listener、pool、member 和 health monitor 拓扑，再构造删除计划。
+- member 与 health monitor 都会阻止其 pool 删除；它们是 pool 的并列依赖，不应被误写成永远固定的一条线性链。
+- pool、listener 等子资源清理并回读后，才删除 load balancer；每一步都以新的 List/Show 结果为准。
+- 任一步发生 transport timeout 时，先回查目标是否仍存在，禁止原样重复删除。

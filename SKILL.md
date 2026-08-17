@@ -73,6 +73,8 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
    - 返回为空不等于失败；必要时检查 region/project、过滤条件、权限和状态码。
 4. 变更类先计划再执行：
    - 先查现状证据，再生成 change plan 或 dry-run；执行授权使用宿主可用的确认交互，Skill 不假设特定平台函数名。
+   - 复杂 body 先看 resolver/change plan 返回的 `request_contract`。`body_shape_confidence=top_level_only` 时，不能从顶层字段猜测 `.1` 或嵌套点号参数；优先使用 `--cli-jsonInput`，必要时按 `sdk_evidence_command` 读取官方 SDK 的有限深度请求 schema。
+   - `hcloud_safe_exec.py` 返回的 `execution_semantics` 分开描述请求结果和资源状态：mutation 的 `request_outcome=succeeded` 仍需回读；`request_outcome=outcome_unknown` 或 `retry_strategy=verify_before_retry` 时，先查询目标资源或异步 job，再决定是否重试，禁止原样重复提交。
    - 按所选工具的真实结果契约解释输出。本 Skill 的 execute 脚本如果返回
      `outcome_status`，以该结构化字段为业务结果；裸 `hcloud`、帮助探测和其他
      未声明结构化结果的命令必须同时保留 stdout、stderr 和退出码，不能只因进程
