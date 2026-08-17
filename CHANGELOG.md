@@ -14,6 +14,9 @@
   并区分脚本 `success`、环境 `ready` 和领域完成状态；账号盘点与账单入口复用同一回执实现。
 - 新增可移植的任务级依赖契约；environment doctor 只检查当前声明的 hcloud、服务 SDK、Terraform、
   OBS、网络和 artifact 目录，SDK 未声明具体服务时不执行无边界 package 扫描。
+- 新增纯本地 KooCLI 请求预检：复用 resolver 的精确 API 版本与官方 SDK 静态嵌套 schema，在
+  dry-run/submit 前发现 JSON 外层、参数位置、required 和类型错误；SDK 缺失/截断保持部分证据，
+  未知字段只告警。通用 change plan 对 JSON 请求自动附带预检结果。
 
 ## 0.9.4 - 2026-08-17
 

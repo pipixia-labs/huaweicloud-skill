@@ -19,8 +19,8 @@
 ## 单一事实来源规则
 
 - 服务和 API 身份首先由 `references/service-registry.json` 与当前 catalog 维护；
-- operation、版本和参数证据由 `references/hcloud-service-catalog/`、resolver、live help 或
-  实际 dry-run/query 提供，不在目标卡重复维护；
+- operation、版本和参数证据由 `references/hcloud-service-catalog/`、resolver、request preflight、
+  SDK 静态 schema、live help 或实际 dry-run/query 提供，不在目标卡重复维护；
 - 场景到能力的入口由 router/contract 维护，具体服务知识留在对应 guide 和 playbook；
 - 跨多个服务长期稳定的方法才进入 shared core，单一服务规则留在服务模块；
 - 目标和交互指南可以解释如何组合事实，但不复制实时价格、配额、库存或资源状态；

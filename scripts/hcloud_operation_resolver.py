@@ -194,20 +194,40 @@ def request_contract(
 
     detail = hcloud_catalog.operation_version_detail(operation, version)
     parameters: list[dict[str, Any]] = []
+    parameter_indexes: dict[tuple[str, str], int] = {}
     for item in hcloud_catalog.parameter_items(detail):
         name = str(item.get("name") or "").strip()
         if not name:
             continue
+        position = str(item.get("position") or item.get("in") or "unknown")
         parameter = {
             "name": name,
             "required": item.get("required") is True,
-            "position": str(item.get("position") or item.get("in") or "unknown"),
+            "position": position,
             "type": str(item.get("type") or "unknown"),
         }
         enum = item.get("enum")
         if isinstance(enum, list):
             parameter["enum"] = enum[:50]
-        parameters.append(parameter)
+        key = (comparable_param_name(name), position.lower())
+        existing_index = parameter_indexes.get(key)
+        if existing_index is None:
+            parameter_indexes[key] = len(parameters)
+            parameters.append(parameter)
+            continue
+
+        existing = parameters[existing_index]
+        existing["required"] = bool(existing.get("required")) or parameter["required"]
+        occurrences = int(existing.get("flattened_occurrences") or 1) + 1
+        existing.update(
+            {
+                "flattened_occurrences": occurrences,
+                "nested_metadata_flattened": True,
+            }
+        )
+        existing.pop("enum", None)
+        if existing.get("type") != parameter.get("type"):
+            existing["type"] = "ambiguous"
 
     has_body = bool(detail.get("has_body_params")) or any(
         parameter["position"].lower() == "body" for parameter in parameters
@@ -224,6 +244,8 @@ def request_contract(
         "preferred_body_transport": "cli_json_input" if has_body else "cli_arguments",
         "nested_cli_arguments_safe_to_infer": not has_body,
     }
+    if any(parameter.get("nested_metadata_flattened") for parameter in parameters):
+        contract["flattened_parameter_roots_present"] = True
     if has_body:
         contract.update(
             {

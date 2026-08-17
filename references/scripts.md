@@ -156,6 +156,26 @@ Use this to inspect the official SDK package when SDK is evidence for an hcloud 
 
 The script reads SDK client/request/region files to expose method, resource path, query/path parameters, request types, sensitive fields, and static region examples. With `--schema-depth`, it adds a bounded recursive request schema with required-field evidence and cycle/depth markers. It does not import SDK models or execute cloud calls.
 
+### KooCLI Request Preflight
+
+```bash
+python3 scripts/hcloud_request_preflight.py \
+  --service ECS \
+  --operation CreateServers \
+  --json-input-file=<path-to-cli-jsonInput.json> \
+  --pretty
+```
+
+这是一个 local-only request preflight。它复用 operation resolver 选择的精确 API 版本，校验 KooCLI
+JSON 外层位置、catalog 顶层参数和可用的官方 SDK 嵌套 required/type schema；不运行 hcloud、不导入
+SDK model，也不访问华为云。明确错误返回非零并设置 `ready_for_dryrun=false`；SDK 缺失或 schema
+截断返回 `validation_status=partial`，保留进入 dry-run 的能力。未知 SDK 字段只告警，避免把 SDK
+版本滞后误判成请求失败。
+
+该脚本不检查区域产品可售类型、配额、费用、权限、依赖和资源终态。ECS 创建仍优先使用
+`hcloud_ecs_create_plan.py` 获取登录方式、安全组、数量和成本等专用业务规则；通用预检只负责可复用的
+provider 请求形状。
+
 ### SDK Supplement Registry Audit
 
 ```bash
@@ -882,6 +902,10 @@ python3 scripts/hcloud_change_plan.py \
 ```
 
 Use for a non-executing risk plan for mutating operations. It classifies operation risk, applies security-group ingress policy checks, generates plan/dry-run and submit commands, and records confirmation/verification requirements. Optional `--metadata-category` applies catalog category risk floors for metadata-backed services.
+
+When `--json-input-file` is present, the planner first runs `hcloud_request_preflight.py`. Proven request errors
+return no dry-run or submit command. Partial local schema evidence remains visible in `request_preflight` and adds a
+warning that dry-run or operation help must validate the remaining fields.
 
 For a user-confirmed public website whose EIP connects directly to ECS, exact TCP 80/443 ingress from `0.0.0.0/0` can be planned with `--allow-public-web`. The flag does not authorize submit and does not allow SSH, development ports, ambiguous protocols, or port ranges.
 

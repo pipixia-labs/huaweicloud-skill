@@ -6,9 +6,11 @@ from __future__ import annotations
 import argparse
 import re
 import shlex
+from pathlib import Path
 from typing import Any
 
 import hcloud_common
+import hcloud_request_preflight
 import hcloud_security_policy
 from hcloud_core import CommandPlan, RiskAssessment
 
@@ -340,6 +342,32 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "Re-run the planner after updating the source range.",
             ],
         }
+
+    request_preflight: dict[str, Any] | None = None
+    if args.json_input_file:
+        request_preflight = hcloud_request_preflight.preflight_request_file(
+            args.service,
+            args.operation,
+            Path(args.json_input_file),
+            direct_arguments=args.arg,
+            project_id=args.project_id,
+        )
+        if not request_preflight.get("success"):
+            return {
+                "success": False,
+                "service": args.service,
+                "operation": args.operation,
+                "risk": risk.to_dict(),
+                "request_preflight": request_preflight,
+                "policy_violations": [],
+                "policy_scan_error": policy_check["scan_error"],
+                "commands": {},
+                "next_steps": [
+                    "Fix the local request preflight errors before generating or running dry-run and submit commands.",
+                    "Use the reported request_contract and exact-version SDK schema evidence; do not guess nested fields.",
+                    "Re-run hcloud_request_preflight.py, then rebuild this change plan.",
+                ],
+            }
     dryrun_command = build_command(args, use_dryrun=risk.dryrun_required)
     submit_command = build_command(args, use_dryrun=False)
     warnings: list[str] = []
@@ -361,6 +389,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         )
     if policy_check["scan_error"]:
         warnings.append(policy_check["scan_error"])
+    if request_preflight and request_preflight.get("validation_status") == "partial":
+        warnings.append(
+            "Local request preflight passed with partial schema evidence; dry-run or operation help must validate the remaining fields before submit."
+        )
 
     command_plan = CommandPlan(
         service=args.service,
@@ -390,6 +422,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "Verify job, resource, network, and protocol state according to the target service.",
         ],
     }
+    if request_preflight is not None:
+        result["request_preflight"] = request_preflight
     if allow_public_web:
         result["public_web_exposure"] = {
             "enabled": True,

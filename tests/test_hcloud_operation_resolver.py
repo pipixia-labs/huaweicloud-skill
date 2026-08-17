@@ -150,6 +150,51 @@ class HcloudOperationResolverTest(unittest.TestCase):
         self.assertFalse(contract["nested_cli_arguments_safe_to_infer"])
         self.assertIn("--schema-depth=3", contract["sdk_evidence_command"])
 
+    def test_request_contract_collapses_duplicated_flattened_body_fields(self) -> None:
+        operation = body_operation_catalog_fixture()["services"]["ecs"]["operations"]["DeleteServers"]
+        operation["params"].extend(
+            [
+                {
+                    "name": "servers",
+                    "required": True,
+                    "position": "body",
+                    "type": "string",
+                    "enum": ["nested-value-that-is-not-a-top-level-enum"],
+                },
+                {
+                    "name": "servers",
+                    "required": True,
+                    "position": "body",
+                    "type": "string",
+                },
+            ]
+        )
+
+        result = hcloud_operation_resolver.resolve_operation_version(
+            "ECS",
+            "DeleteServers",
+            {"servers"},
+            catalog=body_operation_catalog_fixture()
+            | {
+                "services": {
+                    "ecs": {
+                        **body_operation_catalog_fixture()["services"]["ecs"],
+                        "operations": {"DeleteServers": operation},
+                    }
+                }
+            },
+        )
+
+        contract = result["request_contract"]
+        servers = next(item for item in contract["parameters"] if item["name"] == "servers")
+        self.assertEqual(
+            sum(item["name"] == "servers" for item in contract["parameters"]),
+            1,
+        )
+        self.assertEqual(servers["flattened_occurrences"], 3)
+        self.assertTrue(servers["nested_metadata_flattened"])
+        self.assertNotIn("enum", servers)
+
     def test_unversioned_operation_uses_catalog_default_when_versions_match(self) -> None:
         result = hcloud_operation_resolver.resolve_operation_version(
             "VPC",

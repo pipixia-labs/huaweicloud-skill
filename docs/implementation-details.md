@@ -89,6 +89,21 @@ flowchart LR
 - Terraform candidate 只是“可以进入 IaC 路线”，不是自动创建 `.tf` 或执行 `terraform`。
 - SDK supplement candidate 只是“可以补证据”，不是允许调用任意 SDK API。
 
+## 本地请求预检
+
+`scripts/hcloud_request_preflight.py` 位于 Agent 写好 `cli-jsonInput` 与真正 dry-run/submit 之间。它是
+纯本地 provider 证据层，不是新的执行后端或工作流控制器：
+
+1. 读取 KooCLI JSON 外层位置并提取顶层 API 参数；
+2. 复用 `hcloud_operation_resolver.py` 选择一个明确 API 版本；
+3. 用 catalog 校验顶层 required 和 request 位置；
+4. 若对应官方 SDK 可用，只静态解析同一版本 request model 的有限深度嵌套 schema；
+5. 返回明确错误、部分证据和边界，不执行 hcloud 或 SDK 请求。
+
+SDK 缺失、schema 截断或未知字段不会变成虚假的 provider 失败。明确的缺失字段、对象/数组/基本类型
+不匹配和 KooCLI 位置冲突才阻断 dry-run 命令生成。服务业务约束继续由专用 planner、guide 和实时查询
+负责，平台仍只负责提供命令、文件和进程运行能力。
+
 ## 安全执行包装器
 
 `scripts/hcloud_safe_exec.py` 是最重要的执行入口。它支持两种命令形态：

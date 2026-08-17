@@ -10,6 +10,7 @@ import unittest
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -403,6 +404,75 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertEqual(plan["risk"]["level"], "high")
         self.assertTrue(plan["risk"]["requires_confirmation"])
         self.assertIn("--arg=--dryrun", plan["commands"]["dryrun_or_plan"])
+
+    def test_change_plan_blocks_command_generation_when_request_preflight_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "request.json"
+            path.write_text('{"body": {}}', encoding="utf-8")
+            args = SimpleNamespace(
+                service="ECS",
+                operation="DeleteServers",
+                region="cn-north-4",
+                project_id="project-1",
+                profile=None,
+                json_input_file=str(path),
+                arg=[],
+                no_dryrun=False,
+            )
+            preflight = {
+                "success": False,
+                "validation_status": "failed",
+                "ready_for_dryrun": False,
+                "errors": [{"code": "SDK_REQUIRED_FIELD_MISSING"}],
+                "warnings": [],
+            }
+            with mock.patch.object(
+                hcloud_change_plan.hcloud_request_preflight,
+                "preflight_request_file",
+                return_value=preflight,
+            ):
+                plan = hcloud_change_plan.build_plan(args)
+
+        self.assertFalse(plan["success"])
+        self.assertEqual(plan["commands"], {})
+        self.assertEqual(plan["request_preflight"], preflight)
+        self.assertIn("local request preflight", plan["next_steps"][0])
+
+    def test_change_plan_preserves_partial_preflight_evidence_for_dryrun(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "request.json"
+            path.write_text('{"body": {"servers": []}}', encoding="utf-8")
+            args = SimpleNamespace(
+                service="ECS",
+                operation="DeleteServers",
+                region="cn-north-4",
+                project_id="project-1",
+                profile=None,
+                json_input_file=str(path),
+                arg=[],
+                no_dryrun=False,
+            )
+            preflight = {
+                "success": True,
+                "validation_status": "partial",
+                "ready_for_dryrun": True,
+                "errors": [],
+                "warnings": [{"code": "SDK_SCHEMA_UNAVAILABLE"}],
+            }
+            with mock.patch.object(
+                hcloud_change_plan.hcloud_request_preflight,
+                "preflight_request_file",
+                return_value=preflight,
+            ):
+                plan = hcloud_change_plan.build_plan(args)
+
+        self.assertTrue(plan["success"])
+        self.assertEqual(plan["request_preflight"], preflight)
+        self.assertIn("--json-input-file", " ".join(plan["commands"]["submit"]))
+        self.assertTrue(
+            any("partial" in warning.lower() for warning in plan["plan"]["warnings"]),
+            plan["plan"]["warnings"],
+        )
 
     def test_change_plan_classifies_composite_mutation_names(self) -> None:
         cases = [
@@ -1019,12 +1089,27 @@ class ArchitectureContractsTest(unittest.TestCase):
         command_text = (ROOT / "references" / "command-construction.md").read_text(encoding="utf-8")
         error_text = (ROOT / "references" / "error-playbook.md").read_text(encoding="utf-8")
         scripts_text = (ROOT / "references" / "scripts.md").read_text(encoding="utf-8")
+        audience = json.loads(
+            (ROOT / "references" / "script-audience-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        guarded_change = next(
+            group for group in audience["script_groups"] if group["id"] == "guarded_change"
+        )
 
         self.assertIn("execution_semantics", skill_text)
+        self.assertIn("hcloud_request_preflight.py", skill_text)
         self.assertIn("verify_before_retry", error_text)
         self.assertIn("--schema-depth=3", command_text)
         self.assertIn("request_contract", command_text)
+        self.assertIn("hcloud_request_preflight.py", command_text)
         self.assertIn("bounded recursive request schema", scripts_text)
+        self.assertIn("local-only request preflight", scripts_text)
+        self.assertIn(
+            "scripts/hcloud_request_preflight.py",
+            guarded_change["scripts"],
+        )
 
     def test_large_output_policy_is_machine_readable_and_visible_at_entry(self) -> None:
         import hcloud_catalog

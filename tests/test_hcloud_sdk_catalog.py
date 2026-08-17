@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -104,6 +105,55 @@ class HcloudSdkCatalogSchemaTest(unittest.TestCase):
 
         child = schema["fields"][0]
         self.assertEqual(child["schema"], {"type": "model", "model": "Child", "truncated": True})
+
+    def test_request_parameter_annotation_preserves_header_placement(self) -> None:
+        operation = {
+            "query_params": [],
+            "path_params": [],
+            "header_params": ["X-Client-Token"],
+            "has_body": True,
+        }
+        request_model = {
+            "params": [
+                {
+                    "name": "x_client_token",
+                    "serialized_name": "X-Client-Token",
+                    "type": "str",
+                },
+                {
+                    "name": "body",
+                    "serialized_name": "body",
+                    "type": "CreateServersRequestBody",
+                },
+            ]
+        }
+
+        params = hcloud_sdk_catalog.annotate_request_params(operation, request_model)
+
+        self.assertEqual(params[0]["position"], "header")
+        self.assertEqual(params[1]["position"], "body")
+
+    def test_exact_distribution_lookup_avoids_global_package_scan(self) -> None:
+        distribution = mock.Mock()
+        distribution.metadata = {"Name": "huaweicloudsdkecs"}
+        with (
+            mock.patch.object(
+                hcloud_sdk_catalog.importlib_metadata,
+                "distribution",
+                return_value=distribution,
+            ) as exact_lookup,
+            mock.patch.object(
+                hcloud_sdk_catalog.importlib_metadata,
+                "packages_distributions",
+            ) as global_scan,
+        ):
+            result = hcloud_sdk_catalog.installed_distribution_name(
+                "huaweicloudsdkecs"
+            )
+
+        self.assertEqual(result, "huaweicloudsdkecs")
+        exact_lookup.assert_called_once_with("huaweicloudsdkecs")
+        global_scan.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -104,6 +104,15 @@ def installed_package_path(package_name: str) -> Path | None:
 
 def installed_distribution_name(package_name: str) -> str | None:
     """Return the distribution name that provides an installed top-level package."""
+
+    try:
+        distribution = importlib_metadata.distribution(package_name)
+    except importlib_metadata.PackageNotFoundError:
+        distribution = None
+    if distribution is not None:
+        name = distribution.metadata.get("Name")
+        return str(name) if name else package_name
+
     distributions = importlib_metadata.packages_distributions()
     candidates = distributions.get(package_name)
     return candidates[0] if candidates else None
@@ -495,14 +504,19 @@ def annotate_request_params(operation: dict[str, Any], request_model: dict[str, 
         return []
     query = {normalize_param_name(name) for name in operation.get("query_params", [])}
     path = {normalize_param_name(name) for name in operation.get("path_params", [])}
+    header = {normalize_param_name(name) for name in operation.get("header_params", [])}
     result = []
     for param in request_model.get("params", []):
         normalized = normalize_param_name(str(param.get("serialized_name") or param.get("name") or ""))
-        placement = "body"
-        if normalized in query:
+        placement = "unknown"
+        if normalized in header:
+            placement = "header"
+        elif normalized in query:
             placement = "query"
         elif normalized in path:
             placement = "path"
+        elif operation.get("has_body") and normalized == "body":
+            placement = "body"
         result.append({**param, "normalized_name": normalized, "position": placement})
     return result
 

@@ -157,6 +157,35 @@ python3 scripts/hcloud_ecs_wait_job.py \
 
 在 job 到达终态之前，不要宣称创建完成。
 
+### 通用 `cli-jsonInput` 本地预检
+
+非 ECS 专用请求在 JSON 写好后先运行：
+
+```bash
+python3 scripts/hcloud_request_preflight.py \
+  --service=<SERVICE> \
+  --operation=<Operation或Operation/vN> \
+  --json-input-file=<path-to-json> \
+  --project-id=<仅当path未写入JSON时使用> \
+  --pretty
+```
+
+该脚本不会运行 hcloud、导入 SDK model 或访问云端。它先复用 operation resolver 确定唯一 API
+版本，再校验 KooCLI 的 `path/query/body/formData/header/cookie` 外层结构和顶层参数位置；本机存在
+对应官方 SDK 时，再静态校验同一 API 版本的有限深度嵌套 required/type 证据。
+
+- `success=false`：先修正明确的 JSON、位置、必填字段或类型错误，不生成或执行 dry-run/submit。
+- `validation_status=partial`：SDK 不存在、版本 schema 不存在或深层 schema 截断；请求仍可进入 dry-run，
+  但不能声称参数已经完整验证。
+- `SDK_UNKNOWN_FIELD`：只告警，不自动删除字段；已安装 SDK 可能落后于 live API，应查 skeleton、help
+  或官方文档。
+- 同一 request 位置不能一部分写入 JSON、另一部分用直接 API 参数传入。`project_id` 已放在
+  `path` 时，不再重复传 `--project-id`。
+
+通用 `hcloud_change_plan.py` 和 `hcloud_service_change_plan.py` 收到 `--json-input-file` 时会自动附带
+`request_preflight`。预检只证明本地请求形状，不替代 dry-run、区域产品类型、配额、价格、权限、依赖和
+变更后的资源/业务验证。
+
 ## 四、复杂参数优先 `--cli-jsonInput`
 
 当遇到以下情况时，不要手拼长命令：
@@ -200,6 +229,9 @@ python3 scripts/hcloud_sdk_catalog.py \
 该命令只解析 SDK 源码中的 model 类型，不导入 model、不调用云 API，也不执行 mutation。将
 `request_schema` 作为字段名、嵌套对象、数组元素类型和 required 证据，再写 `--cli-jsonInput`；如果
 schema 仍显示 `truncated`、`available=false` 或与 hcloud help 冲突，停止猜测并继续查官方文档。
+
+优先让 `hcloud_request_preflight.py` 组合 resolver 与 SDK 证据；只有需要查看完整 schema 来源或排查
+预检证据时，再直接运行 `hcloud_sdk_catalog.py`。
 
 ## 五、查询类输出稳定化
 
