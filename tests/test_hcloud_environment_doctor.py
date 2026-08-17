@@ -41,7 +41,7 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
     """Validate local environment doctor contracts without touching the machine."""
 
     def test_build_report_is_check_only_and_tracks_required_blockers(self) -> None:
-        args = SimpleNamespace(need=["terraform"], workdir=ROOT)
+        args = SimpleNamespace(need=["terraform"], sdk_service=[], workdir=ROOT)
         with (
             mock.patch.object(hcloud_environment_doctor, "inspect_python", return_value=item("python", "ok", True)),
             mock.patch.object(hcloud_environment_doctor, "inspect_hcloud", return_value=item("hcloud", "ok", True)),
@@ -51,16 +51,49 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
             mock.patch.object(hcloud_environment_doctor, "inspect_obsutil", return_value=item("obsutil", "skipped")),
             mock.patch.object(hcloud_environment_doctor, "inspect_maas", return_value=item("maas", "skipped")),
             mock.patch.object(hcloud_environment_doctor, "inspect_proxy", return_value=item("proxy", "skipped")),
+            mock.patch.object(hcloud_environment_doctor, "inspect_network", return_value=item("network", "skipped")),
+            mock.patch.object(hcloud_environment_doctor, "inspect_artifacts", return_value=item("artifacts", "ok")),
         ):
             result = hcloud_environment_doctor.build_report(args)
 
         self.assertTrue(result["success"])
         self.assertEqual(result["mode"], "check_only")
         self.assertTrue(result["no_changes_made"])
+        self.assertEqual(result["scan_scope"], "task_scoped")
         self.assertFalse(result["summary"]["ready"])
         self.assertEqual(result["summary"]["required_blockers"], ["terraform"])
+        self.assertEqual(result["summary"]["required_unready"], ["terraform"])
+        self.assertEqual(result["dependency_contract"], "huaweicloud_skill_runtime_dependencies_v1")
         self.assertIn("does not install packages", result["execution_boundary"])
         self.assertTrue(all(not Path(reference).is_absolute() and (ROOT / reference).exists() for reference in result["source_references"]))
+
+    def test_task_scoped_report_does_not_probe_unselected_dependencies(self) -> None:
+        args = SimpleNamespace(need=["sdk"], sdk_service=["ECS"], workdir=ROOT)
+        sdk_result = item("huaweicloud_python_sdk", "ok", True)
+        with (
+            mock.patch.object(hcloud_environment_doctor, "inspect_python", return_value=item("python", "ok", True)),
+            mock.patch.object(hcloud_environment_doctor, "inspect_hcloud") as inspect_hcloud,
+            mock.patch.object(hcloud_environment_doctor, "inspect_auth") as inspect_auth,
+            mock.patch.object(hcloud_environment_doctor, "inspect_sdk", return_value=sdk_result) as inspect_sdk,
+            mock.patch.object(hcloud_environment_doctor, "inspect_terraform") as inspect_terraform,
+            mock.patch.object(hcloud_environment_doctor, "inspect_obsutil") as inspect_obsutil,
+            mock.patch.object(hcloud_environment_doctor, "inspect_maas") as inspect_maas,
+            mock.patch.object(hcloud_environment_doctor, "inspect_proxy") as inspect_proxy,
+        ):
+            result = hcloud_environment_doctor.build_report(args)
+
+        inspect_sdk.assert_called_once_with({"sdk"}, ["ECS"])
+        for probe in (
+            inspect_hcloud,
+            inspect_auth,
+            inspect_terraform,
+            inspect_obsutil,
+            inspect_maas,
+            inspect_proxy,
+        ):
+            probe.assert_not_called()
+        self.assertTrue(result["summary"]["ready"])
+        self.assertEqual(result["scan_scope"], "task_scoped")
 
     def test_auth_inspection_reports_presence_without_secret_values(self) -> None:
         with mock.patch.dict(
@@ -155,6 +188,106 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertTrue(result["required"])
         self.assertIn("HW_ACCESS_KEY", result["details"]["environment"])
 
+    def test_hcloud_is_required_only_when_selected(self) -> None:
+        summary = {
+            "hcloud": {"found": False},
+            "config": {"exists": False},
+            "meta_repo": {"exists": False},
+        }
+        with mock.patch.object(hcloud_environment_doctor.hcloud_context_inspect, "build_summary", return_value=summary) as build:
+            optional = hcloud_environment_doctor.inspect_hcloud(set())
+            required = hcloud_environment_doctor.inspect_hcloud({"hcloud"})
+
+        self.assertEqual(optional["status"], "skipped")
+        self.assertFalse(optional["required"])
+        self.assertEqual(required["status"], "blocker")
+        self.assertTrue(required["required"])
+        self.assertTrue(all(call.kwargs["include_sdk_runtime"] is False for call in build.call_args_list))
+
+    def test_sdk_service_requirements_are_scoped_to_requested_packages(self) -> None:
+        def package_path(package_name):
+            return Path("/sdk/ecs") if package_name == "huaweicloudsdkecs" else None
+
+        with mock.patch.object(
+            hcloud_environment_doctor.hcloud_context_inspect.hcloud_sdk_catalog,
+            "installed_package_path",
+            side_effect=package_path,
+        ):
+            result = hcloud_environment_doctor.inspect_sdk({"sdk"}, ["ECS", "VPC"])
+
+        self.assertEqual(result["status"], "blocker")
+        self.assertEqual(result["details"]["installed_services"], ["ECS"])
+        self.assertEqual(result["details"]["missing_services"], ["VPC"])
+        self.assertIn("huaweicloudsdkvpc", result["install_commands"][0])
+        self.assertNotIn("huaweicloudsdkecs", result["install_commands"][0])
+
+    def test_required_sdk_without_service_scope_stays_unknown(self) -> None:
+        with mock.patch.object(
+            hcloud_environment_doctor.hcloud_context_inspect,
+            "inspect_sdk_runtime",
+        ) as inspect_runtime:
+            result = hcloud_environment_doctor.inspect_sdk({"sdk"})
+
+        inspect_runtime.assert_not_called()
+        self.assertEqual(result["status"], "unknown")
+        self.assertTrue(result["required"])
+        self.assertEqual(result["details"]["requested_services"], [])
+        self.assertEqual(result["details"]["package_scan"], "skipped_without_task_service_scope")
+        self.assertEqual(result["install_commands"], [])
+        self.assertIn("--sdk-service", result["next_actions"][0])
+
+    def test_optional_sdk_without_service_scope_skips_package_scan(self) -> None:
+        with mock.patch.object(
+            hcloud_environment_doctor.hcloud_context_inspect,
+            "inspect_sdk_runtime",
+        ) as inspect_runtime:
+            result = hcloud_environment_doctor.inspect_sdk(set())
+
+        inspect_runtime.assert_not_called()
+        self.assertEqual(result["status"], "skipped")
+        self.assertFalse(result["required"])
+
+    def test_full_overview_preserves_broad_sdk_inventory(self) -> None:
+        runtime = {"installed_package_count": 2, "installed_services_sample": ["ECS", "VPC"]}
+        with mock.patch.object(
+            hcloud_environment_doctor.hcloud_context_inspect,
+            "inspect_sdk_runtime",
+            return_value=runtime,
+        ) as inspect_runtime:
+            result = hcloud_environment_doctor.inspect_sdk(set(), broad_overview=True)
+
+        inspect_runtime.assert_called_once()
+        self.assertEqual(result["status"], "ok")
+        self.assertFalse(result["required"])
+        self.assertEqual(result["details"]["package_scan"], "full_overview")
+        self.assertEqual(result["details"]["installed_services"], ["ECS", "VPC"])
+
+    def test_invalid_sdk_service_does_not_generate_a_broad_package_name(self) -> None:
+        result = hcloud_environment_doctor.inspect_sdk({"sdk"}, ["!!!"])
+
+        self.assertEqual(result["status"], "blocker")
+        self.assertEqual(result["details"]["invalid_services"], ["!!!"])
+        self.assertEqual(result["install_commands"], [])
+
+    def test_required_unknown_dependency_prevents_ready_summary(self) -> None:
+        summary = hcloud_environment_doctor.summarize(
+            [
+                item("python", "ok", True),
+                item("network", "unknown", True),
+            ]
+        )
+
+        self.assertFalse(summary["ready"])
+        self.assertEqual(summary["required_unready"], ["network"])
+        self.assertEqual(summary["required_blockers"], [])
+
+    def test_artifact_directory_requirement_is_task_scoped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            ready = hcloud_environment_doctor.inspect_artifacts({"artifacts"}, Path(tmp_dir))
+
+        self.assertEqual(ready["status"], "ok")
+        self.assertTrue(ready["required"])
+
     def test_obsutil_config_status_does_not_expose_values(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / ".obsutilconfig"
@@ -171,6 +304,29 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertNotIn("ak-value-secret", payload)
         self.assertNotIn("sk-value-secret", payload)
         self.assertNotIn("token-value-secret", payload)
+
+    def test_obs_need_accepts_hcloud_but_preserves_obsutil_result_name(self) -> None:
+        def which(command):
+            return "/usr/bin/hcloud" if command == "hcloud" else None
+
+        empty_config = {"exists": False, "has_ak": False, "has_sk": False}
+        with (
+            mock.patch.object(hcloud_environment_doctor.shutil, "which", side_effect=which),
+            mock.patch.object(
+                hcloud_environment_doctor,
+                "obsutil_config_status",
+                return_value=empty_config,
+            ),
+        ):
+            general_obs = hcloud_environment_doctor.inspect_obsutil({"obs"})
+            standalone = hcloud_environment_doctor.inspect_obsutil({"obsutil"})
+            overview = hcloud_environment_doctor.inspect_obsutil(set())
+
+        self.assertEqual(general_obs["name"], "obsutil")
+        self.assertEqual(general_obs["status"], "ok")
+        self.assertEqual(general_obs["details"]["requirement"], "obs_tooling_any")
+        self.assertEqual(standalone["status"], "blocker")
+        self.assertEqual(overview["status"], "skipped")
 
     def test_maas_need_controls_missing_api_key_severity(self) -> None:
         with mock.patch.dict(os.environ, {}, clear=True):
@@ -201,6 +357,10 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertTrue(any(command.startswith("curl ") for command in commands))
         self.assertEqual(hcloud_environment_doctor.command_python("Linux"), "python3")
         self.assertEqual(hcloud_environment_doctor.obsutil_check_commands("Linux"), ["obsutil version"])
+        self.assertEqual(
+            hcloud_environment_doctor.sdk_install_commands(["RDS"], "Linux"),
+            ["python3 -m pip install huaweicloudsdkrds"],
+        )
 
 
 if __name__ == "__main__":

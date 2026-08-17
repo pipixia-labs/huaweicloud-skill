@@ -6,9 +6,13 @@
 复杂处理和 hcloud 实际障碍下的任务，Terraform 保持 IaC 意图专用。宿主负责持久化与确认交互机制，
 Skill 负责华为云事实、风险、参数、错误和验证语义。
 
-第一批公共查询入口新增兼容的 artifact/receipt 模式：只有显式传入 `--output-file` 才把完整结果写入
-`0600` 文件并在 stdout 返回紧凑回执；不传时保持原有完整 JSON 输出。SDK curated registry 只约束
-便捷只读 runner，不限制 Agent 使用经核验的官方 SDK 编写任务代码。
+11 个高价值公共查询、盘点、验证和验收入口统一采用兼容的 artifact/receipt 模式：只有显式传入
+`--output-file` 才把完整结果写入 `0600` 文件并在 stdout 返回紧凑回执；不传时保持原有完整 JSON
+输出。公共回执只使用五种稳定 outcome，并区分脚本成功、环境 ready 和领域完成状态。
+
+环境 doctor 改为按任务声明依赖：hcloud、指定服务 SDK、Terraform、OBS、网络和 artifact 目录只在
+当前后端需要时进入 ready 判断；未选择 SDK 服务时不再全量扫描 package。SDK curated registry 只
+约束便捷只读 runner，不限制 Agent 使用经核验的官方 SDK 编写任务代码。
 
 ## v0.9.4 / 0.9.4 - 2026-08-17
 

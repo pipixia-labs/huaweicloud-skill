@@ -127,7 +127,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertNotIn("guarded flow", skill_text)
         self.assertNotIn("guarded submit", skill_text)
 
-    def test_first_wave_public_script_contracts_are_declared(self) -> None:
+    def test_public_script_contracts_are_declared_by_output_class(self) -> None:
         manifest = json.loads(
             (ROOT / "references" / "script-audience-manifest.json").read_text(encoding="utf-8")
         )
@@ -135,11 +135,26 @@ class ArchitectureContractsTest(unittest.TestCase):
             encoding="utf-8"
         )
         contracts = manifest["public_script_contracts"]
-        expected = {
-            "scripts/hcloud_resource_query.py": ("query_executor", "hcloud"),
-            "scripts/hcloud_resource_discovery.py": ("query_executor", "hcloud"),
-            "scripts/hcloud_obs_readonly.py": ("query_executor", "hcloud"),
-            "scripts/hcloud_sdk_readonly.py": ("query_executor", "sdk"),
+        artifact_scripts = {
+            "scripts/hcloud_resource_query.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_resource_discovery.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_obs_readonly.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_sdk_readonly.py": ("query_executor", "sdk", "plan"),
+            "scripts/hcloud_account_inventory.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_billing_live_read.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_lts_readonly.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_service_readiness.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_resource_verify.py": ("inspector_router", "local", "verify"),
+            "scripts/hcloud_idle_audit.py": ("inspector_router", "local", "audit"),
+            "scripts/hcloud_acceptance_closure.py": (
+                "inspector_router",
+                "local_probe",
+                "subcommand",
+            ),
+        }
+        bounded_inspectors = {
+            "scripts/hcloud_context_inspect.py",
+            "scripts/hcloud_environment_doctor.py",
         }
 
         self.assertEqual(
@@ -149,12 +164,16 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("一个大 dispatcher", contract_text)
         self.assertIn("不传 `--output-file`", contract_text)
         self.assertIn("完整 JSON 原样写入", contract_text)
-        for script, (kind, backend) in expected.items():
+        self.assertEqual(
+            set(manifest["public_result_contract"]["outcome_status_values"]),
+            {"planned", "succeeded", "partially_succeeded", "failed", "outcome_unknown"},
+        )
+        for script, (kind, backend, default_mode) in artifact_scripts.items():
             with self.subTest(script=script):
                 contract = contracts[script]
                 self.assertEqual(contract["kind"], kind)
                 self.assertEqual(contract["backend"], backend)
-                self.assertEqual(contract["default_mode"], "plan")
+                self.assertEqual(contract["default_mode"], default_mode)
                 self.assertEqual(contract["stdout_without_output_file"], "full_json")
                 self.assertEqual(
                     contract["stdout_with_output_file"],
@@ -162,6 +181,35 @@ class ArchitectureContractsTest(unittest.TestCase):
                 )
                 self.assertEqual(contract["output_file_content"], "full_json")
                 self.assertTrue((ROOT / script).exists())
+                source = (ROOT / script).read_text(encoding="utf-8")
+                self.assertIn("--output-file", source)
+                self.assertIn("emit_public_result", source)
+        for script in bounded_inspectors:
+            with self.subTest(script=script):
+                contract = contracts[script]
+                self.assertEqual(contract["stdout_without_output_file"], "full_json")
+                self.assertEqual(contract["stdout_with_output_file"], "unsupported")
+                self.assertEqual(contract["output_file_content"], "none")
+
+    def test_runtime_dependency_contract_is_portable_and_task_scoped(self) -> None:
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        dependency_text = (ROOT / "references" / "runtime-dependencies.md").read_text(encoding="utf-8")
+        scripts_text = (ROOT / "references" / "scripts.md").read_text(encoding="utf-8")
+
+        for phrase in (
+            "按任务选择依赖",
+            "--need hcloud",
+            "--need sdk --sdk-service ECS",
+            "--need terraform",
+            "--need artifacts",
+            "网络能力由宿主提供",
+            "缺少 hcloud 不表示 SDK 后端不可用",
+            "scan_scope=task_scoped",
+        ):
+            self.assertIn(phrase, dependency_text)
+        self.assertIn("references/runtime-dependencies.md", skill)
+        self.assertIn("equivalent SDK/API、Terraform data source", scripts_text)
+        self.assertNotIn("requires hcloud discovery before", scripts_text)
 
     def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:
         playbook = (

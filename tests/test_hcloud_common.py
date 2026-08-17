@@ -103,9 +103,69 @@ class HcloudCommonTest(unittest.TestCase):
             self.assertEqual(receipt["outcome_status"], "planned")
             self.assertEqual(receipt["service"], "ECS")
             self.assertEqual(receipt["operation"], "ListServersDetails")
-            self.assertEqual(receipt["result_file"], str(path.absolute()))
-            self.assertEqual(receipt["artifact"]["permissions"], "0600")
+            self.assertEqual(receipt["result_file"]["path"], str(path.absolute()))
+            self.assertEqual(receipt["result_file"]["permissions"], "0600")
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    def test_public_receipt_preserves_domain_fields_without_copying_payloads(self) -> None:
+        result = {
+            "success": True,
+            "mode": "plan",
+            "planning_status": "partially_succeeded",
+            "summary": {"failed_check_count": 1},
+            "checks": [{"large": "x" * 1000}],
+        }
+        output = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "result.json"
+            with contextlib.redirect_stdout(output):
+                receipt = hcloud_common.emit_public_result(
+                    result,
+                    output_file=path,
+                    receipt_fields=("planning_status", "summary"),
+                )
+
+        self.assertEqual(receipt["outcome_status"], "planned")
+        self.assertEqual(receipt["planning_status"], "partially_succeeded")
+        self.assertEqual(receipt["summary"], {"failed_check_count": 1})
+        self.assertNotIn("checks", receipt)
+
+    def test_public_receipt_can_supply_mode_without_mutating_full_result(self) -> None:
+        result = {"success": True, "checks": [{"id": "resource"}]}
+        output = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "verify.json"
+            with contextlib.redirect_stdout(output):
+                receipt = hcloud_common.emit_public_result(
+                    result,
+                    output_file=path,
+                    default_mode="verify",
+                )
+
+        self.assertEqual(result, {"success": True, "checks": [{"id": "resource"}]})
+        self.assertEqual(receipt["mode"], "verify")
+        self.assertEqual(receipt["outcome_status"], "succeeded")
+        self.assertEqual(json.loads(output.getvalue()), receipt)
+
+    def test_public_outcome_status_uses_canonical_vocabulary(self) -> None:
+        self.assertEqual(
+            hcloud_common.result_outcome_status(
+                {"success": False, "mode": "execute", "outcome_status": "partially_succeeded"}
+            ),
+            "partially_succeeded",
+        )
+        self.assertEqual(
+            hcloud_common.result_outcome_status(
+                {"success": False, "mode": "execute", "outcome_status": "provider_custom_state"}
+            ),
+            "outcome_unknown",
+        )
+        self.assertEqual(
+            set(hcloud_common.PUBLIC_OUTCOME_STATUSES),
+            {"planned", "succeeded", "partially_succeeded", "failed", "outcome_unknown"},
+        )
 
     def test_load_registry_uses_supplied_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

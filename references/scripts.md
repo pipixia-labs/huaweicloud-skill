@@ -34,18 +34,20 @@ Use this first for real cloud tasks. It reports whether `hcloud` exists, active 
 python3 scripts/hcloud_environment_doctor.py --pretty
 ```
 
-Use this when the user asks about installation, local setup, credential readiness, Terraform readiness, SDK availability, obsutil setup, or MaaS image generation prerequisites. It is check-only: it does not install packages, modify credentials, write config, run `terraform init/plan/apply`, or call Huawei Cloud APIs.
+Use this when the user asks about installation, local setup, credential readiness, Terraform readiness, SDK availability, OBS tooling, network preflight ownership, writable artifacts, or MaaS prerequisites. It is check-only: it does not install packages, modify credentials, write config, run `terraform init/plan/apply`, call Huawei Cloud APIs, or probe external networks. The dependency model is defined in `references/runtime-dependencies.md`.
 
 Mark task-specific requirements so optional tools become blockers only when needed:
 
 ```bash
 python3 scripts/hcloud_environment_doctor.py \
-  --need terraform \
-  --need obsutil \
+  --need hcloud --need live --need network --need artifacts \
+  --workdir <task-workdir> \
   --pretty
 ```
 
-The output separates required blockers from optional missing tools and includes copyable install/check commands. Use `hcloud_context_inspect.py` for deeper hcloud metadata details and `hcloud_terraform_context_inspect.py` for deeper Terraform cache/provider details.
+For an SDK task use `--need sdk --sdk-service ECS`; repeat `--sdk-service` for multiple services. For IaC use `--need terraform`. For OBS use `--need obs`, or `--need obsutil` only when standalone obsutil is mandatory. The output separates `required_blockers` from `required_unready`, including network that remains unknown until the host or an explicit preflight verifies it. Use `hcloud_context_inspect.py` for deeper hcloud metadata details and `hcloud_terraform_context_inspect.py` for deeper Terraform cache/provider details.
+
+Passing any `--need` selects `scan_scope=task_scoped`: unrelated binaries, package sets, and configuration paths are not probed. Run without `--need` only when a user explicitly wants the compatible full environment overview.
 
 ### Project ID Resolution
 
@@ -196,7 +198,7 @@ Use this during maintenance after updating an explicit local `terraform-provider
 
 ### Terraform Workflow Reference
 
-Terraform is documented in `references/terraform-workflow.md` and indexed in `references/terraform/README.md`, not exposed as a generic SDK runner. Read it when the user explicitly wants repeatable IaC, environment replication, import/drift review, or long-term resource management. The workflow requires hcloud discovery before plan generation and hcloud verification after apply.
+Terraform is documented in `references/terraform-workflow.md` and indexed in `references/terraform/README.md`, not exposed as a generic SDK runner. Read it when the user explicitly wants repeatable IaC, environment replication, import/drift review, or long-term resource management. Discovery and verification prefer hcloud; when it is unavailable, use equivalent SDK/API、Terraform data source/provider refresh and business-probe evidence.
 
 ### Catalog Audit And Rebuild
 

@@ -8,8 +8,12 @@
   时可保存最小任务文件，明确目标可跳过 router，Skill 不要求平台专属函数名。
 - 将 `hcloud_sdk_readonly.py` 和 `sdk-supplement-registry.json` 收窄为便捷只读 runner 契约；registry
   不再被描述为 Agent 任务专用 SDK 代码的全局白名单。
-- 新增公共脚本分类和 `huaweicloud_skill_public_result_v1` 回执；资源查询、发现、OBS 只读和 SDK
-  只读入口支持 `--output-file`，未指定时保持完整 JSON stdout，指定时完整结果私有落盘并返回紧凑回执。
+- 新增公共脚本分类和 `huaweicloud_skill_public_result_v1` 回执；11 个高价值查询、盘点、验证和验收
+  入口支持 `--output-file`，未指定时保持完整 JSON stdout，指定时完整结果私有落盘并返回紧凑回执。
+- 统一公共 outcome 为 `planned`、`succeeded`、`partially_succeeded`、`failed`、`outcome_unknown`，
+  并区分脚本 `success`、环境 `ready` 和领域完成状态；账号盘点与账单入口复用同一回执实现。
+- 新增可移植的任务级依赖契约；environment doctor 只检查当前声明的 hcloud、服务 SDK、Terraform、
+  OBS、网络和 artifact 目录，SDK 未声明具体服务时不执行无边界 package 扫描。
 
 ## 0.9.4 - 2026-08-17
 

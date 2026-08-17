@@ -480,6 +480,7 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="Saved hcloud_account_inventory.py --execute output JSON. Can be repeated.",
     )
+    parser.add_argument("--output-file", type=Path, help="Write the full JSON result privately and print a compact receipt.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if not args.input_json_file and not args.inventory_json_file:
@@ -494,7 +495,12 @@ def main() -> int:
         result = audit_payloads(load_payloads(args))
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         result = {"success": False, "error": str(exc)}
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    hcloud_common.emit_public_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+        default_mode="audit",
+    )
     return 0 if result["success"] else 1
 
 

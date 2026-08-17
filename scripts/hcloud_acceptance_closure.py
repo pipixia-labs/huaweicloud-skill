@@ -48,6 +48,7 @@ def build_chain(
 
 def add_pretty(parser: argparse.ArgumentParser) -> None:
     """Add common output formatting options."""
+    parser.add_argument("--output-file", type=Path, help="Write the full JSON result privately and print a compact receipt.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
 
 
@@ -133,7 +134,12 @@ def main() -> int:
         result = dispatch(args)
     except probe_run.ProbeRunError as exc:
         result = {"success": False, "error": str(exc)}
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    hcloud_common.emit_public_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+        default_mode=args.command,
+    )
     return 0 if result.get("success") else 2
 
 

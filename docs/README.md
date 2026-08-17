@@ -34,13 +34,14 @@ flowchart LR
     SDKRegistry --> Tests
 ```
 
-开发者看这个项目时，可以先把它理解成七个模块：
+开发者看这个项目时，可以先把它理解成十个模块：
 
 | 模块 | 代表文件 | 作用 |
 | --- | --- | --- |
 | 运行时入口 | `SKILL.md`、`references/workflow.md` | 告诉 agent 什么时候触发、按什么顺序工作。 |
 | 跨服务共享与任务记忆 | `references/unified-principles.md`、`references/task-workspace-guide.md`、`references/goal-capability-guide.md`、`references/interaction-guidance.md`、`references/source-map.md`、`templates/` | 统一跨服务语义、目标组织、用户投影和知识所有权；优先复用宿主持久 task state，有 workspace 时可保存最小任务文件。 |
 | 后端选择 | `references/backend-selection.md` | 约束 hcloud 默认优先、SDK 程序化路径、Terraform IaC 意图和后端切换证据。 |
+| 运行时依赖 | `references/runtime-dependencies.md`、`hcloud_environment_doctor.py` | 按任务声明 hcloud、服务 SDK、Terraform、OBS、网络和 artifact 条件，不把可选工具误报为全局阻塞。 |
 | 场景路由 | `hcloud_scenario_router.py`、`references/scenario-router.json` | 把自然语言目标映射到 playbook、planner、SDK 补充点和 Terraform 候选。 |
 | hcloud 执行框架 | `service-registry.json`、`hcloud_safe_exec.py`、查询/变更/验证脚本 | 负责发现、计划、执行、脱敏、错误诊断和后置验证。 |
 | SDK 程序化路径 | `sdk-supplement-registry.json`、`hcloud_sdk_catalog.py`、`hcloud_sdk_readonly.py` | 支持官方 SDK 任务；registry 只约束便捷只读 runner，不限制 Agent 的任务专用 SDK 代码。 |

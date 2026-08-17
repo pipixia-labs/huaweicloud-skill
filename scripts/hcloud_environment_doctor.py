@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import platform
 import shutil
 import subprocess
@@ -18,7 +19,17 @@ import hcloud_context_inspect
 import hcloud_terraform_context_inspect
 
 MIN_PYTHON = (3, 10)
-NEED_CHOICES = ("hcloud", "live", "sdk", "terraform", "obsutil", "maas")
+NEED_CHOICES = (
+    "hcloud",
+    "live",
+    "sdk",
+    "terraform",
+    "obs",
+    "obsutil",
+    "maas",
+    "network",
+    "artifacts",
+)
 KOOCLI_QUICKSTART_URL = "https://support.huaweicloud.com/qs-hcli/hcli_02_003.html"
 KOOCLI_WINDOWS_DOWNLOAD_URL = "https://cn-north-4-hdn-koocli.obs.cn-north-4.myhuaweicloud.com/cli/latest/huaweicloud-cli-windows-amd64.zip"
 POSIX_HCLOUD_INSTALL_COMMANDS = [
@@ -61,9 +72,36 @@ def hcloud_install_guidance(system_name: str | None = None) -> tuple[list[str], 
     )
 
 
-def sdk_install_commands(system_name: str | None = None) -> list[str]:
-    """Return a platform-appropriate SDK installation command for user review."""
-    return [f"{command_python(system_name)} -m pip install huaweicloudsdkcore huaweicloudsdkecs huaweicloudsdkvpc"]
+def sdk_install_commands(
+    services: list[str] | None = None,
+    system_name: str | None = None,
+) -> list[str]:
+    """Return one task-scoped SDK installation command for user review."""
+    service_specs, _ = normalize_sdk_services(services)
+    packages = sorted({f"huaweicloudsdk{suffix}" for _, suffix in service_specs})
+    if not packages:
+        return []
+    return [f"{command_python(system_name)} -m pip install {' '.join(packages)}"]
+
+
+def normalize_sdk_services(
+    services: list[str] | None,
+) -> tuple[list[tuple[str, str]], list[str]]:
+    """Normalize requested SDK services into display names and package suffixes."""
+    normalized: dict[str, str] = {}
+    invalid: list[str] = []
+    for raw_service in services or []:
+        display_name = raw_service.strip().upper()
+        package_suffix = "".join(
+            character for character in raw_service.strip().lower() if character.isalnum()
+        )
+        if not display_name:
+            continue
+        if not package_suffix:
+            invalid.append(display_name)
+            continue
+        normalized[display_name] = package_suffix
+    return sorted(normalized.items()), sorted(set(invalid))
 
 
 def terraform_check_commands(system_name: str | None = None) -> list[str]:
@@ -115,6 +153,16 @@ def check_item(
     }
 
 
+def skipped_check(name: str) -> dict[str, Any]:
+    """Return a normalized result for a dependency outside the selected task scope."""
+    return check_item(
+        name,
+        "skipped",
+        required=False,
+        summary="Dependency was not selected for this task-scoped check.",
+    )
+
+
 def inspect_python() -> dict[str, Any]:
     """Inspect Python runtime compatibility for local helper scripts."""
     version = sys.version_info[:3]
@@ -140,9 +188,12 @@ def inspect_python() -> dict[str, Any]:
     )
 
 
-def inspect_hcloud() -> dict[str, Any]:
+def inspect_hcloud(needs: set[str]) -> dict[str, Any]:
     """Inspect KooCLI and hcloud config without making cloud API calls."""
-    summary = hcloud_context_inspect.build_summary(include_meta_files=False)
+    summary = hcloud_context_inspect.build_summary(
+        include_meta_files=False,
+        include_sdk_runtime=False,
+    )
     hcloud = summary.get("hcloud", {})
     config = summary.get("config", {})
     found = bool(hcloud.get("found"))
@@ -151,7 +202,8 @@ def inspect_hcloud() -> dict[str, Any]:
         isinstance(current_profile, dict)
         and (current_profile.get("has_access_key") or current_profile.get("mode") in {"ecsAgency", "SSO", "AssumeRole"})
     )
-    status = "ok" if found else "blocker"
+    required = "hcloud" in needs
+    status = "ok" if found else ("blocker" if required else "skipped")
     next_actions = []
     install_commands = []
     if not found:
@@ -164,7 +216,7 @@ def inspect_hcloud() -> dict[str, Any]:
     return check_item(
         "hcloud",
         status,
-        required=True,
+        required=required,
         summary="KooCLI is available." if found else "KooCLI hcloud binary is missing.",
         details={
             "platform": platform_family(),
@@ -234,20 +286,101 @@ def inspect_auth(needs: set[str]) -> dict[str, Any]:
     )
 
 
-def inspect_sdk(needs: set[str]) -> dict[str, Any]:
+def inspect_sdk(
+    needs: set[str],
+    services: list[str] | None = None,
+    *,
+    broad_overview: bool = False,
+) -> dict[str, Any]:
     """Inspect optional Huawei Cloud Python SDK availability."""
-    sdk_runtime = hcloud_context_inspect.inspect_sdk_runtime(hcloud_context_inspect.hcloud_sdk_catalog.DEFAULT_SDK_ROOT)
-    installed_count = int(sdk_runtime.get("installed_package_count") or 0)
+    service_specs, invalid_services = normalize_sdk_services(services)
+    requested_services = [service for service, _ in service_specs]
     required = "sdk" in needs
-    status = "ok" if installed_count else ("blocker" if required else "skipped")
+    if service_specs:
+        installed_services = [
+            service
+            for service, package_suffix in service_specs
+            if hcloud_context_inspect.hcloud_sdk_catalog.installed_package_path(
+                f"huaweicloudsdk{package_suffix}"
+            )
+        ]
+        missing_services = [service for service in requested_services if service not in installed_services]
+        sdk_runtime = {
+            "backend": "sdk",
+            "availability_role": "supported_programmatic_backend",
+            "backend_preference": "hcloud_then_sdk",
+            "requested_services": requested_services,
+            "installed_services": installed_services,
+            "missing_services": missing_services,
+            "invalid_services": invalid_services,
+            "installed_package_count": len(installed_services),
+        }
+        ready = not missing_services and not invalid_services
+    elif broad_overview:
+        sdk_runtime = hcloud_context_inspect.inspect_sdk_runtime(
+            hcloud_context_inspect.hcloud_sdk_catalog.DEFAULT_SDK_ROOT
+        )
+        installed_services = list(sdk_runtime.get("installed_services_sample") or [])
+        missing_services = []
+        sdk_runtime.update(
+            {
+                "requested_services": [],
+                "installed_services": installed_services,
+                "missing_services": [],
+                "invalid_services": [],
+                "package_scan": "full_overview",
+            }
+        )
+        ready = bool(sdk_runtime.get("installed_package_count"))
+    else:
+        installed_services = []
+        missing_services = []
+        sdk_runtime = {
+            "backend": "sdk",
+            "availability_role": "supported_programmatic_backend",
+            "backend_preference": "hcloud_then_sdk",
+            "requested_services": [],
+            "installed_services": [],
+            "missing_services": [],
+            "invalid_services": invalid_services,
+            "installed_package_count": 0,
+            "package_scan": "skipped_without_task_service_scope",
+        }
+        ready = False
+    scope_missing = required and not requested_services and not invalid_services
+    if scope_missing:
+        status = "unknown"
+    elif ready:
+        status = "ok"
+    else:
+        status = "blocker" if required else "skipped"
+    install_services = missing_services or ([] if ready else requested_services)
     return check_item(
         "huaweicloud_python_sdk",
         status,
         required=required,
-        summary="Huawei Cloud Python SDK packages are installed." if installed_count else "SDK is optional and not installed.",
+        summary=(
+            "SDK service scope is required before readiness can be determined."
+            if scope_missing
+            else "SDK service scope is invalid."
+            if invalid_services
+            else "All requested Huawei Cloud Python SDK packages are installed."
+            if ready and requested_services
+            else "Huawei Cloud Python SDK packages are installed."
+            if ready
+            else "Required Huawei Cloud Python SDK packages are missing."
+            if required
+            else "SDK is optional and no matching package was found."
+        ),
         details=sdk_runtime,
-        next_actions=[] if installed_count else ["Install only the service SDK packages needed by a selected SDK supplement."],
-        install_commands=[] if installed_count else sdk_install_commands(),
+        next_actions=(
+            [
+                "Specify --sdk-service for every service used by the task, then install only the reported missing packages."
+            ]
+            if required and not ready
+            else []
+        ),
+        install_commands=sdk_install_commands(install_services) if not ready else [],
     )
 
 
@@ -310,20 +443,38 @@ def obsutil_config_status(config_path: Path) -> dict[str, Any]:
 
 
 def inspect_obsutil(needs: set[str]) -> dict[str, Any]:
-    """Inspect optional obsutil readiness."""
+    """Inspect optional OBS command tooling readiness."""
     path = shutil.which("obsutil")
     version = run_command([path, "version"], timeout=15) if path else {"found": False}
+    hcloud_path = shutil.which("hcloud")
     config = obsutil_config_status(Path.home() / ".obsutilconfig")
-    found = bool(path)
-    required = "obsutil" in needs
+    standalone_required = "obsutil" in needs
+    obs_required = "obs" in needs
+    found = bool(path or hcloud_path) if obs_required and not standalone_required else bool(path)
+    required = standalone_required or obs_required
     status = "ok" if found else ("blocker" if required else "skipped")
     return check_item(
         "obsutil",
         status,
         required=required,
-        summary="obsutil is available." if found else "obsutil is optional and not installed.",
-        details={"path": path, "version_command": version, "config": config},
-        next_actions=[] if found else ["Install obsutil only for OBS bucket/object/static-website workflows that need obsutil."],
+        summary=(
+            "OBS command tooling is available."
+            if found
+            else "OBS command tooling is required but unavailable."
+            if required
+            else "OBS tooling is optional and not installed."
+        ),
+        details={
+            "path": path,
+            "standalone_obsutil_path": path,
+            "hcloud_path": hcloud_path,
+            "requirement": "obs_tooling_any" if obs_required and not standalone_required else "standalone_obsutil",
+            "version_command": version,
+            "config": config,
+        },
+        next_actions=[]
+        if found
+        else ["Install KooCLI for `hcloud obs`, or install standalone obsutil when the task requires it."],
         install_commands=[] if found else obsutil_check_commands(),
     )
 
@@ -364,42 +515,120 @@ def inspect_proxy() -> dict[str, Any]:
     )
 
 
+def inspect_network(needs: set[str]) -> dict[str, Any]:
+    """Declare host network readiness without performing an external probe."""
+    required = "network" in needs
+    return check_item(
+        "network",
+        "unknown" if required else "skipped",
+        required=required,
+        summary=(
+            "Network access is required but is not probed by this check-only doctor."
+            if required
+            else "Network access was not requested for this task."
+        ),
+        details={"verification_owner": "host_runtime_or_explicit_preflight"},
+        next_actions=(
+            ["Use the host's approved network preflight for the selected Huawei endpoint before a long live workflow."]
+            if required
+            else []
+        ),
+    )
+
+
+def inspect_artifacts(needs: set[str], workdir: Path) -> dict[str, Any]:
+    """Inspect whether the selected artifact directory exists and is writable."""
+    required = "artifacts" in needs
+    exists = workdir.exists()
+    is_directory = workdir.is_dir()
+    writable = exists and is_directory and os.access(workdir, os.W_OK)
+    status = "ok" if writable else ("blocker" if required else "skipped")
+    return check_item(
+        "artifacts",
+        status,
+        required=required,
+        summary=(
+            "Artifact directory is writable."
+            if writable
+            else "A writable artifact directory is required but unavailable."
+            if required
+            else "Artifact output was not required for this task."
+        ),
+        details={
+            "path": str(workdir),
+            "exists": exists,
+            "is_directory": is_directory,
+            "writable": writable,
+        },
+        next_actions=[] if writable else ["Choose a host-provided writable task directory for result artifacts."],
+    )
+
+
 def summarize(checks: list[dict[str, Any]]) -> dict[str, Any]:
     """Return a compact status summary."""
     counts = {"ok": 0, "warning": 0, "blocker": 0, "skipped": 0}
     for item in checks:
         counts[str(item.get("status"))] = counts.get(str(item.get("status")), 0) + 1
+    required_unready = [
+        item["name"]
+        for item in checks
+        if item.get("required") and item.get("status") != "ok"
+    ]
     return {
         **counts,
-        "ready": counts.get("blocker", 0) == 0,
+        "ready": not required_unready,
         "required_blockers": [item["name"] for item in checks if item.get("required") and item.get("status") == "blocker"],
+        "required_unready": required_unready,
     }
 
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     """Build the check-only environment doctor report."""
     needs = {str(item).lower() for item in getattr(args, "need", [])}
+    full_scan = not needs
     workdir = Path(getattr(args, "workdir", hcloud_common.ROOT)).resolve()
+    sdk_services = getattr(args, "sdk_service", [])
+    if full_scan:
+        sdk_check = inspect_sdk(needs, sdk_services, broad_overview=True)
+    elif "sdk" in needs:
+        sdk_check = inspect_sdk(needs, sdk_services)
+    else:
+        sdk_check = skipped_check("huaweicloud_python_sdk")
     checks = [
         inspect_python(),
-        inspect_hcloud(),
-        inspect_auth(needs),
-        inspect_sdk(needs),
-        inspect_terraform(needs, workdir),
-        inspect_obsutil(needs),
-        inspect_maas(needs),
-        inspect_proxy(),
+        inspect_hcloud(needs) if full_scan or "hcloud" in needs else skipped_check("hcloud"),
+        inspect_auth(needs) if full_scan or "live" in needs else skipped_check("cloud_credentials"),
+        sdk_check,
+        (
+            inspect_terraform(needs, workdir)
+            if full_scan or "terraform" in needs
+            else skipped_check("terraform")
+        ),
+        (
+            inspect_obsutil(needs)
+            if full_scan or needs.intersection({"obs", "obsutil"})
+            else skipped_check("obsutil")
+        ),
+        inspect_maas(needs) if full_scan or "maas" in needs else skipped_check("modelarts_maas"),
+        inspect_proxy() if full_scan or "network" in needs else skipped_check("proxy"),
+        inspect_network(needs),
+        inspect_artifacts(needs, workdir)
+        if full_scan or "artifacts" in needs
+        else skipped_check("artifacts"),
     ]
     return {
         "success": True,
         "mode": "check_only",
+        "dependency_contract": "huaweicloud_skill_runtime_dependencies_v1",
         "no_changes_made": True,
+        "scan_scope": "full_overview" if full_scan else "task_scoped",
         "needs": sorted(needs),
         "workdir": str(workdir),
         "summary": summarize(checks),
         "checks": checks,
         "source_references": [
             "references/auth-and-context.md",
+            "references/runtime-dependencies.md",
             "references/terraform/README.md",
             "references/playbooks/obs-static-website-hosting.md",
         ],
@@ -423,6 +652,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=hcloud_common.ROOT,
         help="Workspace directory to inspect for Terraform runtime artifacts.",
+    )
+    parser.add_argument(
+        "--sdk-service",
+        action="append",
+        default=[],
+        help="Huawei Cloud SDK service package required by the task, for example ECS. Can be repeated.",
     )
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     return parser.parse_args()

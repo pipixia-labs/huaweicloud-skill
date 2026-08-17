@@ -34,6 +34,7 @@
 | Metadata | Skill 触发范围和一句话定位 | Agent 选择 Skill 时 |
 | `SKILL.md` | 最短入口、公共边界、工具和资料路由 | Skill 被触发时 |
 | Backend Selection | hcloud、SDK、Terraform 的选择和切换证据 | 任务开始、后端受阻或 IaC 意图出现时 |
+| Runtime Dependencies | 当前后端需要的 CLI、package、网络和 artifact 条件 | 选定后端后、真实执行前或依赖失败时 |
 | Public Script Contract | 公共脚本分类、stdout/artifact 和退出语义 | Agent 调用公共脚本或维护者迁移入口时 |
 | Shared Core | 共享原则、task workspace 和交互指南 | 多轮、跨服务、副作用、恢复或复杂交付时按需 |
 | Goal / Scenario | 目标能力、scenario router 和 contract | 命中宽泛目标或场景时 |
@@ -46,6 +47,7 @@
 Skill metadata
   -> SKILL.md 最短入口
   -> 按需读取 backend-selection.md 选择执行后端
+  -> 真实执行前按 runtime-dependencies.md 检查当前后端的必要条件
   -> 只读取当前复杂度需要的 shared core
   -> 命中目标或场景时读取对应目标视图和 router
   -> 实际涉及服务时读取该服务模块
@@ -167,6 +169,11 @@ Skill 外合理工具；不要求为了满足层级顺序加载无关文件。
 - `references/public-script-contract.md`
   - 属于公共 CLI 的人类可读契约，与 `script-audience-manifest.json` 的机器声明对应；
   - 只统一分类、兼容输出、artifact 回执和退出语义，不把脚本合并成大 dispatcher。
+
+- `references/runtime-dependencies.md`
+  - 属于面向 Agent 和宿主的可移植运行条件契约；
+  - 只按当前任务声明 hcloud、服务 SDK、Terraform、OBS、网络和 artifact 条件，不要求全量预装；
+  - 安装提示不是授权，网络、凭据注入和写目录仍由宿主提供。
 
 目标样本中的服务事实仍在原 registry、catalog、guide 和 playbook 维护。引用失效时修正目标视图，
 不在目标指南中另建一份事实副本。

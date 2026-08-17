@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -130,6 +131,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--keyword", help="Optional keyword filter passed as a raw LTS query arg when supported.")
     parser.add_argument("--execute", action="store_true", help="Execute approved read-only LTS commands.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout per executed command.")
+    parser.add_argument("--output-file", type=Path, help="Write the full JSON result privately and print a compact receipt.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.limit < 1:
@@ -143,7 +145,7 @@ def main() -> int:
     """Build or run the read-only LTS plan."""
     args = parse_args()
     result = build_plan(args)
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    hcloud_common.emit_public_result(result, output_file=args.output_file, pretty=args.pretty)
     return 0 if result["success"] else 1
 
 

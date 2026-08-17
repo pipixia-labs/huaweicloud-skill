@@ -193,16 +193,19 @@ def inspect_sdk_runtime(sdk_root_path: Path | None) -> dict[str, Any]:
     return result
 
 
-def build_summary(include_meta_files: bool) -> dict[str, Any]:
-    """Build the complete local hcloud context summary."""
+def build_summary(
+    include_meta_files: bool,
+    *,
+    include_sdk_runtime: bool = True,
+) -> dict[str, Any]:
+    """Build the local hcloud context summary with optional SDK discovery."""
     home = Path.home()
     hcloud_root = home / ".hcloud"
-    return {
+    result = {
         "hcloud": inspect_hcloud_binary(),
         "config": inspect_config(hcloud_root / "config.json"),
         "meta_repo": inspect_meta_repo(hcloud_root / "metaRepo", include_meta_files),
         "meta_origin": inspect_meta_origin(hcloud_root / "metaOrigin", include_meta_files),
-        "sdk_runtime": inspect_sdk_runtime(hcloud_sdk_catalog.DEFAULT_SDK_ROOT),
         "redaction": hcloud_common.redaction_metadata(),
         "credential_visibility": {
             "scope": "local_profile_and_current_process_only",
@@ -210,6 +213,9 @@ def build_summary(include_meta_files: bool) -> dict[str, Any]:
             "configuration_status_when_absent": "unknown",
         },
     }
+    if include_sdk_runtime:
+        result["sdk_runtime"] = inspect_sdk_runtime(hcloud_sdk_catalog.DEFAULT_SDK_ROOT)
+    return result
 
 
 def parse_args() -> argparse.Namespace:

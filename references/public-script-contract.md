@@ -3,8 +3,8 @@
 本 Skill 的公共脚本是 Agent 可直接运行的高频捷径。脚本文件可以各自保持清晰职责，不需要合并成
 一个大 dispatcher；调用方通过统一分类、输出和退出语义判断如何使用它们。
 
-机器可读声明位于 `script-audience-manifest.json`。当前采用渐进迁移：先覆盖云访问或可能产生大结果
-的公共查询入口，小型本地 planner 保持轻量，后续在真正需要时加入契约。
+机器可读声明位于 `script-audience-manifest.json`。当前采用渐进迁移：优先覆盖云访问、协议探测或可能
+产生大结果的公共入口；小型有界 inspector/planner 可以只输出完整 JSON，不机械增加 artifact 参数。
 
 ## 脚本分类
 
@@ -36,8 +36,7 @@
   "success": true,
   "mode": "plan",
   "outcome_status": "planned",
-  "result_file": "/workspace/result.json",
-  "artifact": {
+  "result_file": {
     "path": "/workspace/result.json",
     "bytes": 1234,
     "sha256": "...",
@@ -46,8 +45,17 @@
 }
 ```
 
-结果存在时还可带 `service` 和 `operation`。`outcome_status` 优先保留脚本自己声明的值，否则按以下
-规则归一化：plan 成功为 `planned`，execute/其他成功为 `succeeded`，失败为 `failed`。
+结果存在时还可带 `service`、`operation`、有界 `summary` 或 `planning_status`。完整结果始终原样存在
+`result_file` 指向的文件中，紧凑回执不会复制 records/checks 等大数组。
+
+`outcome_status` 只使用 `planned`、`succeeded`、`partially_succeeded`、`failed`、
+`outcome_unknown`。plan 成功为 `planned`，execute/verify/audit/check 成功为 `succeeded`，失败为
+`failed`；脚本明确声明的 partial/unknown 保留。非标准 provider 状态不会直接污染公共枚举，而是
+归一化为 `outcome_unknown`，原值仍保留在完整结果文件中。
+
+`success` 表示脚本是否按自己的契约产生了可用结果，不替代领域完成判断。例如环境 doctor 可以
+`success=true` 但 `summary.ready=false`；plan 可以 `outcome_status=planned`，同时
+`planning_status=partially_succeeded` 暴露计划缺口。
 
 ## 退出语义
 
@@ -55,14 +63,22 @@
 - `success=false` 返回非零；
 - 非零退出不表示没有结果文件，调用方仍应检查 stdout 回执或已知 `--output-file`；
 - provider/API 的业务错误不能仅凭子进程退出码判断，脚本需要解析其结构化返回；
-- `partially_succeeded`、`outcome_unknown` 等更细状态由具体脚本声明，公共 emitter 原样保留。
+- `partially_succeeded`、`outcome_unknown` 由具体脚本在确有证据时声明，公共 emitter 原样保留。
 
-## 第一批稳定入口
+## 已迁移入口
 
 - `hcloud_resource_discovery.py`
 - `hcloud_resource_query.py`
 - `hcloud_obs_readonly.py`
 - `hcloud_sdk_readonly.py`
+- `hcloud_account_inventory.py`
+- `hcloud_billing_live_read.py`
+- `hcloud_lts_readonly.py`
+- `hcloud_service_readiness.py`
+- `hcloud_resource_verify.py`
+- `hcloud_idle_audit.py`
+- `hcloud_acceptance_closure.py`
 
-`hcloud_account_inventory.py` 和 `hcloud_billing_live_read.py` 已有更丰富的领域回执，其完整性、分页和
-部分成功语义继续由各自脚本负责，不为了表面统一而降级。
+`hcloud_context_inspect.py` 和 `hcloud_environment_doctor.py` 是有界本地检查，继续直接输出完整 JSON。
+`hcloud_safe_exec.py` 已有 output-policy、`--result-file`、parsed/raw artifact 和 provider 错误结构，保持其
+专用传输契约；后续增强其 outcome 深度时不能把超时 mutation 简单误判为 `failed`。

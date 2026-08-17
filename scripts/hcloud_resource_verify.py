@@ -444,6 +444,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-cidr", help="Expected CIDR for VPC/subnet-like resources.")
     parser.add_argument("--expect-bound-to", help="Expected bound/attached target ID.")
     parser.add_argument("--require-match", action="store_true", help="Fail when no target is matched.")
+    parser.add_argument("--output-file", type=Path, help="Write the full JSON result privately and print a compact receipt.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     return parser.parse_args()
 
@@ -455,7 +456,12 @@ def main() -> int:
         result = verify_payload(args, hcloud_common.load_json(Path(args.json_file)))
     except (OSError, ValueError) as exc:
         result = {"success": False, "error": str(exc)}
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    hcloud_common.emit_public_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+        default_mode="verify",
+    )
     return 0 if result["success"] else 1
 
 

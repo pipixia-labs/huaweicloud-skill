@@ -512,24 +512,11 @@ def emit_cli_result(
     pretty: bool,
 ) -> None:
     """Emit the full result or persist it and emit a compact file receipt."""
-    if not output_file:
-        hcloud_common.emit_json(result, pretty=pretty)
-        return
-    artifact = hcloud_common.write_json_artifact(
-        Path(output_file),
+    hcloud_common.emit_public_result(
         result,
+        output_file=Path(output_file) if output_file else None,
         pretty=pretty,
-    )
-    status_key = "outcome_status" if result.get("mode") == "execute" else "planning_status"
-    hcloud_common.emit_json(
-        {
-            "success": bool(result.get("success")),
-            "mode": result.get("mode"),
-            status_key: result.get(status_key),
-            "summary": result.get("summary"),
-            "result_file": artifact,
-        },
-        pretty=pretty,
+        receipt_fields=("planning_status", "summary"),
     )
 
 

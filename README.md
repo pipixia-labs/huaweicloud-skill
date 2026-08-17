@@ -89,7 +89,7 @@ openclaw skills install harryzhu123/huaweicloud-skill
 [OpenClaw 技能市场](https://github.com/OpenClawAgent/OpenClaw/blob/main/docs/skill-marketplace.md#available-skills)。
 Codex CLI / Claude Code 用户可把本仓库放入本地 skills 目录，或在项目说明中引用 `SKILL.md`。
 
-安装时只需要完整复制 `huaweicloud-skill` 目录。默认运行和自检不会查找它旁边的源码仓库或数据目录；本地 catalog、账单差距基线和最小覆盖率回归样例均随 Skill 发布。`hcloud`、按需安装的 SDK package、Terraform/obsutil 以及用户目录中的配置属于显式运行环境，不属于源码目录依赖。上游 SDK、Terraform Provider 或问题数据集只在维护时通过命令参数显式传入。
+安装时只需要完整复制 `huaweicloud-skill` 目录。默认运行和自检不会查找它旁边的源码仓库或数据目录；本地 catalog、账单差距基线和最小覆盖率回归样例均随 Skill 发布。`hcloud`、按需安装的 SDK package、Terraform/obsutil 以及用户目录中的配置属于显式运行环境，不属于源码目录依赖。按任务检查和补齐依赖的方法见 [运行时依赖与准备](references/runtime-dependencies.md)。上游 SDK、Terraform Provider 或问题数据集只在维护时通过命令参数显式传入。
 
 ### 3. 用自然语言下达目标
 

@@ -59,6 +59,21 @@ SECRET_EXACT_NAMES = {"ak", "sk"}
 OBSUTIL_SECRET_ARG_NAMES = {"-i", "-k", "-t", "-token"}
 MIN_REDACT_SECRET_LENGTH = 8
 REDACTION_MARKER = "***"
+PUBLIC_RESULT_CONTRACT = "huaweicloud_skill_public_result_v1"
+PUBLIC_OUTCOME_STATUSES = (
+    "planned",
+    "succeeded",
+    "partially_succeeded",
+    "failed",
+    "outcome_unknown",
+)
+PUBLIC_RECEIPT_RESERVED_FIELDS = {
+    "result_contract",
+    "success",
+    "mode",
+    "outcome_status",
+    "result_file",
+}
 INLINE_SECRET_ASSIGNMENT_RE = re.compile(r"(?P<key>--?[A-Za-z0-9_.:-]+)(?P<sep>=)(?P<quote>['\"]?)(?P<value>[^\s'\"`,}\]]+)(?P=quote)")
 JSON_SECRET_FIELD_RE = re.compile(
     r"(?P<prefix>(?P<key_quote>['\"])(?P<key>[^'\"]+)(?P=key_quote)\s*:\s*)"
@@ -153,16 +168,49 @@ def write_json_artifact(path: Path, value: Any, pretty: bool = False) -> dict[st
     }
 
 
-def result_outcome_status(result: dict[str, Any]) -> str:
+def result_outcome_status(
+    result: dict[str, Any],
+    *,
+    default_mode: str | None = None,
+) -> str:
     """Return a stable high-level outcome for a public script result."""
     declared = result.get("outcome_status")
     if isinstance(declared, str) and declared.strip():
-        return declared
+        normalized = declared.strip().lower()
+        return normalized if normalized in PUBLIC_OUTCOME_STATUSES else "outcome_unknown"
     if not result.get("success", False):
         return "failed"
-    if result.get("mode") == "plan":
+    if result.get("mode", default_mode) == "plan":
         return "planned"
     return "succeeded"
+
+
+def build_public_result_receipt(
+    result: dict[str, Any],
+    artifact: dict[str, Any],
+    *,
+    default_mode: str | None = None,
+    receipt_fields: tuple[str, ...] = (),
+    receipt_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a compact public receipt without copying the full result payload."""
+    receipt: dict[str, Any] = {
+        "result_contract": PUBLIC_RESULT_CONTRACT,
+        "success": bool(result.get("success", False)),
+        "mode": result.get("mode", default_mode or "unknown"),
+        "outcome_status": result_outcome_status(result, default_mode=default_mode),
+        "result_file": artifact,
+    }
+    for key in ("service", "operation", *receipt_fields):
+        value = result.get(key)
+        if value is not None:
+            receipt[key] = value
+    for key, value in (receipt_extra or {}).items():
+        if key in PUBLIC_RECEIPT_RESERVED_FIELDS:
+            raise ValueError(f"receipt_extra cannot override reserved field: {key}")
+        if value is not None:
+            receipt[key] = value
+    return receipt
 
 
 def emit_public_result(
@@ -170,6 +218,9 @@ def emit_public_result(
     *,
     output_file: Path | None = None,
     pretty: bool = False,
+    default_mode: str | None = None,
+    receipt_fields: tuple[str, ...] = (),
+    receipt_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Emit a public CLI result, optionally storing the full JSON as an artifact.
 
@@ -183,18 +234,13 @@ def emit_public_result(
         return result
 
     artifact = write_json_artifact(output_file, result, pretty=pretty)
-    receipt: dict[str, Any] = {
-        "result_contract": "huaweicloud_skill_public_result_v1",
-        "success": bool(result.get("success", False)),
-        "mode": result.get("mode", "unknown"),
-        "outcome_status": result_outcome_status(result),
-        "result_file": artifact["path"],
-        "artifact": artifact,
-    }
-    for key in ("service", "operation"):
-        value = result.get(key)
-        if value is not None:
-            receipt[key] = value
+    receipt = build_public_result_receipt(
+        result,
+        artifact,
+        default_mode=default_mode,
+        receipt_fields=receipt_fields,
+        receipt_extra=receipt_extra,
+    )
     emit_json(receipt, pretty=pretty)
     return receipt
 

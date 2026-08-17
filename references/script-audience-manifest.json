@@ -17,9 +17,16 @@
       "success",
       "mode",
       "outcome_status",
-      "result_file",
-      "artifact"
+      "result_file"
     ],
+    "outcome_status_values": [
+      "planned",
+      "succeeded",
+      "partially_succeeded",
+      "failed",
+      "outcome_unknown"
+    ],
+    "domain_status_note": "planning_status, readiness, pagination completeness, verification details, and other domain fields remain separate from the normalized outcome_status.",
     "exit_semantics": "Exit 0 only when the script result has success=true; otherwise exit nonzero. Callers should still inspect a returned result_file after nonzero exit."
   },
   "public_script_contracts": {
@@ -28,6 +35,7 @@
       "backend": "hcloud",
       "cloud_access": "optional_execute",
       "default_mode": "plan",
+      "contract_level": "artifact_receipt",
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "compact_receipt",
       "output_file_content": "full_json"
@@ -37,6 +45,7 @@
       "backend": "hcloud",
       "cloud_access": "optional_execute",
       "default_mode": "plan",
+      "contract_level": "artifact_receipt",
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "compact_receipt",
       "output_file_content": "full_json"
@@ -46,6 +55,7 @@
       "backend": "hcloud",
       "cloud_access": "optional_execute",
       "default_mode": "plan",
+      "contract_level": "artifact_receipt",
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "compact_receipt",
       "output_file_content": "full_json"
@@ -55,20 +65,111 @@
       "backend": "sdk",
       "cloud_access": "optional_execute",
       "default_mode": "plan",
+      "contract_level": "artifact_receipt",
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "compact_receipt",
       "output_file_content": "full_json"
+    },
+    "scripts/hcloud_account_inventory.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "optional_execute",
+      "default_mode": "plan",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_billing_live_read.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "explicit_confirmed_execute",
+      "default_mode": "plan",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_lts_readonly.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "optional_execute",
+      "default_mode": "plan",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_service_readiness.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "optional_execute",
+      "default_mode": "plan",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_resource_verify.py": {
+      "kind": "inspector_router",
+      "backend": "local",
+      "cloud_access": "none",
+      "default_mode": "verify",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_idle_audit.py": {
+      "kind": "inspector_router",
+      "backend": "local",
+      "cloud_access": "none",
+      "default_mode": "audit",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_acceptance_closure.py": {
+      "kind": "inspector_router",
+      "backend": "local_probe",
+      "cloud_access": "optional_protocol_probe",
+      "default_mode": "subcommand",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
+    "scripts/hcloud_context_inspect.py": {
+      "kind": "inspector_router",
+      "backend": "local",
+      "cloud_access": "none",
+      "default_mode": "inspect",
+      "contract_level": "bounded_json",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "unsupported",
+      "output_file_content": "none"
+    },
+    "scripts/hcloud_environment_doctor.py": {
+      "kind": "inspector_router",
+      "backend": "multi_backend_readiness",
+      "cloud_access": "none",
+      "default_mode": "check_only",
+      "contract_level": "bounded_json",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "unsupported",
+      "output_file_content": "none"
     }
   },
   "consolidation_policy": {
-    "v0_6_action": "Document audience boundaries and keep existing script files stable for reviewability.",
-    "do_not_do_in_v0_6": [
+    "current_action": "Keep existing script files stable, declare public contracts explicitly, and migrate high-value entry points through shared helpers.",
+    "do_not_do": [
       "Do not merge runtime scripts just to reduce file count.",
       "Do not remove compatibility entry points that existing workflows may call.",
       "Do not broaden planner-only scripts into submit paths.",
       "Do not add ungated Terraform import, drift automation, remote state, or blueprint execution to the default path."
     ],
-    "v0_6_x_candidates": [
+    "future_candidates": [
       {
         "area": "acceptance closure",
         "candidate": "Prefer hcloud_acceptance_closure.py as the user-facing plan/run/evaluate wrapper while preserving probe plan, probe run, and evidence result modules for compatibility and focused tests."
@@ -83,7 +184,7 @@
       },
       {
         "area": "Terraform",
-        "candidate": "Keep import/drift/remote-state behind explicit state-change gates and hcloud readback."
+        "candidate": "Keep import/drift/remote-state behind explicit state-change gates and evidence-based post-change readback, preferring hcloud while allowing equivalent SDK/API, data-source, or business-probe evidence."
       },
       {
         "area": "MaaS API helpers",
@@ -103,7 +204,7 @@
   },
   "hcloud_execution_boundary": {
     "business_api_policy": "safe_exec_by_default_with_evidenced_fallback",
-    "agent_fallback_boundary": "Use hcloud_safe_exec for normal business API reads and changes. A bare hcloud fallback remains available only for help, diagnostics, or a narrow operation that bundled scripts cannot express; resolve the exact service, operation version, parameters, output size, risk, and verification evidence before use.",
+    "agent_fallback_boundary": "Prefer hcloud_safe_exec for normal business API reads and changes. Direct hcloud remains available when metadata/help evidence confirms the exact service, operation version, parameters, output size, risk, and verification evidence; scripts are shortcuts rather than an operation whitelist.",
     "purpose": "Make the shared execution boundary reviewable without creating a service, operation, parameter, or call-order whitelist for the Agent.",
     "direct_invocation_categories": [
       {
@@ -128,6 +229,7 @@
         ],
         "scripts": [
           "scripts/hcloud_context_inspect.py",
+          "scripts/hcloud_environment_doctor.py",
           "scripts/hcloud_meta_lookup.py",
           "scripts/hcloud_operation_resolver.py",
           "scripts/hcloud_prewarm_cache.py",

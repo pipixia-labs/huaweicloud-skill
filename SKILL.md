@@ -39,7 +39,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
 ## 默认工作流
 
 1. 先选择候选后端并确认上下文：
-   - 默认先考虑 hcloud；选择它时可运行 `python3 scripts/hcloud_environment_doctor.py --pretty` 或 `python3 scripts/hcloud_context_inspect.py --pretty`。选择 SDK/Terraform 时检查对应 package/CLI、认证、endpoint/provider 和网络。
+   - 默认先考虑 hcloud；根据实际后端运行 `python3 scripts/hcloud_environment_doctor.py --need <dependency> --pretty`。选择 SDK 时用 `--need sdk --sdk-service <SERVICE>`，选择 Terraform 时用 `--need terraform`；需要真实 API、网络或大结果文件时再分别加 `--need live`、`--need network`、`--need artifacts`。完整规则见 `references/runtime-dependencies.md`。
    - doctor/context 只能观察当前进程环境和本地 profile；未观察到 AK/SK 或 MaaS API Key 只表示配置状态未知，不得断言用户未配置。使用凭据 broker 的运行时可能只在受授权的执行子进程中注入凭据。
    - 需要项目级服务的 `project_id` 时，用 `python3 scripts/hcloud_project_resolve.py --region=<region> --pretty`，按显式值、环境变量、本地 profile 缓存、IAM `KeystoneListProjects` 的顺序解析；不要因为 IAM SDK 未安装而改写签名请求。
    - 若 `hcloud.found=false`，不要执行 hcloud 路径；按 `references/backend-selection.md` 判断 SDK 或 Terraform 是否能可靠完成，否则只给方案草稿和环境缺口。
@@ -124,7 +124,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
 
 按任务需要读取，不要一次性加载所有资料：
 
-- 后端选择、基础流程和安全：`references/backend-selection.md`、`references/workflow.md`、`references/runtime-safety-boundaries.md`、`references/auth-and-context.md`
+- 后端选择、运行依赖、基础流程和安全：`references/backend-selection.md`、`references/runtime-dependencies.md`、`references/workflow.md`、`references/runtime-safety-boundaries.md`、`references/auth-and-context.md`
 - 跨服务事实、可恢复状态和交互：`references/unified-principles.md`、`references/task-workspace-guide.md`、`references/goal-capability-guide.md`、`references/interaction-guidance.md`
 - 场景路由和服务资料：`references/scenario-router.json`、`references/guides/`、`references/playbooks/`
 - 命令构造和错误处理：`references/command-construction.md`、`references/error-playbook.md`、`references/output-and-query.md`、`references/hcloud-output-policies.json`
