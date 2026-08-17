@@ -327,12 +327,13 @@ python3 scripts/hcloud_account_inventory.py \
   --service EIP \
   --service EVS \
   --region=cn-north-4 \
-  --project-id=<project-id> \
   --execute \
+  --strict \
+  --output-file <workspace>/beijing4-inventory.json \
   --pretty
 ```
 
-Save executed JSON output when you need follow-up idle-resource analysis.
+执行模式会在每个区域只解析一次 `project_id` 并复用于该区域的服务查询，默认最多并发执行 4 个独立检查；可用 `--max-workers` 在 1 到 16 之间调整。`--project-id` 仍可显式覆盖自动解析。指定 `--output-file` 时，完整 JSON 原样写入权限为 `0600` 的文件，stdout 只返回结果状态、摘要、文件路径、大小和 SHA-256；未指定时保持完整 JSON stdout 兼容行为。宽泛盘点应使用结果文件，再用 `jq` 提取回答所需字段，避免把完整多服务响应送入模型上下文。
 
 `hcloud_idle_audit.py` preserves region, project, enterprise-project, and tag dimensions from inventory output so idle candidates can be reviewed by owner/scope before any release, delete, stop, or downsize discussion.
 
@@ -541,10 +542,11 @@ python3 scripts/hcloud_billing_live_read.py \
   --bill-cycle 2026-05 \
   --execute \
   --confirm-live-billing-read READ_BILLING_DATA \
+  --output-file <workspace>/monthly-billing.json \
   --pretty
 ```
 
-该 wrapper 只允许执行 `hcloud_billing_readonly.py` 已审核的 BSS `List*` 和 `Show*` 操作，固定使用 `--cli-region=cn-north-1`，且只为确实支持该 Header 的操作传递 `X-Language`；每页最多 50 条。执行模式从 offset 0 开始自动续页，校验请求 scope、币种、顶层金额元数据和 `total_count` 跨页保持一致，并在总 timeout 内最多合并 20 页、1000 条记录和 16 MiB payload。只有完整合并后才返回 `verified_monetary_totals`；后续页失败、空页、响应不一致、payload 过大或触及上限时返回 `partially_succeeded`，不提供可声明为完整的总额。公共结果仍为脱敏摘要，不返回 safe_exec 原始 payload；只有确实需要逐行证据时才使用 `--include-redacted-records`，原始标识符仍会被哈希脱敏。
+该 wrapper 只允许执行 `hcloud_billing_readonly.py` 已审核的 BSS `List*` 和 `Show*` 操作，固定使用 `--cli-region=cn-north-1`，且只为确实支持该 Header 的操作传递 `X-Language`；每页最多 50 条。执行模式从 offset 0 开始自动续页，校验请求 scope、币种、顶层金额元数据和 `total_count` 跨页保持一致，并在总 timeout 内最多合并 20 页、1000 条记录和 16 MiB payload。只有完整合并后才返回 `verified_monetary_totals`；后续页失败、空页、响应不一致、payload 过大或触及上限时返回 `partially_succeeded`，不提供可声明为完整的总额。公共结果仍为脱敏摘要，不返回 safe_exec 原始 payload；只有确实需要逐行证据时才使用 `--include-redacted-records`，原始标识符仍会被哈希脱敏。指定 `--output-file` 时完整 workflow JSON 写入权限为 `0600` 的文件，stdout 只返回紧凑摘要和文件回执；不指定时保持完整 JSON stdout 兼容行为。
 
 ### Billing Operation Gap Audit
 

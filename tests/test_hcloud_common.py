@@ -6,6 +6,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import stat
 import sys
 import tempfile
 import unittest
@@ -45,6 +46,21 @@ class HcloudCommonTest(unittest.TestCase):
 
         self.assertEqual(compact.getvalue().strip(), '{"success": true}')
         self.assertIn('\n  "success": true\n', pretty.getvalue())
+
+    def test_write_json_artifact_is_atomic_private_and_receipted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "nested" / "result.json"
+
+            receipt = hcloud_common.write_json_artifact(
+                path,
+                {"success": True, "name": "北京四"},
+            )
+
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["name"], "北京四")
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            self.assertEqual(receipt["path"], str(path.absolute()))
+            self.assertEqual(receipt["bytes"], path.stat().st_size)
+            self.assertEqual(len(receipt["sha256"]), 64)
 
     def test_load_registry_uses_supplied_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

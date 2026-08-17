@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -109,6 +111,46 @@ def emit_json(value: Any, pretty: bool = False) -> None:
         print(json.dumps(value, ensure_ascii=False, indent=2))
     else:
         print(json.dumps(value, ensure_ascii=False))
+
+
+def write_json_artifact(path: Path, value: Any, pretty: bool = False) -> dict[str, Any]:
+    """Atomically persist JSON with private permissions and return a file receipt."""
+    destination = path.expanduser().absolute()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(
+        value,
+        ensure_ascii=False,
+        indent=2 if pretty else None,
+        separators=None if pretty else (",", ":"),
+    ) + "\n"
+    encoded = text.encode("utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary_path.replace(destination)
+        destination.chmod(0o600)
+    except BaseException:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        temporary_path.unlink(missing_ok=True)
+        raise
+    return {
+        "path": str(destination),
+        "bytes": len(encoded),
+        "sha256": hashlib.sha256(encoded).hexdigest(),
+        "permissions": "0600",
+    }
 
 
 def collect_known_secrets(config_path: Path | None = None) -> set[str]:

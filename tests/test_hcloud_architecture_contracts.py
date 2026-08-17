@@ -79,60 +79,27 @@ hcloud_run_journal = load_module("hcloud_run_journal", SCRIPTS / "hcloud_run_jou
 class ArchitectureContractsTest(unittest.TestCase):
     """Validate docs, registry, and script contracts stay aligned."""
 
-    def test_portable_capability_manifest_is_skill_owned_and_read_only(self) -> None:
-        manifest = json.loads((ROOT / "capabilities.json").read_text(encoding="utf-8"))
-
-        self.assertEqual(manifest["schema_version"], 1)
-        self.assertEqual(
-            manifest["contract_namespace"],
-            "huaweicloud-skill.capabilities",
-        )
-        capabilities = {item["id"]: item for item in manifest["capabilities"]}
-        inventory = capabilities["huaweicloud.account_inventory.v1"]
-        self.assertEqual(inventory["risk"], "read")
-        self.assertEqual(inventory["credential_scope"], "huaweicloud")
-        self.assertEqual(
-            inventory["entrypoint"],
-            "scripts/hcloud_account_inventory.py",
-        )
-        self.assertEqual(inventory["result_contract"], "json_outcome_v1")
-        self.assertTrue((ROOT / inventory["entrypoint"]).is_file())
-        billing = capabilities["huaweicloud.billing.read.v1"]
-        self.assertEqual(billing["risk"], "read")
-        self.assertEqual(billing["credential_scope"], "huaweicloud")
-        self.assertEqual(billing["runtime"], "hcloud")
-        self.assertEqual(
-            billing["entrypoint"],
-            "scripts/hcloud_billing_live_read.py",
-        )
-        self.assertIn("--execute", billing["fixed_args"])
-        self.assertIn("READ_BILLING_DATA", billing["fixed_args"])
-        self.assertEqual(billing["result_contract"], "json_outcome_v1")
-        self.assertEqual(billing["arguments"]["limit"]["default"], 50)
-        self.assertTrue((ROOT / billing["entrypoint"]).is_file())
-
+    def test_portable_read_clis_are_skill_owned_without_host_manifest(self) -> None:
+        self.assertFalse((ROOT / "capabilities.json").exists())
+        self.assertFalse((ROOT / "references/capability-contracts.md").exists())
+        self.assertTrue((SCRIPTS / "hcloud_account_inventory.py").is_file())
+        self.assertTrue((SCRIPTS / "hcloud_billing_live_read.py").is_file())
         skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        contract_text = (
-            ROOT / "references/capability-contracts.md"
-        ).read_text(encoding="utf-8")
-        self.assertIn("平台无关", contract_text)
-        self.assertIn("`planning_status`", contract_text)
-        self.assertIn("`outcome_status`", contract_text)
-        self.assertIn("不要臆造某个平台的 Tool 名称", skill_text)
-        self.assertIn("run_read_only_capability", skill_text)
+        self.assertNotIn("run_read_only_capability", skill_text)
+        self.assertNotIn("capabilities.json", skill_text)
         self.assertIn("Agent 自主决定查什么和传什么业务参数", skill_text)
-        self.assertIn("账号级多服务资源盘点", skill_text)
-        self.assertIn("账单、成本或费用记录查询", skill_text)
-        self.assertIn("只有以下三种情况", skill_text)
-        self.assertIn("`READ_ONLY_CAPABILITY_NOT_REGISTERED`", skill_text)
+        self.assertIn("hcloud_account_inventory.py", skill_text)
+        self.assertIn("hcloud_billing_live_read.py", skill_text)
+        self.assertIn("--output-file", skill_text)
+        self.assertIn("普通命令执行工具", skill_text)
+        self.assertIn("账单、成本或费用记录使用", skill_text)
         self.assertIn("正例（北京4资源盘点）", skill_text)
         self.assertIn("正例（北京4区域成本）", skill_text)
         self.assertIn("反例", skill_text)
-        self.assertIn("`cost-data`", skill_text)
-        self.assertIn("`region_code=cn-north-4`", skill_text)
-        self.assertIn("参数错误、凭据错误、超时、部分成功", skill_text)
-        self.assertIn("专用场景脚本 ->", skill_text)
-        self.assertIn("只适用于查询未登记", skill_text)
+        self.assertIn("--operation cost-data", skill_text)
+        self.assertIn("--region-code cn-north-4", skill_text)
+        self.assertIn("参数错误、凭据错误、超时", skill_text)
+        self.assertIn("调用优先级为", skill_text)
 
     def test_ssh_guidance_is_runtime_neutral_and_secret_safe(self) -> None:
         playbook = (

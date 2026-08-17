@@ -662,6 +662,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--include-redacted-records", action="store_true", help="Include redacted BSS records in the summary.")
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--max-output-chars", type=int, default=20000)
+    parser.add_argument("--output-file", help="Write the complete JSON result to this file and emit a compact receipt.")
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args()
     if args.operation is None and args.entry_point:
@@ -681,11 +682,64 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def billing_receipt_summary(result: dict[str, Any]) -> dict[str, Any] | None:
+    """Return bounded billing summary fields suitable for stdout."""
+    execution = result.get("execution")
+    execution_result = execution.get("result") if isinstance(execution, dict) else None
+    summary = execution_result.get("summary") if isinstance(execution_result, dict) else None
+    if not isinstance(summary, dict):
+        return None
+    pagination = summary.get("pagination")
+    public_summary = summary.get("summary")
+    if isinstance(public_summary, dict):
+        public_summary = {
+            key: value
+            for key, value in public_summary.items()
+            if key not in {"records", "redacted_records"}
+        }
+    return {
+        "pagination": pagination,
+        "summary": public_summary,
+    }
+
+
+def emit_cli_result(
+    result: dict[str, Any],
+    *,
+    output_file: str | None,
+    pretty: bool,
+) -> None:
+    """Emit the full result or persist it and emit a compact file receipt."""
+    if not output_file:
+        hcloud_common.emit_json(result, pretty=pretty)
+        return
+    artifact = hcloud_common.write_json_artifact(
+        Path(output_file),
+        result,
+        pretty=pretty,
+    )
+    status_key = "outcome_status" if result.get("mode") == "execute" else "planning_status"
+    hcloud_common.emit_json(
+        {
+            "success": bool(result.get("success")),
+            "mode": result.get("mode"),
+            status_key: result.get(status_key),
+            "summary": billing_receipt_summary(result),
+            "result_file": artifact,
+        },
+        pretty=pretty,
+    )
+
+
 def main() -> int:
     """Build or execute the guarded BSS live-read workflow."""
     args = parse_args()
     result = build_live_read(args)
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    emit_cli_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+    )
     return 0 if result["success"] else 1
 
 

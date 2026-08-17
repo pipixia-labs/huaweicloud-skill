@@ -50,24 +50,16 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
    - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
-   - Agent 自主决定查什么和传什么业务参数；执行真实华为云查询前，先检查本 Skill 是否已在 `capabilities.json` 登记对应查询，以及当前 runtime 是否提供 `run_read_only_capability`。不要臆造某个平台的 Tool 名称，也不要调用并不存在的名称。
-   - 已登记的标准查询如下：
-
-     | 用户目标 | capability ID |
-     | --- | --- |
-     | 账号级多服务资源盘点 | `huaweicloud.account_inventory.v1` |
-     | 账单、成本或费用记录查询 | `huaweicloud.billing.read.v1` |
-
-   - 查询已登记且工具存在时，必须调用 `run_read_only_capability`；不得通过 `exec` / `process` 直接运行对应脚本，不得改用裸 `hcloud`、临时 SDK，也不得包装成通用命令提案。
-   - 只有以下三种情况允许按同一 Skill 的脚本流程 fallback：没有登记对应查询；当前 runtime 没有 `run_read_only_capability`；该工具明确返回 `READ_ONLY_CAPABILITY_NOT_REGISTERED`。若返回中带有 `fallback_allowed`，以该字段为机器可判定合同：只有 `fallback_allowed=true` 才能 fallback；`fallback_allowed=false` 时继续使用 capability 结果、修正参数后重调同一个 capability，或如实报告限制。
-   - 参数错误、凭据错误、超时、部分成功、查询失败、版本解析错误或输出错误都不是 fallback 条件。按照 `recommended_next_action` 处理，不得因为标准入口这一次失败就改用裸 `hcloud`、临时 SDK 或对应脚本。
-   - 正例（参数修正）：账单 capability 返回缺少 `begin_time` / `end_time` 且 `recommended_next_action=correct_arguments_and_retry_capability`，先补齐准确时间范围，再次调用同一个 capability。
-   - 正例（北京4资源盘点）：调用 `run_read_only_capability(capability_id="huaweicloud.account_inventory.v1", arguments_json='{"regions":["cn-north-4"]}')`。
-   - 正例（北京4区域成本）：调用账单 capability，把 `operation` 设为 `cost-data`，使用 `region_code=cn-north-4` 和准确时间范围。标准 capability 会在安全上限内自动完成 BSS 分页并合并同一 scope 的结果；只有 `pagination.complete=true`、`complete_result_claim_allowed=true` 时，才能把 `verified_monetary_totals` 表述为完整总额。Agent 不需要为普通总额查询手工计算或传递下一页 `offset`。`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
-   - 正例（账单分页部分成功）：账单 capability 因后续页失败、空页、跨页 scope 不一致或安全上限返回 `partially_succeeded` 时，只能使用已返回的部分记录并明确缺口；不得把 `partial` 页面的金额小计改名为合计，也不得绕过 capability 补跑裸 hcloud。
-   - 正例（部分成功）：资源盘点返回 `partially_succeeded` 和 `fallback_allowed=false` 时，使用已成功的资源结果并明确列出失败服务；不要为失败服务另开裸命令通道。
-   - 反例：盘点能力已登记却先用 `exec` 运行 `hcloud_account_inventory.py`；收到 `VERSION_RESOLUTION_ERROR`、空摘要、超时或部分结果后改用裸 hcloud/临时 SDK；或把已登记查询交给 `propose_command_execution`。账单返回 `total_count=11`、`record_count=10`、`complete_result_claim_allowed=false` 时，把这 10 条相加后写成“完整合计”同样错误。空摘要不等于费用为 0，应按结构化错误和 scope 如实报告。这些路径都绕过或误用了标准查询入口。
-   - 调用优先级“专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`”只适用于查询未登记、当前 runtime 没有标准查询工具，或工具明确返回未登记。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
+   - Agent 自主决定查什么和传什么业务参数；通过当前 runtime 的普通命令执行工具直接运行本 Skill 的专用 CLI，不依赖宿主专属 Function Calling 名称，也不要臆造不存在的平台 Tool。
+   - 账号级多服务盘点使用 `python3 scripts/hcloud_account_inventory.py --region <region> --execute --strict --output-file <workspace-result.json>`。脚本会在每个区域解析并复用一次 `project_id`，有限并发查询服务，并在 stdout 返回紧凑摘要和完整结果文件位置。宿主命令工具的总 timeout 要覆盖整个工作流，建议 1800 秒；若先返回后台 session，持续 poll 同一 session，不要重复启动。
+   - 账单、成本或费用记录使用 `python3 scripts/hcloud_billing_live_read.py ... --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace-result.json>`。脚本在安全上限内自动分页和合并；Agent 不手工维护普通总额查询的下一页 `offset`，宿主命令 timeout 同样要覆盖分页总时长。
+   - 收到 stdout 文件回执后，先读 `outcome_status`、`summary` 和 `result_file`。需要资源明细时用 `jq` 等工具从结果文件提取当前回答所需字段，不要把完整大文件一次性读回模型上下文。命令退出码非零时仍要检查结果文件；`partially_succeeded` 表示可使用成功部分并明确失败服务，不等于整项查询没有结果。
+   - 参数错误、凭据错误、超时、版本解析错误或部分成功时，先根据脚本结构化错误修正参数、缩小 service/region 范围后重调同一脚本，或如实报告限制。只有专用脚本确实不覆盖目标操作时，才进入 `hcloud_resource_discovery.py` / `hcloud_resource_query.py`；不得因为一次查询失败就改用临时 SDK、重复 IAM 探测或裸 hcloud 批量重跑。
+   - 正例（北京4资源盘点）：运行 `hcloud_account_inventory.py --region cn-north-4 --execute --strict --output-file <workspace>/beijing4-inventory.json`；stdout 返回回执后，从该文件提取资源名称、ID、状态和关系，并保留失败服务清单。
+   - 正例（北京4区域成本）：运行 `hcloud_billing_live_read.py --operation cost-data --region-code cn-north-4 --begin-time <start> --end-time <end> --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace>/beijing4-cost.json`。只有 `pagination.complete=true`、`complete_result_claim_allowed=true` 时，才能把 `verified_monetary_totals` 表述为完整总额。`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
+   - 正例（部分成功）：盘点返回 `partially_succeeded` 时，读取完整结果文件，使用成功服务的数据并明确列出失败服务；如有必要只重跑失败的 service，不重复已经成功的查询。
+   - 反例：专用盘点脚本超时后，连续运行 IAM 探测、临时 Python SDK 和一批裸 hcloud 命令；或账单返回 `total_count=11`、`record_count=10`、`complete_result_claim_allowed=false` 时，把 10 条小计写成“完整合计”。空摘要也不等于费用为 0。
+   - 调用优先级为“专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> `hcloud_operation_resolver.py` / `hcloud_safe_exec.py`”。只有帮助/诊断或脚本无法表达的窄范围操作才允许裸 `hcloud` 兜底；仍须从 resolver、meta cache 或 live help 取得版本和参数证据，不得凭猜测构造。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。
    - 以下 operation 均属于大输出；命中时禁止先执行裸 `hcloud` 试探响应大小，直接使用 `hcloud_safe_exec.py --output-mode=auto`：
      - 镜像、规格和资源列表：`IMS:ListImages`、`IMS:GlanceListImages`、`ECS:ListFlavors`、`ECS:ListFlavorSellPolicies`、`ECS:ListServersDetails`、`DNS:ListRecordSets`。
@@ -134,7 +126,6 @@ description: 使用 hcloud 命令行工具执行华为云资源查询、分析�
 - 基础流程和安全：`references/workflow.md`、`references/runtime-safety-boundaries.md`、`references/auth-and-context.md`
 - 场景路由和服务资料：`references/scenario-router.json`、`references/guides/`、`references/playbooks/`
 - 命令构造和错误处理：`references/command-construction.md`、`references/error-playbook.md`、`references/output-and-query.md`、`references/hcloud-output-policies.json`
-- 可选机器契约：`references/capability-contracts.md`、`capabilities.json`
 - 脚本索引和受众边界：`references/scripts.md`、`references/script-audience-manifest.json`
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`

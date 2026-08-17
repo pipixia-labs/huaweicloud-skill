@@ -2,9 +2,10 @@
 
 ## Unreleased
 
+- 账号盘点与账单查询改为可移植的 Skill CLI 入口，不再依赖 runtime 专属的只读 capability Function Calling；删除两项只读 `capabilities.json` 声明。
+- 两个宽泛查询入口新增 `--output-file`：完整 JSON 原样、原子地写入 `0600` 文件，stdout 返回紧凑状态、摘要和文件回执；未指定时继续输出完整 JSON。
+- 账号盘点在执行模式按区域只解析一次 `project_id`，默认用有限并发完成独立服务查询，IAM 解析失败时一次性标记该区域的项目级检查，不再由每个 hcloud 子进程重复探测。
 - Billing live-read 现在在固定页数、记录数、payload 和总超时上限内自动完成 BSS 分页，跨页校验 scope、币种、顶层金额元数据与 `total_count`，完整后用 Decimal 生成 `verified_monetary_totals`；后续页失败或不一致时返回 `partially_succeeded`，不再把第一页小计暴露为可声明总额。
-- 为账单只读路径增加 `huaweicloud.billing.read.v1` capability，固定使用已确认的 live-read 入口、受限参数和 `json_outcome_v1`，让支持机器契约的 runtime 在精确凭据/profile 边界内执行 BSS 查询。
-- 明确 capability-first 运行规则：Agent 仍自主选择业务能力；选中已声明 capability 且 runtime 支持时必须调用 capability 入口，只有契约不存在或运行时不支持时才允许脚本 fallback。
 - Billing live-read 的 execute 结果新增与 `success` 一致的 `outcome_status`，可由 runtime 区分业务成功与进程退出状态；hcloud 仍是主后端，未引入 SDK 替代路径。
 
 ## 0.9.3 - 2026-08-04

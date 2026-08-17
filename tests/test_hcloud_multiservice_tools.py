@@ -571,6 +571,109 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertNotIn("planning_status", result)
         self.assertFalse(result["planning_only"])
 
+    def test_account_inventory_resolves_project_once_per_region(self) -> None:
+        observed_project_ids = []
+
+        def fake_check(bound_args, target, region):  # noqa: ANN001, ANN202
+            observed_project_ids.append(bound_args.project_id)
+            return {
+                **target,
+                "scope": hcloud_account_inventory.scope_for(bound_args, region),
+                "enterprise_project_scope": {"requested": False, "status": "not_requested"},
+                "success": True,
+                "plan": {"success": True, "commands": []},
+            }
+
+        resolution = {
+            "success": True,
+            "project_id": "resolved-project",
+            "source": "iam_keystone_list_projects",
+            "region": "cn-north-4",
+            "remote_lookup_performed": True,
+        }
+        with (
+            patch.object(
+                hcloud_account_inventory.hcloud_project_resolve,
+                "resolve_project_id",
+                return_value=resolution,
+            ) as resolve,
+            patch.object(
+                hcloud_account_inventory,
+                "build_target_plan_for_region",
+                side_effect=fake_check,
+            ),
+        ):
+            result = hcloud_account_inventory.build_plan(
+                self.inventory_args(
+                    service=["EIP", "VPC"],
+                    project_id=None,
+                    execute=True,
+                )
+            )
+
+        resolve.assert_called_once()
+        self.assertTrue(result["success"], result)
+        self.assertEqual(result["project_id"], "resolved-project")
+        self.assertEqual(set(observed_project_ids), {"resolved-project"})
+
+    def test_account_inventory_reports_project_failure_without_repeating_iam(self) -> None:
+        resolution = {
+            "success": False,
+            "project_id": None,
+            "region": "cn-north-4",
+            "error_code": "IAM_NETWORK_TIMEOUT",
+            "retryable": True,
+        }
+        with (
+            patch.object(
+                hcloud_account_inventory.hcloud_project_resolve,
+                "resolve_project_id",
+                return_value=resolution,
+            ) as resolve,
+            patch.object(
+                hcloud_account_inventory,
+                "build_target_plan_for_region",
+            ) as build_check,
+        ):
+            result = hcloud_account_inventory.build_plan(
+                self.inventory_args(
+                    service=["EIP"],
+                    project_id=None,
+                    execute=True,
+                )
+            )
+
+        resolve.assert_called_once()
+        build_check.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertEqual(result["outcome_status"], "failed")
+        self.assertEqual(
+            result["checks"][0]["plan"]["error_code"],
+            "IAM_NETWORK_TIMEOUT",
+        )
+
+    def test_account_inventory_output_file_keeps_full_result_out_of_stdout(self) -> None:
+        result = {
+            "success": True,
+            "mode": "execute",
+            "outcome_status": "succeeded",
+            "summary": {"check_count": 1},
+            "checks": [{"large": "x" * 1000}],
+        }
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "inventory.json"
+            with patch.object(hcloud_account_inventory.hcloud_common, "emit_json") as emit:
+                hcloud_account_inventory.emit_cli_result(
+                    result,
+                    output_file=str(path),
+                    pretty=False,
+                )
+
+            receipt = emit.call_args.args[0]
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), result)
+            self.assertNotIn("checks", receipt)
+            self.assertEqual(receipt["result_file"]["path"], str(path.absolute()))
+
     def test_observability_plan_builds_metric_and_state_checks(self) -> None:
         result = hcloud_observability_plan.build_plan(self.observability_args())
 
@@ -1197,6 +1300,37 @@ class MultiServiceToolsTest(unittest.TestCase):
         self.assertIn("--arg=--cli-region=cn-north-1", command)
         self.assertNotIn("--arg=--X-Language=zh_CN", command)
         self.assertNotIn("--arg=--cli-lang=cn", command)
+
+    def test_billing_live_read_output_file_emits_compact_receipt(self) -> None:
+        result = {
+            "success": True,
+            "mode": "execute",
+            "outcome_status": "succeeded",
+            "execution": {
+                "result": {
+                    "summary": {
+                        "pagination": {"complete": True, "record_count": 1},
+                        "summary": {
+                            "currency": "CNY",
+                            "records": [{"padding": "x" * 1000}],
+                        },
+                    }
+                }
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "billing.json"
+            with patch.object(hcloud_billing_live_read.hcloud_common, "emit_json") as emit:
+                hcloud_billing_live_read.emit_cli_result(
+                    result,
+                    output_file=str(path),
+                    pretty=False,
+                )
+
+            receipt = emit.call_args.args[0]
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), result)
+            self.assertNotIn("records", receipt["summary"]["summary"])
+            self.assertEqual(receipt["result_file"]["path"], str(path.absolute()))
 
     def test_billing_live_read_declares_json_outcome_in_execute_mode(self) -> None:
         safe_exec_result = {

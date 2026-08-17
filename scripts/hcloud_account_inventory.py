@@ -6,12 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import hcloud_common
 import hcloud_obs_readonly
+import hcloud_project_resolve
 import hcloud_resource_discovery
 
 INVENTORY_TARGETS = (
@@ -184,6 +186,78 @@ def scope_for(args: argparse.Namespace, region: str | None) -> dict[str, str | N
     }
 
 
+def args_with_project_id(
+    args: argparse.Namespace,
+    project_id: str | None,
+) -> SimpleNamespace:
+    """Return one inventory argument set bound to a resolved project ID."""
+    values = dict(vars(args))
+    values["project_id"] = project_id
+    return SimpleNamespace(**values)
+
+
+def resolve_region_project(
+    args: argparse.Namespace,
+    region: str | None,
+    targets: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Resolve a regional project once for all project-scoped inventory checks."""
+    if not args.execute or not any(target["service"] != "OBS" for target in targets):
+        return {
+            "success": True,
+            "project_id": args.project_id,
+            "source": "explicit" if args.project_id else "not_required_for_plan",
+            "region": region,
+            "remote_lookup_performed": False,
+        }
+    if not region:
+        return {
+            "success": True,
+            "project_id": args.project_id,
+            "source": "explicit" if args.project_id else "runtime_default_region",
+            "region": None,
+            "remote_lookup_performed": False,
+        }
+
+    def remote_lookup(region_name: str) -> dict[str, Any]:
+        """Run one bounded IAM fallback for this inventory region."""
+        return hcloud_project_resolve.default_remote_lookup(
+            region_name,
+            timeout=min(args.timeout, 30),
+        )
+
+    return hcloud_project_resolve.resolve_project_id(
+        region=region,
+        explicit_project_id=args.project_id,
+        remote_lookup=remote_lookup,
+    )
+
+
+def project_resolution_failure_check(
+    args: argparse.Namespace,
+    target: dict[str, str],
+    region: str | None,
+    resolution: dict[str, Any],
+) -> dict[str, Any]:
+    """Return a stable failed check when one regional project cannot be resolved."""
+    return {
+        **target,
+        "scope": scope_for(args_with_project_id(args, None), region),
+        "enterprise_project_scope": {
+            "requested": bool(getattr(args, "enterprise_project_id", None)),
+            "status": "not_evaluated",
+        },
+        "success": False,
+        "plan": {
+            "success": False,
+            "error": "Regional project ID could not be resolved.",
+            "error_code": resolution.get("error_code") or "PROJECT_ID_NOT_FOUND",
+            "retryable": bool(resolution.get("retryable")),
+            "project_resolution": resolution,
+        },
+    }
+
+
 def operation_supports_enterprise_project(service: str, operation: str) -> bool:
     """Return whether the local operation metadata supports enterprise_project_id."""
     names = {
@@ -323,11 +397,47 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         return result
 
     regions = normalized_regions(args)
-    checks = [
-        build_target_plan_for_region(args, target, region)
+    project_resolutions = {
+        str(region or "default"): resolve_region_project(args, region, targets)
         for region in regions
-        for target in targets
-    ]
+    }
+    jobs: list[tuple[argparse.Namespace, dict[str, str], str | None]] = []
+    checks: list[dict[str, Any]] = []
+    for region in regions:
+        resolution = project_resolutions[str(region or "default")]
+        regional_args = args_with_project_id(args, resolution.get("project_id"))
+        for target in targets:
+            if target["service"] != "OBS" and not resolution.get("success"):
+                checks.append(
+                    project_resolution_failure_check(args, target, region, resolution)
+                )
+            else:
+                jobs.append((regional_args, target, region))
+
+    if jobs:
+        max_workers = min(max(1, getattr(args, "max_workers", 4)), len(jobs))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            checks.extend(
+                executor.map(
+                    lambda job: build_target_plan_for_region(*job),
+                    jobs,
+                )
+            )
+    check_order = {
+        (str(region or "default"), target["service"], target["operation"]): index
+        for index, (region, target) in enumerate(
+            (region, target) for region in regions for target in targets
+        )
+    }
+    checks.sort(
+        key=lambda check: check_order[
+            (
+                str((check.get("scope") or {}).get("region") or "default"),
+                check["service"],
+                check["operation"],
+            )
+        ]
+    )
     summary = summarize_checks(checks)
     outcome_status = inventory_outcome_status(
         check_count=summary["check_count"],
@@ -340,7 +450,16 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "planning_only": not args.execute,
         "region": regions[0] if len(regions) == 1 else None,
         "regions": regions,
-        "project_id": args.project_id,
+        "project_id": (
+            next(iter(project_resolutions.values())).get("project_id")
+            if len(project_resolutions) == 1
+            else None
+        ),
+        "project_ids": {
+            region: resolution.get("project_id")
+            for region, resolution in project_resolutions.items()
+        },
+        "project_resolution": project_resolutions,
         "profile": args.profile,
         "enterprise_project_id": getattr(args, "enterprise_project_id", None),
         "limit": args.limit,
@@ -373,20 +492,56 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute", action="store_true", help="Execute approved read-only inventory commands.")
     parser.add_argument("--strict", action="store_true", help="Return failure when any inventory check fails.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout per executed command.")
+    parser.add_argument("--max-workers", type=int, default=4, help="Maximum concurrent service queries.")
+    parser.add_argument("--output-file", help="Write the complete JSON result to this file and emit a compact receipt.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be greater than 0.")
     if args.timeout < 1:
         parser.error("--timeout must be greater than 0.")
+    if args.max_workers < 1 or args.max_workers > 16:
+        parser.error("--max-workers must be between 1 and 16.")
     return args
+
+
+def emit_cli_result(
+    result: dict[str, Any],
+    *,
+    output_file: str | None,
+    pretty: bool,
+) -> None:
+    """Emit the full result or persist it and emit a compact file receipt."""
+    if not output_file:
+        hcloud_common.emit_json(result, pretty=pretty)
+        return
+    artifact = hcloud_common.write_json_artifact(
+        Path(output_file),
+        result,
+        pretty=pretty,
+    )
+    status_key = "outcome_status" if result.get("mode") == "execute" else "planning_status"
+    hcloud_common.emit_json(
+        {
+            "success": bool(result.get("success")),
+            "mode": result.get("mode"),
+            status_key: result.get(status_key),
+            "summary": result.get("summary"),
+            "result_file": artifact,
+        },
+        pretty=pretty,
+    )
 
 
 def main() -> int:
     """Build or run the read-only account inventory plan."""
     args = parse_args()
     result = build_plan(args)
-    hcloud_common.emit_json(result, pretty=args.pretty)
+    emit_cli_result(
+        result,
+        output_file=args.output_file,
+        pretty=args.pretty,
+    )
     return 0 if result["success"] else 1
 
 
