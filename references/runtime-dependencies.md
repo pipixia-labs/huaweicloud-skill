@@ -71,6 +71,10 @@ OBS 任务使用 `--need obs`；只有明确需要 standalone obsutil 时才使�
 - 未声明的可选工具可以是 `skipped`，不会阻断当前任务。
 - 传入任意 `--need` 时使用 `scan_scope=task_scoped`，不会运行无关工具的版本命令或全量 package
   扫描；完全不传 `--need` 时才使用兼容的 `full_overview` 总览。
+- `recovery_plan` 只从上述检查结果投影可审查步骤，列出 `actions` 和精确 `commands`，但始终保持
+  `execution_performed=false`。它不会接受凭据值、安装 package、修改 profile、下载 metadata 或探测宿主网络。
+- hcloud 检查分别报告 binary、隐私声明、profile 认证、region 和 metadata cache。`--need hcloud`
+  时缺少可调用上下文返回 warning/unready，而不是只因 binary 存在就声称真实调用已经就绪。
 
 ## 缺失依赖的兜底顺序
 

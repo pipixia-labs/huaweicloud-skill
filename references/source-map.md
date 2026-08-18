@@ -28,6 +28,8 @@
 - resolver、通用变更 planner 和 ECS 高频 planner 需要同时装配上述两类 operation evidence 时，统一经
   内部 `hcloud_operation_evidence.py` 读取。它只组合两个已有来源的可用字段，不写入、不缓存、不扩展
   到其他事实库，也不是 Agent 公共入口；缺失事实保持缺失，不用 `null` 或推断冒充已知事实；
+- 单次变更费用由 `hcloud_cost_estimate.py` 复用 `hcloud_billing_readonly.py` 与
+  `hcloud_billing_live_read.py` 的 BSS 询价事实；未执行询价时金额保持 unknown，询价结果也不冒充历史账单或购买承诺；
 - 场景到能力的入口由 router/contract 维护，具体服务知识留在对应 guide 和 playbook；
 - 跨多个服务长期稳定的方法才进入 shared core，单一服务规则留在服务模块；
 - 目标和交互指南可以解释如何组合事实，但不复制实时价格、配额、库存或资源状态；

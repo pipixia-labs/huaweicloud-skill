@@ -85,6 +85,36 @@ class HcloudDependencyEvidenceTest(unittest.TestCase):
             "not_found",
         )
 
+    def test_vpc_create_and_elb_teardown_gaps_have_structured_evidence(self) -> None:
+        vpc = hcloud_dependency_evidence.find_dependency_evidence(
+            "VPC",
+            "CreateVpc",
+        )
+        member = hcloud_dependency_evidence.find_dependency_evidence(
+            "ELB",
+            "DeleteMember",
+        )
+        monitor = hcloud_dependency_evidence.find_dependency_evidence(
+            "ELB",
+            "DeleteHealthMonitor",
+        )
+
+        self.assertEqual(vpc["resource_kind"], "vpc")
+        self.assertEqual(
+            vpc["verification"]["target_readback"]["expected"],
+            "present_with_matching_name_and_cidr",
+        )
+        self.assertEqual(member["resource_kind"], "member")
+        self.assertEqual(monitor["resource_kind"], "health_monitor")
+        self.assertEqual(
+            member["verification"]["target_readback"]["expected"],
+            "not_found",
+        )
+        self.assertEqual(
+            monitor["verification"]["target_readback"]["expected"],
+            "not_found",
+        )
+
     def test_ecs_delete_requires_related_eip_and_volume_reconciliation(self) -> None:
         evidence = hcloud_dependency_evidence.find_dependency_evidence(
             "ECS",

@@ -46,7 +46,7 @@ class AgentCliContractTest(unittest.TestCase):
         self.assertEqual(contract["stable_launchers"], ["bin/hcloud-skill", "bin/hcloud-skill.cmd"])
         self.assertEqual(contract["successful_result"]["required_fields"], ["success"])
         self.assertEqual(contract["successful_result"]["default_stdout"], "final_json_object")
-        self.assertEqual(len(scripts), 54)
+        self.assertEqual(len(scripts), 55)
         self.assertEqual(len(scripts), len(set(scripts)))
         for script in scripts:
             self.assertTrue((ROOT / script).is_file(), script)
@@ -78,7 +78,7 @@ class AgentCliContractTest(unittest.TestCase):
         contract_text = (ROOT / "references" / "public-script-contract.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("54 个真实 Agent 入口", contract_text)
+        self.assertIn("55 个真实 Agent 入口", contract_text)
         self.assertIn("不是所有小 planner/inspector", contract_text)
 
     def test_every_agent_entrypoint_exposes_help_through_the_stable_launcher(self) -> None:

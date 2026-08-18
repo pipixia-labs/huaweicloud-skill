@@ -156,6 +156,8 @@ python3 scripts/hcloud_catalog_audit.py --pretty
 - `hcloud_resource_detail_probe.py` 可以顺序执行 list-then-detail 抽样；EVS/NAT 当前区域无资源时会返回 skipped，而不是把缺资源当作失败
 - CDN `ListDomains` 已验证需要使用 KooCLI 支持区域；registry 会把 `cn-north-4` 调整到 `cn-north-1`
 - `hcloud_service_change_plan.py` 可以为多服务变更生成风险计划和验证建议，但不会执行 submit
+- `hcloud_operation_behavior.py` 和 `hcloud_dependency_evidence.py` 已为 ECS/VPC/EIP/EVS/ELB 的高频创建、删除和扩容操作提供结构化 request target、submit receipt、依赖和回读证据；这些是本地事实层，不执行轮询或工作流，也不等同于新增 live smoke
+- `hcloud_cost_estimate.py` 可以复用 BSS 询价计划为一个明确 SKU 生成或获取点时价格；未执行询价时金额保持 unknown，且 ECS compute、EVS、EIP、流量等组件边界不会被合并猜测
 - `hcloud_closure_plan.py --tier lifecycle` 可以为 VPC/安全组、EIP、EVS、ELB、RDS、OBS、DNS、SCM、CDN、CES/LTS 生成六阶段任务闭环计划，组合 change plan、readiness、OBS/LTS 专用适配器和本地风险策略，但不会执行真实云变更
 - `hcloud_closure_plan.py --tier governance` 可以为 TMS、CTS、CBR、RMS/Config、Billing/BSS、WAF、DLI、CodeArtsRepo 生成五阶段治理闭环计划，组合 curation profile、promotion audit、read-only evidence command plan、Billing request spec 和风险/隐私门禁，但不会执行治理写操作、签名请求或访问真实账单；Billing/BSS 不生成 live query 命令
 - `hcloud_closure_plan.py --tier scenario` 可以为 CCE、NAT、DCS、RFS、UCS、IAM/KPS/IMS、安全姿态和数据库族生成四阶段场景闭环计划，组合 curation profile、metadata catalog、read-only discovery、resource query 和风险边界；安全姿态和数据库族当前输出 `metadata_evidence_gap`，不会执行集群、NAT、缓存、IaC、多集群、安全、密钥、IAM 或数据库写操作

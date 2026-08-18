@@ -143,6 +143,7 @@ class ArchitectureContractsTest(unittest.TestCase):
             "scripts/hcloud_sdk_readonly.py": ("query_executor", "sdk", "plan"),
             "scripts/hcloud_account_inventory.py": ("query_executor", "hcloud", "plan"),
             "scripts/hcloud_billing_live_read.py": ("query_executor", "hcloud", "plan"),
+            "scripts/hcloud_cost_estimate.py": ("query_executor", "hcloud", "plan"),
             "scripts/hcloud_lts_readonly.py": ("query_executor", "hcloud", "plan"),
             "scripts/hcloud_service_readiness.py": ("query_executor", "hcloud", "plan"),
             "scripts/hcloud_resource_verify.py": ("inspector_router", "local", "verify"),

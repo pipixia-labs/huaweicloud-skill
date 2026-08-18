@@ -39,8 +39,14 @@ POSIX_HCLOUD_INSTALL_COMMANDS = [
 ]
 HCLOUD_CONFIG_COMMANDS = [
     "hcloud configure init --cli-profile <profile-name>",
+    "hcloud configure set --cli-profile <profile-name> --cli-region <region>",
     "hcloud configure list",
 ]
+HCLOUD_PRIVACY_COMMAND = "hcloud configure set --cli-agree-privacy-statement=true"
+HCLOUD_METADATA_COMMAND = "hcloud meta download"
+PROJECT_RESOLVE_COMMAND = (
+    "python3 scripts/hcloud_project_resolve.py --region <region> --pretty"
+)
 
 
 def platform_family(system_name: str | None = None) -> str:
@@ -140,6 +146,7 @@ def check_item(
     details: dict[str, Any] | None = None,
     next_actions: list[str] | None = None,
     install_commands: list[str] | None = None,
+    recovery_commands: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build one normalized environment check result."""
     return {
@@ -150,6 +157,7 @@ def check_item(
         "details": details or {},
         "next_actions": next_actions or [],
         "install_commands": install_commands or [],
+        "recovery_commands": recovery_commands or [],
     }
 
 
@@ -202,17 +210,65 @@ def inspect_hcloud(needs: set[str]) -> dict[str, Any]:
         isinstance(current_profile, dict)
         and (current_profile.get("has_access_key") or current_profile.get("mode") in {"ecsAgency", "SSO", "AssumeRole"})
     )
+    privacy_statement_accepted = config.get("agree_privacy") is True if isinstance(config, dict) else False
+    region_ready = bool(
+        isinstance(current_profile, dict)
+        and str(current_profile.get("region") or "").strip()
+    )
+    project_id_configured = bool(
+        isinstance(current_profile, dict)
+        and str(current_profile.get("project_id") or "").strip()
+    )
     required = "hcloud" in needs
-    status = "ok" if found else ("blocker" if required else "skipped")
+    live_call_context_ready = bool(
+        found
+        and privacy_statement_accepted
+        and profile_auth_ready
+        and region_ready
+    )
+    if not found:
+        status = "blocker" if required else "skipped"
+    elif required and not live_call_context_ready:
+        status = "warning"
+    else:
+        status = "ok"
     next_actions = []
     install_commands = []
+    recovery_commands: list[str] = []
     if not found:
         next_actions.append("Install Huawei Cloud KooCLI before live hcloud discovery or changes.")
         install_commands, platform_notes = hcloud_install_guidance()
         next_actions.extend(platform_notes)
+    if found and not privacy_statement_accepted:
+        next_actions.append("Review and accept the KooCLI privacy statement before non-interactive calls.")
+        recovery_commands.append(HCLOUD_PRIVACY_COMMAND)
     if found and not profile_auth_ready:
-        next_actions.append("Configure or choose an hcloud profile before live cloud calls.")
+        next_actions.append(
+            "Configure or choose an hcloud profile before live cloud calls; do not put credential values in doctor arguments or output."
+        )
+        recovery_commands.extend(HCLOUD_CONFIG_COMMANDS)
+    if found and not region_ready:
+        next_actions.append("Set the intended Huawei Cloud region on the selected profile.")
+        for command in HCLOUD_CONFIG_COMMANDS:
+            if "--cli-region" in command and command not in recovery_commands:
+                recovery_commands.append(command)
+        recovery_commands.append(PROJECT_RESOLVE_COMMAND)
+    elif found and not project_id_configured:
+        next_actions.append(
+            "Resolve the regional project ID before an operation that requires project_id."
+        )
+        recovery_commands.append(PROJECT_RESOLVE_COMMAND)
     meta_repo = summary.get("meta_repo", {})
+    metadata_cache_ready = bool(
+        isinstance(meta_repo, dict)
+        and meta_repo.get("services_file_exists")
+        and int(meta_repo.get("cached_service_count") or 0) > 0
+    )
+    if found and not metadata_cache_ready:
+        next_actions.append(
+            "Preload KooCLI metadata when repeated operation discovery is slow or offline templates are missing."
+        )
+        recovery_commands.append(HCLOUD_METADATA_COMMAND)
     return check_item(
         "hcloud",
         status,
@@ -224,6 +280,11 @@ def inspect_hcloud(needs: set[str]) -> dict[str, Any]:
             "config_exists": config.get("exists") if isinstance(config, dict) else False,
             "current_profile_name": config.get("current_profile_name") if isinstance(config, dict) else None,
             "profile_auth_ready": profile_auth_ready,
+            "privacy_statement_accepted": privacy_statement_accepted,
+            "region_ready": region_ready,
+            "project_id_configured": project_id_configured,
+            "metadata_cache_ready": metadata_cache_ready,
+            "live_call_context_ready": live_call_context_ready,
             "meta_repo": {
                 "exists": meta_repo.get("exists") if isinstance(meta_repo, dict) else False,
                 "services_file_exists": meta_repo.get("services_file_exists") if isinstance(meta_repo, dict) else False,
@@ -235,6 +296,7 @@ def inspect_hcloud(needs: set[str]) -> dict[str, Any]:
         },
         next_actions=next_actions,
         install_commands=install_commands,
+        recovery_commands=recovery_commands,
     )
 
 
@@ -582,6 +644,60 @@ def summarize(checks: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def build_recovery_plan(checks: list[dict[str, Any]]) -> dict[str, Any]:
+    """Project actionable recovery steps from completed local checks only.
+
+    The projection does not run commands or inspect anything beyond the supplied
+    check records. Hosts and Agents remain responsible for reviewing and running
+    any suggested action in their own permission boundary.
+    """
+
+    steps: list[dict[str, Any]] = []
+    for check in checks:
+        status = str(check.get("status") or "unknown")
+        required = bool(check.get("required"))
+        if status == "skipped":
+            continue
+        has_recovery = bool(
+            check.get("next_actions")
+            or check.get("install_commands")
+            or check.get("recovery_commands")
+        )
+        if status == "ok" and not (required and has_recovery):
+            continue
+        if not required and status != "blocker":
+            continue
+        commands = [
+            str(command)
+            for command in (
+                list(check.get("install_commands") or [])
+                + list(check.get("recovery_commands") or [])
+            )
+            if str(command).strip()
+        ]
+        steps.append(
+            {
+                "dependency": check.get("name"),
+                "status": status,
+                "required": required,
+                "blocking": required and status != "ok",
+                "summary": check.get("summary"),
+                "actions": list(check.get("next_actions") or []),
+                "commands": list(dict.fromkeys(commands)),
+                "execution_owner": "agent_or_host_after_review",
+            }
+        )
+    return {
+        "contract": "huaweicloud_skill_recovery_plan_v1",
+        "ready": not any(step["blocking"] for step in steps),
+        "step_count": len(steps),
+        "steps": steps,
+        "execution_performed": False,
+        "host_neutral": True,
+        "credential_values_accepted": False,
+    }
+
+
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     """Build the check-only environment doctor report."""
     needs = {str(item).lower() for item in getattr(args, "need", [])}
@@ -625,6 +741,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "needs": sorted(needs),
         "workdir": str(workdir),
         "summary": summarize(checks),
+        "recovery_plan": build_recovery_plan(checks),
         "checks": checks,
         "source_references": [
             "references/auth-and-context.md",

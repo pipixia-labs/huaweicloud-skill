@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import hcloud_common
+import hcloud_cost_estimate
 import hcloud_request_preflight
 import hcloud_security_policy
 from hcloud_core import CommandPlan, RiskAssessment
@@ -320,6 +321,16 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         service=args.service,
         metadata_category=getattr(args, "metadata_category", None),
     )
+    cost_estimate = hcloud_cost_estimate.unknown_cost_estimate(
+        service=args.service,
+        operation=args.operation,
+        region=args.region,
+        reason=(
+            "This generic change plan has no executed provider quote. Use "
+            "hcloud_cost_estimate.py with an exact billable SKU before making a cost claim."
+        ),
+        reason_code="PROVIDER_QUOTE_NOT_EXECUTED",
+    )
     policy_check = hcloud_security_policy.check_change_inputs(
         args.arg,
         args.json_input_file,
@@ -332,6 +343,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "service": args.service,
             "operation": args.operation,
             "risk": risk.to_dict(),
+            "cost_estimate": cost_estimate,
             "policy_violations": policy_violations,
             "policy_scan_error": policy_check["scan_error"],
             "commands": {},
@@ -358,6 +370,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "service": args.service,
                 "operation": args.operation,
                 "risk": risk.to_dict(),
+                "cost_estimate": cost_estimate,
                 "request_preflight": request_preflight,
                 "policy_violations": [],
                 "policy_scan_error": policy_check["scan_error"],
@@ -408,6 +421,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "service": args.service,
         "operation": args.operation,
         "risk": risk.to_dict(),
+        "cost_estimate": cost_estimate,
         "plan": command_plan.to_dict(),
         "commands": {
             "dryrun_or_plan": dryrun_command,

@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import time
 from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -26,6 +27,7 @@ MAX_AUTO_PAGES = 20
 MAX_AUTO_RECORDS = 1000
 MAX_MERGED_PAYLOAD_BYTES = 16 * 1024 * 1024
 CHECKPOINT_CONTRACT = "huaweicloud_billing_live_read_checkpoint_v1"
+PRICING_OPERATIONS = {"on-demand-pricing", "period-pricing"}
 
 
 def billing_args(args: argparse.Namespace) -> SimpleNamespace:
@@ -121,9 +123,10 @@ def validate_live_read_plan(billing_plan: dict[str, Any], *, fallback_limit: int
         errors.append("BSS live reads must pass an official X-Language value: zh_CN or en_US.")
     if not supports_x_language and x_language:
         errors.append(f"BSS operation {operation} does not accept X-Language and must omit that header.")
-    if limit > MAX_LIVE_LIMIT:
+    pricing_operation = billing_plan.get("operation") in PRICING_OPERATIONS
+    if not pricing_operation and limit > MAX_LIVE_LIMIT:
         errors.append(f"Live BSS read limit must be <= {MAX_LIVE_LIMIT}; got {limit}.")
-    if limit < 1:
+    if not pricing_operation and limit < 1:
         errors.append("Live BSS read limit must be greater than 0.")
     return errors
 
@@ -404,6 +407,8 @@ def run_safe_exec_page(
     command: list[str],
     args: argparse.Namespace,
     request_spec: dict[str, Any],
+    *,
+    pricing: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """Run one safe-exec page and return its public result and private payload."""
     with tempfile.TemporaryDirectory(prefix="hcloud-billing-read-") as temp_dir:
@@ -483,13 +488,20 @@ def run_safe_exec_page(
                 None,
             )
 
-        summary = hcloud_billing_result_summarize.build_summary(
-            summary_input,
-            offset=planned_int_field(request_spec, "offset", args.offset),
-            limit=planned_int_field(request_spec, "limit", args.limit),
-            include_redacted_records=args.include_redacted_records,
-            request_spec=request_spec,
-        )
+        if pricing:
+            summary = hcloud_billing_result_summarize.build_pricing_summary(
+                summary_input,
+                request_spec=request_spec,
+                observed_at=datetime.now(UTC).isoformat(),
+            )
+        else:
+            summary = hcloud_billing_result_summarize.build_summary(
+                summary_input,
+                offset=planned_int_field(request_spec, "offset", args.offset),
+                limit=planned_int_field(request_spec, "limit", args.limit),
+                include_redacted_records=args.include_redacted_records,
+                request_spec=request_spec,
+            )
         return (
             {
                 "executed": True,
@@ -506,9 +518,16 @@ def run_safe_exec(
     command: list[str],
     args: argparse.Namespace,
     request_spec: dict[str, Any],
+    *,
+    pricing: bool = False,
 ) -> dict[str, Any]:
     """Run one safe-exec page and discard its private payload after summarizing."""
-    result, _ = run_safe_exec_page(command, args, request_spec)
+    result, _ = run_safe_exec_page(
+        command,
+        args,
+        request_spec,
+        pricing=pricing,
+    )
     return result
 
 
@@ -788,6 +807,13 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
     command_plan = plan.get("hcloud_command_plan", {})
     command = safe_exec_command(command_plan, args)
     approval_ok = args.confirm_live_billing_read == CONFIRM_TOKEN
+    pricing_operation = plan.get("operation") in PRICING_OPERATIONS
+    if pricing_operation and (
+        getattr(args, "checkpoint_file", None) or getattr(args, "resume", False)
+    ):
+        guard_errors.append(
+            "Pricing inquiries are one non-paginated request and do not support checkpoint or resume."
+        )
 
     result: dict[str, Any] = {
         "success": not guard_errors and not args.execute,
@@ -812,16 +838,20 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
                 "full_payload_transport": "execution_local_0600_artifact",
             },
             "pagination": {
-                "mode": "automatic",
+                "mode": "not_applicable" if pricing_operation else "automatic",
                 "page_size": planned_int_field(
                     plan.get("request_spec", {}),
                     "limit",
                     args.limit,
-                ),
-                "max_pages": MAX_AUTO_PAGES,
-                "max_records": MAX_AUTO_RECORDS,
-                "total_timeout_seconds": getattr(args, "time_budget", None) or args.timeout,
-                "checkpoint_contract": CHECKPOINT_CONTRACT,
+                ) if not pricing_operation else None,
+                "max_pages": None if pricing_operation else MAX_AUTO_PAGES,
+                "max_records": None if pricing_operation else MAX_AUTO_RECORDS,
+                "total_timeout_seconds": args.timeout
+                if pricing_operation
+                else getattr(args, "time_budget", None) or args.timeout,
+                "checkpoint_contract": None
+                if pricing_operation
+                else CHECKPOINT_CONTRACT,
             },
         },
         "execution": {
@@ -848,7 +878,18 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
         result["live_read_plan"]["guard_errors"].append(f"Live billing read requires --confirm-live-billing-read {CONFIRM_TOKEN}.")
         return result
 
-    execution_result = run_paginated_safe_exec(args, plan)
+    if pricing_operation:
+        execution_result = run_safe_exec(
+            command,
+            args,
+            plan.get("request_spec", {}),
+            pricing=True,
+        )
+        execution_result["outcome_status"] = (
+            "succeeded" if execution_result.get("success") else "failed"
+        )
+    else:
+        execution_result = run_paginated_safe_exec(args, plan)
     result["execution"] = {
         "requested": True,
         "executed": bool(execution_result.get("executed")),
@@ -967,6 +1008,12 @@ def billing_receipt_summary(result: dict[str, Any]) -> dict[str, Any] | None:
     if not isinstance(summary, dict):
         return None
     pagination = summary.get("pagination")
+    pricing_quote = summary.get("pricing_quote")
+    if isinstance(pricing_quote, dict):
+        return {
+            "pagination": pagination,
+            "pricing_quote": pricing_quote,
+        }
     public_summary = summary.get("summary")
     if isinstance(public_summary, dict):
         public_summary = {

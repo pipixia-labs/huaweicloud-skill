@@ -67,8 +67,60 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
                 "RDS.DeleteInstance",
                 "DNS.CreateRecordSet",
                 "DNS.DeleteRecordSet",
+                "VPC.CreateVpc",
+                "VPC.CreateSubnet",
+                "VPC.DeleteSubnet",
+                "VPC.DeleteVpc",
+                "EIP.CreatePublicip",
+                "EIP.DeletePublicip",
+                "EVS.ResizeVolume",
+                "ELB.CreateLoadBalancer",
+                "ELB.DeleteLoadBalancer",
+                "ELB.CreateMember",
+                "ELB.DeleteMember",
+                "ELB.CreateHealthMonitor",
+                "ELB.DeleteHealthMonitor",
             },
         )
+
+    def test_core_service_profiles_expose_submit_and_readback_meaning(self) -> None:
+        expectations = {
+            ("VPC", "CreateVpc"): ("response.vpc.id", "present"),
+            ("EIP", "CreatePublicip"): ("response.publicip.id", "present"),
+            ("EVS", "ResizeVolume"): ("request.path.volume_id", "size_matches_requested"),
+            ("ELB", "CreateLoadBalancer"): ("response.loadbalancer.id", "present"),
+        }
+
+        for (service, operation), (target_source, expected) in expectations.items():
+            with self.subTest(service=service, operation=operation):
+                behavior = hcloud_operation_behavior.find_operation_behavior(
+                    service,
+                    operation,
+                )
+                self.assertIsNotNone(behavior)
+                readback = behavior["async_convergence"]["resource_readback"]
+                self.assertEqual(readback["target_ids_source"], target_source)
+                self.assertEqual(readback["expected"], expected)
+                self.assertFalse(behavior["submit_receipt"]["per_item_completion"])
+
+    def test_core_delete_profiles_require_absence_readback(self) -> None:
+        for service, operation in (
+            ("VPC", "DeleteVpc"),
+            ("VPC", "DeleteSubnet"),
+            ("EIP", "DeletePublicip"),
+            ("ELB", "DeleteLoadBalancer"),
+            ("ELB", "DeleteMember"),
+            ("ELB", "DeleteHealthMonitor"),
+        ):
+            with self.subTest(service=service, operation=operation):
+                behavior = hcloud_operation_behavior.find_operation_behavior(
+                    service,
+                    operation,
+                )
+                self.assertEqual(
+                    behavior["async_convergence"]["resource_readback"]["expected"],
+                    "not_found",
+                )
 
     def test_profile_identity_support_level_and_catalog_evidence_do_not_drift(self) -> None:
         profiles = hcloud_operation_behavior.load_profiles()
@@ -239,7 +291,7 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
         result = hcloud_operation_behavior.build_coverage_matrix()
 
         by_service = {row["service"]: row for row in result["services"]}
-        self.assertEqual(result["summary"]["profiled_operation_count"], 14)
+        self.assertEqual(result["summary"]["profiled_operation_count"], 27)
         self.assertEqual(
             by_service["EIP"]["profiled_batch_operations"],
             ["BatchDeletePublicIp"],
@@ -253,6 +305,10 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
             ["DeleteServers"],
         )
         self.assertEqual(by_service["VPC"]["profiled_batch_operations"], [])
+        self.assertEqual(
+            by_service["VPC"]["profiled_operations"],
+            ["CreateSubnet", "CreateVpc", "DeleteSubnet", "DeleteVpc"],
+        )
         self.assertTrue(by_service["VPC"]["generic_metadata_backed_available"])
         self.assertGreater(by_service["VPC"]["metadata_catalog_operation_count"], 0)
         self.assertTrue(by_service["EVS"]["has_operation_async_profile"])
@@ -302,7 +358,7 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
             "resource_readback_only",
         )
 
-    def test_unprofiled_change_plan_preserves_the_existing_output_shape(self) -> None:
+    def test_vpc_change_plan_exposes_new_operation_behavior(self) -> None:
         result = hcloud_service_change_plan.build_service_plan(
             SimpleNamespace(
                 service="VPC",
@@ -319,7 +375,10 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
         )
 
         self.assertTrue(result["success"], result)
-        self.assertNotIn("operation_behavior", result)
+        self.assertEqual(
+            result["operation_behavior"]["async_convergence"]["resource_readback"]["expected"],
+            "present",
+        )
 
     def test_ecs_create_plan_exposes_multi_resource_completion_contract(self) -> None:
         behavior = hcloud_ecs_create_plan.operation_behavior("CreateServers")

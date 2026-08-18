@@ -50,12 +50,13 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
    - 宽泛或架构不明确的网站部署任务可先读取 router 的 `architecture_decision` 和 `matches`；它是决策辅助，不是所有网站任务的前置门禁，也不替 Agent 预设 ECS、OBS、Flexus 或具体规格。
    - 网站部署任务先读取顶层 `architecture_decision`，再看 `matches`。`explicit_constraints` 是用户约束，不是成本优化提示；用户指定机器、ECS、公网 IP、SSH、Nginx 或 Docker 时，不得自动改成 OBS。
    - `change_execution_blocked=true` 时，原样围绕 `clarification_question` 澄清运行载体或动态能力；确认前禁止生成或执行创建、购买、上传、公开访问等变更。`change_execution_blocked=false` 只表示当前不需要架构澄清，**不表示用户已授权执行**。
-   - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；未知项优先给出保守默认值和可选改动。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
+   - 网站任务涉及资源计费、公网暴露、域名/DNS/HTTPS 或 MaaS 图片/视频调用时，先向用户给出一份合并方案再等待确认。方案至少说明：推荐架构与资源、region、网络和公网入口、域名/HTTPS 处理方式、MaaS 资产数量与用途、持续费用和主要风险；持续费用优先引用变更计划中的 `cost_estimate`，若其 `status=unknown`，必须原样说明原因和范围，不能用资源清单或经验价冒充实时询价。用户首条“帮我搭建/部署/上线”只授权规划和只读预检，不授权付费资源创建、MaaS API 调用、上传或公网暴露；只有用户在看见该方案后明确回复“按此方案继续”或等效确认，才可进入执行。
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
    - Agent 自主决定查什么和传什么业务参数；通过当前 runtime 的普通命令执行工具直接运行本 Skill 的专用 CLI，不依赖宿主专属 Function Calling 名称，也不要臆造不存在的平台 Tool。
    - 账号级多服务盘点使用 `python3 scripts/hcloud_account_inventory.py --region <region> --execute --strict --output-file <workspace-result.json>`。脚本会在每个区域解析并复用一次 `project_id`，有限并发查询服务，并在 stdout 返回紧凑摘要和完整结果文件位置。可能被宿主运行时中断时，加 `--checkpoint-file <private-checkpoint.json> --time-budget <seconds>`；下一轮用相同查询参数和 `--resume` 只继续未完成检查，不重复已完成服务。
    - 账单、成本或费用记录使用 `python3 scripts/hcloud_billing_live_read.py ... --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace-result.json>`。脚本在安全上限内自动分页和合并；Agent 不手工维护普通总额查询的下一页 `offset`。长分页可使用独立 `--checkpoint-file` 和 `--time-budget`，恢复时复用已接受页面并从 `pagination.next_offset` 继续。checkpoint 含未脱敏的执行中间数据，只能保存在受限 workspace 中，不能读入对话或当作公共结果。
+   - 单次资源变更的持续费用证据使用 `python3 scripts/hcloud_cost_estimate.py --service <SERVICE> --region <region> --project-id <project-id> --resource-spec <sku> --quantity <count> ...`。默认只生成 BSS 询价计划，`cost_estimate.status=unknown` 且 `amount=null`；只有显式 `--execute --confirm-live-billing-read READ_BILLING_DATA` 返回 `status=quoted` 后，才可引用金额。`scope` 必须说明包含/排除的组件、计费模式、用量或周期；询价不是历史账单，也不创建订单。EIP 必须明确选择 `eip-bw`、`eip-flow` 或 `eip-ip`，不能把地址、带宽和流量混成一个价格。
    - 收到 stdout 文件回执后，先读 `outcome_status`、`summary` 和 `result_file`。需要资源明细时用 `jq` 等工具从结果文件提取当前回答所需字段，不要把完整大文件一次性读回模型上下文。命令退出码非零时仍要检查结果文件；`partially_succeeded` 表示可使用成功部分并明确失败服务，不等于整项查询没有结果。
    - 参数错误、凭据错误、超时、版本解析错误或部分成功时，先根据结构化错误判断根因。可修正同一路径，也可在 hcloud 确有覆盖/解析障碍、SDK 更适合类型化或程序化处理时切换 SDK；切换要保留原因和重新验证项，不重复已经成功的查询或副作用。
    - 正例（北京4资源盘点）：运行 `hcloud_account_inventory.py --region cn-north-4 --execute --strict --output-file <workspace>/beijing4-inventory.json`；stdout 返回回执后，从该文件提取资源名称、ID、状态和关系，并保留失败服务清单。
@@ -121,7 +122,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
 | 多服务发现、目标查询、readiness/live validation（含 CCI 工作负载前检） | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py`、`hcloud_cci_workload_plan.py` |
 | 创建/变更请求预检、风险校验和回读帮助 | `hcloud_request_preflight.py`、`hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
 | P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |
-| 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py`、`hcloud_billing_live_read.py` |
+| 盘点、闲置、成本、治理 | `hcloud_account_inventory.py`、`hcloud_idle_audit.py`、`hcloud_billing_readonly.py`、`hcloud_billing_live_read.py`、`hcloud_cost_estimate.py` |
 | Terraform/IaC | `hcloud_terraform_context_inspect.py`、`hcloud_terraform_router.py`、`hcloud_terraform_operations_plan.py` |
 | MaaS 模型调用、图片/视频、用量治理 | `maas_models.py`、`maas_chat.py`、`maas_image_generation.py`、`maas_video_generation.py`、`maas_usage_request_plan.py` |
 | 脚本边界、维护分层、完整命令模板 | `references/scripts.md`、`references/script-audience-manifest.json` |

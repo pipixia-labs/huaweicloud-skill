@@ -64,6 +64,11 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertEqual(result["summary"]["required_blockers"], ["terraform"])
         self.assertEqual(result["summary"]["required_unready"], ["terraform"])
         self.assertEqual(result["dependency_contract"], "huaweicloud_skill_runtime_dependencies_v1")
+        self.assertEqual(result["recovery_plan"]["contract"], "huaweicloud_skill_recovery_plan_v1")
+        self.assertFalse(result["recovery_plan"]["ready"])
+        self.assertEqual(result["recovery_plan"]["step_count"], 1)
+        self.assertEqual(result["recovery_plan"]["steps"][0]["dependency"], "terraform")
+        self.assertFalse(result["recovery_plan"]["execution_performed"])
         self.assertIn("does not install packages", result["execution_boundary"])
         self.assertTrue(all(not Path(reference).is_absolute() and (ROOT / reference).exists() for reference in result["source_references"]))
 
@@ -203,6 +208,111 @@ class HcloudEnvironmentDoctorTest(unittest.TestCase):
         self.assertEqual(required["status"], "blocker")
         self.assertTrue(required["required"])
         self.assertTrue(all(call.kwargs["include_sdk_runtime"] is False for call in build.call_args_list))
+
+    def test_hcloud_recovery_reports_privacy_profile_region_and_metadata_actions(self) -> None:
+        summary = {
+            "hcloud": {"found": True, "version": "7.2.12"},
+            "config": {
+                "exists": True,
+                "agree_privacy": False,
+                "current_profile_name": None,
+                "current_profile": None,
+            },
+            "meta_repo": {
+                "exists": True,
+                "services_file_exists": False,
+                "cached_service_count": 0,
+                "template_services": [],
+                "template_file_count": 0,
+            },
+        }
+        with mock.patch.object(
+            hcloud_environment_doctor.hcloud_context_inspect,
+            "build_summary",
+            return_value=summary,
+        ):
+            result = hcloud_environment_doctor.inspect_hcloud({"hcloud"})
+
+        self.assertEqual(result["status"], "warning")
+        self.assertFalse(result["details"]["live_call_context_ready"])
+        self.assertFalse(result["details"]["privacy_statement_accepted"])
+        self.assertFalse(result["details"]["region_ready"])
+        self.assertFalse(result["details"]["metadata_cache_ready"])
+        self.assertIn(
+            "hcloud configure set --cli-agree-privacy-statement=true",
+            result["recovery_commands"],
+        )
+        self.assertIn(
+            "python3 scripts/hcloud_project_resolve.py --region <region> --pretty",
+            result["recovery_commands"],
+        )
+        self.assertTrue(any("meta" in command.lower() for command in result["recovery_commands"]))
+
+    def test_hcloud_metadata_and_project_recovery_can_remain_advisory(self) -> None:
+        summary = {
+            "hcloud": {"found": True, "version": "7.2.12"},
+            "config": {
+                "exists": True,
+                "agree_privacy": True,
+                "current_profile_name": "test",
+                "current_profile": {
+                    "name": "test",
+                    "mode": "AKSK",
+                    "region": "cn-north-4",
+                    "project_id": "",
+                    "has_access_key": True,
+                },
+            },
+            "meta_repo": {
+                "exists": True,
+                "services_file_exists": False,
+                "cached_service_count": 0,
+                "template_services": [],
+                "template_file_count": 0,
+            },
+        }
+        with mock.patch.object(
+            hcloud_environment_doctor.hcloud_context_inspect,
+            "build_summary",
+            return_value=summary,
+        ):
+            check = hcloud_environment_doctor.inspect_hcloud({"hcloud"})
+        recovery = hcloud_environment_doctor.build_recovery_plan([check])
+
+        self.assertEqual(check["status"], "ok")
+        self.assertTrue(check["details"]["live_call_context_ready"])
+        self.assertFalse(check["details"]["project_id_configured"])
+        self.assertTrue(recovery["ready"])
+        self.assertEqual(recovery["step_count"], 1)
+        self.assertFalse(recovery["steps"][0]["blocking"])
+        self.assertIn(
+            "python3 scripts/hcloud_project_resolve.py --region <region> --pretty",
+            recovery["steps"][0]["commands"],
+        )
+
+    def test_recovery_plan_is_derived_from_checks_without_executing_actions(self) -> None:
+        checks = [
+            item("python", "ok", True),
+            {
+                **item("hcloud", "warning", True),
+                "next_actions": ["Configure hcloud."],
+                "install_commands": [],
+                "recovery_commands": ["hcloud configure list"],
+            },
+            item("network", "unknown", True),
+        ]
+
+        result = hcloud_environment_doctor.build_recovery_plan(checks)
+
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["step_count"], 2)
+        self.assertEqual(
+            [step["dependency"] for step in result["steps"]],
+            ["hcloud", "network"],
+        )
+        self.assertEqual(result["steps"][0]["commands"], ["hcloud configure list"])
+        self.assertFalse(result["execution_performed"])
+        self.assertTrue(result["host_neutral"])
 
     def test_sdk_service_requirements_are_scoped_to_requested_packages(self) -> None:
         def package_path(package_name):

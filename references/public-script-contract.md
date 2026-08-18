@@ -10,7 +10,7 @@
 
 公共 CLI 分为两层，避免把“大结果传输”和“所有脚本都能稳定调用”混成一件事：
 
-1. `huaweicloud_skill_agent_cli_v1` 是 54 个真实 Agent 入口的最小分母。入口由 manifest 中
+1. `huaweicloud_skill_agent_cli_v1` 是 55 个真实 Agent 入口的最小分母。入口由 manifest 中
    `default_runtime`、`guarded_change` 和 `runtime_supplement` 三组确定；可从稳定 launcher 调用，
    成功结果至少有布尔 `success`，默认最终 stdout 是一个 JSON object，退出码表示 CLI 契约是否完成。
 2. `huaweicloud_skill_public_result_v1` 是较丰富的扩展，面向可能产生大结果或需要稳定 artifact
@@ -97,6 +97,7 @@ artifact 扩展，而不是记忆每个脚本的私有结果协议。
 - `hcloud_sdk_readonly.py`
 - `hcloud_account_inventory.py`
 - `hcloud_billing_live_read.py`
+- `hcloud_cost_estimate.py`
 - `hcloud_lts_readonly.py`
 - `hcloud_service_readiness.py`
 - `hcloud_resource_verify.py`

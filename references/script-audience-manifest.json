@@ -151,6 +151,16 @@
         "time_budget_supported": true
       }
     },
+    "scripts/hcloud_cost_estimate.py": {
+      "kind": "query_executor",
+      "backend": "hcloud",
+      "cloud_access": "explicit_confirmed_execute",
+      "default_mode": "plan",
+      "contract_level": "artifact_receipt",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "compact_receipt",
+      "output_file_content": "full_json"
+    },
     "scripts/hcloud_lts_readonly.py": {
       "kind": "query_executor",
       "backend": "hcloud",
@@ -340,6 +350,7 @@
         "scripts/hcloud_billing_live_read.py",
         "scripts/hcloud_billing_readonly.py",
         "scripts/hcloud_billing_result_summarize.py",
+        "scripts/hcloud_cost_estimate.py",
         "scripts/hcloud_cce_assessment_plan.py",
         "scripts/hcloud_cci_workload_plan.py",
         "scripts/hcloud_ces_alarm_plan.py",

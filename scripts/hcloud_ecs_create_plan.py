@@ -9,6 +9,7 @@ import re
 import shlex
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -16,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import hcloud_common  # noqa: E402
+import hcloud_cost_estimate  # noqa: E402
 import hcloud_operation_evidence  # noqa: E402
 import hcloud_run_journal  # noqa: E402
 
@@ -438,11 +440,112 @@ def operation_behavior(operation: str) -> dict[str, Any] | None:
     ).get("operation_behavior")
 
 
+def build_ecs_cost_estimate(
+    payload: Any,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Build a compute-only provider quote plan from a valid ECS request."""
+
+    exists_project, project_id = get_path_value(payload, ("path", "project_id"))
+    exists_flavor, flavor = get_path_value(
+        payload,
+        ("body", "server", "flavorRef"),
+    )
+    exists_count, count = get_path_value(payload, ("body", "server", "count"))
+    exists_az, availability_zone = get_path_value(
+        payload,
+        ("body", "server", "availability_zone"),
+    )
+    exists_period_type, period_type = get_path_value(
+        payload,
+        ("body", "server", "extendparam", "periodType"),
+    )
+    exists_period_num, period_num = get_path_value(
+        payload,
+        ("body", "server", "extendparam", "periodNum"),
+    )
+    scope_values_ready = all(
+        (exists_project, exists_flavor, exists_count)
+    ) and isinstance(count, int)
+    period_scope_ready = (
+        args.operation == "CreateServers"
+        and exists_period_type
+        and bool(str(period_type).strip())
+        and exists_period_num
+        and isinstance(period_num, int)
+        and period_num > 0
+    )
+    if args.operation == "CreateServers" and not period_scope_ready:
+        return hcloud_cost_estimate.unknown_cost_estimate(
+            service="ECS",
+            operation=args.operation,
+            region=args.region,
+            reason=(
+                "Period pricing needs an explicit period type and period count; "
+                "the ECS request is not used to guess that commercial choice."
+            ),
+            reason_code="PERIOD_PRICING_SCOPE_INCOMPLETE",
+            quantity=count if isinstance(count, int) else None,
+            resource_spec=[str(flavor)] if exists_flavor else [],
+            components_included=["ECS compute"],
+            components_excluded=hcloud_cost_estimate.SERVICE_EXCLUDED_COMPONENTS[
+                "ECS"
+            ],
+        )
+    if not scope_values_ready or not args.region:
+        return hcloud_cost_estimate.unknown_cost_estimate(
+            service="ECS",
+            operation=args.operation,
+            region=args.region,
+            reason=(
+                "ECS compute quote planning requires project_id, region, flavor, "
+                "and count from the validated request."
+            ),
+            quantity=count if isinstance(count, int) else None,
+            resource_spec=[str(flavor)] if exists_flavor else [],
+            components_included=["ECS compute"],
+            components_excluded=hcloud_cost_estimate.SERVICE_EXCLUDED_COMPONENTS[
+                "ECS"
+            ],
+        )
+    charge_mode = (
+        "period" if args.operation == "CreateServers" else "on_demand"
+    )
+    result = hcloud_cost_estimate.build_cost_estimate(
+        SimpleNamespace(
+            service="ECS",
+            region=args.region,
+            project_id=str(project_id),
+            charge_mode=charge_mode,
+            pricing_preset="ecs",
+            resource_spec=[str(flavor)],
+            quantity=count,
+            resource_size=[],
+            size_measure_id=[],
+            usage_value=[] if charge_mode == "period" else [1.0],
+            available_zone=str(availability_zone) if exists_az else None,
+            period_type=[str(period_type)] if charge_mode == "period" else [],
+            period_num=[period_num] if charge_mode == "period" else [],
+            fee_installment_mode=None,
+            execute=False,
+            confirm_live_billing_read=None,
+            timeout=120,
+            max_output_chars=20000,
+            output_file=None,
+            pretty=False,
+        )
+    )
+    estimate = result["cost_estimate"]
+    estimate["scope"]["operation"] = args.operation
+    return estimate
+
+
 def build_result(args: argparse.Namespace) -> dict[str, Any]:
     """Build a validation and command plan for an ECS create JSON file."""
     json_input_file = Path(args.json_input_file)
     errors: list[str] = []
     warnings: list[str] = []
+    payload: Any = None
 
     if args.mode == "submit" and not args.confirm_submit:
         errors.append("Non-dryrun submit mode requires --confirm-submit.")
@@ -515,6 +618,7 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
         "hcloud": build_hcloud_command(args, json_input_file),
         "hcloud_shell": shlex.join(build_hcloud_command(args, json_input_file)),
     } if ready_to_run else {}
+    cost_estimate = build_ecs_cost_estimate(payload, args)
 
     result = {
         "success": validation["valid"],
@@ -524,6 +628,7 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
         "mode": args.mode,
         "json_input_file": str(json_input_file),
         "validation": validation,
+        "cost_estimate": cost_estimate,
         "commands": commands,
         "next_steps": build_next_steps(args, validation),
     }
@@ -550,6 +655,7 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
                 "success": bool(result["success"]),
                 "ready_to_run": ready_to_run,
                 "validation": validation,
+                "cost_estimate": cost_estimate,
                 "commands": commands,
             },
         )

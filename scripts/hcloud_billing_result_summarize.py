@@ -287,6 +287,140 @@ def pagination_summary(payload: Any, offset: int | None = None, limit: int | Non
     }
 
 
+def pricing_scope_summary(request_spec: dict[str, Any] | None) -> dict[str, Any]:
+    """Return non-sensitive product dimensions from a pricing request."""
+
+    body = request_spec.get("body") if isinstance(request_spec, dict) else None
+    products = body.get("product_infos") if isinstance(body, dict) else None
+    safe_products: list[dict[str, Any]] = []
+    for product in products if isinstance(products, list) else []:
+        if not isinstance(product, dict):
+            continue
+        safe_products.append(
+            {
+                key: product.get(key)
+                for key in (
+                    "cloud_service_type",
+                    "resource_type",
+                    "resource_spec",
+                    "region",
+                    "available_zone",
+                    "resource_size",
+                    "size_measure_id",
+                    "subscription_num",
+                    "usage_factor",
+                    "usage_value",
+                    "usage_measure_id",
+                    "period_type",
+                    "period_num",
+                )
+                if product.get(key) is not None
+            }
+        )
+    return {
+        "product_count": len(safe_products),
+        "products": safe_products,
+        "project_id_in_request": bool(
+            isinstance(body, dict) and body.get("project_id")
+        ),
+        "project_id_included": False,
+    }
+
+
+def build_pricing_summary(
+    raw_value: Any,
+    *,
+    request_spec: dict[str, Any] | None = None,
+    observed_at: str | None = None,
+) -> dict[str, Any]:
+    """Build a bounded point-in-time BSS pricing quote summary.
+
+    Pricing inquiry responses are not paginated billing record sets. This
+    function intentionally reports only aggregate quote fields and counts; it
+    never returns product identifiers or optional discount alternative amounts.
+    """
+
+    payload, safe_exec = unwrap_safe_exec_result(raw_value)
+    operation = str(safe_exec.get("operation") or "") if isinstance(safe_exec, dict) else ""
+    normalized_operation = operation.split("/", 1)[0]
+    if not isinstance(payload, dict):
+        return {
+            "success": False,
+            "source": "safe_exec" if safe_exec is not None else "direct_json",
+            "operation": operation or None,
+            "pricing_quote": None,
+            "pagination": {"mode": "not_applicable", "complete": True},
+            "error": "Pricing payload must be a JSON object.",
+        }
+
+    currency_value = bounded_summary_scalar(payload.get("currency"))
+    currency_defaulted = currency_value in (None, "")
+    currency = "CNY" if currency_defaulted else str(currency_value)
+    if normalized_operation == "ListRateOnPeriodDetail":
+        official = payload.get("official_website_rating_result")
+        official = official if isinstance(official, dict) else {}
+        quoted_amount = bounded_summary_scalar(
+            official.get("official_website_amount")
+        )
+        component_results = official.get("product_rating_results")
+        optional_discounts = payload.get("optional_discount_rating_results")
+        quote = {
+            "quote_kind": "period_subscription",
+            "quoted_amount": quoted_amount,
+            "official_website_amount": quoted_amount,
+            "discount_amount": None,
+            "currency": currency,
+            "currency_defaulted_to_cny": currency_defaulted,
+            "measure_id": bounded_summary_scalar(official.get("measure_id")),
+            "component_count": len(component_results)
+            if isinstance(component_results, list)
+            else 0,
+            "optional_discount_alternative_count": len(optional_discounts)
+            if isinstance(optional_discounts, list)
+            else 0,
+            "discount_selection": "not_selected",
+            "observed_at": observed_at,
+        }
+    else:
+        component_results = payload.get("product_rating_results")
+        quote = {
+            "quote_kind": "on_demand_usage",
+            "quoted_amount": bounded_summary_scalar(payload.get("amount")),
+            "official_website_amount": bounded_summary_scalar(
+                payload.get("official_website_amount")
+            ),
+            "discount_amount": bounded_summary_scalar(
+                payload.get("discount_amount")
+            ),
+            "currency": currency,
+            "currency_defaulted_to_cny": currency_defaulted,
+            "measure_id": bounded_summary_scalar(payload.get("measure_id")),
+            "component_count": len(component_results)
+            if isinstance(component_results, list)
+            else 0,
+            "optional_discount_alternative_count": 0,
+            "discount_selection": "provider_aggregate_result",
+            "observed_at": observed_at,
+        }
+    return {
+        "success": quote["quoted_amount"] not in (None, ""),
+        "source": "safe_exec" if safe_exec is not None else "direct_json",
+        "operation": operation or None,
+        "pricing_quote": quote,
+        "pricing_scope": pricing_scope_summary(request_spec),
+        "pagination": {
+            "mode": "not_applicable",
+            "complete": True,
+            "complete_result_claim_allowed": True,
+        },
+        "output_boundary": {
+            "aggregate_quote_only": True,
+            "raw_product_results_included": False,
+            "optional_discount_amounts_included": False,
+        },
+    }
+
+
 def build_summary(
     raw_value: Any,
     *,

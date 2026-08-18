@@ -40,6 +40,10 @@ python3 scripts/hcloud_environment_doctor.py --pretty
 
 Use this when the user asks about installation, local setup, credential readiness, Terraform readiness, SDK availability, OBS tooling, network preflight ownership, writable artifacts, or MaaS prerequisites. It is check-only: it does not install packages, modify credentials, write config, run `terraform init/plan/apply`, call Huawei Cloud APIs, or probe external networks. The dependency model is defined in `references/runtime-dependencies.md`.
 
+报告中的 `recovery_plan` 只从已完成检查确定性地投影恢复步骤。每步保留依赖状态、建议动作和精确的
+安装/配置/解析命令，同时保持 `execution_performed=false`。因此，隐私声明、hcloud profile/region、
+metadata cache 或任务所需 SDK package 缺失时会得到可执行建议，但脚本不接收凭据值，也不探测宿主内部状态。
+
 Mark task-specific requirements so optional tools become blockers only when needed:
 
 ```bash
@@ -166,6 +170,10 @@ python3 scripts/hcloud_operation_behavior.py \
 含义、逐项结果合同、可直接轮询的 API 和最终资源回查条件。它不访问云端、不 sleep、不轮询、不提交
 变更，也不替 Agent 编排任务。Agent 可以直接调用 profile 中声明的查询 operation；现有 waiter 只是可选
 高频捷径，不是公共轮询框架。
+
+核心生命周期 profile 还覆盖 VPC 创建/删除、EIP 创建/删除、EVS 单卷扩容，以及 ELB 负载均衡器、
+成员和健康检查的创建/删除。同步空响应或返回资源对象都只表示请求被接受；创建必须回读目标属性，
+删除必须用目标查询或完整分页证明不存在，EVS 扩容必须先收敛 job 再核对最终容量。
 
 不带 service/operation 时生成机器可读服务覆盖矩阵；维护者也可以查看 Markdown 视图：
 
@@ -690,6 +698,28 @@ python3 scripts/hcloud_billing_result_summarize.py \
 ```
 
 Use this after an approved BSS safe_exec read. The summarizer accepts either a full `hcloud_safe_exec.py` result JSON or a direct BSS payload. By default it returns only field/record counts, money-field presence, pagination completeness, and redaction metadata. Add `--include-redacted-records` only when row-level evidence is needed; protected identifiers such as account/customer/resource/order/coupon IDs are replaced with stable hash markers.
+
+### 单次变更费用估算
+
+```bash
+python3 scripts/hcloud_cost_estimate.py \
+  --service ECS \
+  --region cn-north-4 \
+  --project-id <project-id> \
+  --charge-mode on_demand \
+  --resource-spec s6.small.1 \
+  --quantity 1 \
+  --pretty
+```
+
+该入口为一个有界 SKU 变更复用现有 BSS 询价 planner/live-read 路径。plan 模式不会编造金额：它返回
+`cost_estimate.status=unknown`、`amount=null`、精确询价范围、排除组件和可执行的下一步命令。审查范围后
+才能增加 `--execute --confirm-live-billing-read READ_BILLING_DATA`。成功执行得到的是点时 provider
+询价，不是历史账单证据，也不是购买承诺。包周期询价不会静默选择某个可选折扣方案。EIP 询价必须显式
+使用 `--pricing-preset eip-bw`、`eip-flow` 或 `eip-ip`。
+
+通用变更计划也会输出显式 unknown 的 `cost_estimate`。ECS 创建 planner 可以从 project、region、
+flavor 和 count 派生仅计算资源的询价计划，并明确把 EVS、EIP、流量和附加服务排除在该金额之外。
 
 ### Explicit Resource Query
 

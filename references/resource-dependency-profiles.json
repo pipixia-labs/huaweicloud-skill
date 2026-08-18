@@ -42,6 +42,22 @@
       "verification": {"target_readback": {"operations": ["ShowServer", "ListServersDetails"], "expected": "not_found", "list_absence_requires_complete_pagination": true}, "business_acceptance_is_separate": false},
       "evidence_sources": ["ecs_guide", "operation_behavior_profile", "official_sdk_schema"]
     },
+    "VPC.vpc.create": {
+      "id": "VPC.vpc.create",
+      "service": "VPC",
+      "resource_kind": "vpc",
+      "lifecycle": "create",
+      "applies_to_operations": ["CreateVpc"],
+      "completeness": "bounded_high_confidence",
+      "prerequisites": [
+        {"id": "region_project", "service": "IAM", "resource_kind": "regional_project_context", "relationship": "must_match_target_region", "must_resolve_before_submit": true, "discovery_operations": ["KeystoneListProjects"], "verification_operations": []},
+        {"id": "cidr", "service": "VPC", "resource_kind": "cidr", "relationship": "must_not_overlap_planned_connected_networks", "must_resolve_before_submit": true, "discovery_operations": ["ListVpcs"], "verification_operations": []}
+      ],
+      "blockers": [],
+      "related_resources": [],
+      "verification": {"target_readback": {"operations": ["ShowVpc", "ListVpcs"], "expected": "present_with_matching_name_and_cidr", "success_states": ["ACTIVE"]}, "business_acceptance_is_separate": false},
+      "evidence_sources": ["vpc_network_readiness_playbook", "generated_hcloud_catalog", "official_sdk_schema"]
+    },
     "VPC.subnet.create": {
       "id": "VPC.subnet.create",
       "service": "VPC",
@@ -219,6 +235,53 @@
       "related_resources": [],
       "verification": {"target_readback": {"operations": ["ShowMember", "ListMembers"], "success_states": ["ONLINE"]}, "business_acceptance_is_separate": true},
       "evidence_sources": ["elb_http_backend_readiness_playbook", "elb_guide"]
+    },
+    "ELB.member.delete": {
+      "id": "ELB.member.delete",
+      "service": "ELB",
+      "resource_kind": "member",
+      "lifecycle": "delete",
+      "applies_to_operations": ["DeleteMember"],
+      "completeness": "bounded_high_confidence",
+      "prerequisites": [],
+      "blockers": [],
+      "related_resources": [
+        {"service": "ELB", "resource_kind": "pool", "relationship": "backend_capacity_and_health_change", "post_change_readback_required": true, "verification_operations": ["ShowPool", "ListMembers"]},
+        {"service": "ECS", "resource_kind": "backend_service", "relationship": "service_may_remain_running_but_leave_the_pool", "post_change_readback_required": false, "verification_operations": ["ShowServer"]}
+      ],
+      "verification": {"target_readback": {"operations": ["ShowMember", "ListMembers"], "expected": "not_found", "list_absence_requires_complete_pagination": true}, "business_acceptance_is_separate": true, "additional_acceptance": ["remaining_backend_capacity", "listener_protocol_health"]},
+      "evidence_sources": ["elb_guide", "official_sdk_schema"]
+    },
+    "ELB.health_monitor.create": {
+      "id": "ELB.health_monitor.create",
+      "service": "ELB",
+      "resource_kind": "health_monitor",
+      "lifecycle": "create",
+      "applies_to_operations": ["CreateHealthMonitor"],
+      "completeness": "bounded_high_confidence",
+      "prerequisites": [
+        {"service": "ELB", "resource_kind": "pool", "relationship": "must_exist_and_have_compatible_protocol", "must_resolve_before_submit": true, "discovery_operations": ["ListPools"], "verification_operations": ["ShowPool"]},
+        {"service": "ECS", "resource_kind": "backend_service", "relationship": "probe_port_path_and_expected_code_must_match_service", "must_resolve_before_submit": true, "discovery_operations": ["ListCloudServers"], "verification_operations": []}
+      ],
+      "blockers": [],
+      "related_resources": [],
+      "verification": {"target_readback": {"operations": ["ShowHealthMonitor", "ListHealthMonitors"], "expected": "present_with_matching_pool_protocol_interval_and_timeout"}, "business_acceptance_is_separate": true, "additional_acceptance": ["member_health_state", "backend_probe_response"]},
+      "evidence_sources": ["elb_http_backend_readiness_playbook", "elb_guide", "official_sdk_schema"]
+    },
+    "ELB.health_monitor.delete": {
+      "id": "ELB.health_monitor.delete",
+      "service": "ELB",
+      "resource_kind": "health_monitor",
+      "lifecycle": "delete",
+      "applies_to_operations": ["DeleteHealthMonitor"],
+      "completeness": "bounded_high_confidence",
+      "prerequisites": [],
+      "blockers": [],
+      "related_resources": [
+        {"service": "ELB", "resource_kind": "pool", "relationship": "pool_remains_but_loses_active_health_probe", "post_change_readback_required": true, "verification_operations": ["ShowPool", "ListMembers"]}
+      ],
+      "verification": {"target_readback": {"operations": ["ShowHealthMonitor", "ListHealthMonitors"], "expected": "not_found", "list_absence_requires_complete_pagination": true}, "business_acceptance_is_separate": true, "additional_acceptance": ["pool_traffic_behavior_without_health_monitor"]},
+      "evidence_sources": ["elb_guide", "official_sdk_schema"]
     },
     "EVS.volume.create": {
       "id": "EVS.volume.create",
