@@ -25,6 +25,9 @@
   `hcloud_operation_behavior.py` 和 planner 只生成派生视图，不执行轮询或工作流；
 - 已核验的创建前置资源、删除阻断项、关联资源和回读条件由 `resource-dependency-profiles.json` 维护，
   `hcloud_dependency_evidence.py` 和 planner 只返回证据，不决定执行顺序；
+- resolver、通用变更 planner 和 ECS 高频 planner 需要同时装配上述两类 operation evidence 时，统一经
+  内部 `hcloud_operation_evidence.py` 读取。它只组合两个已有来源的可用字段，不写入、不缓存、不扩展
+  到其他事实库，也不是 Agent 公共入口；缺失事实保持缺失，不用 `null` 或推断冒充已知事实；
 - 场景到能力的入口由 router/contract 维护，具体服务知识留在对应 guide 和 playbook；
 - 跨多个服务长期稳定的方法才进入 shared core，单一服务规则留在服务模块；
 - 目标和交互指南可以解释如何组合事实，但不复制实时价格、配额、库存或资源状态；
@@ -39,7 +42,7 @@
 | `SKILL.md` | 最短入口、公共边界、工具和资料路由 | Skill 被触发时 |
 | Backend Selection | hcloud、SDK、Terraform 的选择和切换证据 | 任务开始、后端受阻或 IaC 意图出现时 |
 | Runtime Dependencies | 当前后端需要的 CLI、package、网络和 artifact 条件 | 选定后端后、真实执行前或依赖失败时 |
-| Public Script Contract | 公共脚本分类、stdout/artifact 和退出语义 | Agent 调用公共脚本或维护者迁移入口时 |
+| Public Script Contract | Agent CLI 最小分母、显式输出例外、stdout/artifact 和退出语义 | Agent 调用公共脚本或维护者迁移入口时 |
 | Shared Core | 共享原则、task workspace 和交互指南 | 多轮、跨服务、副作用、恢复或复杂交付时按需 |
 | Goal / Scenario | 目标能力、scenario router 和 contract | 命中宽泛目标或场景时 |
 | Service Module | 对应服务 guide、playbook、catalog 和专用脚本 | 实际涉及该服务或证据缺口时 |

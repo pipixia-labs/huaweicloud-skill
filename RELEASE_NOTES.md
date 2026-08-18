@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- 以 manifest 中三个实际 Agent runtime group 为分母，定义 54 个稳定 CLI 入口的最小成功/输出/退出契约；
+  大结果 artifact 回执继续作为按需扩展，不机械迁移全部脚本。
+- resolver、通用变更 planner 与 ECS planner 通过内部只读 accessor 统一装配 operation behavior 和
+  dependency evidence；两个 profile JSON 仍是独立权威事实源，不新增公共“总知识库”。
+
 ## v0.9.6 / 0.9.6 - 2026-08-18
 
 v0.9.6 是可移植执行与长只读任务恢复版本。它为不同 Agent/宿主提供不依赖当前工作目录的稳定

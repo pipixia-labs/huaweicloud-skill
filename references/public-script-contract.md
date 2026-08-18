@@ -6,6 +6,22 @@
 机器可读声明位于 `script-audience-manifest.json`。当前采用渐进迁移：优先覆盖云访问、协议探测或可能
 产生大结果的公共入口；小型有界 inspector/planner 可以只输出完整 JSON，不机械增加 artifact 参数。
 
+## 两层契约
+
+公共 CLI 分为两层，避免把“大结果传输”和“所有脚本都能稳定调用”混成一件事：
+
+1. `huaweicloud_skill_agent_cli_v1` 是 54 个真实 Agent 入口的最小分母。入口由 manifest 中
+   `default_runtime`、`guarded_change` 和 `runtime_supplement` 三组确定；可从稳定 launcher 调用，
+   成功结果至少有布尔 `success`，默认最终 stdout 是一个 JSON object，退出码表示 CLI 契约是否完成。
+2. `huaweicloud_skill_public_result_v1` 是较丰富的扩展，面向可能产生大结果或需要稳定 artifact
+   回执的入口，增加 `mode`、`outcome_status` 和私有 `result_file`。它不是所有小 planner/inspector
+   都必须实现的统一外壳。
+
+只有四类显式例外：behavior/dependency inspector 的 `--format=markdown`、resolver 的
+`--emit-command`，以及 `maas_text_to_image.py` 的逐项进度后最终 JSON。例外必须在 manifest 声明；
+默认模式不能静默从 JSON 变成文本。这样 Agent 只需记住一个最小成功口径，再按任务决定是否使用
+artifact 扩展，而不是记忆每个脚本的私有结果协议。
+
 ## 脚本分类
 
 | kind | 作用 | 是否访问云 |
@@ -28,7 +44,7 @@
 
 ## 紧凑回执
 
-`huaweicloud_skill_public_result_v1` 至少包含：
+`huaweicloud_skill_public_result_v1` 在最小 CLI 契约之上至少包含：
 
 ```json
 {

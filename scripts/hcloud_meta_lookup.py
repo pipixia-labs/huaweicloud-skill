@@ -356,7 +356,11 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
 def main() -> int:
     """Run the metadata lookup and print JSON output."""
     args = parse_args()
-    result = build_result(args)
+    result = {
+        "success": True,
+        "mode": "metadata_lookup",
+        **build_result(args),
+    }
     hcloud_common.emit_json(result, pretty=args.pretty)
     return 0
 

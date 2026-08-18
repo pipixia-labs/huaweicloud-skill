@@ -147,6 +147,10 @@ Successful resolution also returns `request_contract` with top-level method/path
 命中结构化资源依赖 profile 时还返回 `dependency_evidence`；它是前置条件、阻断项和回读证据，
 不是固定执行顺序或自动工作流。
 
+resolver、通用变更 planner 与 ECS 高频 planner 通过内部只读 accessor 一次装配这两类字段；权威
+来源仍是两个 profile JSON。该 accessor 不聚合 registry、catalog、价格或运行时资源事实，也没有
+Agent CLI，避免形成另一份会漂移的“总知识库”。
+
 If an explicit version conflicts with the parameters, the resolver exits non-zero and returns `corrected_operation` plus a redacted correction command. Do not repeat the original command unchanged.
 
 ### Operation Behavior and Coverage Inspector

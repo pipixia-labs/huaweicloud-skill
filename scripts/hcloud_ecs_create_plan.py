@@ -16,7 +16,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import hcloud_common  # noqa: E402
-import hcloud_operation_behavior  # noqa: E402
+import hcloud_operation_evidence  # noqa: E402
 import hcloud_run_journal  # noqa: E402
 
 PLACEHOLDER_PATTERN = re.compile(r"<[^<>]+>")
@@ -432,7 +432,10 @@ def build_next_steps(args: argparse.Namespace, validation: dict[str, Any]) -> li
 def operation_behavior(operation: str) -> dict[str, Any] | None:
     """Return ECS create batch and convergence evidence for Agent orchestration."""
 
-    return hcloud_operation_behavior.find_operation_behavior("ECS", operation)
+    return hcloud_operation_evidence.operation_evidence_fields(
+        "ECS",
+        operation,
+    ).get("operation_behavior")
 
 
 def build_result(args: argparse.Namespace) -> dict[str, Any]:
@@ -517,7 +520,7 @@ def build_result(args: argparse.Namespace) -> dict[str, Any]:
         "success": validation["valid"],
         "ready_to_run": ready_to_run,
         "operation": args.operation,
-        "operation_behavior": operation_behavior(args.operation),
+        **hcloud_operation_evidence.operation_evidence_fields("ECS", args.operation),
         "mode": args.mode,
         "json_input_file": str(json_input_file),
         "validation": validation,

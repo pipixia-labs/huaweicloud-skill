@@ -237,7 +237,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     """Run the inspector and print JSON output."""
     args = parse_args()
-    summary = build_summary(include_meta_files=args.include_meta_files)
+    summary = {
+        "success": True,
+        "mode": "inspect",
+        **build_summary(include_meta_files=args.include_meta_files),
+    }
     if args.pretty:
         hcloud_common.emit_json(summary, pretty=True)
     else:

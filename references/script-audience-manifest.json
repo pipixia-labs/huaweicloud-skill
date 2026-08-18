@@ -1,8 +1,57 @@
 {
   "schema_version": 1,
   "description": "Script audience and consolidation manifest for huaweicloud-skill. It documents who should use each script and identifies consolidation entry points without broadening safety gates.",
+  "agent_cli_contract": {
+    "id": "huaweicloud_skill_agent_cli_v1",
+    "covered_script_groups": [
+      "default_runtime",
+      "guarded_change",
+      "runtime_supplement"
+    ],
+    "stable_launchers": [
+      "bin/hcloud-skill",
+      "bin/hcloud-skill.cmd"
+    ],
+    "successful_result": {
+      "required_fields": [
+        "success"
+      ],
+      "default_stdout": "final_json_object",
+      "success_value": "boolean",
+      "notes": "Mode, outcome_status, artifact receipts, progress events, and domain fields are additive extensions rather than mandatory fields for every small planner or inspector."
+    },
+    "exit_semantics": "Exit 0 means the requested CLI contract completed successfully; nonzero means invalid input or execution failure. A script with an artifact/result-file contract may still leave a useful structured result after nonzero exit.",
+    "explicit_output_exceptions": [
+      {
+        "script": "scripts/hcloud_dependency_evidence.py",
+        "mode": "explicit_markdown",
+        "condition": "--format=markdown",
+        "default_stdout_unchanged": true
+      },
+      {
+        "script": "scripts/hcloud_operation_behavior.py",
+        "mode": "explicit_markdown",
+        "condition": "--format=markdown",
+        "default_stdout_unchanged": true
+      },
+      {
+        "script": "scripts/hcloud_operation_resolver.py",
+        "mode": "explicit_shell_command",
+        "condition": "--emit-command",
+        "default_stdout_unchanged": true
+      },
+      {
+        "script": "scripts/maas_text_to_image.py",
+        "mode": "progress_then_final_json",
+        "condition": "live multi-item generation",
+        "final_json_required": true
+      }
+    ]
+  },
   "public_result_contract": {
     "id": "huaweicloud_skill_public_result_v1",
+    "extends": "huaweicloud_skill_agent_cli_v1",
+    "scope": "large_or_selected_structured_results",
     "script_kinds": [
       "planner",
       "inspector_router",
@@ -387,6 +436,7 @@
         "scripts/hcloud_checkpoint.py",
         "scripts/hcloud_common.py",
         "scripts/hcloud_core.py",
+        "scripts/hcloud_operation_evidence.py",
         "scripts/hcloud_output_policy.py",
         "scripts/hcloud_run_journal.py",
         "scripts/hcloud_security_policy.py",
