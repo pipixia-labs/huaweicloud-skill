@@ -15,6 +15,7 @@ from typing import Any
 
 import hcloud_catalog
 import hcloud_common
+import hcloud_dependency_evidence
 import hcloud_operation_behavior
 import hcloud_output_policy
 
@@ -492,6 +493,12 @@ def resolve_operation_version(
     )
     if operation_behavior:
         result["operation_behavior"] = operation_behavior
+    dependency_evidence = hcloud_dependency_evidence.find_dependency_evidence(
+        service,
+        canonical_operation,
+    )
+    if dependency_evidence:
+        result["dependency_evidence"] = dependency_evidence
     if help_evidence:
         result["hcloud_help"] = help_evidence
     return result

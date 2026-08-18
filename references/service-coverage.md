@@ -25,19 +25,27 @@
 不表示自动 submit；机器矩阵的 `generic_metadata_backed_available` 和 `metadata_catalog_operation_count`
 表示通用 catalog 兜底；`Batch/async profile` 表示有 operation-specific 结果和收敛证据，不表示存在公共轮询框架。
 
+资源依赖证据见 `references/resource-dependency-profiles.json`，运行
+`python3 scripts/hcloud_dependency_evidence.py --pretty` 或 `--format markdown` 查看创建前置条件、删除阻断项、
+关联资源和回读覆盖。dependency profile 只提供证据，不代表固定执行顺序或自动清理能力。
+
 ### 高频服务批量/异步行为证据
 
-| Service | Coverage | Curated change | Batch/async profile | 当前完成证据 |
-| --- | --- | ---: | --- | --- |
-| `ECS` | High | 2 | `CreateServers`、`CreatePostPaidServers`、`DeleteServers` | create/delete receipt 先视为受理；可直接轮询 `ShowJob`，随后逐 ECS 验证 `ACTIVE` 或 `not_found` |
-| `EIP` | Medium | 10 | `BatchDeletePublicIp` | `job_ids` 不可作为可查询 job；必须逐 EIP 验证 `ShowPublicip` 为 `not_found`，或使用已完整分页的列表证据 |
-| `VPC` | Medium | 14 | 暂无 | 使用通用 planner、服务回读和 playbook，不声称已有 operation-specific async/batch 合同 |
-| `EVS` | Low | 8 | 暂无 | 使用通用 planner 和资源回读；异步操作仍由 Agent 按当前 API 证据处理 |
-| `ELB` | Low | 15 | 暂无 | 已有依赖指导和通用验证，但没有批量/异步 profile |
-| `RDS` | Low | 11 | 暂无 | 已有 planner-only 入口和资源验证，没有批量/异步 profile |
+| Service | Coverage | Curated change | Batch/async profile | Dependency profile | 当前完成证据 |
+| --- | --- | ---: | --- | ---: | --- |
+| `ECS` | High | 2 | `CreateServers`、`CreatePostPaidServers`、`DeleteServers` | 2 | create/delete receipt 先视为受理；轮询 `ShowJob` 后逐 ECS 验证 `ACTIVE` 或 `not_found`，并回查 EIP/EVS/ELB/VPC 关联资源 |
+| `EIP` | Medium | 10 | `BatchDeletePublicIp` | 2 | 非持久 job receipt 不能轮询；逐 EIP 验证 `not_found`，删除前检查 ECS/ELB/NAT 绑定，删除后回查 DNS/带宽 |
+| `VPC` | Medium | 14 | 暂无 | 3 | 子网创建、子网删除和 VPC 删除已有 bounded dependency evidence；仍按实时 List/Show 决定顺序 |
+| `EVS` | Low | 8 | `CreateVolume`、`DeleteVolume`、`BatchResizeVolumes` | 3 | `ShowJob` 终态后逐卷验证状态、删除或新容量；删除前检查 ECS attachment，扩容后单独验收 guest 分区和文件系统 |
+| `ELB` | Low | 15 | `BatchDeleteLoadbalancers`、`BatchDeletePools` | 5 | LB batch delete 轮询 `ShowJob`；pool batch delete按 `ret_status/ret_code` 逐项分类，并按 member/health monitor 并列阻断图回读 |
+| `RDS` | Low | 11 | `CreateInstance`、`DeleteInstance`、`BatchDeleteInstance` | 2 | 通过 `ListJobInfo` 跟踪单 job 或逐实例 job，随后验证 `ACTIVE`/`not_found`；连接和备份仍是独立验收 |
+| `NAT` | Low | 6 | 暂无 | 2 | 创建前验证 VPC/subnet，删除前清理 DNAT/SNAT rule，删除后单独回查 EIP |
+| `DNS` | Low | 3 | `CreateRecordSet`、`DeleteRecordSet` | 1 | 读取 `PENDING_*`/`ACTIVE`/`ERROR`，最终再做 authoritative DNS、TTL 和应用协议验收 |
+| `OBS` | Low | 6 | 暂无 | 1 | bucket 删除前确认对象版本、delete marker 和 multipart upload 已清空；继续走 `hcloud obs` 专用适配器 |
 
-当前 profile 的直接收益是避免把 submit receipt、`job_id` 或批量命令退出码误写成逐项完成。未命中
-profile 时，Agent 继续使用 resolver、help、官方文档和实时查询，不得猜测同一套状态字段。
+当前 operation profile 的直接收益是避免把 submit receipt、`job_id` 或批量命令退出码误写成逐项完成；
+dependency profile 的收益是让 Agent 在提交前看到结构化前置条件/阻断项，并在提交后回查关联资源。未命中
+profile 时，Agent 继续使用 resolver、help、官方文档和实时查询，不得猜测同一套状态字段或依赖图。
 
 服务维护档案见 `references/service-curation-profiles.json`。它记录已有 curated 服务和下一批晋级候选的 readiness operation、resource query operation、playbook 和 risk profile。用 `scripts/hcloud_curated_promotion_audit.py --include-curated --pretty` 检查现有 curated 健康状态和候选缺口。
 

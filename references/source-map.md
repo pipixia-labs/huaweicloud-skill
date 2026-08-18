@@ -8,7 +8,7 @@
 
 | 类型 | 典型内容 | 权威位置 | 维护规则 |
 | --- | --- | --- | --- |
-| 权威事实 | 服务标识、operation、参数、能力覆盖、批量/异步结果语义、已核验限制 | `service-registry.json`、`hcloud-service-catalog/`、`operation-behavior-profiles.json`、服务 guide/playbook 和对应脚本 | 在原事实源更新，不复制到目标或交互视图 |
+| 权威事实 | 服务标识、operation、参数、能力覆盖、批量/异步结果语义、资源依赖和已核验限制 | `service-registry.json`、`hcloud-service-catalog/`、`operation-behavior-profiles.json`、`resource-dependency-profiles.json`、服务 guide/playbook 和对应脚本 | 在原事实源更新，不复制到目标或交互视图 |
 | 编写知识 | 共享原则、任务记忆方法、目标解释、交互方法 | `unified-principles.md`、`task-workspace-guide.md`、`goal-capability-guide.md`、`interaction-guidance.md` | 人工维护适用边界、因果理由和引用 |
 | 派生视图 | 场景路由、能力入口、覆盖表、导航和摘要 | `scenario-router.json`、`scenario-contracts.json`、`service-coverage.md` 及可重建索引 | 保留来源关系；来源改变时重建或修订视图 |
 | 运行时事实 | 当前资源、价格、配额、权限、库存、账单和 job 状态 | Agent 的实时工具结果、task 和 artifact | 不写回发布期知识；高影响判断前按当前作用域重查 |
@@ -23,6 +23,8 @@
   SDK 静态 schema、live help 或实际 dry-run/query 提供，不在目标卡重复维护；
 - 已核验的批量目标、submit receipt 含义和异步/资源终态由 `operation-behavior-profiles.json` 维护，
   `hcloud_operation_behavior.py` 和 planner 只生成派生视图，不执行轮询或工作流；
+- 已核验的创建前置资源、删除阻断项、关联资源和回读条件由 `resource-dependency-profiles.json` 维护，
+  `hcloud_dependency_evidence.py` 和 planner 只返回证据，不决定执行顺序；
 - 场景到能力的入口由 router/contract 维护，具体服务知识留在对应 guide 和 playbook；
 - 跨多个服务长期稳定的方法才进入 shared core，单一服务规则留在服务模块；
 - 目标和交互指南可以解释如何组合事实，但不复制实时价格、配额、库存或资源状态；

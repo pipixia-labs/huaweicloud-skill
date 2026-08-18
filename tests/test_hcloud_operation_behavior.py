@@ -46,7 +46,7 @@ hcloud_ecs_create_plan = load_module(
 class HcloudOperationBehaviorTest(unittest.TestCase):
     """Validate batch, async, and coverage evidence without cloud access."""
 
-    def test_profiles_cover_current_eip_and_ecs_batch_cases(self) -> None:
+    def test_profiles_cover_verified_batch_and_async_cases(self) -> None:
         profiles = hcloud_operation_behavior.load_profiles()
 
         self.assertEqual(profiles["schema_version"], 1)
@@ -57,6 +57,16 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
                 "ECS.CreatePostPaidServers",
                 "ECS.DeleteServers",
                 "EIP.BatchDeletePublicIp",
+                "ELB.BatchDeleteLoadbalancers",
+                "ELB.BatchDeletePools",
+                "EVS.BatchResizeVolumes",
+                "EVS.CreateVolume",
+                "EVS.DeleteVolume",
+                "RDS.BatchDeleteInstance",
+                "RDS.CreateInstance",
+                "RDS.DeleteInstance",
+                "DNS.CreateRecordSet",
+                "DNS.DeleteRecordSet",
             },
         )
 
@@ -176,11 +186,60 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
             "not_found",
         )
 
+    def test_evs_create_uses_show_job_then_per_volume_readback(self) -> None:
+        behavior = hcloud_operation_behavior.find_operation_behavior(
+            "EVS",
+            "CreateVolume/v2",
+        )
+
+        self.assertEqual(behavior["request_targets"]["path"], "body.volume.count")
+        self.assertEqual(behavior["request_targets"]["max_items"], 100)
+        self.assertIn("x-client-token", behavior["request_safeguards"])
+        self.assertEqual(behavior["submit_receipt"]["fields"], ["job_id", "order_id", "volume_ids[]"])
+        self.assertEqual(behavior["async_convergence"]["poll"]["operation"], "ShowJob")
+        self.assertEqual(
+            behavior["async_convergence"]["resource_readback"]["success_states"],
+            ["available", "in-use"],
+        )
+
+    def test_elb_batch_pool_delete_has_direct_per_item_receipts(self) -> None:
+        behavior = hcloud_operation_behavior.find_operation_behavior(
+            "ELB",
+            "BatchDeletePools",
+        )
+
+        self.assertEqual(behavior["request_targets"]["path"], "body.pools[]")
+        self.assertTrue(behavior["submit_receipt"]["per_item_completion"])
+        self.assertEqual(behavior["submit_receipt"]["item_fields"], ["id", "ret_status", "ret_code"])
+        self.assertEqual(behavior["async_convergence"]["mode"], "receipt_then_resource")
+        self.assertIsNone(behavior["async_convergence"]["poll"])
+
+    def test_rds_batch_delete_tracks_one_job_per_instance(self) -> None:
+        behavior = hcloud_operation_behavior.find_operation_behavior(
+            "RDS",
+            "BatchDeleteInstance",
+        )
+
+        self.assertEqual(behavior["request_targets"]["path"], "body.instance_ids[]")
+        self.assertEqual(behavior["submit_receipt"]["fields"], ["records[].instance_id", "records[].job_id"])
+        self.assertTrue(behavior["submit_receipt"]["job_receipts_queryable"])
+        self.assertEqual(behavior["async_convergence"]["poll"]["operation"], "ListJobInfo")
+        self.assertEqual(behavior["async_convergence"]["poll"]["success_states"], ["Completed"])
+
+    def test_dns_record_operations_require_lifecycle_readback(self) -> None:
+        create = hcloud_operation_behavior.find_operation_behavior("DNS", "CreateRecordSet")
+        delete = hcloud_operation_behavior.find_operation_behavior("DNS", "DeleteRecordSet")
+
+        self.assertEqual(create["async_convergence"]["mode"], "resource_state_readback")
+        self.assertEqual(create["async_convergence"]["resource_readback"]["success_states"], ["ACTIVE"])
+        self.assertEqual(delete["async_convergence"]["resource_readback"]["expected"], "not_found")
+        self.assertFalse(create["async_convergence"]["public_polling_framework_required"])
+
     def test_coverage_matrix_distinguishes_curated_and_profile_evidence(self) -> None:
         result = hcloud_operation_behavior.build_coverage_matrix()
 
         by_service = {row["service"]: row for row in result["services"]}
-        self.assertEqual(result["summary"]["profiled_operation_count"], 4)
+        self.assertEqual(result["summary"]["profiled_operation_count"], 14)
         self.assertEqual(
             by_service["EIP"]["profiled_batch_operations"],
             ["BatchDeletePublicIp"],
@@ -196,7 +255,11 @@ class HcloudOperationBehaviorTest(unittest.TestCase):
         self.assertEqual(by_service["VPC"]["profiled_batch_operations"], [])
         self.assertTrue(by_service["VPC"]["generic_metadata_backed_available"])
         self.assertGreater(by_service["VPC"]["metadata_catalog_operation_count"], 0)
-        self.assertFalse(by_service["EVS"]["has_operation_async_profile"])
+        self.assertTrue(by_service["EVS"]["has_operation_async_profile"])
+        self.assertEqual(
+            by_service["ELB"]["profiled_batch_operations"],
+            ["BatchDeleteLoadbalancers", "BatchDeletePools"],
+        )
 
     def test_operation_resolver_attaches_matching_behavior(self) -> None:
         catalog = json.loads(

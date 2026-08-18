@@ -11,6 +11,7 @@ from typing import Any
 
 import hcloud_catalog
 import hcloud_common
+import hcloud_dependency_evidence
 
 PROFILE_PATH = hcloud_common.ROOT / "references" / "operation-behavior-profiles.json"
 VERSION_SUFFIX = re.compile(r"/v[0-9][A-Za-z0-9._-]*$", re.IGNORECASE)
@@ -84,15 +85,25 @@ def build_coverage_matrix(
     registry: dict[str, Any] | None = None,
     profiles: dict[str, Any] | None = None,
     catalog: dict[str, Any] | None = None,
+    dependency_profiles: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a service matrix without cloud access or capability inflation."""
 
     registry_payload = registry if registry is not None else hcloud_common.load_registry()
     profile_payload = profiles if profiles is not None else load_profiles()
     catalog_payload = catalog if catalog is not None else hcloud_catalog.load_catalog()
+    dependency_payload = (
+        dependency_profiles
+        if dependency_profiles is not None
+        else hcloud_dependency_evidence.load_profiles()
+    )
     rows: list[dict[str, Any]] = []
     for service, entry in sorted(registry_payload.get("services", {}).items()):
         operations = service_profiles(service, profile_payload)
+        dependency_profiles_for_service = hcloud_dependency_evidence.service_profiles(
+            service,
+            dependency_payload,
+        )
         catalog_service = hcloud_catalog.resolve_service(catalog_payload, service)
         profiled_names = [str(item["operation"]) for item in operations]
         batch_names = [
@@ -132,7 +143,17 @@ def build_coverage_matrix(
                 "profiled_async_operations": async_names,
                 "metadata_backed_profile_operations": metadata_backed,
                 "has_operation_async_profile": bool(async_names),
-                "dependency_evidence": bool(entry.get("playbooks")),
+                "dependency_profile_count": len(dependency_profiles_for_service),
+                "dependency_profiled_operations": sorted(
+                    {
+                        operation
+                        for profile in dependency_profiles_for_service
+                        for operation in profile.get("applies_to_operations", [])
+                    }
+                ),
+                "has_structured_dependency_evidence": bool(
+                    dependency_profiles_for_service
+                ),
             }
         )
     profiled_operations = profile_payload.get("operations", {})
@@ -149,6 +170,15 @@ def build_coverage_matrix(
             "registry_service_with_metadata_count": sum(
                 1 for row in rows if row["generic_metadata_backed_available"]
             ),
+            "dependency_profile_count": len(
+                dependency_payload.get("profiles", {})
+            ),
+            "dependency_profiled_service_count": len(
+                {
+                    str(item.get("service"))
+                    for item in dependency_payload.get("profiles", {}).values()
+                }
+            ),
             "public_polling_framework_present": False,
         },
         "services": rows,
@@ -159,8 +189,8 @@ def render_markdown(matrix: dict[str, Any]) -> str:
     """Render a compact human-readable coverage table."""
 
     lines = [
-        "| Service | Coverage | Query | Curated change | Metadata operations | Batch profiles | Async profiles | Verification |",
-        "| --- | --- | ---: | ---: | ---: | --- | --- | --- |",
+        "| Service | Coverage | Query | Curated change | Metadata operations | Batch profiles | Async profiles | Dependency profiles | Verification |",
+        "| --- | --- | ---: | ---: | ---: | --- | --- | ---: | --- |",
     ]
     for row in matrix.get("services", []):
         verification = "/".join(
@@ -169,7 +199,7 @@ def render_markdown(matrix: dict[str, Any]) -> str:
             if value
         ) or "-"
         lines.append(
-            "| {service} | {coverage} | {query_count} | {change_count} | {metadata_count} | {batch} | {async_ops} | {verification} |".format(
+            "| {service} | {coverage} | {query_count} | {change_count} | {metadata_count} | {batch} | {async_ops} | {dependencies} | {verification} |".format(
                 service=row["service"],
                 coverage=row.get("coverage") or "-",
                 query_count=(
@@ -180,6 +210,7 @@ def render_markdown(matrix: dict[str, Any]) -> str:
                 metadata_count=int(row.get("metadata_catalog_operation_count") or 0),
                 batch=", ".join(row.get("profiled_batch_operations", [])) or "-",
                 async_ops=", ".join(row.get("profiled_async_operations", [])) or "-",
+                dependencies=int(row.get("dependency_profile_count") or 0),
                 verification=verification,
             )
         )

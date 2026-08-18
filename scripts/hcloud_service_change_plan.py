@@ -11,6 +11,7 @@ from typing import Any
 import hcloud_catalog
 import hcloud_change_plan
 import hcloud_common
+import hcloud_dependency_evidence
 import hcloud_operation_behavior
 import hcloud_operation_resolver
 import hcloud_resource_discovery
@@ -255,6 +256,13 @@ def operation_behavior_evidence(service: str, operation: str) -> dict[str, Any]:
     return {"operation_behavior": behavior} if behavior else {}
 
 
+def resource_dependency_evidence(service: str, operation: str) -> dict[str, Any]:
+    """Return an optional plan field for resource dependency evidence."""
+
+    evidence = hcloud_dependency_evidence.find_dependency_evidence(service, operation)
+    return {"dependency_evidence": evidence} if evidence else {}
+
+
 def build_catalog_change_plan(
     args: argparse.Namespace,
     service: str,
@@ -321,6 +329,7 @@ def build_catalog_change_plan(
             "catalog_operation_path": catalog_operation.get("path"),
             "request_contract": change_request_contract(command_service, catalog_operation),
             **operation_behavior_evidence(service, operation),
+            **resource_dependency_evidence(service, operation),
             "service_known_limits": entry.get("known_limits", []),
             "service_context_hints": SERVICE_CONTEXT_HINTS.get(service, []),
             "service_verification_hints": SERVICE_VERIFICATION_HINTS.get(service, []),
@@ -395,6 +404,7 @@ def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
             "coverage": entry.get("coverage"),
             "service_known_limits": entry.get("known_limits", []),
             **operation_behavior_evidence(service, operation),
+            **resource_dependency_evidence(service, operation),
             "next_steps": [
                 f"Use {custom_planner} for this service-specific change plan.",
                 "Do not run submit commands without a separate explicit user confirmation.",
@@ -443,6 +453,7 @@ def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "service_verification_hints": SERVICE_VERIFICATION_HINTS.get(service, []),
                 "request_contract": change_request_contract(command_service, catalog_operation),
                 **operation_behavior_evidence(service, operation),
+                **resource_dependency_evidence(service, operation),
                 "dependency_and_convergence_hints": dependency_and_convergence_hints(service),
                 "submit_requires_confirmation": True,
                 "submit_is_not_executed_by_this_planner": True,
@@ -464,6 +475,7 @@ def build_service_plan(args: argparse.Namespace) -> dict[str, Any]:
             "service_verification_hints": SERVICE_VERIFICATION_HINTS.get(service, []),
             "request_contract": change_request_contract(command_service, catalog_operation),
             **operation_behavior_evidence(service, operation),
+            **resource_dependency_evidence(service, operation),
             "dependency_and_convergence_hints": dependency_and_convergence_hints(service),
             "resource_verifier": "scripts/hcloud_resource_verify.py",
             "submit_requires_confirmation": True,

@@ -140,6 +140,8 @@ Successful resolution also returns `request_contract` with top-level method/path
 
 命中本地批量/异步 profile 时，resolver 还返回 `operation_behavior`。其中的 submit receipt 只表示
 受理时，逐项初始状态保持 `outcome_unknown`，直到 profile 指定的 job 和资源回读条件得到证实。
+命中结构化资源依赖 profile 时还返回 `dependency_evidence`；它是前置条件、阻断项和回读证据，
+不是固定执行顺序或自动工作流。
 
 If an explicit version conflicts with the parameters, the resolver exits non-zero and returns `corrected_operation` plus a redacted correction command. Do not repeat the original command unchanged.
 
@@ -165,6 +167,34 @@ python3 scripts/hcloud_operation_behavior.py --format markdown
 
 矩阵严格区分 registry 中的 curated change、operation-specific batch/async profile 和仅有 metadata 的
 通用兜底，不能把 catalog 中“存在某个 API”写成已经形成完整执行闭环。
+
+### Resource Dependency Evidence Inspector
+
+```bash
+python3 scripts/hcloud_dependency_evidence.py \
+  --service ELB \
+  --operation DeletePool/v3 \
+  --pretty
+```
+
+该 local-only inspector 读取 `references/resource-dependency-profiles.json`，返回创建前置资源、删除阻断项、
+关联资源和目标回读条件。它不访问云端、不执行命令、不持久化 task，也不替 Agent 选择工作流。完整覆盖矩阵：
+
+```bash
+python3 scripts/hcloud_dependency_evidence.py --format markdown
+```
+
+### Cross-Agent Evaluation Kit
+
+```bash
+python3 scripts/hcloud_cross_agent_eval.py --pretty list
+python3 scripts/hcloud_cross_agent_eval.py --pretty render --case inventory-beijing4
+python3 scripts/hcloud_cross_agent_eval.py --pretty template \
+  --case inventory-beijing4 --run-id <run-id>
+```
+
+该工具固定跨 Agent 题目和 check，生成观察模板并校验/汇总人工填写的结果。它不自动调用 Agent、
+不访问华为云，也不执行真实变更。运行方法见 `references/cross-agent-evaluation.md`。
 
 ### SDK Metadata Inspector
 

@@ -169,6 +169,26 @@
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "unsupported",
       "output_file_content": "none"
+    },
+    "scripts/hcloud_dependency_evidence.py": {
+      "kind": "inspector_router",
+      "backend": "local",
+      "cloud_access": "none",
+      "default_mode": "inspect",
+      "contract_level": "bounded_json",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "unsupported",
+      "output_file_content": "none"
+    },
+    "scripts/hcloud_cross_agent_eval.py": {
+      "kind": "inspector_router",
+      "backend": "local",
+      "cloud_access": "none",
+      "default_mode": "inspect",
+      "contract_level": "bounded_json",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "unsupported",
+      "output_file_content": "none"
     }
   },
   "consolidation_policy": {
@@ -266,6 +286,8 @@
         "scripts/hcloud_closure_plan.py",
         "scripts/hcloud_closure_maturity_audit.py",
         "scripts/hcloud_context_inspect.py",
+        "scripts/hcloud_cross_agent_eval.py",
+        "scripts/hcloud_dependency_evidence.py",
         "scripts/hcloud_environment_doctor.py",
         "scripts/hcloud_idle_audit.py",
         "scripts/hcloud_lts_readonly.py",
