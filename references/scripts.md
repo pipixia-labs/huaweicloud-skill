@@ -2,6 +2,10 @@
 
 This file contains detailed script usage for `huaweicloud-skill`. Keep `SKILL.md` focused on routing and behavior rules; load this reference only when you need exact command templates or script-specific boundaries.
 
+本文中的 `python3 scripts/<name>.py ...` 都假设当前目录是 Skill 根目录。宿主无法保证当前目录时，
+应使用 `bin/hcloud-skill <name> ...`（Windows 使用 `bin/hcloud-skill.cmd`）；该入口只解析并执行
+当前 Skill 自带的脚本，不选择服务、operation、参数或调用顺序。
+
 ## Shared Script Helpers
 
 Most command-line scripts use `scripts/hcloud_common.py` for repository paths, registry loading, JSON output, and secret redaction. Keep new scripts on this shared layer unless they have a clear reason to own their own parsing or output path.

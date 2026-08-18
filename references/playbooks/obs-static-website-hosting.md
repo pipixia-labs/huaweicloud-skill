@@ -97,9 +97,9 @@ python3 scripts/hcloud_obs_readonly.py \
 
 ```bash
 python3 scripts/hcloud_obs_change_plan.py \
-  CreateBucket \
+  --operation CreateBucket \
   --bucket "<bucket_name>" \
-  --region "<region>" \
+  --endpoint "<obs_endpoint>" \
   --pretty
 ```
 

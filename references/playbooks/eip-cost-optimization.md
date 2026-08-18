@@ -35,8 +35,7 @@ python3 scripts/hcloud_resource_discovery.py \
 
 ```bash
 python3 scripts/hcloud_idle_audit.py \
-  --service EIP \
-  --json-file <list-publicips-result.json> \
+  --input-json-file EIP=<list-publicips-result.json> \
   --pretty
 ```
 
@@ -44,7 +43,7 @@ python3 scripts/hcloud_idle_audit.py \
 
 ```bash
 python3 scripts/hcloud_teardown_plan.py \
-  --resource EIP:<publicip_id> \
+  --idle-audit-json-file <saved-idle-audit-output.json> \
   --pretty
 ```
 

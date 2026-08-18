@@ -12,6 +12,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
 - SDK 是受支持的程序化后端，适合类型化请求、复杂 body、分页/并发、结构化异常，或 hcloud 当前确有覆盖/解析障碍的任务。`hcloud_sdk_readonly.py` 的 allowlist 只约束该便捷 runner，不限制 Agent 编写任务专用 SDK 代码。
 - Terraform 由 IaC 意图触发，用于可重复创建、环境复制、长期纳管、import 或 drift；它不是 hcloud 失败后的普通兜底。前置发现和后置验证优先用 hcloud，也允许等价 SDK/API、data source 和业务探测证据。
 - 高频脚本是对上述后端的可选封装，不是第四种后端。脚本覆盖目标时优先复用其版本选择、参数校验、脱敏、输出收敛和错误分类；未覆盖的长尾任务可直接使用有证据的 hcloud、官方 SDK 或 Terraform。
+- 文档中的 `python3 scripts/<name>.py ...` 假设当前目录是 Skill 根目录。当前目录不确定时，用 `bin/hcloud-skill <name> ...`；Windows 用 `bin/hcloud-skill.cmd <name> ...`。这个稳定入口只定位当前 Skill 自带脚本并原样传递参数，不替 Agent 选择服务、operation、参数或调用顺序。
 - `hcloud` 不可用不等于整个 Skill 不可用；如果 SDK 或 Terraform 符合任务且运行条件完备，可以继续。无论使用哪个后端，没有真实执行和回读证据时都不能宣称已经查询、修改或完成。
 - MaaS 是 API-first 能力面。模型调用使用 MaaS API Key；用量统计是治理查询，按本地 AK/SK 签名规划处理。不要让用户在对话里粘贴密钥。
 - 目标不是背命令，而是稳定完成：识别上下文 -> 发现资源/operation -> 构造安全命令 -> 查询或变更 -> 回读验证 -> 处理错误。

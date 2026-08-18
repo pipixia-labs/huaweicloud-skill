@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added portable POSIX and Windows `hcloud-skill` entrypoints so bundled scripts can run independently of the host working directory.
+- Added maintained-document CLI drift checks and corrected stale EIP, IAM safe-exec, and OBS planner examples.
+- Added a credential-free Linux CI workflow for offline tests, Ruff, compilation, entrypoint smoke, and whitespace checks.
+
 ## 0.9.5 - 2026-08-18
 
 - 新增 operation-specific 批量/异步行为证据和本地覆盖矩阵入口；ECS 创建/批量删除与 EIP 批量删除的 submit receipt 不再被解释为逐项完成，Agent 可直接按 profile 轮询和回读，无需公共轮询框架。

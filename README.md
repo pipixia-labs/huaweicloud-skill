@@ -91,6 +91,16 @@ Codex CLI / Claude Code 用户可把本仓库放入本地 skills 目录，或在
 
 安装时只需要完整复制 `huaweicloud-skill` 目录。默认运行和自检不会查找它旁边的源码仓库或数据目录；本地 catalog、账单差距基线和最小覆盖率回归样例均随 Skill 发布。`hcloud`、按需安装的 SDK package、Terraform/obsutil 以及用户目录中的配置属于显式运行环境，不属于源码目录依赖。按任务检查和补齐依赖的方法见 [运行时依赖与准备](references/runtime-dependencies.md)。上游 SDK、Terraform Provider 或问题数据集只在维护时通过命令参数显式传入。
 
+Agent 或宿主无法保证当前工作目录时，使用仓库自带的稳定入口调用脚本：
+
+```bash
+export HUAWEICLOUD_SKILL_DIR=/path/to/huaweicloud-skill
+"$HUAWEICLOUD_SKILL_DIR/bin/hcloud-skill" hcloud_environment_doctor --need hcloud --pretty
+```
+
+Windows 使用 `bin/hcloud-skill.cmd`。入口只解析当前 Skill `scripts/` 中的脚本名称并透传参数，
+不包含服务路由或业务流程；原有 `python3 scripts/<name>.py ...` 在 Skill 根目录中继续兼容。
+
 ### 3. 用自然语言下达目标
 
 ```text

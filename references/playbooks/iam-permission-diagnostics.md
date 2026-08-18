@@ -25,9 +25,9 @@ python3 scripts/hcloud_context_inspect.py --pretty
 python3 scripts/hcloud_safe_exec.py \
   --service <SERVICE> \
   --operation <Operation> \
-  --region <region> \
-  --project-id <project_id> \
-  -- <hcloud args...>
+  --arg=--cli-region=<region> \
+  --arg=--project_id=<project_id> \
+  --expect-json
 ```
 
 3. 如果输出中有 `permission_hint`，优先给用户展示：

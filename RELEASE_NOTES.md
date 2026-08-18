@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 新增 POSIX/Windows 稳定脚本入口、文档与 CLI 漂移测试，以及不需要云凭据的最小 Linux CI。
+
 ## v0.9.5 / 0.9.5 - 2026-08-18
 
 v0.9.5 是自主 Agent 执行准确性和可移植性增强版本。它明确 `hcloud > SDK > Terraform` 的默认选择，
