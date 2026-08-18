@@ -2,10 +2,29 @@
 
 ## Unreleased
 
+## v0.9.7 / 0.9.7 - 2026-08-18
+
+v0.9.7 是 Agent CLI 与 operation evidence 契约统一版本。它明确实际 runtime 入口的最小成功和输出
+语义，并让 resolver 与变更 planner 复用同一套只读 operation evidence 装配逻辑。
+
+### 主要变化
+
 - 以 manifest 中三个实际 Agent runtime group 为分母，定义 54 个稳定 CLI 入口的最小成功/输出/退出契约；
   大结果 artifact 回执继续作为按需扩展，不机械迁移全部脚本。
 - resolver、通用变更 planner 与 ECS planner 通过内部只读 accessor 统一装配 operation behavior 和
   dependency evidence；两个 profile JSON 仍是独立权威事实源，不新增公共“总知识库”。
+
+### 验证
+
+- 全量离线回归：552 项通过，10 项按条件跳过。
+- 54 个实际 Agent runtime 入口均可通过稳定 launcher 从无关工作目录执行 `--help`。
+- Ruff、compileall、manifest JSON 和 diff 检查通过；未执行真实云变更。
+
+### 兼容性与运行时边界
+
+- 现有脚本参数和主要 stdout 结构保持兼容；context inspector 与 metadata lookup 增加最小
+  `success` / `mode` 包装字段。
+- operation evidence accessor 仅供 Skill 内部脚本复用，不缓存、不推断、不执行云操作，也不新增平台专属接口。
 
 ## v0.9.6 / 0.9.6 - 2026-08-18
 

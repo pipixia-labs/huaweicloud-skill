@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.7 - 2026-08-18
+
 - Defined a minimum Agent CLI contract across the 54 real runtime entrypoints while keeping the richer artifact receipt limited to large or selected structured results.
 - Added one internal read-only accessor for paired operation behavior and dependency evidence, preserving the existing profile files as authoritative sources.
 
