@@ -45,8 +45,29 @@ def _local_profile_project(config_path: Path, region: str) -> str | None:
 
 def _remote_failure(result: Mapping[str, Any]) -> dict[str, Any]:
     """Classify a safe-executor IAM failure into a stable project error."""
-    text = " ".join(str(result.get(key) or "") for key in ("error_type", "error_category", "error_code", "stdout", "stderr")).lower()
-    if any(token in text for token in ("timeout", "timed out", "network_error", "connection")):
+    error_type = str(result.get("error_type") or "").strip().upper()
+    error_category = str(result.get("error_category") or "").strip().lower()
+    error_code = str(result.get("error_code") or "").strip().upper()
+    text = " ".join(
+        str(result.get(key) or "")
+        for key in ("error_type", "error_category", "error_code", "stdout", "stderr")
+    ).lower()
+
+    # A structured local-output failure takes precedence over words that may
+    # merely appear in argparse usage text, such as ``--timeout TIMEOUT``.
+    if error_type == "HCLOUD_OUTPUT_INVALID" or error_code == "HCLOUD_OUTPUT_INVALID":
+        code, retryable = "HCLOUD_OUTPUT_INVALID", False
+    elif error_type == "HCLOUD_UNAVAILABLE" or error_code == "HCLOUD_UNAVAILABLE":
+        code, retryable = "HCLOUD_UNAVAILABLE", False
+    elif (
+        error_type in {"NETWORK_ERROR", "TIMEOUT"}
+        or error_category == "network"
+        or error_code in {"NETWORK_ERROR", "TIMEOUT"}
+        or any(
+            token in text
+            for token in ("timed out", "network_error", "connection timeout")
+        )
+    ):
         code, retryable = "IAM_NETWORK_TIMEOUT", True
     elif any(token in text for token in ("credential", "authentication", "unauthorized")):
         code, retryable = "IAM_AUTH_FAILED", False
@@ -186,8 +207,7 @@ def default_remote_lookup(region: str, timeout: int = 30) -> dict[str, Any]:
         "IAM",
         "--operation",
         "KeystoneListProjects",
-        "--arg",
-        f"--name={region}",
+        f"--arg=--name={region}",
         "--arg=--cli-output=json",
         "--expect-json",
     ]

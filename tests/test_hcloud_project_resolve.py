@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -139,6 +140,59 @@ class HcloudProjectResolveTest(unittest.TestCase):
         self.assertTrue(result["retryable"])
         self.assertNotIn("sdk", json.dumps(result, ensure_ascii=False).lower())
         self.assertNotIn("signature", json.dumps(result, ensure_ascii=False).lower())
+
+    def test_remote_lookup_keeps_dash_prefixed_hcloud_arg_in_one_token(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "success": True,
+                    "parsed_json": {
+                        "projects": [
+                            {"name": "cn-north-4", "id": "project-target"}
+                        ]
+                    },
+                }
+            ),
+            stderr="",
+        )
+
+        with mock.patch.object(
+            hcloud_project_resolve.subprocess,
+            "run",
+            return_value=completed,
+        ) as subprocess_run:
+            result = hcloud_project_resolve.default_remote_lookup("cn-north-4")
+
+        command = subprocess_run.call_args.args[0]
+        self.assertTrue(result["success"])
+        self.assertIn("--arg=--name=cn-north-4", command)
+        self.assertNotIn("--name=cn-north-4", command)
+
+    def test_local_argument_usage_is_not_misclassified_as_network_timeout(self) -> None:
+        remote = mock.Mock(
+            return_value={
+                "success": False,
+                "error_type": "HCLOUD_OUTPUT_INVALID",
+                "stdout": "",
+                "stderr": (
+                    "usage: hcloud_safe_exec.py [--timeout TIMEOUT]\n"
+                    "hcloud_safe_exec.py: error: argument --arg: expected one argument"
+                ),
+            }
+        )
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = hcloud_project_resolve.resolve_project_id(
+                region="cn-north-4",
+                config_path=Path("/does/not/exist"),
+                remote_lookup=remote,
+            )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error_code"], "HCLOUD_OUTPUT_INVALID")
+        self.assertFalse(result["retryable"])
 
     def test_remote_lookup_rejects_ambiguous_region_matches(self) -> None:
         remote = mock.Mock(
