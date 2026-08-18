@@ -2,8 +2,44 @@
 
 ## Unreleased
 
-- 新增 POSIX/Windows 稳定脚本入口、文档与 CLI 漂移测试，以及不需要云凭据的最小 Linux CI。
-- 账号盘点与账单分页新增私有 checkpoint、scope 校验、`--resume` 和可选 `--time-budget`，宿主中断后可继续未完成只读工作。
+## v0.9.6 / 0.9.6 - 2026-08-18
+
+v0.9.6 是可移植执行与长只读任务恢复版本。它为不同 Agent/宿主提供不依赖当前工作目录的稳定
+Skill 入口，并让账号盘点和账单分页在进程中断或单轮时间不足时从已确认进度继续执行。
+
+### 主要变化
+
+- **稳定执行入口**
+  - 新增 POSIX `bin/hcloud-skill` 与 Windows `bin/hcloud-skill.cmd`，按 Skill 安装位置解析内置脚本，
+    不要求宿主把 Skill 复制到普通工作区，也不依赖调用时的当前目录。
+  - 入口保持原脚本参数、stdout/stderr 和退出码语义；Agent 仍自主选择 hcloud、SDK、Terraform 或
+    高频脚本，Skill 不引入平台专属 Function Calling。
+
+- **文档与持续集成**
+  - 新增文档/CLI 漂移测试，校验维护文档引用的脚本和参数，并修正 EIP、IAM safe-exec 与 OBS 示例。
+  - 新增无需华为云凭据的 Linux CI，覆盖离线单元测试、Ruff、Python 编译、任意目录入口 smoke 和
+    whitespace 检查。
+
+- **可恢复账号盘点与账单读取**
+  - 账号盘点和 Billing 自动分页支持 `--checkpoint-file`、`--resume` 与可选 `--time-budget`。
+  - checkpoint 使用版本化、scope-bound 契约；恢复时拒绝区域、服务、日期、分页范围等查询范围漂移，
+    只复用已经完成的盘点检查或已经验收的账单页。
+  - checkpoint 以私有 `0600` artifact 保存，可能包含中间原始数据，不进入公共日志或紧凑 stdout
+    回执；大结果仍沿用显式 `--output-file` 的 artifact/receipt 模式。
+  - 时间预算是当前一次运行的总预算，不改变单个 hcloud 请求的既有超时语义；预算耗尽时返回明确的
+    部分进度和下一步恢复信息，不把不完整账单声明为完整总额。
+
+### 验证
+
+- 全量离线回归：553 项通过，10 项按条件跳过。
+- Ruff、compileall、manifest JSON 和 diff 检查通过。
+- 新增回归覆盖盘点恢复、账单分页恢复、scope mismatch、私有权限与紧凑回执；未执行真实云变更。
+
+### 兼容性与运行时边界
+
+- 现有脚本直调继续有效；稳定入口是跨宿主的推荐路径，不是新的平台能力依赖。
+- 未提供 checkpoint 参数时保持原执行方式；未提供 `--output-file` 时保持原完整 JSON stdout。
+- checkpoint 只负责保存确定的读取进度，不替 Agent 规划任务，也不替宿主管理 LLM session 或审批。
 
 ## v0.9.5 / 0.9.5 - 2026-08-18
 
