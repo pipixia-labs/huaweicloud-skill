@@ -76,6 +76,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
    - 复杂 body 先看 resolver/change plan 返回的 `request_contract`。`body_shape_confidence=top_level_only` 时，不能从顶层字段猜测 `.1` 或嵌套点号参数；优先使用 `--cli-jsonInput`，必要时按 `sdk_evidence_command` 读取官方 SDK 的有限深度请求 schema。
    - 写好 `cli-jsonInput` 后、dry-run 或 submit 前，先运行 `hcloud_request_preflight.py`；通用 change plan 在收到 `--json-input-file` 时也会自动预检。明确的 JSON、位置、必填字段和类型错误必须修正；`validation_status=partial` 表示本地证据不完整，应继续用 dry-run、operation help 或官方文档补证，不能把它误写成云 API 失败。
    - `hcloud_safe_exec.py` 返回的 `execution_semantics` 分开描述请求结果和资源状态：mutation 的 `request_outcome=succeeded` 仍需回读；`request_outcome=outcome_unknown` 或 `retry_strategy=verify_before_retry` 时，先查询目标资源或异步 job，再决定是否重试，禁止原样重复提交。
+   - 批量或异步 operation 命中 `operation_behavior` 时，以其中的目标路径、submit receipt、逐项 outcome 和资源回读条件为准；也可先运行 `hcloud_operation_behavior.py --service <SERVICE> --operation <Operation>`。Agent 可以直接轮询其中声明的查询 API，不要求公共轮询框架；辅助 waiter 只是高频捷径，job 成功仍不能替代逐资源终态验证。
    - 按所选工具的真实结果契约解释输出。本 Skill 的 execute 脚本如果返回
      `outcome_status`，以该结构化字段为业务结果；裸 `hcloud`、帮助探测和其他
      未声明结构化结果的命令必须同时保留 stdout、stderr 和退出码，不能只因进程
@@ -114,7 +115,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
 | --- | --- |
 | 环境、认证、profile、region/project | `hcloud_environment_doctor.py`、`hcloud_context_inspect.py`、`hcloud_project_resolve.py` |
 | 自然语言场景路由 | `hcloud_scenario_router.py` |
-| hcloud 版本选择、真实查询或受控系统命令 | `hcloud_operation_resolver.py`、`hcloud_safe_exec.py` |
+| hcloud 版本选择、批量/异步行为证据、真实查询或受控系统命令 | `hcloud_operation_resolver.py`、`hcloud_operation_behavior.py`、`hcloud_safe_exec.py` |
 | 多服务发现、目标查询、readiness/live validation（含 CCI 工作负载前检） | `hcloud_resource_discovery.py`、`hcloud_resource_query.py`、`hcloud_service_readiness.py`、`hcloud_live_validation_plan.py`、`hcloud_cci_workload_plan.py` |
 | 创建/变更请求预检、风险校验和回读帮助 | `hcloud_request_preflight.py`、`hcloud_change_plan.py`、`hcloud_service_change_plan.py`、`hcloud_guarded_change_flow.py` |
 | P0/P1/P2 闭环计划和验收 | `hcloud_closure_plan.py`、`hcloud_acceptance_closure.py` |
@@ -134,7 +135,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
 - 脚本索引和公共契约：`references/scripts.md`、`references/public-script-contract.md`、`references/script-audience-manifest.json`
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`
-- 覆盖和晋级：`references/service-coverage.md`、`references/service-curation-profiles.json`、`references/live-validation-profiles.json`、`hcloud_closure_maturity_audit.py`
+- 覆盖和晋级：`references/service-coverage.md`、`references/operation-behavior-profiles.json`、`references/service-curation-profiles.json`、`references/live-validation-profiles.json`、`hcloud_closure_maturity_audit.py`
 - 版本事实：`references/versioning-policy.md`、`CHANGELOG.md`、`RELEASE_NOTES.md`
 - 知识所有权、渐进加载和材料溯源：`references/source-map.md`、`references/materials-sources.json`
 

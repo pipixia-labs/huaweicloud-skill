@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 新增 operation-specific 批量/异步行为证据和本地覆盖矩阵入口；ECS 创建/批量删除与 EIP 批量删除的 submit receipt 不再被解释为逐项完成，Agent 可直接按 profile 轮询和回读，无需公共轮询框架。
+
 - 重写后端选择契约：默认优先级为 `hcloud > SDK > Terraform`，SDK 成为受支持的程序化路径，
   Terraform 只由 IaC/import/drift/长期纳管意图触发；高频脚本是可选捷径，不是第四种后端。
 - 将任务持久化、场景路由和确认交互改为宿主能力自适应：优先复用宿主持久 task state，有 workspace

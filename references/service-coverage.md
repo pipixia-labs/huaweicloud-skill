@@ -19,6 +19,26 @@
 
 机器可读版本见 `references/service-registry.json`。后续自动化脚本应优先消费 registry，本文件保留人类可读说明。
 
+批量/异步行为证据见 `references/operation-behavior-profiles.json`，运行
+`python3 scripts/hcloud_operation_behavior.py --pretty` 可将 registry 与 profile 合成为实时矩阵，
+`--format markdown` 可生成下面同形态的维护视图。这里的 `Curated change` 只表示已有 planner/边界，
+不表示自动 submit；机器矩阵的 `generic_metadata_backed_available` 和 `metadata_catalog_operation_count`
+表示通用 catalog 兜底；`Batch/async profile` 表示有 operation-specific 结果和收敛证据，不表示存在公共轮询框架。
+
+### 高频服务批量/异步行为证据
+
+| Service | Coverage | Curated change | Batch/async profile | 当前完成证据 |
+| --- | --- | ---: | --- | --- |
+| `ECS` | High | 2 | `CreateServers`、`CreatePostPaidServers`、`DeleteServers` | create/delete receipt 先视为受理；可直接轮询 `ShowJob`，随后逐 ECS 验证 `ACTIVE` 或 `not_found` |
+| `EIP` | Medium | 10 | `BatchDeletePublicIp` | `job_ids` 不可作为可查询 job；必须逐 EIP 验证 `ShowPublicip` 为 `not_found`，或使用已完整分页的列表证据 |
+| `VPC` | Medium | 14 | 暂无 | 使用通用 planner、服务回读和 playbook，不声称已有 operation-specific async/batch 合同 |
+| `EVS` | Low | 8 | 暂无 | 使用通用 planner 和资源回读；异步操作仍由 Agent 按当前 API 证据处理 |
+| `ELB` | Low | 15 | 暂无 | 已有依赖指导和通用验证，但没有批量/异步 profile |
+| `RDS` | Low | 11 | 暂无 | 已有 planner-only 入口和资源验证，没有批量/异步 profile |
+
+当前 profile 的直接收益是避免把 submit receipt、`job_id` 或批量命令退出码误写成逐项完成。未命中
+profile 时，Agent 继续使用 resolver、help、官方文档和实时查询，不得猜测同一套状态字段。
+
 服务维护档案见 `references/service-curation-profiles.json`。它记录已有 curated 服务和下一批晋级候选的 readiness operation、resource query operation、playbook 和 risk profile。用 `scripts/hcloud_curated_promotion_audit.py --include-curated --pretty` 检查现有 curated 健康状态和候选缺口。
 
 不要把三类数据混为同一个成熟度结论：curation profile 表示当前设计和维护边界，`live-validation-profiles.json` 表示希望采集的闭环证据契约，`hcloud-service-confidence.json` 中标为 `live-read-smoked` 的 operation 才表示曾有真实只读 smoke 证据。没有观测时间、环境和来源时，只能说明“存在过能力证据”，不能声称最近版本、当前账号或所有场景已经验证；只有来源还不够，完整可复现 provenance 还要求具体源码 revision。运行 `scripts/hcloud_closure_maturity_audit.py --pretty` 可查看 `evidence_provenance` 摘要；该审计不会把目标档案冒充运行历史。

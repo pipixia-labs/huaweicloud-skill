@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "description": "高频华为云 operation 的批量目标、提交回执和异步收敛证据。该文件只提供证据，不执行轮询或任务编排。",
+  "operations": {
+    "ECS.CreateServers": {
+      "service": "ECS",
+      "operation": "CreateServers",
+      "versions": ["v2"],
+      "support_level": "curated",
+      "cardinality": "multi_resource",
+      "request_targets": {
+        "path": "body.server.count",
+        "kind": "requested_count",
+        "identity_available_before_submit": false
+      },
+      "submit_receipt": {
+        "fields": ["job_id", "serverIds[]"],
+        "meaning": "request_accepted_only",
+        "per_item_completion": false,
+        "job_receipts_queryable": true
+      },
+      "batch_result_contract": {
+        "applies_after": "submit_receipt",
+        "initial_item_outcome": "outcome_unknown",
+        "succeeded_when": "Every returned server ID is read back in ACTIVE state and the requested count is accounted for.",
+        "partially_succeeded_when": "Only a proven subset of returned or requested servers reaches ACTIVE while another subset fails or remains unverified.",
+        "failed_when": "The provider explicitly rejects the request before acceptance, or final evidence proves that no requested server was created.",
+        "unknown_when": "The request was accepted but job or resource readback cannot account for every requested server."
+      },
+      "async_convergence": {
+        "mode": "job_then_resource",
+        "agent_direct_poll_supported": true,
+        "public_polling_framework_required": false,
+        "poll": {
+          "service": "ECS",
+          "operation": "ShowJob",
+          "id_source": "response.job_id",
+          "running_states": ["INIT", "PENDING", "RUNNING", "PROCESSING", "WAITING"],
+          "success_states": ["SUCCESS", "SUCCEEDED", "COMPLETE", "COMPLETED"],
+          "failure_states": ["FAIL", "FAILED", "ERROR", "CANCELLED", "CANCELED", "ROLLBACK", "ROLLED_BACK"],
+          "optional_helper": "scripts/hcloud_ecs_wait_job.py"
+        },
+        "resource_readback": {
+          "operations": ["ListServersDetails", "ShowServer"],
+          "target_ids_source": "response.serverIds[]",
+          "success_states": ["ACTIVE"],
+          "required_after_job_success": true
+        }
+      },
+      "evidence_sources": [
+        "generated_hcloud_catalog",
+        "official_sdk_request_response_schema",
+        "curated_ecs_planner_and_verifiers"
+      ]
+    },
+    "ECS.CreatePostPaidServers": {
+      "service": "ECS",
+      "operation": "CreatePostPaidServers",
+      "versions": ["v2"],
+      "support_level": "curated",
+      "cardinality": "multi_resource",
+      "request_targets": {
+        "path": "body.server.count",
+        "kind": "requested_count",
+        "identity_available_before_submit": false
+      },
+      "submit_receipt": {
+        "fields": ["job_id", "serverIds[]"],
+        "meaning": "request_accepted_only",
+        "per_item_completion": false,
+        "job_receipts_queryable": true
+      },
+      "batch_result_contract": {
+        "applies_after": "submit_receipt",
+        "initial_item_outcome": "outcome_unknown",
+        "succeeded_when": "Every returned server ID is read back in ACTIVE state and the requested count is accounted for.",
+        "partially_succeeded_when": "Only a proven subset of returned or requested servers reaches ACTIVE while another subset fails or remains unverified.",
+        "failed_when": "The provider explicitly rejects the request before acceptance, or final evidence proves that no requested server was created.",
+        "unknown_when": "The request was accepted but job/resource readback cannot account for every requested server."
+      },
+      "async_convergence": {
+        "mode": "job_then_resource",
+        "agent_direct_poll_supported": true,
+        "public_polling_framework_required": false,
+        "poll": {
+          "service": "ECS",
+          "operation": "ShowJob",
+          "id_source": "response.job_id",
+          "running_states": ["INIT", "PENDING", "RUNNING", "PROCESSING", "WAITING"],
+          "success_states": ["SUCCESS", "SUCCEEDED", "COMPLETE", "COMPLETED"],
+          "failure_states": ["FAIL", "FAILED", "ERROR", "CANCELLED", "CANCELED", "ROLLBACK", "ROLLED_BACK"],
+          "optional_helper": "scripts/hcloud_ecs_wait_job.py"
+        },
+        "resource_readback": {
+          "operations": ["ListServersDetails", "ShowServer"],
+          "target_ids_source": "response.serverIds[]",
+          "success_states": ["ACTIVE"],
+          "required_after_job_success": true
+        }
+      },
+      "evidence_sources": [
+        "generated_hcloud_catalog",
+        "official_sdk_request_response_schema",
+        "curated_ecs_planner_and_verifiers"
+      ]
+    },
+    "ECS.DeleteServers": {
+      "service": "ECS",
+      "operation": "DeleteServers",
+      "versions": ["v2"],
+      "support_level": "metadata_backed",
+      "cardinality": "multi_resource",
+      "request_targets": {
+        "path": "body.servers[].id",
+        "kind": "resource_ids",
+        "identity_available_before_submit": true,
+        "max_items": 1000
+      },
+      "submit_receipt": {
+        "fields": ["job_id"],
+        "meaning": "batch_request_accepted_only",
+        "per_item_completion": false,
+        "job_receipts_queryable": true
+      },
+      "batch_result_contract": {
+        "applies_after": "submit_receipt",
+        "initial_item_outcome": "outcome_unknown",
+        "succeeded_when": "Every requested server ID is read back as not found after the delete job reaches a success terminal state.",
+        "partially_succeeded_when": "A proven subset of requested server IDs is absent while another subset still exists, fails, or remains unverified.",
+        "failed_when": "The provider explicitly rejects the request before acceptance, or final readback proves that every requested server still exists after a terminal failure.",
+        "unknown_when": "The request was accepted but job or per-server readback cannot account for every requested ID."
+      },
+      "async_convergence": {
+        "mode": "job_then_resource",
+        "agent_direct_poll_supported": true,
+        "public_polling_framework_required": false,
+        "poll": {
+          "service": "ECS",
+          "operation": "ShowJob",
+          "id_source": "response.job_id",
+          "running_states": ["INIT", "PENDING", "RUNNING", "PROCESSING", "WAITING"],
+          "success_states": ["SUCCESS", "SUCCEEDED", "COMPLETE", "COMPLETED"],
+          "failure_states": ["FAIL", "FAILED", "ERROR", "CANCELLED", "CANCELED", "ROLLBACK", "ROLLED_BACK"],
+          "optional_helper": "scripts/hcloud_ecs_wait_job.py"
+        },
+        "resource_readback": {
+          "operations": ["ShowServer", "ListServersDetails"],
+          "target_ids_source": "request.body.servers[].id",
+          "expected": "not_found",
+          "required_after_job_success": true
+        }
+      },
+      "evidence_sources": ["generated_hcloud_catalog", "official_sdk_request_response_schema"]
+    },
+    "EIP.BatchDeletePublicIp": {
+      "service": "EIP",
+      "operation": "BatchDeletePublicIp",
+      "versions": ["v2"],
+      "support_level": "curated",
+      "cardinality": "multi_resource",
+      "request_targets": {
+        "path": "body.publicip_ids[]",
+        "kind": "resource_ids",
+        "identity_available_before_submit": true
+      },
+      "submit_receipt": {
+        "fields": ["job_ids[]"],
+        "meaning": "batch_request_receipts_only",
+        "per_item_completion": false,
+        "job_receipts_queryable": false
+      },
+      "batch_result_contract": {
+        "applies_after": "submit_receipt",
+        "initial_item_outcome": "outcome_unknown",
+        "succeeded_when": "Every requested EIP ID is read back as not found.",
+        "partially_succeeded_when": "A proven subset of requested EIP IDs is absent while another subset still exists, fails, or remains unverified.",
+        "failed_when": "The provider explicitly rejects the request before acceptance, or final readback proves that every requested EIP still exists after an explicit failure.",
+        "unknown_when": "The API returned non-queryable job receipts but per-EIP readback cannot account for every requested ID."
+      },
+      "async_convergence": {
+        "mode": "resource_readback_only",
+        "agent_direct_poll_supported": true,
+        "public_polling_framework_required": false,
+        "poll": null,
+        "resource_readback": {
+          "operations": ["ShowPublicip", "ListPublicips"],
+          "target_ids_source": "request.body.publicip_ids[]",
+          "expected": "not_found",
+          "pagination_must_be_complete_for_list_absence": true,
+          "required_after_submit_receipt": true
+        }
+      },
+      "evidence_sources": [
+        "generated_hcloud_catalog",
+        "official_sdk_request_response_schema",
+        "curated_eip_change_flow"
+      ]
+    }
+  }
+}

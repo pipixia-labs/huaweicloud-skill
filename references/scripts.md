@@ -138,7 +138,33 @@ Use this before a raw `hcloud` call when an operation has multiple API versions.
 
 Successful resolution also returns `request_contract` with top-level method/path/parameter evidence. Complex bodies are marked `body_shape_confidence=top_level_only`; use its `sdk_evidence_command` or operation help rather than guessing nested dotted/indexed arguments.
 
+命中本地批量/异步 profile 时，resolver 还返回 `operation_behavior`。其中的 submit receipt 只表示
+受理时，逐项初始状态保持 `outcome_unknown`，直到 profile 指定的 job 和资源回读条件得到证实。
+
 If an explicit version conflicts with the parameters, the resolver exits non-zero and returns `corrected_operation` plus a redacted correction command. Do not repeat the original command unchanged.
+
+### Operation Behavior and Coverage Inspector
+
+```bash
+python3 scripts/hcloud_operation_behavior.py \
+  --service ECS \
+  --operation DeleteServers/v2 \
+  --pretty
+```
+
+该 local-only inspector 读取 `references/operation-behavior-profiles.json`，返回批量目标路径、提交回执
+含义、逐项结果合同、可直接轮询的 API 和最终资源回查条件。它不访问云端、不 sleep、不轮询、不提交
+变更，也不替 Agent 编排任务。Agent 可以直接调用 profile 中声明的查询 operation；现有 waiter 只是可选
+高频捷径，不是公共轮询框架。
+
+不带 service/operation 时生成机器可读服务覆盖矩阵；维护者也可以查看 Markdown 视图：
+
+```bash
+python3 scripts/hcloud_operation_behavior.py --format markdown
+```
+
+矩阵严格区分 registry 中的 curated change、operation-specific batch/async profile 和仅有 metadata 的
+通用兜底，不能把 catalog 中“存在某个 API”写成已经形成完整执行闭环。
 
 ### SDK Metadata Inspector
 

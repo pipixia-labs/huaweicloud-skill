@@ -15,6 +15,7 @@ from typing import Any
 
 import hcloud_catalog
 import hcloud_common
+import hcloud_operation_behavior
 import hcloud_output_policy
 
 SYSTEM_PARAM_NAMES = {
@@ -485,6 +486,12 @@ def resolve_operation_version(
             selected_version,
         ),
     }
+    operation_behavior = hcloud_operation_behavior.find_operation_behavior(
+        service,
+        canonical_operation,
+    )
+    if operation_behavior:
+        result["operation_behavior"] = operation_behavior
     if help_evidence:
         result["hcloud_help"] = help_evidence
     return result

@@ -159,6 +159,16 @@
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "unsupported",
       "output_file_content": "none"
+    },
+    "scripts/hcloud_operation_behavior.py": {
+      "kind": "inspector_router",
+      "backend": "local",
+      "cloud_access": "none",
+      "default_mode": "inspect",
+      "contract_level": "bounded_json",
+      "stdout_without_output_file": "full_json",
+      "stdout_with_output_file": "unsupported",
+      "output_file_content": "none"
     }
   },
   "consolidation_policy": {
@@ -263,6 +273,7 @@
         "scripts/hcloud_meta_lookup.py",
         "scripts/hcloud_obs_readonly.py",
         "scripts/hcloud_observability_plan.py",
+        "scripts/hcloud_operation_behavior.py",
         "scripts/hcloud_operation_resolver.py",
         "scripts/hcloud_prewarm_cache.py",
         "scripts/hcloud_project_resolve.py",
