@@ -207,7 +207,16 @@ python3 scripts/hcloud_cross_agent_eval.py --pretty list
 python3 scripts/hcloud_cross_agent_eval.py --pretty render --case inventory-beijing4
 python3 scripts/hcloud_cross_agent_eval.py --pretty template \
   --case inventory-beijing4 --run-id <run-id>
+python3 scripts/hcloud_cross_agent_eval.py --pretty baseline \
+  --input <baseline-results.json> --baseline-id <baseline-id>
+python3 scripts/hcloud_cross_agent_eval.py --pretty compare \
+  --baseline <baseline.json> --input <candidate-results.json>
+python3 scripts/hcloud_cross_agent_eval.py --pretty journal-summary \
+  --input <run-journal.jsonl>
 ```
+
+该工具不执行 Agent 或云请求。`baseline`/`compare` 只生成建议性回归证据，不充当平台门禁；
+`journal-summary` 只在本地汇总经过白名单约束的维度，不返回原始事件或标识符，也不上传数据。
 
 该工具固定跨 Agent 题目和 check，生成观察模板并校验/汇总人工填写的结果。它不自动调用 Agent、
 不访问华为云，也不执行真实变更。运行方法见 `references/cross-agent-evaluation.md`。

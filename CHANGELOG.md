@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 跨 Agent 评估工具支持确定性本地基线、候选回归比较和不含原始事件/标识符的 journal 摘要；所有回归信号仅为建议证据，不执行 Agent、不联网、不上传，也不构成平台门禁。
+
 - 扩展 ECS/VPC/EIP/EVS/ELB 核心生命周期 operation 的 request、submit receipt、收敛、依赖和回读证据，不引入工作流引擎。
 - 新增 check-only 环境恢复投影，提供精确的 KooCLI 隐私声明、profile、region、metadata 和任务级依赖命令。
 - 新增有界单次变更 BSS 询价入口，并在通用与 ECS 创建计划中输出显式 `cost_estimate`；未执行询价时保持 unknown，绝不编造金额。

@@ -139,7 +139,7 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
 - Terraform：`references/terraform-workflow.md`、`references/terraform/README.md`、`references/terraform/operations.md`
 - MaaS：`references/maas-model-calls.md`、`references/playbooks/maas-api-readiness.md`、`references/playbooks/maas-usage-governance.md`
 - 覆盖和晋级：`references/service-coverage.md`、`references/operation-behavior-profiles.json`、`references/resource-dependency-profiles.json`、`references/service-curation-profiles.json`、`references/live-validation-profiles.json`、`hcloud_closure_maturity_audit.py`
-- 跨 Agent 评估：`references/cross-agent-evaluation.md`、`references/cross-agent-evaluation-cases.json`、`hcloud_cross_agent_eval.py`
+- 跨 Agent 评估：`references/cross-agent-evaluation.md`、`references/cross-agent-evaluation-cases.json`、`hcloud_cross_agent_eval.py`；支持本地基线/候选比较和脱敏 journal 摘要，结果仅为建议证据，不是平台门禁
 - 版本事实：`references/versioning-policy.md`、`CHANGELOG.md`、`RELEASE_NOTES.md`
 - 知识所有权、渐进加载和材料溯源：`references/source-map.md`、`references/materials-sources.json`
 

@@ -54,7 +54,40 @@ python3 scripts/hcloud_cross_agent_eval.py --pretty aggregate \
 汇总保留 Agent、模型、case、通过/失败/不可观察数量以及 check 的原始分子分母。秘密泄露、未授权副作用、
 重复副作用、虚假完成或跨 task 污染属于硬失败，不能被其他 check 抵消。
 
-## 5. 建议运行方式
+## 5. 固化基线并比较候选
+
+同一 `Agent × 模型 × case` 建议先收集至少 3 次有效结果，并把这些结果组成 JSON 数组。基线命令只读取
+本地结果，不启动 Agent：
+
+```bash
+python3 scripts/hcloud_cross_agent_eval.py --pretty baseline \
+  --input <baseline-results.json> \
+  --baseline-id <baseline-id> > <baseline.json>
+
+python3 scripts/hcloud_cross_agent_eval.py --pretty compare \
+  --baseline <baseline.json> \
+  --input <candidate-results.json>
+```
+
+基线记录场景包和输入的确定性摘要、每组原始分子/分母、check 分布和耗时/工具调用等描述性统计。
+比较结果只给出 `regression_observed`、`no_regression_observed`、`insufficient_evidence` 等
+**advisory（建议性）证据**，不声明统计显著性，也不阻断 Agent、平台部署或云操作。缺少相同
+Agent、模型、case 的基线时不会强行比较。
+
+## 6. 本地 journal 摘要
+
+如果脚本运行时已经产生可选 JSONL journal，可以在本机做只读聚合：
+
+```bash
+python3 scripts/hcloud_cross_agent_eval.py --pretty journal-summary \
+  --input <run-journal.jsonl>
+```
+
+输出只保留事件类型、服务、operation、结果、错误类别及计数，不返回原始事件、时间戳、资源或账号
+ID、profile、路径和自由文本。该命令不联网、不上传、不跨用户聚合，也不会自动把 journal 事件判成
+某个 check 的通过或失败；最终评分仍由评测者依据可复核证据填写。
+
+## 7. 建议运行方式
 
 - 每个 `Agent × 模型 × case` 至少重复 3 次；首次体验可以先跑 1 次发现明显问题。
 - 优先比较同一 Skill commit，不把模型、权限或网络差异归因给 Skill。
