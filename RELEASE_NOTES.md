@@ -2,17 +2,55 @@
 
 ## Unreleased
 
-当前未发布改动统一了自主 Agent 的后端选择和公共脚本契约：hcloud 仍默认优先，SDK 可承担类型化、
-复杂处理和 hcloud 实际障碍下的任务，Terraform 保持 IaC 意图专用。宿主负责持久化与确认交互机制，
-Skill 负责华为云事实、风险、参数、错误和验证语义。
+## v0.9.5 / 0.9.5 - 2026-08-18
 
-11 个高价值公共查询、盘点、验证和验收入口统一采用兼容的 artifact/receipt 模式：只有显式传入
-`--output-file` 才把完整结果写入 `0600` 文件并在 stdout 返回紧凑回执；不传时保持原有完整 JSON
-输出。公共回执只使用五种稳定 outcome，并区分脚本成功、环境 ready 和领域完成状态。
+v0.9.5 是自主 Agent 执行准确性和可移植性增强版本。它明确 `hcloud > SDK > Terraform` 的默认选择，
+统一高价值公共脚本的兼容结果回执，并补齐复杂请求预检、批量/异步结果语义、资源依赖证据和
+区域 project_id fallback。Skill 继续提供事实、参数、错误和验证语义，不替代 Agent 的业务决策，
+也不要求宿主实现专属 Function Calling。
 
-环境 doctor 改为按任务声明依赖：hcloud、指定服务 SDK、Terraform、OBS、网络和 artifact 目录只在
-当前后端需要时进入 ready 判断；未选择 SDK 服务时不再全量扫描 package。SDK curated registry 只
-约束便捷只读 runner，不限制 Agent 使用经核验的官方 SDK 编写任务代码。
+### 主要变化
+
+- **后端选择和运行时边界**
+  - 默认优先 hcloud；SDK 用于类型化请求、复杂 body、分页/并发或 hcloud 的实际覆盖障碍；Terraform
+    只由 IaC、import、drift 和长期纳管意图触发。
+  - 环境 doctor 按当前任务检查 hcloud、指定服务 SDK、Terraform、OBS、网络和 artifact 目录，
+    不再因未选择 SDK 服务而扫描全部 package。
+
+- **公共结果和大输出回执**
+  - 11 个高价值查询、盘点、验证和验收入口支持兼容的 artifact/receipt 模式；只有显式传入
+    `--output-file` 时才把完整结果写入 `0600` 文件并返回紧凑回执。
+  - 公共回执使用 `planned`、`succeeded`、`partially_succeeded`、`failed` 和 `outcome_unknown`，
+    并把脚本成功、环境 ready 和领域完成状态分开表达。
+
+- **请求构造和 provider 证据**
+  - 新增纯本地请求预检，结合精确 operation 版本与官方 SDK 静态请求模型，在 dry-run/submit 前
+    发现 JSON 外层、参数位置、required 和类型错误；证据不完整时保持 partial，不猜测嵌套结构。
+  - operation resolver 和 safe exec 为复杂 body、SDK schema 证据、请求结果与资源终态提供更明确的
+    结构化语义，结果未知时要求 verify-before-retry。
+
+- **批量、异步和依赖证据**
+  - 新增 operation-specific 行为 profile 和本地 inspector，覆盖 ECS、EIP、EVS、ELB、RDS、DNS 的
+    批量或异步结果；submit receipt 不再被误写成逐项资源完成。
+  - 新增高频资源依赖证据和本地查询入口，帮助 Agent 根据实时状态决定删除、创建和回读次序；
+    Skill 不引入公共轮询状态机，也不替 Agent 固定调用顺序。
+
+- **区域 project_id 解析修复**
+  - IAM fallback 现在以单 token 传递 `--arg=--name=<region>`，避免 argparse 在 hcloud 调用前拒绝参数。
+  - 结构化本地输出错误优先于文本关键字分类，不再把帮助信息中的 `--timeout TIMEOUT` 误报为
+    `IAM_NETWORK_TIMEOUT`。
+
+### 验证
+
+- 全量离线回归：529 项通过，10 项按条件跳过，1984 个参数化子测试通过。
+- Ruff、compileall 和 diff 检查通过。
+- 已用真实 IAM 只读 fallback 成功解析 `cn-north-4` 的 project_id；未执行真实云变更。
+
+### 兼容性与运行时边界
+
+- 未指定 `--output-file` 时，已迁移脚本继续输出原有完整 JSON。
+- 新增 profile、preflight 和 dependency 工具只提供事实、计划或证据，不调度 Agent、不要求平台专属
+  Tool，也不限制 Agent 对长尾任务直接使用有证据的 hcloud、官方 SDK 或 Terraform。
 
 ## v0.9.4 / 0.9.4 - 2026-08-17
 

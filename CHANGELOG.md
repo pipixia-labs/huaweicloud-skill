@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.5 - 2026-08-18
+
 - 新增 operation-specific 批量/异步行为证据和本地覆盖矩阵入口；ECS 创建/批量删除与 EIP 批量删除的 submit receipt 不再被解释为逐项完成，Agent 可直接按 profile 轮询和回读，无需公共轮询框架。
 - 扩展 EVS、ELB、RDS、DNS 的批量/异步结果语义；新增高频资源结构化依赖证据、本地 inspector 和跨 Agent 场景/记录/汇总工具，均不执行工作流或真实云操作。
 
@@ -20,6 +22,8 @@
 - 新增纯本地 KooCLI 请求预检：复用 resolver 的精确 API 版本与官方 SDK 静态嵌套 schema，在
   dry-run/submit 前发现 JSON 外层、参数位置、required 和类型错误；SDK 缺失/截断保持部分证据，
   未知字段只告警。通用 change plan 对 JSON 请求自动附带预检结果。
+- 修复区域 `project_id` 的 IAM fallback 参数传递：以单 token 传递带连字符的 hcloud 子参数，并优先按
+  结构化错误类型分类，避免本地 argparse 帮助文本中的 `--timeout TIMEOUT` 被误报为 IAM 网络超时。
 
 ## 0.9.4 - 2026-08-17
 
