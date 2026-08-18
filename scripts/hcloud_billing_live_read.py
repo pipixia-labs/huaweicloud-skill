@@ -15,6 +15,7 @@ from typing import Any
 
 import hcloud_billing_readonly
 import hcloud_billing_result_summarize
+import hcloud_checkpoint
 import hcloud_common
 
 CONFIRM_TOKEN = "READ_BILLING_DATA"
@@ -24,6 +25,7 @@ MAX_PRIVATE_PAYLOAD_BYTES = 16 * 1024 * 1024
 MAX_AUTO_PAGES = 20
 MAX_AUTO_RECORDS = 1000
 MAX_MERGED_PAYLOAD_BYTES = 16 * 1024 * 1024
+CHECKPOINT_CONTRACT = "huaweicloud_billing_live_read_checkpoint_v1"
 
 
 def billing_args(args: argparse.Namespace) -> SimpleNamespace:
@@ -244,6 +246,141 @@ def merged_payload(
     return merged
 
 
+def billing_checkpoint_scope(
+    args: argparse.Namespace,
+    initial_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Return the billing query scope that must remain stable across resumes."""
+    request_spec = initial_plan.get("request_spec", {})
+    return {
+        "operation": initial_plan.get("operation"),
+        "request_scope_signature": request_scope_signature(request_spec),
+        "initial_offset": planned_int_field(request_spec, "offset", args.offset),
+        "page_limit": planned_int_field(request_spec, "limit", args.limit),
+    }
+
+
+def validate_billing_checkpoint_state(
+    state: dict[str, Any],
+    *,
+    initial_offset: int,
+) -> dict[str, Any]:
+    """Validate and recompute accepted-page state without trusting stored counters."""
+    accepted_payloads = state.get("accepted_payloads")
+    page_statuses = state.get("page_statuses")
+    if not isinstance(accepted_payloads, list) or not isinstance(page_statuses, list):
+        raise hcloud_checkpoint.CheckpointError(
+            "CHECKPOINT_INVALID",
+            "Billing checkpoint state is missing accepted payloads or page statuses.",
+        )
+    if len(page_statuses) != len(accepted_payloads):
+        raise hcloud_checkpoint.CheckpointError(
+            "CHECKPOINT_INVALID",
+            "Billing checkpoint page statuses do not match accepted payloads.",
+        )
+    if any(not isinstance(status, dict) for status in page_statuses):
+        raise hcloud_checkpoint.CheckpointError(
+            "CHECKPOINT_INVALID",
+            "Billing checkpoint contains a non-object page status.",
+        )
+
+    record_field: str | None = None
+    total_count: int | None = None
+    expected_metadata: dict[str, Any] | None = None
+    fetched_count = 0
+    merged_payload_bytes = 0
+    for payload in accepted_payloads:
+        if not isinstance(payload, dict):
+            raise hcloud_checkpoint.CheckpointError(
+                "CHECKPOINT_INVALID",
+                "Billing checkpoint contains a non-object payload page.",
+            )
+        current_field, records, current_total, page_error = payload_page_info(payload)
+        if page_error:
+            raise hcloud_checkpoint.CheckpointError("CHECKPOINT_INVALID", page_error)
+        current_metadata = stable_page_metadata(payload)
+        if record_field is None:
+            record_field = current_field
+            total_count = current_total
+            expected_metadata = current_metadata
+        elif (
+            current_field != record_field
+            or current_total != total_count
+            or current_metadata != expected_metadata
+        ):
+            raise hcloud_checkpoint.CheckpointError(
+                "CHECKPOINT_INVALID",
+                "Billing checkpoint page metadata changed across accepted pages.",
+            )
+        if (
+            total_count is None
+            or initial_offset + fetched_count + len(records) > total_count
+        ):
+            raise hcloud_checkpoint.CheckpointError(
+                "CHECKPOINT_INVALID",
+                "Billing checkpoint record count exceeds its declared total.",
+            )
+        payload_bytes = len(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        )
+        fetched_count += len(records)
+        merged_payload_bytes += payload_bytes
+    if fetched_count > MAX_AUTO_RECORDS or merged_payload_bytes > MAX_MERGED_PAYLOAD_BYTES:
+        raise hcloud_checkpoint.CheckpointError(
+            "CHECKPOINT_INVALID",
+            "Billing checkpoint exceeds the supported merged result bounds.",
+        )
+    return {
+        "accepted_payloads": accepted_payloads,
+        "page_statuses": page_statuses,
+        "record_field": record_field,
+        "total_count": total_count,
+        "expected_metadata": expected_metadata,
+        "fetched_count": fetched_count,
+        "merged_payload_bytes": merged_payload_bytes,
+        "next_offset": initial_offset + fetched_count,
+    }
+
+
+def load_billing_checkpoint(
+    path: Path,
+    scope: dict[str, Any],
+) -> dict[str, Any]:
+    """Load and validate private accepted-page state for one billing query."""
+    document = hcloud_checkpoint.load_checkpoint(
+        path,
+        contract=CHECKPOINT_CONTRACT,
+        scope=scope,
+    )
+    return validate_billing_checkpoint_state(
+        document["state"],
+        initial_offset=int(scope["initial_offset"]),
+    )
+
+
+def write_billing_checkpoint(
+    path: Path | None,
+    scope: dict[str, Any],
+    *,
+    accepted_payloads: list[dict[str, Any]],
+    page_statuses: list[dict[str, Any]],
+    complete: bool,
+) -> dict[str, Any] | None:
+    """Persist private accepted billing pages when checkpointing is enabled."""
+    if path is None:
+        return None
+    return hcloud_checkpoint.write_checkpoint(
+        path,
+        contract=CHECKPOINT_CONTRACT,
+        scope=scope,
+        state={
+            "accepted_payloads": accepted_payloads,
+            "page_statuses": page_statuses,
+            "complete": complete,
+        },
+    )
+
+
 def load_private_billing_payload(path: Path, root: Path) -> Any:
     """Load one bounded 0600 parsed-JSON artifact owned by this execution."""
     if path.is_symlink() or not path.is_file():
@@ -384,24 +521,101 @@ def run_paginated_safe_exec(
     initial_offset = planned_int_field(initial_request_spec, "offset", args.offset)
     page_limit = planned_int_field(initial_request_spec, "limit", args.limit)
     expected_scope = request_scope_signature(initial_request_spec)
-    deadline = time.monotonic() + args.timeout
+    checkpoint_path = (
+        Path(str(getattr(args, "checkpoint_file", ""))).expanduser()
+        if getattr(args, "checkpoint_file", None)
+        else None
+    )
+    resume = bool(getattr(args, "resume", False))
+    checkpoint_scope = billing_checkpoint_scope(args, initial_plan)
+    effective_time_budget = getattr(args, "time_budget", None) or args.timeout
+    deadline = time.monotonic() + effective_time_budget
 
-    accepted_payloads: list[dict[str, Any]] = []
-    page_statuses: list[dict[str, Any]] = []
-    record_field: str | None = None
-    total_count: int | None = None
-    expected_metadata: dict[str, Any] | None = None
-    fetched_count = 0
-    merged_payload_bytes = 0
-    attempted_page_count = 0
-    next_offset = initial_offset
+    if resume and checkpoint_path is None:
+        error = hcloud_checkpoint.CheckpointError(
+            "CHECKPOINT_REQUIRED",
+            "--resume requires --checkpoint-file.",
+        )
+        return {
+            "executed": False,
+            "success": False,
+            "outcome_status": "failed",
+            "error_code": error.code,
+            "error": str(error),
+            "summary": None,
+        }
+    if resume:
+        try:
+            restored = load_billing_checkpoint(checkpoint_path, checkpoint_scope)
+        except hcloud_checkpoint.CheckpointError as exc:
+            return {
+                "executed": False,
+                "success": False,
+                "outcome_status": "failed",
+                "error_code": exc.code,
+                "error": str(exc),
+                "summary": None,
+                "checkpoint": {
+                    "contract": CHECKPOINT_CONTRACT,
+                    "path": str(checkpoint_path.absolute()),
+                },
+            }
+    else:
+        restored = {
+            "accepted_payloads": [],
+            "page_statuses": [],
+            "record_field": None,
+            "total_count": None,
+            "expected_metadata": None,
+            "fetched_count": 0,
+            "merged_payload_bytes": 0,
+            "next_offset": initial_offset,
+        }
+
+    accepted_payloads: list[dict[str, Any]] = list(restored["accepted_payloads"])
+    accepted_page_statuses: list[dict[str, Any]] = list(restored["page_statuses"])
+    reported_page_statuses = list(accepted_page_statuses)
+    record_field: str | None = restored["record_field"]
+    total_count: int | None = restored["total_count"]
+    expected_metadata: dict[str, Any] | None = restored["expected_metadata"]
+    fetched_count = int(restored["fetched_count"])
+    merged_payload_bytes = int(restored["merged_payload_bytes"])
+    next_offset = int(restored["next_offset"])
+    reused_page_count = len(accepted_payloads)
+    attempted_this_run = 0
     stop_reason = "page_execution_failed"
     last_parse_error: str | None = None
+    checkpoint_artifact: dict[str, Any] | None = None
 
-    while attempted_page_count < MAX_AUTO_PAGES:
+    try:
+        checkpoint_artifact = write_billing_checkpoint(
+            checkpoint_path,
+            checkpoint_scope,
+            accepted_payloads=accepted_payloads,
+            page_statuses=accepted_page_statuses,
+            complete=(
+                initial_offset == 0
+                and total_count is not None
+                and fetched_count == total_count
+            ),
+        )
+    except OSError as exc:
+        return {
+            "executed": False,
+            "success": False,
+            "outcome_status": "failed",
+            "error_code": "CHECKPOINT_WRITE_FAILED",
+            "error": str(exc),
+            "summary": None,
+        }
+
+    if initial_offset == 0 and total_count is not None and fetched_count == total_count:
+        stop_reason = "all_records_fetched"
+
+    while stop_reason != "all_records_fetched" and len(accepted_payloads) < MAX_AUTO_PAGES:
         remaining_seconds = deadline - time.monotonic()
         if remaining_seconds <= 0:
-            stop_reason = "total_timeout_reached"
+            stop_reason = "time_budget_reached"
             break
         per_page_timeout = max(1, min(args.timeout, int(remaining_seconds)))
         current_args = page_args(
@@ -411,7 +625,7 @@ def run_paginated_safe_exec(
         )
         page_plan = (
             initial_plan
-            if attempted_page_count == 0 and next_offset == initial_offset
+            if not accepted_payloads and attempted_this_run == 0 and next_offset == initial_offset
             else hcloud_billing_readonly.build_request_spec(billing_args(current_args))
         )
         guard_errors = validate_live_read_plan(page_plan, fallback_limit=page_limit)
@@ -425,10 +639,10 @@ def run_paginated_safe_exec(
             break
 
         page_result, payload = run_safe_exec_page(command, current_args, request_spec)
-        attempted_page_count += 1
+        attempted_this_run += 1
         page_status = dict(page_result.get("safe_exec_status") or {})
         page_status["offset"] = next_offset
-        page_statuses.append(page_status)
+        reported_page_statuses.append(page_status)
         last_parse_error = page_result.get("safe_exec_parse_error")
         if not page_result.get("success") or payload is None:
             stop_reason = "page_execution_failed"
@@ -446,7 +660,7 @@ def run_paginated_safe_exec(
             stop_reason = "page_metadata_changed"
             break
 
-        remaining_records = total_count - fetched_count
+        remaining_records = total_count - next_offset
         if len(records) > remaining_records:
             stop_reason = "page_record_count_exceeds_remaining"
             break
@@ -460,6 +674,7 @@ def run_paginated_safe_exec(
             break
 
         accepted_payloads.append(payload)
+        accepted_page_statuses.append(page_status)
         merged_payload_bytes += payload_bytes
         fetched_count += len(records)
         next_offset = initial_offset + fetched_count
@@ -470,11 +685,39 @@ def run_paginated_safe_exec(
         if not records:
             stop_reason = "empty_page_before_total_count"
             break
-        if attempted_page_count >= MAX_AUTO_PAGES:
+        try:
+            checkpoint_artifact = write_billing_checkpoint(
+                checkpoint_path,
+                checkpoint_scope,
+                accepted_payloads=accepted_payloads,
+                page_statuses=accepted_page_statuses,
+                complete=(
+                    initial_offset == 0
+                    and total_count is not None
+                    and fetched_count == total_count
+                ),
+            )
+        except OSError as exc:
+            last_parse_error = str(exc)
+            stop_reason = "checkpoint_write_failed"
+            break
+        if len(accepted_payloads) >= MAX_AUTO_PAGES:
             stop_reason = "max_pages_reached"
             break
 
     complete = stop_reason == "all_records_fetched" and initial_offset == 0 and total_count is not None and fetched_count == total_count
+    try:
+        checkpoint_artifact = write_billing_checkpoint(
+            checkpoint_path,
+            checkpoint_scope,
+            accepted_payloads=accepted_payloads,
+            page_statuses=accepted_page_statuses,
+            complete=complete,
+        )
+    except OSError as exc:
+        last_parse_error = str(exc)
+        if not complete:
+            stop_reason = "checkpoint_write_failed"
     summary: dict[str, Any] | None = None
     if accepted_payloads and record_field is not None:
         private_merged_payload = merged_payload(
@@ -482,7 +725,11 @@ def run_paginated_safe_exec(
             record_field=record_field,
         )
         operation = next(
-            (status.get("operation") for status in page_statuses if status.get("operation")),
+            (
+                status.get("operation")
+                for status in reported_page_statuses
+                if status.get("operation")
+            ),
             initial_plan.get("title"),
         )
         summary = hcloud_billing_result_summarize.build_summary(
@@ -500,13 +747,16 @@ def run_paginated_safe_exec(
             {
                 "auto_paginated": True,
                 "page_count": len(accepted_payloads),
-                "attempted_page_count": attempted_page_count,
+                "attempted_page_count": len(reported_page_statuses),
                 "record_count": fetched_count,
                 "total_count": total_count,
                 "complete": complete,
                 "next_offset": None if complete else next_offset,
                 "stop_reason": stop_reason,
                 "complete_result_claim_allowed": complete,
+                "resumed": resume,
+                "reused_page_count": reused_page_count,
+                "time_budget_seconds": effective_time_budget,
             }
         )
         if not complete:
@@ -514,14 +764,20 @@ def run_paginated_safe_exec(
 
     outcome_status = "succeeded" if complete else "partially_succeeded" if accepted_payloads else "failed"
     return {
-        "executed": attempted_page_count > 0,
+        "executed": attempted_this_run > 0,
         "success": complete,
         "outcome_status": outcome_status,
-        "safe_exec_status": page_statuses[-1] if page_statuses else None,
-        "safe_exec_statuses": page_statuses,
+        "safe_exec_status": reported_page_statuses[-1] if reported_page_statuses else None,
+        "safe_exec_statuses": reported_page_statuses,
         "safe_exec_parse_error": last_parse_error,
         "summary": summary,
         "pagination_stop_reason": stop_reason,
+        "checkpoint": {
+            "contract": CHECKPOINT_CONTRACT,
+            "enabled": checkpoint_path is not None,
+            "path": str(checkpoint_path.absolute()) if checkpoint_path else None,
+            "artifact": checkpoint_artifact,
+        },
     }
 
 
@@ -564,7 +820,8 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
                 ),
                 "max_pages": MAX_AUTO_PAGES,
                 "max_records": MAX_AUTO_RECORDS,
-                "total_timeout_seconds": args.timeout,
+                "total_timeout_seconds": getattr(args, "time_budget", None) or args.timeout,
+                "checkpoint_contract": CHECKPOINT_CONTRACT,
             },
         },
         "execution": {
@@ -599,6 +856,9 @@ def build_live_read(args: argparse.Namespace) -> dict[str, Any]:
     }
     result["outcome_status"] = str(execution_result.get("outcome_status") or "failed")
     result["success"] = result["outcome_status"] == "succeeded"
+    if execution_result.get("error_code"):
+        result["error_code"] = execution_result["error_code"]
+        result["error"] = execution_result.get("error")
     return result
 
 
@@ -661,7 +921,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--confirm-live-billing-read", help=f"Must equal {CONFIRM_TOKEN} when --execute is used.")
     parser.add_argument("--include-redacted-records", action="store_true", help="Include redacted BSS records in the summary.")
     parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument(
+        "--time-budget",
+        type=int,
+        help="Total seconds available for this run; --timeout remains the per-page bound.",
+    )
     parser.add_argument("--max-output-chars", type=int, default=20000)
+    parser.add_argument("--checkpoint-file", help="Private accepted-page state for interrupted execute-mode reads.")
+    parser.add_argument("--resume", action="store_true", help="Resume accepted pages from --checkpoint-file.")
     parser.add_argument("--output-file", help="Write the complete JSON result to this file and emit a compact receipt.")
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args()
@@ -677,8 +944,18 @@ def parse_args() -> argparse.Namespace:
         parser.error("--limit must be greater than 0.")
     if args.timeout < 1:
         parser.error("--timeout must be greater than 0.")
+    if args.time_budget is not None and args.time_budget < 1:
+        parser.error("--time-budget must be greater than 0.")
+    if args.time_budget is not None and not args.execute:
+        parser.error("--time-budget requires --execute.")
     if args.max_output_chars < 1:
         parser.error("--max-output-chars must be greater than 0.")
+    if args.resume and not args.execute:
+        parser.error("--resume requires --execute.")
+    if args.resume and not args.checkpoint_file:
+        parser.error("--resume requires --checkpoint-file.")
+    if args.checkpoint_file and not args.execute:
+        parser.error("--checkpoint-file requires --execute.")
     return args
 
 
@@ -703,6 +980,14 @@ def billing_receipt_summary(result: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def billing_receipt_checkpoint(result: dict[str, Any]) -> dict[str, Any] | None:
+    """Return bounded checkpoint metadata without private accepted pages."""
+    execution = result.get("execution")
+    execution_result = execution.get("result") if isinstance(execution, dict) else None
+    checkpoint = execution_result.get("checkpoint") if isinstance(execution_result, dict) else None
+    return checkpoint if isinstance(checkpoint, dict) else None
+
+
 def emit_cli_result(
     result: dict[str, Any],
     *,
@@ -715,7 +1000,10 @@ def emit_cli_result(
         output_file=Path(output_file) if output_file else None,
         pretty=pretty,
         receipt_fields=("planning_status",),
-        receipt_extra={"summary": billing_receipt_summary(result)},
+        receipt_extra={
+            "summary": billing_receipt_summary(result),
+            "checkpoint": billing_receipt_checkpoint(result),
+        },
     )
 
 

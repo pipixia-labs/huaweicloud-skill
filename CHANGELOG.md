@@ -5,6 +5,7 @@
 - Added portable POSIX and Windows `hcloud-skill` entrypoints so bundled scripts can run independently of the host working directory.
 - Added maintained-document CLI drift checks and corrected stale EIP, IAM safe-exec, and OBS planner examples.
 - Added a credential-free Linux CI workflow for offline tests, Ruff, compilation, entrypoint smoke, and whitespace checks.
+- Added scope-bound private checkpoints and optional per-run time budgets for account inventory and Billing pagination, allowing interrupted reads to resume without repeating completed checks or accepted pages.
 
 ## 0.9.5 - 2026-08-18
 

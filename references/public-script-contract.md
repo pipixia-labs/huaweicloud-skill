@@ -57,6 +57,14 @@
 `success=true` 但 `summary.ready=false`；plan 可以 `outcome_status=planned`，同时
 `planning_status=partially_succeeded` 暴露计划缺口。
 
+## 可恢复读取扩展
+
+账号盘点和 Billing 分页可选支持 `--checkpoint-file`、`--time-budget` 和 `--resume`。checkpoint
+不是新的公共结果格式，也不替代宿主 task state：它只保存一个脚本内部已经完成的只读检查或已接受
+页面，使下一次同 scope 调用不重复工作。文件按 `0600` 原子写入，scope digest、契约版本、结构、大小
+和权限会在任何云调用前校验；完整资源响应或未脱敏 Billing 页面可能存在其中，因此只能作为私有执行
+中间态。紧凑回执只暴露 checkpoint 路径/文件回执和有界进度，不复制 checkpoint 内容。
+
 ## 退出语义
 
 - `success=true` 返回退出码 `0`；

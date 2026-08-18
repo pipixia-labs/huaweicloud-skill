@@ -53,13 +53,13 @@ description: 帮助 Agent 使用 hcloud、华为云 SDK 或 Terraform 完成资�
    - 只读取命中的少量资料，不全量浏览 catalog、Terraform 示例或长 reference。
 3. 查询类默认稳定化：
    - Agent 自主决定查什么和传什么业务参数；通过当前 runtime 的普通命令执行工具直接运行本 Skill 的专用 CLI，不依赖宿主专属 Function Calling 名称，也不要臆造不存在的平台 Tool。
-   - 账号级多服务盘点使用 `python3 scripts/hcloud_account_inventory.py --region <region> --execute --strict --output-file <workspace-result.json>`。脚本会在每个区域解析并复用一次 `project_id`，有限并发查询服务，并在 stdout 返回紧凑摘要和完整结果文件位置。宿主命令工具的总 timeout 要覆盖整个工作流，建议 1800 秒；若先返回后台 session，持续 poll 同一 session，不要重复启动。
-   - 账单、成本或费用记录使用 `python3 scripts/hcloud_billing_live_read.py ... --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace-result.json>`。脚本在安全上限内自动分页和合并；Agent 不手工维护普通总额查询的下一页 `offset`，宿主命令 timeout 同样要覆盖分页总时长。
+   - 账号级多服务盘点使用 `python3 scripts/hcloud_account_inventory.py --region <region> --execute --strict --output-file <workspace-result.json>`。脚本会在每个区域解析并复用一次 `project_id`，有限并发查询服务，并在 stdout 返回紧凑摘要和完整结果文件位置。可能被宿主运行时中断时，加 `--checkpoint-file <private-checkpoint.json> --time-budget <seconds>`；下一轮用相同查询参数和 `--resume` 只继续未完成检查，不重复已完成服务。
+   - 账单、成本或费用记录使用 `python3 scripts/hcloud_billing_live_read.py ... --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace-result.json>`。脚本在安全上限内自动分页和合并；Agent 不手工维护普通总额查询的下一页 `offset`。长分页可使用独立 `--checkpoint-file` 和 `--time-budget`，恢复时复用已接受页面并从 `pagination.next_offset` 继续。checkpoint 含未脱敏的执行中间数据，只能保存在受限 workspace 中，不能读入对话或当作公共结果。
    - 收到 stdout 文件回执后，先读 `outcome_status`、`summary` 和 `result_file`。需要资源明细时用 `jq` 等工具从结果文件提取当前回答所需字段，不要把完整大文件一次性读回模型上下文。命令退出码非零时仍要检查结果文件；`partially_succeeded` 表示可使用成功部分并明确失败服务，不等于整项查询没有结果。
    - 参数错误、凭据错误、超时、版本解析错误或部分成功时，先根据结构化错误判断根因。可修正同一路径，也可在 hcloud 确有覆盖/解析障碍、SDK 更适合类型化或程序化处理时切换 SDK；切换要保留原因和重新验证项，不重复已经成功的查询或副作用。
    - 正例（北京4资源盘点）：运行 `hcloud_account_inventory.py --region cn-north-4 --execute --strict --output-file <workspace>/beijing4-inventory.json`；stdout 返回回执后，从该文件提取资源名称、ID、状态和关系，并保留失败服务清单。
    - 正例（北京4区域成本）：运行 `hcloud_billing_live_read.py --operation cost-data --region-code cn-north-4 --begin-time <start> --end-time <end> --execute --confirm-live-billing-read READ_BILLING_DATA --output-file <workspace>/beijing4-cost.json`。只有 `pagination.complete=true`、`complete_result_claim_allowed=true` 时，才能把 `verified_monetary_totals` 表述为完整总额。`monthly-sum` 是全账号汇总，不能直接当作北京4费用，本月累计事实与月底预测也要分开说明。
-   - 正例（部分成功）：盘点返回 `partially_succeeded` 时，读取完整结果文件，使用成功服务的数据并明确列出失败服务；如有必要只重跑失败的 service，不重复已经成功的查询。
+   - 正例（部分成功）：盘点因 time budget 返回 `partially_succeeded` 且 `execution_progress.pending_check_count>0` 时，用原 checkpoint 加 `--resume` 继续；服务本身失败时读取完整结果文件，使用成功服务的数据并明确列出失败服务，修复原因后可按 service 定向重跑。
    - 反例：专用盘点脚本超时后，连续运行 IAM 探测、临时 Python SDK 和一批裸 hcloud 命令；或账单返回 `total_count=11`、`record_count=10`、`complete_result_claim_allowed=false` 时，把 10 条小计写成“完整合计”。空摘要也不等于费用为 0。
    - hcloud 路径的调用优先级为“匹配的专用场景脚本 -> `hcloud_resource_discovery.py` / `hcloud_resource_query.py` -> resolver/safe exec 或有 metadata/help 证据的直接 hcloud”。脚本是捷径，不是白名单；直接命令仍须确认 operation 版本、参数、风险、输出策略和验证方式。
    - 多版本 operation 先用 `hcloud_operation_resolver.py` 按参数选择版本；普通小查询的直接 `hcloud` 命令显式写成 `Operation/vN`，命中大输出策略时解析器改为生成 `hcloud_safe_exec.py --output-mode=auto`。`hcloud_safe_exec.py` 和 `hcloud_resource_query.py` 已内置同一版本解析逻辑。

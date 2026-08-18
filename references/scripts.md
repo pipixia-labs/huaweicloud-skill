@@ -427,6 +427,20 @@ python3 scripts/hcloud_account_inventory.py \
 
 执行模式会在每个区域只解析一次 `project_id` 并复用于该区域的服务查询，默认最多并发执行 4 个独立检查；可用 `--max-workers` 在 1 到 16 之间调整。`--project-id` 仍可显式覆盖自动解析。指定 `--output-file` 时，完整 JSON 原样写入权限为 `0600` 的文件，stdout 只返回结果状态、摘要、文件路径、大小和 SHA-256；未指定时保持完整 JSON stdout 兼容行为。宽泛盘点应使用结果文件，再用 `jq` 提取回答所需字段，避免把完整多服务响应送入模型上下文。
 
+宿主单次运行时间有限时，可让脚本在完成每个检查后保存 scope-bound checkpoint，并在预算耗尽后停止调度新检查；已经运行的检查允许正常结束：
+
+```bash
+python3 scripts/hcloud_account_inventory.py \
+  --region=cn-north-4 \
+  --execute \
+  --strict \
+  --checkpoint-file <workspace>/inventory.checkpoint.json \
+  --time-budget 600 \
+  --output-file <workspace>/inventory.result.json
+```
+
+恢复时保留相同 region、service、project/profile、EPS、limit 和 OBS scope，并增加 `--resume`。脚本只跳过 checkpoint 中已有的稳定 check identity；scope 不同、文件损坏、权限过宽或契约版本不同会在任何云调用前返回结构化 checkpoint 错误。checkpoint 与结果文件相互独立，均按 `0600` 原子写入；checkpoint 可能含完整只读资源响应，不要送入模型上下文。
+
 `hcloud_idle_audit.py` preserves region, project, enterprise-project, and tag dimensions from inventory output so idle candidates can be reviewed by owner/scope before any release, delete, stop, or downsize discussion.
 
 ### Idle Candidate Audit
@@ -639,6 +653,8 @@ python3 scripts/hcloud_billing_live_read.py \
 ```
 
 该 wrapper 只允许执行 `hcloud_billing_readonly.py` 已审核的 BSS `List*` 和 `Show*` 操作，固定使用 `--cli-region=cn-north-1`，且只为确实支持该 Header 的操作传递 `X-Language`；每页最多 50 条。执行模式从 offset 0 开始自动续页，校验请求 scope、币种、顶层金额元数据和 `total_count` 跨页保持一致，并在总 timeout 内最多合并 20 页、1000 条记录和 16 MiB payload。只有完整合并后才返回 `verified_monetary_totals`；后续页失败、空页、响应不一致、payload 过大或触及上限时返回 `partially_succeeded`，不提供可声明为完整的总额。公共结果仍为脱敏摘要，不返回 safe_exec 原始 payload；只有确实需要逐行证据时才使用 `--include-redacted-records`，原始标识符仍会被哈希脱敏。指定 `--output-file` 时完整 workflow JSON 写入权限为 `0600` 的文件，stdout 只返回紧凑摘要和文件回执；不指定时保持完整 JSON stdout 兼容行为。
+
+`--timeout` 是单页命令上限；`--time-budget` 可单独限制当前分页运行的总时间。需要跨宿主调用恢复时，增加 `--checkpoint-file <workspace>/billing.checkpoint.json`，下一次保持 operation、请求 scope、初始 offset 和 page limit 不变并增加 `--resume`。脚本会重新校验已接受页面，再从下一 offset 继续；不会把第一页或 checkpoint 小计当成完整总额。Billing checkpoint 为 `0600` 私有文件，包含尚未脱敏的已接受页面，只能作为执行中间态，不得复制到 stdout、对话或普通共享 artifact。
 
 ### Billing Operation Gap Audit
 

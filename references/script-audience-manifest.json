@@ -78,7 +78,13 @@
       "contract_level": "artifact_receipt",
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "compact_receipt",
-      "output_file_content": "full_json"
+      "output_file_content": "full_json",
+      "resume_contract": {
+        "id": "huaweicloud_account_inventory_checkpoint_v1",
+        "private_checkpoint": true,
+        "scope_bound": true,
+        "time_budget_supported": true
+      }
     },
     "scripts/hcloud_billing_live_read.py": {
       "kind": "query_executor",
@@ -88,7 +94,13 @@
       "contract_level": "artifact_receipt",
       "stdout_without_output_file": "full_json",
       "stdout_with_output_file": "compact_receipt",
-      "output_file_content": "full_json"
+      "output_file_content": "full_json",
+      "resume_contract": {
+        "id": "huaweicloud_billing_live_read_checkpoint_v1",
+        "private_checkpoint": true,
+        "scope_bound": true,
+        "time_budget_supported": true
+      }
     },
     "scripts/hcloud_lts_readonly.py": {
       "kind": "query_executor",
@@ -372,6 +384,7 @@
       "boundary": "Keep stable APIs for callers and tests; do not document as normal command-line tools.",
       "scripts": [
         "scripts/credential_aliases.py",
+        "scripts/hcloud_checkpoint.py",
         "scripts/hcloud_common.py",
         "scripts/hcloud_core.py",
         "scripts/hcloud_output_policy.py",

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 新增 POSIX/Windows 稳定脚本入口、文档与 CLI 漂移测试，以及不需要云凭据的最小 Linux CI。
+- 账号盘点与账单分页新增私有 checkpoint、scope 校验、`--resume` 和可选 `--time-budget`，宿主中断后可继续未完成只读工作。
 
 ## v0.9.5 / 0.9.5 - 2026-08-18
 
